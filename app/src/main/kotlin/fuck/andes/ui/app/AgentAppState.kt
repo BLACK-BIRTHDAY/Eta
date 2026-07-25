@@ -3,6 +3,7 @@ package fuck.andes.ui.app
 import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
@@ -412,30 +413,43 @@ internal class AgentAppState(
 
     fun attachImage(uri: String) {
         scope.launch(Dispatchers.IO) {
-            val image = AgentImageCodec.fromReference(
-                context = appContext,
-                value = uri,
-                source = "user_attach",
-            )
-            if (image == null) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        appContext,
-                        "无法读取这张图片，文件可能过大或格式不受支持",
-                        Toast.LENGTH_SHORT,
-                    ).show()
+            try {
+                val image = AgentImageCodec.fromReference(
+                    context = appContext,
+                    value = uri,
+                    source = "user_attach",
+                )
+                if (image == null) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            appContext,
+                            "无法读取这张图片，请重试或改用其他图片",
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                    return@launch
                 }
-                return@launch
-            }
-            val preview = AgentImageCodec.previewFromReference(appContext, image) ?: image
-            val pending = PendingImageUi(
-                id = "img-${UUID.randomUUID()}",
-                uri = uri,
-                dataUrl = preview.reference,
-                mimeType = image.mimeType,
-            )
-            withContext(Dispatchers.Main) {
-                updateCurrentConversation(homeState.copy(pendingImages = homeState.pendingImages + pending))
+                val preview = AgentImageCodec.previewFromReference(appContext, image) ?: image
+                val pending = PendingImageUi(
+                    id = "img-${UUID.randomUUID()}",
+                    // 后续发送使用首次读取后的稳定引用，不再依赖 ROM Photo Picker URI 的授权生命周期。
+                    uri = image.reference,
+                    dataUrl = preview.reference,
+                    mimeType = image.mimeType,
+                )
+                withContext(Dispatchers.Main) {
+                    updateCurrentConversation(homeState.copy(pendingImages = homeState.pendingImages + pending))
+                }
+            } finally {
+                val selectedUri = Uri.parse(uri)
+                if (selectedUri.scheme == ContentResolver.SCHEME_CONTENT) {
+                    runCatching {
+                        appContext.contentResolver.releasePersistableUriPermission(
+                            selectedUri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                        )
+                    }
+                }
             }
         }
     }

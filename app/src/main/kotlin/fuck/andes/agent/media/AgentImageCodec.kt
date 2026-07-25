@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.util.Base64
 import fuck.andes.agent.model.AgentModelClient
 import java.io.ByteArrayOutputStream
@@ -93,12 +94,16 @@ internal object AgentImageCodec {
         }
 
         if (context != null) {
-            runCatching {
-                val uri = Uri.parse(trimmed)
-                if (uri.scheme == "content" || uri.scheme == "file") {
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        return fromBytes(input.readBytesLimited(), source)
-                    }
+            val uri = Uri.parse(trimmed)
+            if (uri.scheme == "content") {
+                return readContentUri(context, uri, source)
+            }
+            if (uri.scheme == "file") {
+                val file = uri.path?.let(::File)
+                return file?.takeIf(File::isFile)?.let { candidate ->
+                    runCatching {
+                        fromBytes(candidate.readBytesLimited(), source)
+                    }.getOrNull()
                 }
             }
 
@@ -114,6 +119,36 @@ internal object AgentImageCodec {
             if (!trimmed.looksLikeBase64()) return@runCatching null
             val decoded = Base64.decode(trimmed, Base64.DEFAULT)
             if (decoded.hasSupportedImageMagic()) fromBytes(decoded, source) else null
+        }.getOrNull()
+    }
+
+    /**
+     * 部分 ROM 的 Photo Picker 只实现 typed asset 或文件描述符读取。
+     * 依次尝试标准流、typed asset 和文件描述符，避免选图成功后附件被静默丢弃。
+     */
+    private fun readContentUri(
+        context: Context,
+        uri: Uri,
+        source: String,
+    ): AgentModelClient.ModelImage? {
+        val resolver = context.contentResolver
+        val bytes = runCatching {
+            resolver.openInputStream(uri)?.use { it.readBytesLimited() }
+        }.getOrNull()?.takeIf(ByteArray::isNotEmpty)
+            ?: runCatching {
+                resolver.openTypedAssetFileDescriptor(uri, "image/*", null)?.use { descriptor ->
+                    descriptor.createInputStream().use { it.readBytesLimited() }
+                }
+            }.getOrNull()?.takeIf(ByteArray::isNotEmpty)
+            ?: runCatching {
+                resolver.openFileDescriptor(uri, "r")?.let { descriptor ->
+                    ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { it.readBytesLimited() }
+                }
+            }.getOrNull()?.takeIf(ByteArray::isNotEmpty)
+            ?: return null
+        val mimeHint = runCatching { resolver.getType(uri) }.getOrNull().orEmpty()
+        return runCatching {
+            fromBytes(bytes, source, mimeHint)
         }.getOrNull()
     }
 
