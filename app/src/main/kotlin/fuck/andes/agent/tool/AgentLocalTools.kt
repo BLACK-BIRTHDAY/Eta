@@ -8,14 +8,16 @@ import android.net.Uri
 import android.os.SystemClock
 import fuck.andes.agent.browser.AgentBrowserSession
 import fuck.andes.agent.browser.BrowserUrlPolicy
+import fuck.andes.agent.accessibility.AgentAccessibilityService
 import fuck.andes.agent.device.RootShellDeviceController
+import fuck.andes.agent.device.BoundedRootCommandExecutor
 import fuck.andes.agent.model.AgentModelClient
+import fuck.andes.agent.model.AgentSensitiveToolPolicy
 import fuck.andes.agent.overlay.AgentHapticFeedback
 import fuck.andes.agent.overlay.GestureIndicator
 import fuck.andes.agent.runtime.AgentAppContext
 import fuck.andes.agent.skill.SkillCompatibilityChecker
 import fuck.andes.agent.skill.SkillIndexService
-import fuck.andes.agent.skill.SkillInstallIntentGate
 import fuck.andes.agent.skill.SkillInstallErrorCode
 import fuck.andes.agent.skill.SkillInstallResult
 import fuck.andes.agent.skill.SkillLoader
@@ -50,6 +52,15 @@ internal class AgentLocalTools(
     private val terminalToolsEnabled: () -> Boolean = {
         Prefs.isEnabled(Prefs.Keys.AGENT_TERMINAL_TOOLS)
     },
+    private val deviceDirectToolsEnabled: () -> Boolean = {
+        Prefs.isEnabled(Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS)
+    },
+    private val deviceSensitiveReadToolsEnabled: () -> Boolean = {
+        Prefs.isEnabled(Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS)
+    },
+    private val deviceSensitiveActionToolsEnabled: () -> Boolean = {
+        Prefs.isEnabled(Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS)
+    },
     private val screenshotExcludedPackages: () -> Set<String> = { emptySet() },
     private val beforeToolExecution: (String) -> ToolExecutionDecision = {
         ToolExecutionDecision.Allow
@@ -57,24 +68,37 @@ internal class AgentLocalTools(
     private val skillIndexService: SkillIndexService? = null,
     private val skillLoader: SkillLoader? = null,
     private val skillResourceReader: SkillResourceReader? = null,
-    private val topLevelUserPrompt: String = "",
     private val githubSkillSource: PublicGitHubSkillSource? = null,
     private val skillPackageInstaller: SkillPackageInstaller? = null,
     runAvailableSkillIds: Set<String> = emptySet(),
-    private val pendingSkillConflict: PendingSkillConflictCapability? = null,
+    pendingSkillConflict: PendingSkillConflictCapability? = null,
 ) : AgentModelClient.ToolExecutor, AutoCloseable {
 
+    private val closed = AtomicBoolean(false)
     private val deviceController = RootShellDeviceController(logger, screenshotExcludedPackages)
+    private val rootCommandExecutor = BoundedRootCommandExecutor(logger)
+    private val structuredDeviceTools = AgentStructuredDeviceTools(
+        context = context,
+        logger = logger,
+        root = rootCommandExecutor,
+    )
+    private val weChatMessageSender = WeChatMessageSender(
+        context = context,
+        logger = logger,
+        isCancelled = closed::get,
+    )
     private val terminalController = RootShellTerminalController(
         logger = logger,
         linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(context).absolutePath,
     )
     private val publishedObservation = AtomicReference(PublishedObservation())
-    private val closed = AtomicBoolean(false)
+    private val messageToolAttempted = AtomicBoolean(false)
+    private val clockMutationFingerprints = ConcurrentHashMap.newKeySet<String>()
     private val runAvailableSkillIds = runAvailableSkillIds
         .mapTo(mutableSetOf(), SkillParser::normalizeSkillLookup)
     private val mutatedSkillIds = ConcurrentHashMap.newKeySet<String>()
     private val skillTreeMutationUncertain = AtomicBoolean(false)
+    private val pendingSkillConflict = AtomicReference(pendingSkillConflict)
     private val inspectedGitHubSnapshots =
         ConcurrentHashMap<String, GitHubInspectionSnapshot>()
 
@@ -83,6 +107,7 @@ internal class AgentLocalTools(
         publishedObservation.set(PublishedObservation())
         AgentBrowserSession.interruptAgentAction(browserRunId)
         terminalController.interruptAll()
+        rootCommandExecutor.close()
         githubSkillSource?.close()
         inspectedGitHubSnapshots.clear()
     }
@@ -98,6 +123,28 @@ internal class AgentLocalTools(
                     ),
                 )
             }
+            deviceToolPermissionError(toolCall.name)?.let { return@runCatching it }
+            if (
+                toolCall.name in CLOCK_MUTATION_TOOLS &&
+                !clockMutationFingerprints.add("${toolCall.name}:${args}")
+            ) {
+                return@runCatching textResult(
+                    errorResult(
+                        "CLOCK_RETRY_BLOCKED",
+                        "本轮已提交过完全相同的时钟操作；为避免重复创建，禁止自动重试",
+                    ),
+                )
+            }
+            if (toolCall.name == "send_message" && !messageToolAttempted.compareAndSet(false, true)) {
+                return@runCatching AgentModelClient.ToolResult(
+                    content = errorResult(
+                        "MESSAGE_RETRY_BLOCKED",
+                        "本轮已经尝试过一次微信消息流程；为避免发错人或重复发送，禁止自动重试",
+                    ),
+                    sensitive = true,
+                )
+            }
+            messageGuiFallbackError(toolCall.name)?.let { return@runCatching it }
             when (val decision = beforeToolExecution(toolCall.name)) {
                 ToolExecutionDecision.Allow -> Unit
                 is ToolExecutionDecision.Reject -> {
@@ -135,6 +182,10 @@ internal class AgentLocalTools(
                 "wait_for_text" -> textResult(waitForText(args))
                 "wait_for_package" -> textResult(waitForPackage(args))
                 "open_system_panel" -> textResult(deviceController.openSystemPanel(args.optString("panel")))
+                in DEVICE_TOOL_NAMES ->
+                    structuredDeviceTools.execute(toolCall.name, args)
+                        ?: textResult(errorResult("UNKNOWN_TOOL", "未知设备工具"))
+                "send_message" -> weChatMessageSender.execute(args)
                 "terminal" -> textResult(terminalTool { terminal(args) })
                 "run_command" -> textResult(terminalTool { runCommand(args) })
                 "read_file" -> textResult(terminalTool { readFile(args) })
@@ -164,7 +215,50 @@ internal class AgentLocalTools(
                     message = throwable.message ?: throwable.javaClass.simpleName
                 )
             )
+        }.let { result ->
+            if (result.sensitive || !AgentSensitiveToolPolicy.isSensitive(toolCall.name)) {
+                result
+            } else {
+                result.copy(sensitive = true)
+            }
         }
+
+    private fun messageGuiFallbackError(
+        toolName: String,
+    ): AgentModelClient.ToolResult? {
+        if (
+            !messageToolAttempted.get() ||
+            toolName !in MESSAGE_GUI_FALLBACK_TOOLS ||
+            AgentAccessibilityService.current()?.currentPackageName() != WECHAT_PACKAGE
+        ) {
+            return null
+        }
+        return textResult(
+            errorResult(
+                "MESSAGE_GUI_FALLBACK_BLOCKED",
+                "本轮已调用 send_message；为避免发错人或重复发送，禁止再用通用 GUI 动作重放微信发送流程",
+            ),
+        )
+    }
+
+    private fun deviceToolPermissionError(
+        toolName: String,
+    ): AgentModelClient.ToolResult? {
+        val error = when {
+            toolName in DEVICE_DIRECT_TOOL_NAMES && !deviceDirectToolsEnabled() ->
+                "DEVICE_DIRECT_TOOLS_DISABLED" to "请先启用设备直达工具"
+            toolName in DEVICE_SENSITIVE_READ_TOOL_NAMES && !deviceSensitiveReadToolsEnabled() ->
+                "DEVICE_SENSITIVE_READ_TOOLS_DISABLED" to "请先允许读取敏感设备信息"
+            toolName in DEVICE_SENSITIVE_ACTION_TOOL_NAMES && !deviceSensitiveActionToolsEnabled() ->
+                "DEVICE_SENSITIVE_ACTION_TOOLS_DISABLED" to "请先允许敏感设备操作"
+            else -> null
+        } ?: return null
+        return AgentModelClient.ToolResult(
+            content = errorResult(error.first, error.second),
+            sensitive = toolName in DEVICE_SENSITIVE_READ_TOOL_NAMES ||
+                toolName in DEVICE_SENSITIVE_ACTION_TOOL_NAMES,
+        )
+    }
 
     private fun terminalTool(block: () -> String): String {
         if (!terminalToolsEnabled()) {
@@ -800,7 +894,6 @@ internal class AgentLocalTools(
     }
 
     private fun skillsListCurated(): String {
-        requireSkillDiscoveryAuthorization()?.let { return it }
         val source = githubSkillSource
             ?: return errorResult("SKILL_INSTALLER_UNAVAILABLE", "GitHub Skill 服务未初始化")
         return skillSourceResult {
@@ -815,7 +908,6 @@ internal class AgentLocalTools(
     }
 
     private fun skillsInspectGitHub(args: JSONObject): String {
-        requireSkillDiscoveryAuthorization()?.let { return it }
         val source = githubSkillSource
             ?: return errorResult("SKILL_INSTALLER_UNAVAILABLE", "GitHub Skill 服务未初始化")
         return skillSourceResult {
@@ -835,20 +927,7 @@ internal class AgentLocalTools(
     }
 
     private fun skillsInstallFromGitHub(args: JSONObject): String {
-        val authorization = SkillInstallIntentGate.evaluate(topLevelUserPrompt)
-        if (!authorization.installAllowed) {
-            return errorResult(
-                "USER_AUTHORIZATION_REQUIRED",
-                "当前用户输入没有明确授权安装或更新 Skill",
-            )
-        }
         val replaceExisting = args.optBoolean("replaceExisting", false)
-        if (replaceExisting && !authorization.replaceAllowed) {
-            return errorResult(
-                "SKILL_REPLACE_CONFIRMATION_REQUIRED",
-                "替换已有用户 Skill 需要当前用户输入明确确认覆盖",
-            )
-        }
         return skillSourceResult {
             val requestedRepository = GitHubSkillRepositoryParser.resolve(
                 repository = args.getString("repository"),
@@ -862,7 +941,7 @@ internal class AgentLocalTools(
             if (replaceExisting && selectedPaths.size != 1) {
                 return@skillSourceResult errorResult(
                     "SKILL_REPLACE_SCOPE_TOO_BROAD",
-                    "一次确认只能替换一个 Skill 路径；请逐个确认并重试",
+                    "一次只能替换一个 Skill 路径；请逐个重试",
                 )
             }
             val expectedReplacementId = args.optString("expectedReplacementId").trim()
@@ -872,7 +951,7 @@ internal class AgentLocalTools(
                     selectedPaths = selectedPaths,
                     expectedReplacementId = expectedReplacementId,
                 )?.let { return@skillSourceResult it }
-                requestedRepository.copy(ref = pendingSkillConflict!!.commitSha)
+                requestedRepository.copy(ref = pendingSkillConflict.get()!!.commitSha)
             } else {
                 val snapshot = inspectedGitHubSnapshots[
                     inspectionKey(requestedRepository.slug, requestedRepository.ref)
@@ -899,18 +978,6 @@ internal class AgentLocalTools(
                     return@skillSourceResult errorResult(
                         "INVALID_SKILL_SELECTION",
                         "所选路径不在本轮检查的目录范围内",
-                    )
-                }
-                SkillCandidateSelectionGate.validate(
-                    prompt = topLevelUserPrompt,
-                    candidates = snapshot.candidatesByPath.map { (path, name) ->
-                        SkillCandidateSelectionGate.Candidate(path = path, name = name)
-                    },
-                    selectedPaths = selectedPaths,
-                )?.let { denial ->
-                    return@skillSourceResult errorResult(
-                        "SKILL_SELECTION_CONFIRMATION_REQUIRED",
-                        denial.message,
                     )
                 }
                 requestedRepository.copy(ref = snapshot.commitSha)
@@ -961,18 +1028,6 @@ internal class AgentLocalTools(
                     selectedPaths = selectedPaths,
                 )
             }
-        }
-    }
-
-    private fun requireSkillDiscoveryAuthorization(): String? {
-        val authorization = SkillInstallIntentGate.evaluate(topLevelUserPrompt)
-        return if (authorization.discoveryAllowed) {
-            null
-        } else {
-            errorResult(
-                "USER_AUTHORIZATION_REQUIRED",
-                "当前用户输入没有请求浏览或安装 Skill",
-            )
         }
     }
 
@@ -1033,9 +1088,9 @@ internal class AgentLocalTools(
         selectedPaths: List<String>,
         expectedReplacementId: String,
     ): String? {
-        val pending = pendingSkillConflict ?: return errorResult(
+        val pending = pendingSkillConflict.get() ?: return errorResult(
             "SKILL_REPLACE_CAPABILITY_REQUIRED",
-            "没有可供本轮确认的上一轮 Skill 冲突",
+            "没有可供精确重放的 Skill 冲突",
         )
         if (
             !requestedRepository.slug.equals(pending.repository, ignoreCase = true) ||
@@ -1045,32 +1100,10 @@ internal class AgentLocalTools(
         ) {
             return errorResult(
                 "SKILL_REPLACE_CAPABILITY_MISMATCH",
-                "覆盖参数必须精确重放上一轮冲突的仓库、commitSha、路径与 Skill ID",
-            )
-        }
-        val explicitTarget = explicitReplacementTarget(topLevelUserPrompt)
-        if (
-            explicitTarget != null &&
-            SkillParser.normalizeSkillLookup(explicitTarget) !in setOf(
-                SkillParser.normalizeSkillLookup(pending.expectedReplacementId),
-                SkillParser.normalizeSkillLookup(pending.expectedReplacementName),
-            )
-        ) {
-            return errorResult(
-                "SKILL_REPLACE_CONFIRMATION_MISMATCH",
-                "当前确认指定的 Skill 与上一轮唯一冲突不一致",
+                "覆盖参数必须精确重放冲突结果中的仓库、commitSha、路径与 Skill ID",
             )
         }
         return null
-    }
-
-    private fun explicitReplacementTarget(prompt: String): String? {
-        val match = EXPLICIT_REPLACEMENT_TARGETS.firstNotNullOfOrNull { it.find(prompt) }
-            ?: return null
-        val candidate = match.groupValues[1].trim().trim('`', '"', '\'', '「', '」', '『', '』')
-        return candidate.takeUnless {
-            SkillParser.normalizeSkillLookup(it) in GENERIC_REPLACEMENT_TARGETS
-        }
     }
 
     private fun isVisibleInCurrentRun(skillId: String): Boolean {
@@ -1091,6 +1124,7 @@ internal class AgentLocalTools(
         selectedPaths: List<String>,
     ): String = when (result) {
         is SkillInstallResult.Success -> {
+            pendingSkillConflict.set(null)
             val installed = JSONArray()
             result.installed.forEach { skill ->
                 mutatedSkillIds += SkillParser.normalizeSkillLookup(skill.id)
@@ -1122,10 +1156,23 @@ internal class AgentLocalTools(
                         .put("replaceAllowed", conflict.replaceAllowed),
                 )
             }
+            pendingSkillConflict.set(
+                result.conflicts.singleOrNull()
+                    ?.takeIf { it.replaceAllowed && selectedPaths.size == 1 }
+                    ?.let { conflict ->
+                        PendingSkillConflictCapability(
+                            repository = repository,
+                            commitSha = commitSha,
+                            selectedPath = selectedPaths.single(),
+                            expectedReplacementId = conflict.id,
+                            expectedReplacementName = conflict.name,
+                        )
+                    },
+            )
             JSONObject()
                 .put("ok", false)
                 .put("code", "SKILL_CONFLICT")
-                .put("message", "Skill 已存在；用户 Skill 需先获得明确替换确认，内置 Skill 不可覆盖")
+                .put("message", "Skill 已存在；可替换的单个用户 Skill 可按返回参数直接重试，内置 Skill 不可覆盖")
                 .put("repository", repository)
                 .put("ref", ref)
                 .put("commitSha", commitSha)
@@ -1194,30 +1241,45 @@ internal class AgentLocalTools(
     )
 
     private companion object {
-        val EXPLICIT_REPLACEMENT_TARGETS = listOf(
-            Regex(
-                "(?:确认|同意|允许|强制)(?:替换|覆盖)\\s*" +
-                    "(?:(?:已有|现有|原有)\\s*)?(?:名为\\s*)?[`“”\"'「」『』]?" +
-                    "([A-Za-z0-9][A-Za-z0-9._ -]{0,100}?)[`“”\"'「」『』]?" +
-                    "(?:\\s*的)?(?:\\s+skills?\\b|\\s*技能)",
-                RegexOption.IGNORE_CASE,
-            ),
-            Regex(
-                "(?:confirm(?:ed)?|yes[, ]+|force)\\s+(?:the\\s+)?" +
-                    "(?:replace(?:ment)?|overwrite)(?:\\s+of)?\\s+" +
-                    "(?:(?:existing|installed)\\s+)?" +
-                    "[`“”\"']?([A-Za-z0-9][A-Za-z0-9._ -]{0,100}?)[`“”\"']?\\s+skills?",
-                RegexOption.IGNORE_CASE,
-            ),
+        val DEVICE_DIRECT_TOOL_NAMES = setOf(
+            "set_alarm",
+            "set_timer",
+            "device_status",
+            "network_info",
+            "top_memory_apps",
+            "top_storage_apps",
+            "media_control",
+            "set_volume",
         )
-        val GENERIC_REPLACEMENT_TARGETS = setOf(
-            SkillParser.normalizeSkillLookup("已有"),
-            SkillParser.normalizeSkillLookup("现有"),
-            SkillParser.normalizeSkillLookup("原有"),
-            SkillParser.normalizeSkillLookup("这个"),
-            SkillParser.normalizeSkillLookup("该"),
-            SkillParser.normalizeSkillLookup("existing"),
-            SkillParser.normalizeSkillLookup("installed"),
+        val DEVICE_SENSITIVE_READ_TOOL_NAMES = setOf(
+            "get_setting",
+            "wifi_credentials",
+            "recent_notifications",
+            "read_sms_code",
+            "get_logcat",
+        )
+        val DEVICE_SENSITIVE_ACTION_TOOL_NAMES = setOf(
+            "set_setting",
+            "set_device_state",
+            "app_state_control",
+            "send_message",
+        )
+        val DEVICE_TOOL_NAMES =
+            DEVICE_DIRECT_TOOL_NAMES + DEVICE_SENSITIVE_READ_TOOL_NAMES +
+                (DEVICE_SENSITIVE_ACTION_TOOL_NAMES - "send_message")
+        const val WECHAT_PACKAGE = "com.tencent.mm"
+        val CLOCK_MUTATION_TOOLS = setOf("set_alarm", "set_timer")
+        val MESSAGE_GUI_FALLBACK_TOOLS = setOf(
+            "tap",
+            "tap_area",
+            "tap_element",
+            "long_press",
+            "long_press_element",
+            "input_text",
+            "replace_text",
+            "clear_text",
+            "paste_text",
+            "press_key",
         )
     }
 }

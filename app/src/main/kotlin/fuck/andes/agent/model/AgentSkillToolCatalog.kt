@@ -152,7 +152,7 @@ internal object AgentSkillToolCatalog {
         tools.put(
             AgentToolSchema.function(
                 name = "skills_install_from_github",
-                description = "Install explicitly selected Skill directories from a public GitHub repository. Never infer or use the first candidate: paths must come from the user or skills_inspect_github. Existing user Skills require a second user turn explicitly confirming one replacement path; retry that single path with the conflict result's commitSha as ref. Built-in Skills can never be overwritten. Installation does not run bundled scripts, and installed Skills become available next turn.",
+                description = "Install selected Skill directories from a public GitHub repository. Paths must come from skills_inspect_github. If one replaceable user Skill conflicts, retry that exact repository, commitSha, path, and id with replaceExisting=true; built-in Skills can never be overwritten. Installation does not run bundled scripts, and installed Skills become available next turn.",
                 parameters = JSONObject()
                     .put("type", "object")
                     .put(
@@ -191,7 +191,7 @@ internal object AgentSkillToolCatalog {
                                 "replaceExisting",
                                 JSONObject()
                                     .put("type", "boolean")
-                                    .put("description", "Set true only after the current user prompt explicitly confirms this one path. When true, paths must contain exactly one item and ref must use the prior conflict's commitSha."),
+                                    .put("description", "Set true only when precisely replaying one replaceable SKILL_CONFLICT. paths must contain one item and ref must use the conflict's commitSha."),
                             )
                             .put(
                                 "expectedReplacementId",

@@ -180,6 +180,9 @@ class AgentRuntimeWireTest {
         )
 
         assertEquals(true, config.browserTools)
+        assertEquals(true, config.deviceDirectTools)
+        assertEquals(false, config.deviceSensitiveReadTools)
+        assertEquals(false, config.deviceSensitiveActionTools)
     }
 
     @Test
@@ -195,6 +198,9 @@ class AgentRuntimeWireTest {
                 systemPrompt = "你是手机 Agent",
                 terminalTools = true,
                 browserTools = true,
+                deviceDirectTools = true,
+                deviceSensitiveReadTools = true,
+                deviceSensitiveActionTools = true,
                 thinkingEnabled = true,
                 extraBodyJson = """{"thinking_budget":256}""",
             ),
@@ -254,6 +260,35 @@ class AgentRuntimeWireTest {
         val roundTripped = AgentRuntimeWire.runRequestFromBundle(legacyBundle)
 
         assertEquals(true, roundTripped.config.browserTools)
+    }
+
+    @Test
+    fun legacyRunRequestUsesSafeDeviceToolDefaults() {
+        val request = AgentRuntimeWire.RunRequest(
+            runId = "run-legacy-device-tools",
+            prompt = "查看设备状态",
+            config = AgentModelClient.ModelConfig(
+                baseUrl = "https://api.openai.com/v1",
+                apiKey = "test-key",
+                model = "gpt-test",
+                systemPrompt = "你是手机 Agent",
+                deviceDirectTools = false,
+                deviceSensitiveReadTools = true,
+                deviceSensitiveActionTools = true,
+            ),
+            images = emptyList(),
+        )
+        val legacyBundle = AgentRuntimeWire.toLegacyBundle(request).apply {
+            remove("device_direct_tools")
+            remove("device_sensitive_read_tools")
+            remove("device_sensitive_action_tools")
+        }
+
+        val config = AgentRuntimeWire.runRequestFromBundle(legacyBundle).config
+
+        assertEquals(true, config.deviceDirectTools)
+        assertEquals(false, config.deviceSensitiveReadTools)
+        assertEquals(false, config.deviceSensitiveActionTools)
     }
 
     @Test

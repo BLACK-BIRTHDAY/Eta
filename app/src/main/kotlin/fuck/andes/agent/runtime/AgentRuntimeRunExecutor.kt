@@ -8,7 +8,6 @@ import fuck.andes.agent.model.AgentHttpClient
 import fuck.andes.agent.overlay.AgentOverlayVisibilityPolicy
 import fuck.andes.agent.skill.SkillCompatibilityChecker
 import fuck.andes.agent.skill.SkillContext
-import fuck.andes.agent.skill.SkillInstallIntentGate
 import fuck.andes.agent.skill.SkillRuntime
 import fuck.andes.agent.skill.PublicGitHubSkillSource
 import fuck.andes.agent.tool.AgentLocalTools
@@ -62,20 +61,11 @@ internal class AgentRuntimeRunExecutor(
             val skillIndexService = SkillRuntime.createIndexService(appContext)
             val skillLoader = SkillRuntime.createLoader(appContext)
             val skillResourceReader = SkillRuntime.createResourceReader(appContext)
-            val skillInstallAuthorization = SkillInstallIntentGate.evaluate(request.prompt)
-            val skillPackageInstaller = if (skillInstallAuthorization.installAllowed) {
-                SkillRuntime.createPackageInstaller(appContext)
-            } else {
-                null
-            }
-            val githubSkillSource = if (skillInstallAuthorization.discoveryAllowed) {
-                PublicGitHubSkillSource(
-                    cacheRoot = appContext.cacheDir,
-                    baseClient = AgentHttpClient.client,
-                )
-            } else {
-                null
-            }
+            val skillPackageInstaller = SkillRuntime.createPackageInstaller(appContext)
+            val githubSkillSource = PublicGitHubSkillSource(
+                cacheRoot = appContext.cacheDir,
+                baseClient = AgentHttpClient.client,
+            )
             val skillContext = SkillContext(
                 installedSkills = skillIndexService.listInstalledSkills()
                     .filter { SkillCompatibilityChecker.evaluate(it).available },
@@ -91,20 +81,40 @@ internal class AgentRuntimeRunExecutor(
                 terminalToolsEnabled = {
                     request.config.terminalTools && currentPermissions().terminalTools
                 },
+                deviceDirectToolsEnabled = {
+                    request.config.deviceDirectTools && currentPermissions().deviceDirectTools
+                },
+                deviceSensitiveReadToolsEnabled = {
+                    request.config.deviceSensitiveReadTools &&
+                        currentPermissions().deviceSensitiveReadTools
+                },
+                deviceSensitiveActionToolsEnabled = {
+                    request.config.deviceSensitiveActionTools &&
+                        currentPermissions().deviceSensitiveActionTools
+                },
                 screenshotExcludedPackages = {
                     entrySurfaceGuard?.consumeScreenshotExcludedPackages().orEmpty()
                 },
                 beforeToolExecution = { toolName ->
-                    if (!AgentOverlayVisibilityPolicy.isForegroundOperationTool(toolName)) {
+                    val requiresAccessibility =
+                        AgentOverlayVisibilityPolicy.isForegroundOperationTool(toolName)
+                    if (
+                        !requiresAccessibility &&
+                        !AgentOverlayVisibilityPolicy.requiresEntrySurfaceDismissal(toolName)
+                    ) {
                         ToolExecutionDecision.Allow
                     } else {
-                        val accessibility =
+                        val accessibility = if (requiresAccessibility) {
                             AgentAccessibilityKeeper.ensureEnabledForGuiOperation(appContext)
+                        } else {
+                            null
+                        }
                         when {
-                            !accessibility.available -> ToolExecutionDecision.Reject(
-                                code = accessibility.code,
-                                message = accessibility.message,
-                            )
+                            accessibility != null && !accessibility.available ->
+                                ToolExecutionDecision.Reject(
+                                    code = accessibility.code,
+                                    message = accessibility.message,
+                                )
                             entrySurfaceGuard?.dismissOnce() == false ->
                                 ToolExecutionDecision.Reject(
                                     code = "ENTRY_SURFACE_NOT_READY",
@@ -117,7 +127,6 @@ internal class AgentRuntimeRunExecutor(
                 skillIndexService = skillIndexService,
                 skillLoader = skillLoader,
                 skillResourceReader = skillResourceReader,
-                topLevelUserPrompt = request.prompt,
                 githubSkillSource = githubSkillSource,
                 skillPackageInstaller = skillPackageInstaller,
                 runAvailableSkillIds = skillContext.installedSkills.mapTo(mutableSetOf()) { it.id },

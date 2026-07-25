@@ -183,4 +183,18 @@ class AgentOverlayVisibilityPolicyTest {
             )
         )
     }
+
+    @Test
+    fun `clock direct action dismisses entry surface without revealing operation overlay`() {
+        val event = AgentEvent.ToolStarted(
+            round = 1,
+            toolCallId = "call_alarm",
+            name = "set_alarm",
+            argsPreview = "参数已接收",
+        )
+
+        assertTrue(AgentOverlayVisibilityPolicy.shouldDismissEntrySurfaceFor(event))
+        assertFalse(AgentOverlayVisibilityPolicy.shouldRevealFor(event))
+        assertFalse(AgentOverlayVisibilityPolicy.isForegroundOperationTool("set_alarm"))
+    }
 }

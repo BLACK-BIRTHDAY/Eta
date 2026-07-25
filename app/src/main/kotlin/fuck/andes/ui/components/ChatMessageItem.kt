@@ -1698,6 +1698,17 @@ private fun String.toToolIcon(): Int = when (this) {
     "browser_use" -> LucideR.drawable.lucide_ic_globe
     "press_key" -> LucideR.drawable.lucide_ic_command
     "open_system_panel" -> LucideR.drawable.lucide_ic_panel_top_open
+    "set_alarm", "set_timer" -> LucideR.drawable.lucide_ic_clock
+    "device_status", "network_info", "set_device_state" -> LucideR.drawable.lucide_ic_smartphone
+    "media_control" -> LucideR.drawable.lucide_ic_play
+    "set_volume" -> LucideR.drawable.lucide_ic_settings
+    "top_memory_apps", "top_storage_apps" -> LucideR.drawable.lucide_ic_layers
+    "send_message" -> LucideR.drawable.lucide_ic_message_square
+    "read_sms_code" -> LucideR.drawable.lucide_ic_key
+    "recent_notifications" -> LucideR.drawable.lucide_ic_bell
+    "wifi_credentials" -> LucideR.drawable.lucide_ic_lock
+    "get_setting", "set_setting", "app_state_control" -> LucideR.drawable.lucide_ic_shield_alert
+    "get_logcat" -> LucideR.drawable.lucide_ic_file_text
     "terminal", "run_command" -> LucideR.drawable.lucide_ic_square_terminal
     "read_file" -> LucideR.drawable.lucide_ic_file_text
     "write_file" -> LucideR.drawable.lucide_ic_file_pen
@@ -1725,6 +1736,23 @@ private fun String.toToolLabel(): String = when (this) {
     "browser_use" -> "浏览网页"
     "press_key" -> "按键"
     "open_system_panel" -> "系统面板"
+    "set_alarm" -> "设置闹钟"
+    "set_timer" -> "设置计时器"
+    "device_status" -> "设备状态"
+    "network_info" -> "网络状态"
+    "media_control" -> "媒体控制"
+    "set_volume" -> "设置音量"
+    "top_memory_apps" -> "内存排行"
+    "top_storage_apps" -> "存储排行"
+    "send_message" -> "发送微信消息"
+    "read_sms_code" -> "读取验证码"
+    "recent_notifications" -> "读取通知"
+    "wifi_credentials" -> "读取 Wi‑Fi 密码"
+    "get_setting" -> "读取系统设置"
+    "set_setting" -> "修改系统设置"
+    "set_device_state" -> "设备开关"
+    "app_state_control" -> "应用状态"
+    "get_logcat" -> "读取系统日志"
     "terminal" -> "终端"
     "run_command" -> "执行命令"
     "read_file" -> "读取文件"

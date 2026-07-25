@@ -103,4 +103,36 @@ class ToolArgumentContractTest {
             )?.field,
         )
     }
+
+    @Test
+    fun `device side effects reject missing and oversized arguments`() {
+        assertEquals(
+            "hour",
+            ToolArgumentContract.validate("set_alarm", JSONObject())?.field,
+        )
+        assertEquals(
+            "hour",
+            ToolArgumentContract.validate(
+                "set_alarm",
+                JSONObject("""{"hour":24,"minute":0}"""),
+            )?.field,
+        )
+        assertEquals(
+            "mode",
+            ToolArgumentContract.validate(
+                "send_message",
+                JSONObject("""{"contact":"张三","message":"你好"}"""),
+            )?.field,
+        )
+        assertEquals(
+            "message",
+            ToolArgumentContract.validate(
+                "send_message",
+                JSONObject()
+                    .put("contact", "张三")
+                    .put("message", "x".repeat(2_001))
+                    .put("mode", "send"),
+            )?.field,
+        )
+    }
 }

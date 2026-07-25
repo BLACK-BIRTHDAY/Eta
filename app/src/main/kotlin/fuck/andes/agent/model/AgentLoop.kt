@@ -35,6 +35,7 @@ internal class AgentLoop(
     data class Result(
         val content: String,
         val reasoningContent: String,
+        val sensitiveToolCallIds: Set<String>,
     )
 
     private data class ToolOutcome(
@@ -44,9 +45,12 @@ internal class AgentLoop(
 
     private val toolCallValidator = AgentToolCallValidator(tools)
     private val accumulatedReasoning = StringBuilder()
+    private val sensitiveToolCallIds = linkedSetOf<String>()
     private var pendingToolImageMessage: JSONObject? = null
 
     fun reasoningSnapshot(): String = accumulatedReasoning.toString().trim()
+
+    fun sensitiveToolCallIdsSnapshot(): Set<String> = sensitiveToolCallIds.toSet()
 
     fun run(): Result {
         var round = 1
@@ -181,6 +185,7 @@ internal class AgentLoop(
             return Result(
                 content = content,
                 reasoningContent = reasoningSnapshot(),
+                sensitiveToolCallIds = sensitiveToolCallIds.toSet(),
             )
         }
     }
@@ -240,6 +245,9 @@ internal class AgentLoop(
                     .toString(),
             )
         }
+        if (result.sensitive || AgentSensitiveToolPolicy.isSensitive(toolCall.name)) {
+            sensitiveToolCallIds += toolCall.id
+        }
 
         runController.throwIfCancelled()
         emitToolFinished(round, toolCall, result)
@@ -266,7 +274,9 @@ internal class AgentLoop(
                 .put("code", code)
                 .put("message", message)
                 .toString(),
+            sensitive = AgentSensitiveToolPolicy.isSensitive(toolCall.name),
         )
+        if (result.sensitive) sensitiveToolCallIds += toolCall.id
         emitToolFinished(round, toolCall, result)
         return ToolOutcome(toolCall, result)
     }

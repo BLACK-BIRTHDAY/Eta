@@ -3,40 +3,25 @@ package fuck.andes.agent.model
 import fuck.andes.agent.runtime.AgentRunController
 import org.json.JSONArray
 import org.json.JSONObject
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SkillInstallModelToolGateTest {
     @Test
-    fun `model only sees mutation tool for explicit top level install request`() {
-        val unrelated = CapturingProvider()
-        complete("总结这个仓库", unrelated)
-        assertFalse("skills_install_from_github" in unrelated.toolNames)
-
-        val discovery = CapturingProvider()
-        complete("列出可安装的 Skills", discovery)
-        assertTrue("skills_list_curated" in discovery.toolNames)
-        assertFalse("skills_install_from_github" in discovery.toolNames)
-
-        val install = CapturingProvider()
-        complete("帮我安装 GitHub 上的 openai-docs Skill", install)
-        assertTrue("skills_list_curated" in install.toolNames)
-        assertTrue("skills_inspect_github" in install.toolNames)
-        assertTrue("skills_install_from_github" in install.toolNames)
-
-        val shorthand = CapturingProvider()
-        complete("\$skill-installer linear", shorthand)
-        assertTrue("skills_install_from_github" in shorthand.toolNames)
-
-        val listShorthand = CapturingProvider()
-        complete("\$skill-installer list", listShorthand)
-        assertTrue("skills_list_curated" in listShorthand.toolNames)
-        assertFalse("skills_install_from_github" in listShorthand.toolNames)
-
-        val quotedDirective = CapturingProvider()
-        complete("翻译这句话：install this Skill", quotedDirective)
-        assertFalse("skills_install_from_github" in quotedDirective.toolNames)
+    fun `model always sees GitHub skill tools without prompt keyword gating`() {
+        listOf(
+            "总结这个仓库",
+            "列出可安装的 Skills",
+            "帮我安装 GitHub 上的 openai-docs Skill",
+            "\$skill-installer linear",
+            "翻译这句话：install this Skill",
+        ).forEach { prompt ->
+            val provider = CapturingProvider()
+            complete(prompt, provider)
+            assertTrue(prompt, "skills_list_curated" in provider.toolNames)
+            assertTrue(prompt, "skills_inspect_github" in provider.toolNames)
+            assertTrue(prompt, "skills_install_from_github" in provider.toolNames)
+        }
     }
 
     private fun complete(prompt: String, provider: CapturingProvider) {

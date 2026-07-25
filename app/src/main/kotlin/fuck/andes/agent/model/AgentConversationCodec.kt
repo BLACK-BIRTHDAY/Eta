@@ -17,6 +17,8 @@ internal object AgentConversationCodec {
     private const val MAX_TOOL_ARGUMENT_CHARS = 32_000
     private const val MAX_TOOL_CALLS_PER_MESSAGE = 64
     private const val IMAGE_OMITTED_TEXT = "[图片观察已在当前回合使用，未写入持久会话]"
+    private const val SENSITIVE_TOOL_OMITTED_TEXT =
+        "[敏感工具参数与原始结果仅供当前回合使用，未写入持久会话]"
     private const val COMPACTION_NOTICE =
         "[Eta 上下文提示：此前部分 assistant/tool 记录因跨进程或持久化容量上限已压缩，请勿假定缺失步骤未执行。]"
 
@@ -199,15 +201,39 @@ internal object AgentConversationCodec {
     fun transcript(
         messages: JSONArray,
         startIndex: Int,
+        sensitiveToolCallIds: Set<String> = emptySet(),
     ): List<AgentModelClient.ConversationMessage> =
         buildList {
             for (index in startIndex until messages.length()) {
                 messages.optJSONObject(index)
+                    ?.let { redactSensitiveToolData(it, sensitiveToolCallIds) }
                     ?.let(::fromJsonObject)
                     ?.let(::sanitizeMessage)
                     ?.let(::add)
             }
         }
+
+    private fun redactSensitiveToolData(
+        source: JSONObject,
+        sensitiveToolCallIds: Set<String>,
+    ): JSONObject {
+        if (sensitiveToolCallIds.isEmpty()) return source
+        val copy = JSONObject(source.toString())
+        if (
+            copy.optString("role") == "tool" &&
+            copy.optString("tool_call_id") in sensitiveToolCallIds
+        ) {
+            copy.put("content", SENSITIVE_TOOL_OMITTED_TEXT)
+        }
+        val calls = copy.optJSONArray("tool_calls") ?: return copy
+        for (index in 0 until calls.length()) {
+            val call = calls.optJSONObject(index) ?: continue
+            if (call.optString("id") !in sensitiveToolCallIds) continue
+            call.optJSONObject("function")
+                ?.put("arguments", JSONObject().put("redacted", true).toString())
+        }
+        return copy
+    }
 
     fun durableMessage(message: JSONObject): AgentModelClient.ConversationMessage =
         sanitizeMessage(fromJsonObject(message))

@@ -34,6 +34,9 @@ internal object Prefs {
         const val AGENT_REQUIRE_PREFIX = "agent_require_prefix"
         const val AGENT_TERMINAL_TOOLS = "agent_terminal_tools"
         const val AGENT_BROWSER_TOOLS = "agent_browser_tools"
+        const val AGENT_DEVICE_DIRECT_TOOLS = "agent_device_direct_tools"
+        const val AGENT_DEVICE_SENSITIVE_READ_TOOLS = "agent_device_sensitive_read_tools"
+        const val AGENT_DEVICE_SENSITIVE_ACTION_TOOLS = "agent_device_sensitive_action_tools"
         const val AGENT_THINKING_ENABLED = "agent_thinking_enabled"
         const val AGENT_RUNTIME_CONFIG_JSON = "agent_runtime_config_json"
 
@@ -50,6 +53,9 @@ internal object Prefs {
             AGENT_REQUIRE_PREFIX to true,
             AGENT_TERMINAL_TOOLS to false,
             AGENT_BROWSER_TOOLS to true,
+            AGENT_DEVICE_DIRECT_TOOLS to true,
+            AGENT_DEVICE_SENSITIVE_READ_TOOLS to false,
+            AGENT_DEVICE_SENSITIVE_ACTION_TOOLS to false,
             AGENT_THINKING_ENABLED to false
         )
     }
@@ -64,8 +70,8 @@ internal object Prefs {
     }
 
     /**
-     * 读取布尔开关。remote 不可用（框架未注入或调用失败）时回退默认值（全开），
-     * 与历史行为一致。
+     * 读取布尔开关。remote 不可用（框架未注入或调用失败）时回退各功能自己的默认值；
+     * 高风险能力仍保持关闭。
      */
     fun isEnabled(key: String): Boolean {
         val default = Keys.BOOLEAN_DEFAULTS[key] ?: true

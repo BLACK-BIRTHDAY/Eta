@@ -6,9 +6,9 @@ import org.json.JSONObject
 import org.json.JSONTokener
 
 /**
- * 上一轮由 Skill 安装工具产生的、可供本轮精确确认的冲突能力。
+ * Skill 安装工具产生的、可供精确重放的冲突能力。
  *
- * 这里保留提交 SHA 和唯一候选路径，避免确认时把授权扩展到仓库的其他版本或 Skill。
+ * 这里保留提交 SHA 和唯一候选路径，避免重试时扩展到仓库的其他版本或 Skill。
  */
 internal data class PendingSkillConflictCapability(
     val repository: String,

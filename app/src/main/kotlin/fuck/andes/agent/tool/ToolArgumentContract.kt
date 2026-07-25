@@ -1,5 +1,6 @@
 package fuck.andes.agent.tool
 
+import java.util.Locale
 import org.json.JSONObject
 
 /**
@@ -92,6 +93,115 @@ internal object ToolArgumentContract {
                 Kind.STRING,
                 required = true,
                 values = setOf("notifications", "quick_settings"),
+            ),
+        ),
+        "set_alarm" to listOf(
+            Field("hour", Kind.INTEGER, required = true, minimum = 0, maximum = 23),
+            Field("minute", Kind.INTEGER, required = true, minimum = 0, maximum = 59),
+            Field("label", Kind.STRING, maximumLength = 100),
+            Field(
+                "repeat_days",
+                Kind.STRING_ARRAY,
+                maximumItems = 7,
+                maximumItemLength = 3,
+                uniqueItems = true,
+            ),
+            Field("vibrate", Kind.BOOLEAN),
+        ),
+        "set_timer" to listOf(
+            Field(
+                "duration_seconds",
+                Kind.INTEGER,
+                required = true,
+                minimum = 1,
+                maximum = 86_400,
+            ),
+            Field("label", Kind.STRING, maximumLength = 100),
+        ),
+        "top_memory_apps" to listOf(
+            Field("limit", Kind.INTEGER, minimum = 1, maximum = 30),
+        ),
+        "top_storage_apps" to listOf(
+            Field("limit", Kind.INTEGER, minimum = 1, maximum = 30),
+        ),
+        "media_control" to listOf(
+            Field(
+                "action",
+                Kind.STRING,
+                required = true,
+                values = setOf("play", "pause", "play_pause", "next", "previous", "stop"),
+            ),
+        ),
+        "set_volume" to listOf(
+            Field(
+                "stream",
+                Kind.STRING,
+                required = true,
+                values = setOf("media", "alarm", "ring", "notification"),
+            ),
+            Field("percent", Kind.INTEGER, required = true, minimum = 0, maximum = 100),
+        ),
+        "get_setting" to settingFields(includeValue = false),
+        "set_setting" to settingFields(includeValue = true),
+        "wifi_credentials" to listOf(
+            Field("ssid", Kind.STRING, maximumLength = 128),
+            Field("limit", Kind.INTEGER, minimum = 1, maximum = 50),
+        ),
+        "recent_notifications" to listOf(
+            Field("package_name", Kind.STRING, maximumLength = 255),
+            Field("limit", Kind.INTEGER, minimum = 1, maximum = 20),
+        ),
+        "read_sms_code" to listOf(
+            Field("max_age_minutes", Kind.INTEGER, minimum = 1, maximum = 1_440),
+        ),
+        "get_logcat" to listOf(
+            Field("query", Kind.STRING, maximumLength = 200),
+            Field("max_lines", Kind.INTEGER, minimum = 20, maximum = 500),
+        ),
+        "set_device_state" to listOf(
+            Field(
+                "target",
+                Kind.STRING,
+                required = true,
+                values = setOf("wifi", "bluetooth"),
+            ),
+            Field("enabled", Kind.BOOLEAN, required = true),
+        ),
+        "app_state_control" to listOf(
+            Field(
+                "package_name",
+                Kind.STRING,
+                required = true,
+                nonBlank = true,
+                maximumLength = 255,
+            ),
+            Field(
+                "action",
+                Kind.STRING,
+                required = true,
+                values = setOf("force_stop", "freeze", "unfreeze"),
+            ),
+        ),
+        "send_message" to listOf(
+            Field(
+                "contact",
+                Kind.STRING,
+                required = true,
+                nonBlank = true,
+                maximumLength = 64,
+            ),
+            Field(
+                "message",
+                Kind.STRING,
+                required = true,
+                nonBlank = true,
+                maximumLength = 2_000,
+            ),
+            Field(
+                "mode",
+                Kind.STRING,
+                required = true,
+                values = setOf("draft", "send"),
             ),
         ),
         "skills_inspect_github" to listOf(
@@ -245,6 +355,17 @@ internal object ToolArgumentContract {
         if (toolName == "paste_text" && args.optString("text").isEmpty()) {
             return Issue("text", "paste_text 的 text 不能为空")
         }
+        if (toolName == "set_alarm") {
+            val days = args.optJSONArray("repeat_days")
+            if (
+                days != null &&
+                (0 until days.length()).any {
+                    days.getString(it).lowercase(Locale.ROOT) !in REPEAT_DAYS
+                }
+            ) {
+                return Issue("repeat_days", "repeat_days 只支持 mon/tue/wed/thu/fri/sat/sun")
+            }
+        }
         if (
             toolName == "skills_install_from_github" &&
             args.optBoolean("replaceExisting", false) &&
@@ -295,5 +416,21 @@ internal object ToolArgumentContract {
         values = setOf("up", "down", "left", "right"),
     )
 
+    private fun settingFields(includeValue: Boolean): List<Field> = buildList {
+        add(
+            Field(
+                "namespace",
+                Kind.STRING,
+                required = true,
+                values = setOf("system", "secure", "global"),
+            ),
+        )
+        add(Field("key", Kind.STRING, required = true, nonBlank = true, maximumLength = 200))
+        if (includeValue) {
+            add(Field("value", Kind.STRING, required = true, maximumLength = 2_000))
+        }
+    }
+
     private val EDITABLE_TOOLS = setOf("input_text", "replace_text", "clear_text")
+    private val REPEAT_DAYS = setOf("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 }

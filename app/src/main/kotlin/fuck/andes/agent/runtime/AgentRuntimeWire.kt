@@ -74,6 +74,9 @@ internal object AgentRuntimeWire {
     private const val KEY_OPENAI_ENDPOINT_MODE = "openai_endpoint_mode"
     private const val KEY_TERMINAL_TOOLS = "terminal_tools"
     private const val KEY_BROWSER_TOOLS = "browser_tools"
+    private const val KEY_DEVICE_DIRECT_TOOLS = "device_direct_tools"
+    private const val KEY_DEVICE_SENSITIVE_READ_TOOLS = "device_sensitive_read_tools"
+    private const val KEY_DEVICE_SENSITIVE_ACTION_TOOLS = "device_sensitive_action_tools"
     private const val KEY_THINKING_ENABLED = "thinking_enabled"
     private const val KEY_EXTRA_BODY_JSON = "extra_body_json"
     private const val KEY_CUSTOM_HEADERS_JSON = "custom_headers_json"
@@ -229,6 +232,9 @@ internal object AgentRuntimeWire {
         putString(KEY_OPENAI_ENDPOINT_MODE, request.config.openAiEndpointMode)
         putBoolean(KEY_TERMINAL_TOOLS, request.config.terminalTools)
         putBoolean(KEY_BROWSER_TOOLS, request.config.browserTools)
+        putBoolean(KEY_DEVICE_DIRECT_TOOLS, request.config.deviceDirectTools)
+        putBoolean(KEY_DEVICE_SENSITIVE_READ_TOOLS, request.config.deviceSensitiveReadTools)
+        putBoolean(KEY_DEVICE_SENSITIVE_ACTION_TOOLS, request.config.deviceSensitiveActionTools)
         putBoolean(KEY_THINKING_ENABLED, request.config.thinkingEnabled)
         putString(KEY_EXTRA_BODY_JSON, request.config.extraBodyJson)
         putString(KEY_CUSTOM_HEADERS_JSON, json.encodeToString(request.config.customHeaders))
@@ -339,6 +345,15 @@ internal object AgentRuntimeWire {
                 } else {
                     true
                 },
+                deviceDirectTools = if (bundle.containsKey(KEY_DEVICE_DIRECT_TOOLS)) {
+                    bundle.getBoolean(KEY_DEVICE_DIRECT_TOOLS)
+                } else {
+                    true
+                },
+                deviceSensitiveReadTools =
+                    bundle.getBoolean(KEY_DEVICE_SENSITIVE_READ_TOOLS, false),
+                deviceSensitiveActionTools =
+                    bundle.getBoolean(KEY_DEVICE_SENSITIVE_ACTION_TOOLS, false),
                 thinkingEnabled = bundle.getBoolean(KEY_THINKING_ENABLED),
                 extraBodyJson = bundle.getString(KEY_EXTRA_BODY_JSON).orEmpty(),
                 customHeaders = decodeCustomHeaders(bundle.getString(KEY_CUSTOM_HEADERS_JSON)),

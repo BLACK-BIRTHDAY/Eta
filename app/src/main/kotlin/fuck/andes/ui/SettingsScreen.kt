@@ -195,6 +195,36 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = prefs,
+                        title = "启用设备直达工具",
+                        summary = "允许直达闹钟、计时器、媒体、音量和设备状态，默认无需操作界面",
+                        key = Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS,
+                        icon = LucideR.drawable.lucide_ic_smartphone,
+                        iconTint = ColorOSVividGreen,
+                    )
+                    PrefDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = prefs,
+                        title = "允许读取敏感设备信息",
+                        summary = "包括通知、短信验证码、已保存 Wi‑Fi 密码、系统设置和日志；原始结果不归档",
+                        key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS,
+                        icon = LucideR.drawable.lucide_ic_eye,
+                        iconTint = ColorOSAmberYellow,
+                    )
+                    PrefDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = prefs,
+                        title = "允许敏感设备操作",
+                        summary = "包括真实发送微信消息、冻结应用、修改系统设置和网络开关；开启后模型可直接调用",
+                        key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
+                        icon = LucideR.drawable.lucide_ic_shield_alert,
+                        iconTint = ColorOSAmberYellow,
+                    )
+                    PrefDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = prefs,
                         title = "启用终端/文件工具",
                         summary = "允许 Agent 使用 Android user/root shell，并读取或写入手机文件",
                         key = Prefs.Keys.AGENT_TERMINAL_TOOLS,

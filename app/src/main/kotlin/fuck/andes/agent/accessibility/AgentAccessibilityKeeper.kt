@@ -148,7 +148,21 @@ object AgentAccessibilityKeeper {
         if [ "${'$'}services" = "null" ]; then services=""; fi
         changed=0
         case ":${'$'}services:" in
-          *":${'$'}target:"*|*":${'$'}short_target:"*) new_services="${'$'}services" ;;
+          *":${'$'}target:"*|*":${'$'}short_target:"*)
+            kept=""
+            old_ifs="${'$'}IFS"
+            IFS=:
+            for service in ${'$'}services; do
+              [ "${'$'}service" = "${'$'}target" ] && continue
+              [ "${'$'}service" = "${'$'}short_target" ] && continue
+              if [ -z "${'$'}kept" ]; then kept="${'$'}service"; else kept="${'$'}kept:${'$'}service"; fi
+            done
+            IFS="${'$'}old_ifs"
+            settings --user "${'$'}user_id" put secure enabled_accessibility_services "${'$'}kept" || exit 20
+            sleep 0.15
+            new_services="${'$'}services"
+            changed=1
+            ;;
           "::") new_services="${'$'}target"; changed=1 ;;
           *) new_services="${'$'}services:${'$'}target"; changed=1 ;;
         esac

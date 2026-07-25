@@ -366,6 +366,11 @@ internal class AgentAppState(
             val config = RuntimeConfigRepository.currentRuntimeConfig()?.copy(
                 terminalTools = remoteBooleanForUi(Prefs.Keys.AGENT_TERMINAL_TOOLS),
                 browserTools = remoteBooleanForUi(Prefs.Keys.AGENT_BROWSER_TOOLS),
+                deviceDirectTools = remoteBooleanForUi(Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS),
+                deviceSensitiveReadTools =
+                    remoteBooleanForUi(Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS),
+                deviceSensitiveActionTools =
+                    remoteBooleanForUi(Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS),
                 thinkingEnabled = thinkingEnabled,
             )
             if (config == null) {
@@ -1314,6 +1319,35 @@ private fun buildToolsState(): AgentToolsUiState =
                     ToolItemUi("open_uri", "用应用打开", "把链接或 deep link 显式交给外部应用"),
                     ToolItemUi("press_key", "按键", "返回、主页、最近任务等系统按键"),
                     ToolItemUi("open_system_panel", "系统面板", "打开通知栏、快捷设置等面板"),
+                ),
+            ),
+            ToolGroupUi(
+                id = "device_direct",
+                title = "设备直达",
+                tools = listOf(
+                    ToolItemUi("set_alarm", "设置闹钟", "直接创建系统闹钟，失败时打开时钟确认"),
+                    ToolItemUi("set_timer", "设置计时器", "直接创建最长 24 小时的系统计时器"),
+                    ToolItemUi("device_status", "设备状态", "读取电量、内存、存储与系统版本"),
+                    ToolItemUi("network_info", "网络状态", "读取联网方式和当前 Wi‑Fi 状态"),
+                    ToolItemUi("media_control", "媒体控制", "播放、暂停、切歌，不操作界面"),
+                    ToolItemUi("set_volume", "设置音量", "按媒体、闹钟、铃声等通道设置"),
+                    ToolItemUi("top_memory_apps", "内存排行", "查看当前占用最高的进程"),
+                    ToolItemUi("top_storage_apps", "存储排行", "查看应用、数据与缓存占用"),
+                ),
+            ),
+            ToolGroupUi(
+                id = "device_sensitive",
+                title = "敏感设备能力",
+                tools = listOf(
+                    ToolItemUi("send_message", "发送微信消息", "精确匹配联系人并单次发送验证"),
+                    ToolItemUi("read_sms_code", "读取验证码", "只提取最近短信中的验证码"),
+                    ToolItemUi("recent_notifications", "读取通知", "读取当前通知标题与正文"),
+                    ToolItemUi("wifi_credentials", "Wi‑Fi 密码", "读取手机保存的网络凭据"),
+                    ToolItemUi("get_setting", "读取系统设置", "读取指定 Settings 键"),
+                    ToolItemUi("set_setting", "修改系统设置", "修改非安全关键 Settings 键"),
+                    ToolItemUi("set_device_state", "网络开关", "直接控制 Wi‑Fi 或蓝牙"),
+                    ToolItemUi("app_state_control", "应用状态", "停止、冻结或解冻应用"),
+                    ToolItemUi("get_logcat", "系统日志", "有界读取并过滤最近日志"),
                 ),
             ),
             ToolGroupUi(

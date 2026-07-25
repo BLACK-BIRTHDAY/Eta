@@ -28,25 +28,31 @@ internal object AgentOverlayVisibilityPolicy {
     fun shouldDismissEntrySurfaceFor(event: AgentEvent): Boolean = when (event) {
         is AgentEvent.AssistantBlockStart ->
             event.kind == AgentEvent.AssistantBlockKind.TOOL_CALL &&
-                event.name.isForegroundOperationTool()
+                event.name.requiresEntrySurfaceDismissal()
         is AgentEvent.AssistantBlockEnd ->
             event.kind == AgentEvent.AssistantBlockKind.TOOL_CALL &&
-                event.name.isForegroundOperationTool()
-        is AgentEvent.AssistantReceived -> event.toolNames.any { it.isForegroundOperationTool() }
-        is AgentEvent.ToolStarted -> event.name.isForegroundOperationTool()
-        is AgentEvent.ToolFinished -> event.name.isForegroundOperationTool()
-        is AgentEvent.ToolImagesAttached -> event.toolName.isForegroundOperationTool()
+                event.name.requiresEntrySurfaceDismissal()
+        is AgentEvent.AssistantReceived -> event.toolNames.any { it.requiresEntrySurfaceDismissal() }
+        is AgentEvent.ToolStarted -> event.name.requiresEntrySurfaceDismissal()
+        is AgentEvent.ToolFinished -> event.name.requiresEntrySurfaceDismissal()
+        is AgentEvent.ToolImagesAttached -> event.toolName.requiresEntrySurfaceDismissal()
         else -> false
     }
 
     internal fun isForegroundOperationTool(name: String?): Boolean =
         name.isForegroundOperationTool()
 
+    internal fun requiresEntrySurfaceDismissal(name: String?): Boolean =
+        name.requiresEntrySurfaceDismissal()
+
     private fun String?.isForegroundOperationTool(): Boolean =
         this?.trim()?.lowercase() in foregroundOperationTools
 
     private fun String?.isForegroundDrivingTool(): Boolean =
         this?.trim()?.lowercase() in foregroundDrivingTools
+
+    private fun String?.requiresEntrySurfaceDismissal(): Boolean =
+        this?.trim()?.lowercase() in entrySurfaceDismissalTools
 
     private val foregroundDrivingTools = setOf(
         "launch_app",
@@ -65,10 +71,14 @@ internal object AgentOverlayVisibilityPolicy {
         "paste_text",
         "press_key",
         "open_system_panel",
+        "send_message",
     )
 
     private val foregroundOperationTools = setOf(
         "observe_screen",
         *foregroundDrivingTools.toTypedArray(),
     )
+
+    private val entrySurfaceDismissalTools =
+        foregroundOperationTools + setOf("set_alarm", "set_timer")
 }

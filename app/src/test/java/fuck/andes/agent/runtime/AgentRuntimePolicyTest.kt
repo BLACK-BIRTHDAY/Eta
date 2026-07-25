@@ -33,6 +33,7 @@ class AgentRuntimePolicyTest {
             AgentRuntimePolicy.Permissions(
                 terminalTools = false,
                 browserTools = true,
+                deviceDirectTools = true,
                 thinking = false,
             ),
             AgentRuntimePolicy.permissions(preferences),
@@ -60,6 +61,10 @@ class AgentRuntimePolicyTest {
                 terminalTools = true,
                 browserTools = true,
                 thinking = true,
+            ).copy(
+                deviceDirectTools = true,
+                deviceSensitiveReadTools = true,
+                deviceSensitiveActionTools = true,
             ),
             permissions = AgentRuntimePolicy.Permissions(
                 terminalTools = false,
@@ -71,6 +76,9 @@ class AgentRuntimePolicyTest {
         assertFalse(constrained.terminalTools)
         assertFalse(constrained.browserTools)
         assertFalse(constrained.thinkingEnabled)
+        assertFalse(constrained.deviceDirectTools)
+        assertFalse(constrained.deviceSensitiveReadTools)
+        assertFalse(constrained.deviceSensitiveActionTools)
     }
 
     @Test

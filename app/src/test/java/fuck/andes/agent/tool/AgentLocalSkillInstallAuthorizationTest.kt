@@ -15,34 +15,8 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class AgentLocalSkillInstallAuthorizationTest {
     @Test
-    fun mutationIsRecheckedAgainstCurrentTopLevelPrompt() {
-        val tools = tools("总结这个 GitHub 仓库的 Skill")
-
-        val result = tools.execute(installCall(replaceExisting = false))
-
-        assertEquals(
-            "USER_AUTHORIZATION_REQUIRED",
-            JSONObject(result.content).getString("code"),
-        )
-        tools.close()
-    }
-
-    @Test
-    fun replacementRequiresExplicitConfirmationEvenAfterInstallAuthorization() {
-        val tools = tools("安装 https://github.com/openai/skills 里的 openai-docs Skill")
-
-        val result = tools.execute(installCall(replaceExisting = true))
-
-        assertEquals(
-            "SKILL_REPLACE_CONFIRMATION_REQUIRED",
-            JSONObject(result.content).getString("code"),
-        )
-        tools.close()
-    }
-
-    @Test
     fun installationRequiresInspectionInTheSameExecutor() {
-        val tools = tools("安装 https://github.com/openai/skills 里的 openai-docs Skill")
+        val tools = tools()
 
         val result = tools.execute(installCall(replaceExisting = false))
 
@@ -54,10 +28,8 @@ class AgentLocalSkillInstallAuthorizationTest {
     }
 
     @Test
-    fun explicitConfirmationStillRequiresLinkedPriorConflict() {
-        val tools = tools(
-            "确认覆盖已有 Skill，从 https://github.com/openai/skills 安装 openai-docs",
-        )
+    fun replacementStillRequiresLinkedPriorConflict() {
+        val tools = tools()
 
         val result = tools.execute(installCall(replaceExisting = true))
 
@@ -70,9 +42,7 @@ class AgentLocalSkillInstallAuthorizationTest {
 
     @Test
     fun oneConfirmationCannotAuthorizeReplacingMultiplePaths() {
-        val tools = tools(
-            "确认覆盖 demo Skill，从 https://github.com/example/skills 安装",
-        )
+        val tools = tools()
 
         val result = tools.execute(
             installCall(
@@ -91,7 +61,6 @@ class AgentLocalSkillInstallAuthorizationTest {
     @Test
     fun replacementMustExactlyReplayLinkedConflictCapability() {
         val tools = tools(
-            prompt = "确认覆盖 demo Skill",
             pending = pendingConflict(),
         )
 
@@ -113,33 +82,8 @@ class AgentLocalSkillInstallAuthorizationTest {
     }
 
     @Test
-    fun confirmationNamingAnotherSkillCannotUsePendingCapability() {
+    fun linkedConflictCanBeReplayedWithoutPromptWording() {
         val tools = tools(
-            prompt = "确认覆盖 other Skill",
-            pending = pendingConflict(),
-        )
-
-        val result = tools.execute(
-            installCall(
-                replaceExisting = true,
-                repository = "example/skills",
-                ref = COMMIT_SHA,
-                paths = listOf("skills/demo"),
-                expectedReplacementId = "demo",
-            ),
-        )
-
-        assertEquals(
-            "SKILL_REPLACE_CONFIRMATION_MISMATCH",
-            JSONObject(result.content).getString("code"),
-        )
-        tools.close()
-    }
-
-    @Test
-    fun genericConfirmationCanReplayTheUniquePendingConflict() {
-        val tools = tools(
-            prompt = "确认覆盖",
             pending = pendingConflict(),
         )
 
@@ -161,12 +105,10 @@ class AgentLocalSkillInstallAuthorizationTest {
     }
 
     private fun tools(
-        prompt: String,
         pending: PendingSkillConflictCapability? = null,
     ): AgentLocalTools = AgentLocalTools(
         context = RuntimeEnvironment.getApplication() as Context,
         logger = NoOpLogger,
-        topLevelUserPrompt = prompt,
         pendingSkillConflict = pending,
     )
 

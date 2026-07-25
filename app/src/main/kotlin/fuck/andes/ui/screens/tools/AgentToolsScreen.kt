@@ -207,6 +207,13 @@ private fun colorForTool(toolId: String): Color = when (toolId) {
     "get_current_context", "launch_app", "open_uri",
     "press_key", "open_system_panel" -> Color(0xFF00BD13)
 
+    // 设备直达与敏感设备能力
+    "set_alarm", "set_timer", "device_status", "network_info",
+    "media_control", "set_volume", "top_memory_apps", "top_storage_apps" -> Color(0xFF00BD13)
+    "send_message", "read_sms_code", "recent_notifications", "wifi_credentials",
+    "get_setting", "set_setting", "set_device_state", "app_state_control",
+    "get_logcat" -> Color(0xFFFF7700)
+
     // Agent 浏览器
     "browser_use", "browser_read",
     "browser_interact", "browser_screenshot" -> Color(0xFF0066FF)
@@ -241,6 +248,18 @@ private fun iconForTool(toolId: String): Int = when (toolId) {
     "browser_screenshot" -> LucideR.drawable.lucide_ic_scan_eye
     "press_key" -> LucideR.drawable.lucide_ic_smartphone
     "open_system_panel" -> LucideR.drawable.lucide_ic_panel_top_open
+    "set_alarm", "set_timer" -> LucideR.drawable.lucide_ic_clock
+    "device_status", "network_info", "set_device_state" -> LucideR.drawable.lucide_ic_smartphone
+    "media_control" -> LucideR.drawable.lucide_ic_play
+    "set_volume" -> LucideR.drawable.lucide_ic_settings
+    "top_memory_apps", "top_storage_apps" -> LucideR.drawable.lucide_ic_layers
+    "send_message" -> LucideR.drawable.lucide_ic_message_square
+    "read_sms_code" -> LucideR.drawable.lucide_ic_key
+    "recent_notifications" -> LucideR.drawable.lucide_ic_bell
+    "wifi_credentials" -> LucideR.drawable.lucide_ic_lock
+    "get_setting", "set_setting" -> LucideR.drawable.lucide_ic_settings
+    "app_state_control" -> LucideR.drawable.lucide_ic_shield_alert
+    "get_logcat" -> LucideR.drawable.lucide_ic_file_text
     "terminal", "terminal_job", "run_command" -> LucideR.drawable.lucide_ic_square_terminal
     "read_file" -> LucideR.drawable.lucide_ic_file_text
     "write_file" -> LucideR.drawable.lucide_ic_file_pen

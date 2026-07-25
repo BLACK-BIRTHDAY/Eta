@@ -13,6 +13,9 @@ internal object AgentRuntimePolicy {
     data class Permissions(
         val terminalTools: Boolean,
         val browserTools: Boolean,
+        val deviceDirectTools: Boolean = false,
+        val deviceSensitiveReadTools: Boolean = false,
+        val deviceSensitiveActionTools: Boolean = false,
         val thinking: Boolean,
     )
 
@@ -20,6 +23,11 @@ internal object AgentRuntimePolicy {
         Permissions(
             terminalTools = preferences.allowed(Prefs.Keys.AGENT_TERMINAL_TOOLS),
             browserTools = preferences.allowed(Prefs.Keys.AGENT_BROWSER_TOOLS),
+            deviceDirectTools = preferences.allowed(Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS),
+            deviceSensitiveReadTools =
+                preferences.allowed(Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS),
+            deviceSensitiveActionTools =
+                preferences.allowed(Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS),
             thinking = preferences.allowed(Prefs.Keys.AGENT_THINKING_ENABLED),
         )
 
@@ -31,6 +39,11 @@ internal object AgentRuntimePolicy {
         val constrained = config.copy(
             terminalTools = config.terminalTools && permissions.terminalTools,
             browserTools = config.browserTools && permissions.browserTools,
+            deviceDirectTools = config.deviceDirectTools && permissions.deviceDirectTools,
+            deviceSensitiveReadTools =
+                config.deviceSensitiveReadTools && permissions.deviceSensitiveReadTools,
+            deviceSensitiveActionTools =
+                config.deviceSensitiveActionTools && permissions.deviceSensitiveActionTools,
             thinkingEnabled = thinkingEnabled,
         )
         if (thinkingEnabled) return constrained

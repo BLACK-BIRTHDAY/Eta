@@ -60,8 +60,6 @@ class AgentLocalSkillInstallIntegrationTest {
         val tools = AgentLocalTools(
             context = context,
             logger = NoOpLogger,
-            topLevelUserPrompt =
-                "安装 https://github.com/example/skills 里的 demo Skill",
             githubSkillSource = source,
             skillPackageInstaller = SkillPackageInstaller(skillsRoot, indexService),
             skillIndexService = indexService,
@@ -97,23 +95,6 @@ class AgentLocalSkillInstallIntegrationTest {
             "INVALID_SKILL_SELECTION",
             JSONObject(invalidSelection.content).getString("code"),
         )
-        val unconfirmedCandidate = tools.execute(
-            AgentModelClient.ToolCall(
-                id = "install-unconfirmed",
-                name = "skills_install_from_github",
-                argumentsJson = JSONObject()
-                    .put("repository", "example/skills")
-                    .put("ref", "main")
-                    .put("paths", JSONArray().put("skills/other"))
-                    .put("replaceExisting", false)
-                    .toString(),
-            ),
-        )
-        assertEquals(
-            "SKILL_SELECTION_CONFIRMATION_REQUIRED",
-            JSONObject(unconfirmedCandidate.content).getString("code"),
-        )
-
         val result = tools.execute(
             AgentModelClient.ToolCall(
                 id = "install-1",
@@ -206,7 +187,7 @@ class AgentLocalSkillInstallIntegrationTest {
     }
 
     @Test
-    fun replacedSnapshotSkillIsHiddenForTheRestOfTheTurn() {
+    fun sameRunConflictCanBePreciselyReplayedWithoutPromptConfirmation() {
         val context = RuntimeEnvironment.getApplication() as Context
         val skillsRoot = temporaryFolder.newFolder("replace-skills")
         val existingRoot = File(skillsRoot, "demo-skill").also { it.mkdirs() }
@@ -229,21 +210,41 @@ class AgentLocalSkillInstallIntegrationTest {
         val tools = AgentLocalTools(
             context = context,
             logger = NoOpLogger,
-            topLevelUserPrompt = "确认覆盖 demo-skill Skill",
             githubSkillSource = source,
             skillPackageInstaller = SkillPackageInstaller(skillsRoot, indexService),
             skillIndexService = indexService,
             skillLoader = SkillLoader(skillsRoot),
             skillResourceReader = SkillResourceReader(skillsRoot),
             runAvailableSkillIds = setOf("demo-skill"),
-            pendingSkillConflict = PendingSkillConflictCapability(
-                repository = "example/skills",
-                commitSha = COMMIT_SHA,
-                selectedPath = "skills/demo",
-                expectedReplacementId = "demo-skill",
-                expectedReplacementName = "demo-skill",
-            ),
         )
+        val inspection = JSONObject(
+            tools.execute(
+                AgentModelClient.ToolCall(
+                    id = "inspect-replace",
+                    name = "skills_inspect_github",
+                    argumentsJson = JSONObject()
+                        .put("repository", "example/skills")
+                        .put("ref", "main")
+                        .toString(),
+                ),
+            ).content,
+        )
+        assertTrue(inspection.toString(), inspection.getBoolean("ok"))
+        val conflict = JSONObject(
+            tools.execute(
+                AgentModelClient.ToolCall(
+                    id = "conflict",
+                    name = "skills_install_from_github",
+                    argumentsJson = JSONObject()
+                        .put("repository", "example/skills")
+                        .put("ref", "main")
+                        .put("paths", JSONArray().put("skills/demo"))
+                        .put("replaceExisting", false)
+                        .toString(),
+                ),
+            ).content,
+        )
+        assertEquals("SKILL_CONFLICT", conflict.getString("code"))
 
         val replacement = JSONObject(
             tools.execute(
@@ -316,7 +317,6 @@ class AgentLocalSkillInstallIntegrationTest {
         val tools = AgentLocalTools(
             context = context,
             logger = NoOpLogger,
-            topLevelUserPrompt = "安装 example/skills 里的 demo Skill",
             githubSkillSource = source,
             skillPackageInstaller = failingInstaller,
             skillIndexService = indexService,
