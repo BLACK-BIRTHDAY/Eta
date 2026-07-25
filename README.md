@@ -2,7 +2,7 @@
 
 <p align="center"><strong>AI Agent for Android</strong></p>
 
-<p align="center">一个第三方 Android 系统级 AI Agent：能通过结构化设备工具直达系统能力、操作手机界面，也能像 Coding Agent 一样读文件、跑命令。</p>
+<p align="center">一个第三方 Android 系统级 AI Agent：结构化设备工具直达系统，GUI Agent 跨应用操作界面，Root Shell 与 Linux 终端则让它像 Coding Agent 一样把整台手机变成可编程执行环境——能力可以自由组合、持续生长，而不是被预设功能清单框死。</p>
 
 > 底层基于 [libxposed API 102](https://github.com/libxposed/api) 的 Xposed 模块，面向 ColorOS 16。Hook 小布进程拦截对话请求，接入同一套 Agent Runtime，支持 BYOK 自定义模型；**App 本体是主工作台**。此外保留了 system_server、SystemUI、ColorDirectService、Google App 等进程中的早期 Hook 功能（电源键唤醒 Gemini、手势条/双指识屏触发一圈即搜），当前不是重点，后续仍会维护。
 
