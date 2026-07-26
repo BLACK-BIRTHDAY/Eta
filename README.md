@@ -206,4 +206,14 @@ Eta 的开发过程中参考或关注过以下开源项目：
 
 Eta 结合自身的 Xposed 系统入口、Android Runtime、IPC 与模型协议边界进行了独立实现。
 
+## 许可证
+
+Eta 的源代码公开，欢迎用于个人学习、研究、修改和非商业用途。完整条款请参阅 [PolyForm Noncommercial License 1.0.0](LICENSE)。
+
+未经作者书面授权，不得销售本项目、其源码、APK 或修改版本，也不得基于本项目提供付费分发、收费代装或其他商业服务。如需商业授权，请通过 GitHub 联系 [蛮吉（Mangi-11）](https://github.com/Mangi-11)。
+
+第三方依赖、图标和品牌素材适用各自的许可证，不由 Eta 的许可证重新授权，详情见[第三方声明](docs/THIRD_PARTY_NOTICES.md)。
+
+为确保项目能够统一授予商业许可，外部代码贡献需要在贡献者许可协议（CLA）流程建立后才能合并；在此之前欢迎通过 Issue 提交建议和问题。
+
 <sub>Community: <a href="https://linux.do">LINUX DO</a></sub>
