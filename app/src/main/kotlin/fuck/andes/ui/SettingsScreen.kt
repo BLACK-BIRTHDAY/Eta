@@ -258,14 +258,15 @@ internal fun SettingsScreen(
                 }
             }
 
-            // ── 小布接管 ──────────────────────────────────────────────────
-            item(key = "section_breeno_takeover") {
-                SmallTitle("小布接管")
+            // ── 系统助手接管 ──────────────────────────────────────────────
+            item(key = "section_assistant_takeover") {
+                SmallTitle("系统助手接管")
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                     SwitchPref(
                         context = context,
                         prefs = prefs,
-                        title = "启用小布自定义模型",
+                        title = "启用系统助手自定义模型",
+                        summary = "小布与超级小爱共用此开关",
                         key = Prefs.Keys.AGENT_CUSTOM_MODEL,
                         icon = LucideR.drawable.lucide_ic_cpu,
                         iconTint = ColorOSOrangeRed,
@@ -275,6 +276,7 @@ internal fun SettingsScreen(
                         context = context,
                         prefs = prefs,
                         title = "仅 /agent 前缀接管",
+                        summary = "同时适用于小布与超级小爱",
                         key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
                         icon = LucideR.drawable.lucide_ic_message_square,
                         iconTint = ColorOSAmberYellow,

@@ -4,7 +4,7 @@
 
 <p align="center">一个第三方 Android 系统级 AI Agent：结构化设备工具直达系统，GUI Agent 跨应用操作界面，Root Shell 与 Linux 终端则让它像 Coding Agent 一样把整台手机变成可编程执行环境——能力可以自由组合、持续生长，而不是被预设功能清单框死。</p>
 
-> 底层基于 [libxposed API 102](https://github.com/libxposed/api) 的 Xposed 模块，面向 ColorOS 16。Hook 小布进程拦截对话请求，接入同一套 Agent Runtime，支持 BYOK 自定义模型；**App 本体是主工作台**。此外保留了 system_server、SystemUI、ColorDirectService、Google App 等进程中的早期 Hook 功能（电源键唤醒 Gemini、手势条/双指识屏触发一圈即搜），当前不是重点，后续仍会维护。
+> 底层基于 [libxposed API 102](https://github.com/libxposed/api) 的 Xposed 模块，同时支持 ColorOS 与 HyperOS，分别覆盖 OPPO 系（OPPO / 一加 / 真我）和小米设备。小布与超级小爱可以把对话请求交给同一套 Agent Runtime，使用 BYOK 自定义模型；**App 本体是主工作台**。此外保留了 system_server、SystemUI、ColorDirectService、Google App 等进程中的早期 Hook 功能（电源键唤醒 Gemini、手势条/双指识屏触发一圈即搜），当前不是重点，后续仍会维护。
 
 ## 界面预览
 
@@ -103,14 +103,14 @@ Eta 不要求用户背固定口令，也不会拿一份关键词表审核一句�
 - **跨 App 比价** — 截图分析淘宝商品，自动打开京东搜索同款并返回结果
 - **网页研究** — 在后台阅读 JavaScript 渲染的文档或资讯页面，保留同一浏览会话；遇到验证码时由用户直接接管
 - **终端任务** — "清一下后台，查 LSPosed 日志看 Hook 有没有异常，再看看 Magisk 模块生效了没"——Agent 可以执行 shell 命令、读系统日志、查模块状态、改配置，把意图转化为终端操作
-- **小布入口触发复杂任务** — 按电源键唤醒小布，用自然语言让 Agent 执行多步流程
+- **系统助手入口触发复杂任务** — 从小布或超级小爱发起请求，让 Agent 执行多步流程
 
 ## 边界说明
 
 第三方 Xposed 模块永远做不到系统内置助手那种动画丝滑和入口一致性。但原厂做得烂的时候，Hack 就是用户唯一的选择。
 
 - **这不是聊天机器人换皮。** 普通 AI App 只能输出文字。本项目通过 Xposed Hook、无障碍服务、系统浮层和 ==root== 权限，让 Agent 同时掌握 GUI 和终端——前者操作屏幕，后者进入本机命令层。两个入口叠加，意味着 Agent 拥有接近完整手机环境的操作能力。
-- **目标系统为 ColorOS 16。** Hook 点强依赖 OPPO / Google App 当前实现，系统或 App 大版本更新后可能需要重新适配。
+- **当前支持 ColorOS 与 HyperOS。** ColorOS 覆盖 OPPO 系（OPPO / 一加 / 真我），HyperOS 覆盖小米设备。各项 Hook 强依赖系统组件和目标 App 的具体实现，系统或 App 大版本更新后可能需要重新适配；超级小爱目前仅完成静态云适配，尚未经过小米真机验证。
 
 ## 与豆包手机助手的区别
 
@@ -122,9 +122,10 @@ Eta 不要求用户背固定口令，也不会拿一份关键词表审核一句�
 
 ## 系统入口接管
 
-项目早期做了大量 ColorOS 系统入口的 Hook 工作，保留至今，当前不是重点：
+系统入口接管目前覆盖 OPPO 系 ColorOS 与小米 HyperOS：
 
 - **小布接管**：接管小布对话入口，解析图片上下文，交给同一套 Agent Runtime 处理。支持 BYOK，默认只在 `/agent` 前缀下触发
+- **超级小爱接管**：拦截 `Nlp.Request` 出站事件，支持文本与单张本地图片或截图。前缀、图片解析或任务入队任一前置检查失败时回到原生链路
 - **Gemini 解锁**：电源键长按唤起 Gemini、锁屏自动语音输入、息屏维持 Hey Google 检测
 - **一圈即搜**：手势条长按和双指识屏触发 Android `contextual_search`，不改系统文件
 
@@ -147,11 +148,11 @@ BYOK（Bring Your Own Key）意味着 Agent 能力跟随你选择的模型，而
 <summary><b>展开安装步骤</b></summary>
 
 1. 在支持 libxposed API 102 的 LSPosed 环境中安装 APK
-2. 作用域包含 `system`、`SystemUI`、Google App、小布识屏 和小布助手
+2. 作用域包含 `system`、`SystemUI`、Google App、小布识屏、小布助手和超级小爱
 3. 重启手机
 4. 打开 App，配置模型提供商、API Key 和当前模型
 5. 按需授予悬浮窗、无障碍、应用列表读取、位置、后台运行等权限；位置仅在 Agent 调用时间与位置工具时读取，小布等后台入口需要“始终允许”；终端/文件工具支持用户明确选择 `user` 或 `root` 身份。用户主动执行 GUI Agent 操作时，如果 Eta 无障碍服务尚未连接，Runtime 会通过 Root 在保留其他服务的前提下启用 Eta，等待服务真实连接后再执行工具；开机或升级广播仍只审计状态
-6. 按需开启小布接管、敏感信息读取、敏感设备操作和终端/文件工具；需要 Python、Git 等通用命令时，再从设置中主动安装 Linux 工具环境
+6. 按需开启系统助手接管、敏感信息读取、敏感设备操作和终端/文件工具；需要 Python、Git 等通用命令时，再从设置中主动安装 Linux 工具环境
 
 </details>
 
@@ -171,6 +172,7 @@ hook/system/               system_server Hook
 hook/google/               Google App 进程 Hook
 hook/colordirect/          ColorDirectService Hook
 hook/breeno/               小布入口接管
+hook/xiaoai/               超级小爱入口接管
 
 agent/runtime/             Agent Runtime、跨进程协议、结果归档
 agent/model/               模型提供商抽象、SSE 解析
