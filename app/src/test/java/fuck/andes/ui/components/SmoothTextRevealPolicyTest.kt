@@ -95,8 +95,8 @@ class SmoothTextRevealPolicyTest {
 
     @Test
     fun revealSpeedUsesBaseRateThenCatchesUpAndCaps() {
-        assertEquals(48f, smoothRevealSpeed(totalBacklog = 0f), FLOAT_TOLERANCE)
-        assertEquals(48f, smoothRevealSpeed(totalBacklog = 9f), FLOAT_TOLERANCE)
+        assertEquals(36f, smoothRevealSpeed(totalBacklog = 0f), FLOAT_TOLERANCE)
+        assertEquals(45f, smoothRevealSpeed(totalBacklog = 9f), FLOAT_TOLERANCE)
         assertEquals(100f, smoothRevealSpeed(totalBacklog = 20f), FLOAT_TOLERANCE)
         assertEquals(240f, smoothRevealSpeed(totalBacklog = 1_000f), FLOAT_TOLERANCE)
     }
@@ -104,7 +104,7 @@ class SmoothTextRevealPolicyTest {
     @Test
     fun normalFrameAdvancesFractionallyAtBaseRate() {
         assertEquals(
-            0.8f,
+            0.6f,
             advanceSmoothReveal(
                 current = 0f,
                 target = 10f,

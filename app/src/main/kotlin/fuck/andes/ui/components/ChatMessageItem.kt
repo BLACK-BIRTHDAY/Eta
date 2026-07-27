@@ -48,10 +48,8 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -83,8 +81,9 @@ import androidx.compose.ui.unit.sp
 import com.composables.icons.lucide.R as LucideR
 import com.mikepenz.markdown.annotator.annotatorSettings
 import com.mikepenz.markdown.annotator.buildMarkdownAnnotatedString
-import com.mikepenz.markdown.compose.StreamingMarkdownSuccess
+import com.mikepenz.markdown.compose.MarkdownElement
 import com.mikepenz.markdown.compose.components.MarkdownComponentModel
+import com.mikepenz.markdown.compose.components.MarkdownComponents
 import com.mikepenz.markdown.compose.components.markdownComponents
 import com.mikepenz.markdown.compose.elements.MarkdownCodeBlock
 import com.mikepenz.markdown.compose.elements.MarkdownCodeFence
@@ -99,9 +98,7 @@ import com.mikepenz.markdown.model.markdownAnimations
 import com.mikepenz.markdown.model.markdownDimens
 import com.mikepenz.markdown.model.markdownPadding
 import com.mikepenz.markdown.model.rememberMarkdownState
-import com.mikepenz.markdown.model.rememberStreamingMarkdownState
-import com.mikepenz.markdown.model.StreamingMarkdownState
-import com.mikepenz.markdown.model.State as MarkdownRenderState
+import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
@@ -112,6 +109,8 @@ import fuck.andes.ui.model.ToolActivityMessageUi
 import fuck.andes.ui.model.ToolActivityStatusUi
 import fuck.andes.ui.model.ToolSummaryMessageUi
 import fuck.andes.ui.model.UserMessageUi
+import fuck.andes.ui.markdown.StreamingGfmParserSession
+import fuck.andes.ui.markdown.StreamingGfmSnapshot
 import org.intellij.markdown.IElementType
 import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.MarkdownElementTypes
@@ -121,9 +120,11 @@ import org.intellij.markdown.flavours.gfm.GFMElementTypes.HEADER
 import org.intellij.markdown.flavours.gfm.GFMElementTypes.ROW
 import org.intellij.markdown.flavours.gfm.GFMElementTypes.TABLE
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text
@@ -514,6 +515,7 @@ private fun AgentMessageBlock(
 private fun StableMarkdown(
     content: String,
     modifier: Modifier = Modifier,
+    tone: ChatMarkdownTone = ChatMarkdownTone.Answer,
 ) {
     val components = remember { chatMarkdownComponents() }
     val markdownState = rememberMarkdownState(
@@ -522,25 +524,21 @@ private fun StableMarkdown(
     )
     Markdown(
         markdownState = markdownState,
-        colors = chatMarkdownColors(),
-        typography = chatMarkdownTypography(),
+        colors = chatMarkdownColors(tone),
+        typography = chatMarkdownTypography(tone),
         padding = chatMarkdownPadding(),
         dimens = chatMarkdownDimens(),
         components = components,
         modifier = modifier,
         loading = {
-            Text(
-                text = content,
-                style = MiuixTheme.textStyles.body1,
-                color = MiuixTheme.colorScheme.onSurface,
-                modifier = it,
-            )
+            // 解析完成前不回退显示 Markdown 源码，避免标题、列表标记短暂裸露。
+            Box(modifier = it)
         },
         error = {
             Text(
                 text = content,
-                style = MiuixTheme.textStyles.body1,
-                color = MiuixTheme.colorScheme.onSurface,
+                style = chatMarkdownBodyStyle(tone),
+                color = chatMarkdownTextColor(tone),
                 modifier = it,
             )
         },
@@ -553,135 +551,128 @@ private fun StreamingMarkdown(
     isStreaming: Boolean,
     onRevealCompleteChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    tone: ChatMarkdownTone = ChatMarkdownTone.Answer,
 ) {
-    var generation by remember { mutableIntStateOf(0) }
-    key(generation) {
-        val markdownState = rememberStreamingMarkdownState(lookupLinks = false)
-        val revealCoordinator = remember { SmoothTextRevealCoordinator() }
-        val components = remember(revealCoordinator) {
-            chatMarkdownComponents(revealCoordinator)
-        }
-        val stableComponents = remember { chatMarkdownComponents() }
-        val appendTargets = remember {
-            Channel<StreamingMarkdownTarget>(Channel.CONFLATED)
-        }
-        val sourceGraphemeIndex = remember { AppendOnlyGraphemeIndex() }
-        val acceptedContent = remember { arrayOf("") }
-        var fullyRevealed by remember { mutableStateOf(false) }
-        val currentRevealCompleteCallback by rememberUpdatedState(onRevealCompleteChange)
+    val parserSession = remember { StreamingGfmParserSession() }
+    val revealCoordinator = remember { SmoothTextRevealCoordinator() }
+    val components = remember(revealCoordinator) {
+        chatMarkdownComponents(revealCoordinator)
+    }
+    val parseTargets = remember { Channel<StreamingMarkdownTarget>(Channel.CONFLATED) }
+    val acceptedContent = remember { arrayOf("") }
+    val currentRevealCompleteCallback by rememberUpdatedState(onRevealCompleteChange)
+    var snapshot by remember { mutableStateOf<StreamingGfmSnapshot?>(null) }
 
-        LaunchedEffect(fullyRevealed) {
-            currentRevealCompleteCallback(fullyRevealed)
-        }
+    LaunchedEffect(revealCoordinator) {
+        revealCoordinator.runFrameClock()
+    }
 
-        LaunchedEffect(content, isStreaming, generation) {
-            val previousContent = acceptedContent[0]
-            if (!content.startsWith(previousContent)) {
-                generation += 1
-                return@LaunchedEffect
-            }
-            acceptedContent[0] = content
-            appendTargets.trySend(
-                StreamingMarkdownTarget(
-                    content = content,
-                    isStreaming = isStreaming,
-                )
+    LaunchedEffect(content, isStreaming) {
+        val previousContent = acceptedContent[0]
+        if (!content.startsWith(previousContent)) {
+            // 会话恢复或上游纠正内容时，让解析会话重新建立文档基线。
+            acceptedContent[0] = ""
+        }
+        acceptedContent[0] = content
+        parseTargets.trySend(
+            StreamingMarkdownTarget(
+                content = content,
+                isStreaming = isStreaming,
             )
-        }
+        )
+        if (isStreaming) currentRevealCompleteCallback(false)
+    }
 
-        LaunchedEffect(markdownState, revealCoordinator, appendTargets) {
-            var parsedLength = 0
-            var target = appendTargets.receive()
+    LaunchedEffect(parserSession, parseTargets) {
+        var target = parseTargets.receive()
+        while (true) {
             while (true) {
-                while (true) {
-                    val newerTarget = appendTargets.tryReceive().getOrNull() ?: break
-                    target = newerTarget
-                    fullyRevealed = false
-                }
-
-                if (parsedLength < target.content.length) {
-                    sourceGraphemeIndex.update(target.content)
-                    val backlogChars = target.content.length - parsedLength
-                    val batchEnd = sourceGraphemeIndex.endAfter(
-                        start = parsedLength,
-                        maxGraphemes = streamingMarkdownBatchSize(backlogChars),
-                    )
-                    markdownState.append(target.content.substring(parsedLength, batchEnd))
-                    parsedLength = batchEnd
-
-                    // 每帧最多向 Markdown 状态提交一次；积压越多批次越大。文本显现由
-                    // 独立帧时钟平滑推进，解析层无需用固定 12 字/50ms 的节拍制造积压。
-                    withFrameNanos { }
-                    continue
-                }
-
-                if (!target.isStreaming) {
-                    // 流已结束：等剩余文字显现完再切到静态渲染，避免结尾整段跳出。
-                    if (!revealCoordinator.drained.value) {
-                        revealCoordinator.drained.filter { it }.first()
-                    }
-                    fullyRevealed = true
-                }
-                target = appendTargets.receive()
-                fullyRevealed = false
+                val newerTarget = parseTargets.tryReceive().getOrNull() ?: break
+                target = newerTarget
             }
-        }
 
-        LaunchedEffect(revealCoordinator) {
-            revealCoordinator.runFrameClock()
-        }
-
-        val finalMarkdownState = if (!isStreaming && fullyRevealed) {
-            rememberMarkdownState(content = content, retainState = true)
-        } else {
-            null
-        }
-        val finalRenderState = if (finalMarkdownState != null) {
-            val state by finalMarkdownState.state.collectAsState()
-            state
-        } else {
-            null
-        }
-        val showStableMarkdown = fullyRevealed && finalRenderState is MarkdownRenderState.Success
-
-        if (showStableMarkdown && finalMarkdownState != null) {
-            SelectionContainer {
-                Markdown(
-                    markdownState = finalMarkdownState,
-                    colors = chatMarkdownColors(),
-                    typography = chatMarkdownTypography(),
-                    padding = chatMarkdownPadding(),
-                    dimens = chatMarkdownDimens(),
-                    components = stableComponents,
-                    animations = markdownAnimations(animateTextSize = { this }),
-                    modifier = modifier,
+            val parsed = withContext(Dispatchers.Default) {
+                parserSession.parse(
+                    source = target.content,
+                    isComplete = !target.isStreaming,
                 )
             }
-        } else {
-            Markdown(
-                streamingMarkdownState = markdownState,
-                colors = chatMarkdownColors(),
-                typography = chatMarkdownTypography(),
-                padding = chatMarkdownPadding(),
-                dimens = chatMarkdownDimens(),
-                components = components,
-                animations = markdownAnimations(animateTextSize = { this }),
-                modifier = modifier,
-                success = { snapshot, components, successModifier ->
-                    val activeRevealBlocks = remember(snapshot) {
-                        snapshot.revealBlockKeys()
-                    }
-                    SideEffect {
-                        revealCoordinator.retainBlocks(activeRevealBlocks)
-                    }
-                    StreamingMarkdownSuccess(
-                        streamingMarkdownState = markdownState,
-                        snapshot = snapshot,
-                        components = components,
-                        modifier = successModifier,
-                    )
-                },
-            )
+
+            val newerTarget = parseTargets.tryReceive().getOrNull()
+            if (newerTarget != null) {
+                target = newerTarget
+                continue
+            }
+
+            snapshot = parsed
+            target = parseTargets.receive()
+        }
+    }
+
+    LaunchedEffect(snapshot?.originalSource, snapshot?.isComplete, revealCoordinator) {
+        val currentSnapshot = snapshot
+        if (currentSnapshot?.isComplete != true) {
+            currentRevealCompleteCallback(false)
+            return@LaunchedEffect
+        }
+
+        // 等这一版 AST 完成组合与排版后，再等待尾部字符的透明度动画收口。
+        withFrameNanos { }
+        if (!revealCoordinator.drained.value) {
+            revealCoordinator.drained.filter { it }.first()
+        }
+        currentRevealCompleteCallback(true)
+    }
+
+    snapshot?.let { parsed ->
+        Markdown(
+            state = parsed.state,
+            colors = chatMarkdownColors(tone),
+            typography = chatMarkdownTypography(tone),
+            padding = chatMarkdownPadding(),
+            dimens = chatMarkdownDimens(),
+            components = components,
+            animations = markdownAnimations(animateTextSize = { this }),
+            modifier = modifier,
+            success = { state, successComponents, successModifier ->
+                StreamingGfmSuccess(
+                    state = state,
+                    components = successComponents,
+                    revealCoordinator = revealCoordinator,
+                    modifier = successModifier,
+                )
+            },
+        )
+    }
+}
+
+/**
+ * 顶层节点以源码位置和语法类型作为稳定身份。完整重解析只替换真正发生类型变化的
+ * 当前块，前面已经稳定的段落、表格和代码块不会因新 chunk 到达而重新挂载。
+ */
+@Composable
+private fun StreamingGfmSuccess(
+    state: State.Success,
+    components: MarkdownComponents,
+    revealCoordinator: SmoothTextRevealCoordinator,
+    modifier: Modifier = Modifier,
+) {
+    val activeRevealBlocks = remember(state.node) {
+        state.revealBlockKeys()
+    }
+    SideEffect {
+        revealCoordinator.retainBlocks(activeRevealBlocks)
+    }
+
+    Column(modifier) {
+        state.node.children.forEach { node ->
+            key(node.startOffset, node.type.name) {
+                MarkdownElement(
+                    node = node,
+                    components = components,
+                    content = state.content,
+                )
+            }
         }
     }
 }
@@ -708,34 +699,68 @@ internal fun streamingMarkdownBatchEnd(
 
 // ── Markdown 样式：克制的聊天排版，标题只作强调不作页面标题 ─────────────
 
+private enum class ChatMarkdownTone {
+    Answer,
+    Thinking,
+}
+
 @Composable
-private fun chatMarkdownTypography() = markdownTypography(
-    h1 = chatMarkdownBodyStyle().copy(fontSize = 20.sp, lineHeight = 28.sp, fontWeight = FontWeight.Bold),
-    h2 = chatMarkdownBodyStyle().copy(fontSize = 19.sp, lineHeight = 27.sp, fontWeight = FontWeight.Bold),
-    h3 = chatMarkdownBodyStyle().copy(fontSize = 18.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
-    h4 = chatMarkdownBodyStyle().copy(fontSize = 17.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold),
-    h5 = chatMarkdownBodyStyle().copy(fontSize = 16.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold),
-    h6 = chatMarkdownBodyStyle().copy(fontSize = 15.sp, lineHeight = 23.sp, fontWeight = FontWeight.Bold),
-    text = chatMarkdownBodyStyle(),
-    paragraph = chatMarkdownBodyStyle(),
-    ordered = chatMarkdownBodyStyle(),
-    bullet = chatMarkdownBodyStyle(),
-    list = chatMarkdownBodyStyle(),
+private fun chatMarkdownTypography(tone: ChatMarkdownTone) = markdownTypography(
+    h1 = chatMarkdownBodyStyle(tone).copy(
+        fontSize = if (tone == ChatMarkdownTone.Answer) 20.sp else 17.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 28.sp else 25.sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    h2 = chatMarkdownBodyStyle(tone).copy(
+        fontSize = if (tone == ChatMarkdownTone.Answer) 19.sp else 16.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 27.sp else 24.sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    h3 = chatMarkdownBodyStyle(tone).copy(
+        fontSize = if (tone == ChatMarkdownTone.Answer) 18.sp else 15.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 26.sp else 23.sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    h4 = chatMarkdownBodyStyle(tone).copy(
+        fontSize = if (tone == ChatMarkdownTone.Answer) 17.sp else 14.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 25.sp else 22.sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    h5 = chatMarkdownBodyStyle(tone).copy(
+        fontSize = if (tone == ChatMarkdownTone.Answer) 16.sp else 14.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 24.sp else 22.sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    h6 = chatMarkdownBodyStyle(tone).copy(
+        fontSize = if (tone == ChatMarkdownTone.Answer) 15.sp else 14.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 23.sp else 22.sp,
+        fontWeight = FontWeight.Bold,
+    ),
+    text = chatMarkdownBodyStyle(tone),
+    paragraph = chatMarkdownBodyStyle(tone),
+    ordered = chatMarkdownBodyStyle(tone),
+    bullet = chatMarkdownBodyStyle(tone),
+    list = chatMarkdownBodyStyle(tone),
     quote = MiuixTheme.textStyles.body2.copy(
-        fontSize = 15.sp,
-        lineHeight = 24.sp,
-        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        fontSize = if (tone == ChatMarkdownTone.Answer) 15.sp else 14.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 24.sp else 22.sp,
+        color = chatMarkdownTextColor(ChatMarkdownTone.Thinking),
     ),
     code = TextStyle(
         fontSize = 13.sp,
         lineHeight = 20.sp,
         fontFamily = FontFamily.Monospace,
+        color = chatMarkdownTextColor(tone),
     ),
-    inlineCode = chatMarkdownBodyStyle().copy(
-        fontSize = 14.sp,
+    inlineCode = chatMarkdownBodyStyle(tone).copy(
+        fontSize = if (tone == ChatMarkdownTone.Answer) 14.sp else 13.sp,
         fontFamily = FontFamily.Monospace,
     ),
-    table = MiuixTheme.textStyles.body2.copy(fontSize = 14.sp, lineHeight = 20.sp),
+    table = MiuixTheme.textStyles.body2.copy(
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        color = chatMarkdownTextColor(tone),
+    ),
     textLink = TextLinkStyles(
         style = SpanStyle(
             color = MiuixTheme.colorScheme.primary,
@@ -745,14 +770,32 @@ private fun chatMarkdownTypography() = markdownTypography(
 )
 
 @Composable
-private fun chatMarkdownBodyStyle() = MiuixTheme.textStyles.body1.copy(
-    fontSize = 16.sp,
-    lineHeight = 26.sp,
-)
+private fun chatMarkdownBodyStyle(tone: ChatMarkdownTone) =
+    if (tone == ChatMarkdownTone.Answer) {
+        MiuixTheme.textStyles.body1.copy(
+            fontSize = 16.sp,
+            lineHeight = 26.sp,
+            color = chatMarkdownTextColor(tone),
+        )
+    } else {
+        MiuixTheme.textStyles.body2.copy(
+            fontSize = 14.sp,
+            lineHeight = 22.sp,
+            color = chatMarkdownTextColor(tone),
+        )
+    }
 
 @Composable
-private fun chatMarkdownColors() = markdownColor(
-    text = MiuixTheme.colorScheme.onSurface,
+private fun chatMarkdownTextColor(tone: ChatMarkdownTone): Color =
+    if (tone == ChatMarkdownTone.Answer) {
+        MiuixTheme.colorScheme.onSurface
+    } else {
+        MiuixTheme.colorScheme.onSurfaceVariantSummary
+    }
+
+@Composable
+private fun chatMarkdownColors(tone: ChatMarkdownTone) = markdownColor(
+    text = chatMarkdownTextColor(tone),
     // 代码块与表格的底色、描边由自定义组件绘制，这里只保留行内代码底色与分隔线。
     codeBackground = MiuixTheme.colorScheme.surface,
     inlineCodeBackground = MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
@@ -1234,9 +1277,8 @@ private fun ChatMarkdownTableCell(
 private fun ASTNode.containsMarkdownImage(): Boolean =
     type == MarkdownElementTypes.IMAGE || children.any { child -> child.containsMarkdownImage() }
 
-private fun StreamingMarkdownState.Snapshot.revealBlockKeys(): Set<RevealBlockKey> = buildSet {
-    stableAst.forEach { node -> collectRevealBlockKeys(node) }
-    unstableAstTail.forEach { node -> collectRevealBlockKeys(node) }
+private fun State.Success.revealBlockKeys(): Set<RevealBlockKey> = buildSet {
+    node.children.forEach { child -> collectRevealBlockKeys(child) }
 }
 
 private fun MutableSet<RevealBlockKey>.collectRevealBlockKeys(node: ASTNode) {
@@ -1290,9 +1332,10 @@ private fun ThinkingRow(
     compact: Boolean = false,
 ) {
     var expanded by remember(message.id) { mutableStateOf(!message.collapsed) }
-    LaunchedEffect(message.isStreaming, message.collapsed) {
+    // 只给本次实际经历流式输出的思考保留显现时钟；历史消息直接静态渲染。
+    val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
+    LaunchedEffect(message.isStreaming) {
         if (message.isStreaming) expanded = true
-        if (!message.isStreaming && message.collapsed) expanded = false
     }
 
     val pulseAlpha = rememberActivePulse(
@@ -1378,17 +1421,29 @@ private fun ThinkingRow(
                             .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.45f)),
                     )
                 }
-                Text(
-                    text = message.content,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    modifier = Modifier.padding(
+                val contentModifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
                         start = if (compact) 27.dp else 13.dp,
                         end = 13.dp,
                         top = if (compact) 2.dp else 8.dp,
                         bottom = if (compact) 8.dp else 12.dp,
-                    ),
-                )
+                    )
+                if (keepStreamingMarkdown) {
+                    StreamingMarkdown(
+                        content = message.content,
+                        isStreaming = message.isStreaming,
+                        onRevealCompleteChange = {},
+                        tone = ChatMarkdownTone.Thinking,
+                        modifier = contentModifier,
+                    )
+                } else {
+                    StableMarkdown(
+                        content = message.content,
+                        tone = ChatMarkdownTone.Thinking,
+                        modifier = contentModifier,
+                    )
+                }
             }
         }
     }

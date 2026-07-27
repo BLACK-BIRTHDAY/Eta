@@ -516,6 +516,6 @@ internal fun advanceSmoothReveal(
 
 private const val NANOS_PER_SECOND = 1_000_000_000f
 private const val MAX_FRAME_DELTA_SECONDS = 0.05f
-private const val BASE_REVEAL_GRAPHEMES_PER_SECOND = 48f
+private const val BASE_REVEAL_GRAPHEMES_PER_SECOND = 36f
 private const val MAX_REVEAL_GRAPHEMES_PER_SECOND = 240f
 private const val TARGET_CATCH_UP_SECONDS = 0.20f

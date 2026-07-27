@@ -47,11 +47,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -68,12 +75,25 @@ import fuck.andes.ui.model.ThinkingMessageUi
 import fuck.andes.ui.model.ToolActivityMessageUi
 import fuck.andes.ui.model.ToolSummaryMessageUi
 import fuck.andes.ui.model.UserMessageUi
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.math.exp
+import kotlin.math.min
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurDefaults
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
@@ -202,6 +222,14 @@ private fun AgentChatScaffold(
     currentBrowserMessageId: String?,
     modifier: Modifier = Modifier,
 ) {
+    val surfaceColor = MiuixTheme.colorScheme.surface
+    val frostEnabled = hasMessages && isRuntimeShaderSupported()
+    val messageBackdrop = rememberLayerBackdrop {
+        // Backdrop 必须包含不透明底色，否则文字边缘模糊到透明区域时会出现黑边。
+        drawRect(surfaceColor)
+        drawContent()
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = Color.Transparent,
@@ -213,6 +241,7 @@ private fun AgentChatScaffold(
         ),
         bottomBar = {
             AgentChatBottomBar(
+                messageBackdrop = messageBackdrop.takeIf { frostEnabled },
                 input = input,
                 isStreaming = isStreaming,
                 thinkingEnabled = thinkingEnabled,
@@ -239,13 +268,16 @@ private fun AgentChatScaffold(
             AgentChatMessages(
                 visibleMessages = visibleMessages,
                 scrollState = scrollState,
-                bottomPadding = bottomPadding,
+                bottomInset = bottomPadding,
                 keepBottomAnchored = keepBottomAnchored,
                 onBottomAnchorChanged = onBottomAnchorChanged,
                 onSuggestionClick = onSuggestionClick,
                 onRunTraceClick = onRunTraceClick,
                 onOpenBrowser = onOpenBrowser,
                 currentBrowserMessageId = currentBrowserMessageId,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(if (frostEnabled) Modifier.layerBackdrop(messageBackdrop) else Modifier),
             )
         }
     }
@@ -256,13 +288,14 @@ private fun AgentChatScaffold(
 private fun AgentChatMessages(
     visibleMessages: List<AgentChatMessageUi>,
     scrollState: LazyListState,
-    bottomPadding: Dp,
+    bottomInset: Dp,
     keepBottomAnchored: Boolean,
     onBottomAnchorChanged: (Boolean) -> Unit,
     onSuggestionClick: (String) -> Unit,
     onRunTraceClick: () -> Unit,
     onOpenBrowser: () -> Unit,
     currentBrowserMessageId: String?,
+    modifier: Modifier = Modifier,
 ) {
     val timelineEntries = remember(visibleMessages) { visibleMessages.toTimelineEntries() }
     val bottomItemIndex = timelineEntries.size
@@ -270,6 +303,7 @@ private fun AgentChatMessages(
     val isAtBottom by remember(scrollState) {
         derivedStateOf { !scrollState.canScrollForward }
     }
+    val densityScale = LocalDensity.current.density
     val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(
@@ -289,9 +323,11 @@ private fun AgentChatMessages(
 
     val shouldFollowBottom by rememberUpdatedState(keepBottomAnchored && !isUserDragging)
     val currentBottomItemIndex by rememberUpdatedState(bottomItemIndex)
+    val bottomFollowDecisions = remember(scrollState) {
+        Channel<BottomFollowDecision>(Channel.CONFLATED)
+    }
 
     LaunchedEffect(
-        bottomPadding,
         bottomItemIndex,
         keepBottomAnchored,
         isUserDragging,
@@ -301,8 +337,8 @@ private fun AgentChatMessages(
         }
     }
 
-    // 尾部文字增高后只补偿超出视口的距离。相比每个分片都 scrollToItem，
-    // 这不会反复取消协程、重定位整条 LazyColumn 或制造硬跳。
+    // 测量层只发布最新的跟底距离，不直接改滚动位置。否则每次新行出现都会一次性
+    // scrollBy 整个行高，看起来像内容按段向上蹦。
     LaunchedEffect(scrollState) {
         snapshotFlow {
             val layoutInfo = scrollState.layoutInfo
@@ -313,35 +349,101 @@ private fun AgentChatMessages(
                 enabled = shouldFollowBottom,
                 bottomItemIndex = currentBottomItemIndex,
                 sentinelBottom = sentinel?.let { it.offset + it.size },
-                viewportEnd = layoutInfo.viewportEndOffset,
+                // Operit 同样把输入器高度放进滚动内容的 bottom inset，而不是缩短
+                // 滚动容器。跟底目标应是 afterContentPadding 之前的正文边界。
+                viewportEnd = layoutInfo.viewportEndOffset - layoutInfo.afterContentPadding,
                 lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index,
             )
         }
             .distinctUntilChanged()
             .collect { layout ->
-                val decision = resolveBottomFollowDecision(
-                    enabled = layout.enabled,
-                    bottomItemIndex = layout.bottomItemIndex,
-                    sentinelBottom = layout.sentinelBottom,
-                    viewportEnd = layout.viewportEnd,
-                    lastVisibleIndex = layout.lastVisibleIndex,
+                bottomFollowDecisions.trySend(
+                    resolveBottomFollowDecision(
+                        enabled = layout.enabled,
+                        bottomItemIndex = layout.bottomItemIndex,
+                        sentinelBottom = layout.sentinelBottom,
+                        viewportEnd = layout.viewportEnd,
+                        lastVisibleIndex = layout.lastVisibleIndex,
+                    )
                 )
-                if (decision.scrollByPx > 0) {
-                    scrollState.scrollBy(decision.scrollByPx.toFloat())
-                } else if (decision.requestIndex != null) {
-                    scrollState.requestScrollToItem(decision.requestIndex)
-                }
             }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    // 一个持续存在的帧时钟从当前屏幕位置追向最新目标。新字符继续到达时只更新目标，
+    // 不取消并重启动画，因此速度连续；用户开始拖动后，enabled=false 会立即停止跟随。
+    LaunchedEffect(scrollState, bottomFollowDecisions) {
+        var remainingDistancePx = 0f
+        var requestIndex: Int? = null
+        var previousFrameNanos = 0L
+
+        fun accept(decision: BottomFollowDecision) {
+            remainingDistancePx = decision.scrollByPx.toFloat()
+            requestIndex = decision.requestIndex
+        }
+
+        while (currentCoroutineContext().isActive) {
+            if (remainingDistancePx <= 0f && requestIndex == null) {
+                accept(bottomFollowDecisions.receive())
+                previousFrameNanos = 0L
+            }
+            while (true) {
+                val latest = bottomFollowDecisions.tryReceive().getOrNull() ?: break
+                accept(latest)
+            }
+
+            requestIndex?.let { targetIndex ->
+                scrollState.requestScrollToItem(targetIndex)
+                requestIndex = null
+                remainingDistancePx = 0f
+                return@let
+            }
+            if (remainingDistancePx <= 0f) continue
+
+            val frameNanos = withFrameNanos { it }
+            val elapsedSeconds = if (previousFrameNanos == 0L) {
+                1f / 60f
+            } else {
+                ((frameNanos - previousFrameNanos) / 1_000_000_000f).coerceIn(0f, 0.05f)
+            }
+            previousFrameNanos = frameNanos
+
+            while (true) {
+                val latest = bottomFollowDecisions.tryReceive().getOrNull() ?: break
+                accept(latest)
+            }
+            if (requestIndex != null || remainingDistancePx <= 0f) continue
+
+            val step = smoothBottomFollowStep(
+                distancePx = remainingDistancePx,
+                elapsedSeconds = elapsedSeconds,
+                density = densityScale,
+            )
+            try {
+                val consumed = scrollState.scrollBy(step)
+                remainingDistancePx = if (consumed > 0f) {
+                    (remainingDistancePx - consumed).coerceAtLeast(0f)
+                } else {
+                    0f
+                }
+            } catch (cancelled: CancellationException) {
+                if (!currentCoroutineContext().isActive) throw cancelled
+                remainingDistancePx = 0f
+            }
+        }
+    }
+
+    // 与 Operit 一致：滚动层保持整屏，输入器作为后绘制浮层；输入器高度进入列表
+    // afterContentPadding，确保跟到底部时最后一行停在输入器上方。
+    Box(modifier = modifier.clipToBounds()) {
         LazyColumn(
             state = scrollState,
             verticalArrangement = Arrangement.Top,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .clipToBounds(),
             contentPadding = PaddingValues(
                 top = 14.dp,
-                bottom = 14.dp + bottomPadding,
+                bottom = bottomInset + 14.dp,
             ),
         ) {
             items(
@@ -392,7 +494,7 @@ private fun AgentChatMessages(
             visible = !keepBottomAnchored && !isAtBottom,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = bottomPadding + 12.dp),
+                .padding(bottom = bottomInset + 12.dp),
             enter = fadeIn(tween(160)) + scaleIn(tween(180), initialScale = 0.82f),
             exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
         ) {
@@ -449,6 +551,20 @@ internal fun resolveBottomFollowDecision(
     }
 }
 
+internal fun smoothBottomFollowStep(
+    distancePx: Float,
+    elapsedSeconds: Float,
+    density: Float,
+): Float {
+    if (distancePx <= 0f || elapsedSeconds <= 0f) return 0f
+    if (distancePx <= BOTTOM_FOLLOW_SNAP_DISTANCE_PX) return distancePx
+
+    val frameSeconds = elapsedSeconds.coerceAtMost(BOTTOM_FOLLOW_MAX_FRAME_SECONDS)
+    val easedStep = distancePx * (1f - exp(-frameSeconds / BOTTOM_FOLLOW_RESPONSE_SECONDS))
+    val speedLimitedStep = BOTTOM_FOLLOW_MAX_SPEED_DP_PER_SECOND * density * frameSeconds
+    return min(distancePx, min(easedStep.coerceAtLeast(BOTTOM_FOLLOW_MIN_STEP_PX), speedLimitedStep))
+}
+
 private sealed interface AgentTimelineEntry {
     val key: String
 
@@ -494,6 +610,7 @@ private fun AgentChatMessageUi.isWorkProcessMessage(): Boolean =
 
 @Composable
 private fun AgentChatBottomBar(
+    messageBackdrop: LayerBackdrop?,
     input: String,
     isStreaming: Boolean,
     thinkingEnabled: Boolean,
@@ -510,20 +627,52 @@ private fun AgentChatBottomBar(
             .fillMaxWidth()
             .imePadding(),
     ) {
-        // 轻微渐隐把正文与输入器分层，避免消息从圆角卡片和系统导航区“漏”出来。
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(16.dp)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            MiuixTheme.colorScheme.surface,
-                        ),
-                    )
+        if (messageBackdrop != null) {
+            val blurColors = BlurDefaults.blurColors(
+                blendColors = listOf(
+                    BlendColorEntry(MiuixTheme.colorScheme.surface.copy(alpha = 0.72f))
                 ),
-        )
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(ChatBottomFrostHeight)
+                    // DstIn 让真实磨砂在顶部透明、靠近输入框时逐渐变实，消除硬裁切线。
+                    .graphicsLayer {
+                        compositingStrategy = CompositingStrategy.Offscreen
+                    }
+                    .drawWithContent {
+                        drawContent()
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(Color.Transparent, Color.Black),
+                            ),
+                            blendMode = BlendMode.DstIn,
+                        )
+                    }
+                    .textureBlur(
+                        backdrop = messageBackdrop,
+                        shape = RectangleShape,
+                        blurRadius = 20f,
+                        colors = blurColors,
+                    ),
+            )
+        } else {
+            // 空白主页沿用原来的轻微渐隐，不改变主页视觉。
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(16.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                MiuixTheme.colorScheme.surface,
+                            ),
+                        )
+                    ),
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -548,7 +697,14 @@ private fun AgentChatBottomBar(
     }
 }
 
+private val ChatBottomFrostHeight = 24.dp
+
 private const val ChatBottomSentinelKey = "agent-chat-bottom-sentinel"
+private const val BOTTOM_FOLLOW_RESPONSE_SECONDS = 0.085f
+private const val BOTTOM_FOLLOW_MAX_FRAME_SECONDS = 0.05f
+private const val BOTTOM_FOLLOW_MAX_SPEED_DP_PER_SECOND = 720f
+private const val BOTTOM_FOLLOW_MIN_STEP_PX = 0.5f
+private const val BOTTOM_FOLLOW_SNAP_DISTANCE_PX = 0.75f
 
 internal fun resolveKeepBottomAnchored(
     current: Boolean,
