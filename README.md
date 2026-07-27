@@ -1,14 +1,12 @@
-<h1 align="center">Eta</h1>
+# Eta
 
-<p align="center"><strong>面向 Android 的第三方系统级 AI Agent</strong></p>
+<p><img src="https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.0"> <img src="https://img.shields.io/badge/AGP-9.3.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.1"> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Coverage-ColorOS%20%26%20HyperOS-1677FF" alt="Coverage ColorOS and HyperOS"></p>
 
-<p align="center">
-  设备能力直达 · GUI 跨应用操作 · Root Shell · Linux 工具环境
-</p>
+**面向 Android 的第三方系统级 AI Agent**
 
-<p align="center">
-  让模型直接调用 Android 系统、操作应用界面，并通过终端完成复杂任务。
-</p>
+设备能力直达 · GUI 跨应用操作 · Root Shell · Linux 工具环境
+
+让模型直接调用 Android 系统、操作应用界面，并通过终端完成复杂任务。
 
 > [!NOTE]
 > Eta 支持 ColorOS 与 HyperOS，覆盖 OPPO 系（OPPO / 一加 / 真我）和小米系设备。App 本体是核心工作台并承载完整 Agent Runtime；小布与小爱只作为系统入口接入，共用 BYOK 自定义模型配置。完整功能需要 Root 和 LSPosed。
