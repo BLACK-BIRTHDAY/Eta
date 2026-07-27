@@ -531,8 +531,13 @@ private fun StableMarkdown(
         components = components,
         modifier = modifier,
         loading = {
-            // 解析完成前不回退显示 Markdown 源码，避免标题、列表标记短暂裸露。
-            Box(modifier = it)
+            // 保留与最终正文接近的高度，避免历史消息异步解析完成后越界绘制。
+            Text(
+                text = content,
+                style = chatMarkdownBodyStyle(tone),
+                color = chatMarkdownTextColor(tone),
+                modifier = it,
+            )
         },
         error = {
             Text(

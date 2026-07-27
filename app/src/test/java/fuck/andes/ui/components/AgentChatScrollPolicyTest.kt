@@ -7,6 +7,28 @@ import org.junit.Test
 
 class AgentChatScrollPolicyTest {
     @Test
+    fun completedContentExpansionDoesNotFollowBottom() {
+        assertFalse(
+            resolveBottomFollowEnabled(
+                isStreaming = false,
+                keepBottomAnchored = true,
+                isUserDragging = false,
+            )
+        )
+    }
+
+    @Test
+    fun streamingTailGrowthFollowsBottom() {
+        assertTrue(
+            resolveBottomFollowEnabled(
+                isStreaming = true,
+                keepBottomAnchored = true,
+                isUserDragging = false,
+            )
+        )
+    }
+
+    @Test
     fun contentGrowthDoesNotDisableBottomFollowing() {
         assertTrue(
             resolveKeepBottomAnchored(

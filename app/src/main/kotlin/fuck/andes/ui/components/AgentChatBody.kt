@@ -268,6 +268,7 @@ private fun AgentChatScaffold(
             AgentChatMessages(
                 visibleMessages = visibleMessages,
                 scrollState = scrollState,
+                isStreaming = isStreaming,
                 bottomInset = bottomPadding,
                 keepBottomAnchored = keepBottomAnchored,
                 onBottomAnchorChanged = onBottomAnchorChanged,
@@ -288,6 +289,7 @@ private fun AgentChatScaffold(
 private fun AgentChatMessages(
     visibleMessages: List<AgentChatMessageUi>,
     scrollState: LazyListState,
+    isStreaming: Boolean,
     bottomInset: Dp,
     keepBottomAnchored: Boolean,
     onBottomAnchorChanged: (Boolean) -> Unit,
@@ -321,7 +323,13 @@ private fun AgentChatMessages(
         }
     }
 
-    val shouldFollowBottom by rememberUpdatedState(keepBottomAnchored && !isUserDragging)
+    val shouldFollowBottom by rememberUpdatedState(
+        resolveBottomFollowEnabled(
+            isStreaming = isStreaming,
+            keepBottomAnchored = keepBottomAnchored,
+            isUserDragging = isUserDragging,
+        )
+    )
     val currentBottomItemIndex by rememberUpdatedState(bottomItemIndex)
     val bottomFollowDecisions = remember(scrollState) {
         Channel<BottomFollowDecision>(Channel.CONFLATED)
@@ -337,8 +345,8 @@ private fun AgentChatMessages(
         }
     }
 
-    // 测量层只发布最新的跟底距离，不直接改滚动位置。否则每次新行出现都会一次性
-    // scrollBy 整个行高，看起来像内容按段向上蹦。
+    // 仅在流式输出期间发布最新的跟底距离。历史消息中的步骤/思考展开同样会改变
+    // 列表高度，但那是用户主动查看内容，不能被误判成尾部文字增长。
     LaunchedEffect(scrollState) {
         snapshotFlow {
             val layoutInfo = scrollState.layoutInfo
@@ -715,6 +723,12 @@ internal fun resolveKeepBottomAnchored(
     isAtBottom -> true
     else -> current
 }
+
+internal fun resolveBottomFollowEnabled(
+    isStreaming: Boolean,
+    keepBottomAnchored: Boolean,
+    isUserDragging: Boolean,
+): Boolean = isStreaming && keepBottomAnchored && !isUserDragging
 
 @Composable
 private fun EmptyChatState(
