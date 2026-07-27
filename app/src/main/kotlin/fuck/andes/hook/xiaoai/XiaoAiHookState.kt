@@ -16,14 +16,8 @@ internal object XiaoAiTakeoverPolicy {
     fun isSupportedVersion(versionCode: Long): Boolean =
         versionCode == XiaoAiHooks.SUPPORTED_VERSION_CODE
 
-    fun matchesOutboundEvent(
-        fullName: String,
-        eventId: String,
-        queryInfo: XiaoAiQueryCache.QueryInfo?,
-    ): Boolean =
-        fullName == "Nlp.Request" &&
-            eventId.isNotBlank() &&
-            queryInfo?.dialogId == eventId
+    fun matchesOutboundEvent(fullName: String): Boolean =
+        fullName == "Nlp.Request"
 
     fun decide(
         query: String,
@@ -120,6 +114,28 @@ internal class XiaoAiQueryCache(
         return entries.remove(dialogId.trim())
     }
 
+    /**
+     * Nlp.Request 的 Event ID 由小爱在出站时重新生成，不能假设它等于 setQueryInfo 的
+     * dialogId。优先按 ID 取值，再按同一轮查询文本关联；关联成功后同样消费一次。
+     */
+    @Synchronized
+    fun takeMatching(
+        eventId: String,
+        eventQuery: String,
+    ): QueryInfo? {
+        val now = clock()
+        pruneExpired(now)
+        entries.remove(eventId.trim())?.let { return it }
+
+        val normalizedQuery = eventQuery.trim()
+        if (normalizedQuery.isBlank()) return null
+        val matchingKey = entries.entries
+            .lastOrNull { (_, value) -> value.query.trim() == normalizedQuery }
+            ?.key
+            ?: return null
+        return entries.remove(matchingKey)
+    }
+
     @Synchronized
     fun clear() {
         entries.clear()
@@ -145,6 +161,62 @@ internal class XiaoAiQueryCache(
     private companion object {
         const val DEFAULT_CAPACITY = 64
         const val DEFAULT_TTL_MILLIS = 120_000L
+    }
+}
+
+internal class XiaoAiTurnTracker(
+    private val ttlMillis: Long = DEFAULT_TTL_MILLIS,
+    private val clock: () -> Long = System::currentTimeMillis,
+) {
+    data class Turn(
+        val dialogId: String,
+        val query: String,
+        val hasImage: Boolean,
+        val documentInput: Boolean,
+        val capturedAt: Long,
+    )
+
+    private var current: Turn? = null
+
+    init {
+        require(ttlMillis > 0L) { "ttlMillis must be positive" }
+    }
+
+    @Synchronized
+    fun capture(
+        dialogId: String,
+        query: String,
+        hasImage: Boolean = false,
+        documentInput: Boolean = false,
+    ) {
+        val normalizedQuery = query.trim()
+        if (normalizedQuery.isBlank()) return
+        current = Turn(
+            dialogId = dialogId.trim(),
+            query = normalizedQuery,
+            hasImage = hasImage,
+            documentInput = documentInput,
+            capturedAt = clock(),
+        )
+    }
+
+    @Synchronized
+    fun latest(): Turn? {
+        val turn = current ?: return null
+        if (clock() - turn.capturedAt > ttlMillis) {
+            current = null
+            return null
+        }
+        return turn
+    }
+
+    @Synchronized
+    fun clear() {
+        current = null
+    }
+
+    private companion object {
+        const val DEFAULT_TTL_MILLIS = 15_000L
     }
 }
 

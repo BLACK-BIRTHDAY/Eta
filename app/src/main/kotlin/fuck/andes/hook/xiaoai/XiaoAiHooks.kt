@@ -36,7 +36,11 @@ internal object XiaoAiHooks {
         "com.xiaomi.voiceassistant.instruction.base.OperationManager"
     private const val APPLICATION_CLASS = "com.xiaomi.voiceassistant.VAApplication"
     private const val EVENT_CLASS = "com.xiaomi.ai.api.common.Event"
+    private const val INSTRUCTION_CLASS = "com.xiaomi.ai.api.common.Instruction"
     private const val ENGINE_CLASS = "y00.r0"
+    private const val ASR_PROCESSOR_CLASS = "z10.a"
+    private const val AGENT_ACTION_MANAGER_CLASS = "kh0.s0"
+    private const val ASR_RESULT_FULL_NAME = "SpeechRecognizer.RecognizeResult"
     private const val IMAGE_ID_STORE_CLASS = "k00.y0"
     private const val FLOAT_MANAGER_CLASS = "com.xiaomi.voiceassistant.widget.d"
     private const val CARD_BASE_CLASS = "com.xiaomi.voiceassistant.card.a"
@@ -51,6 +55,7 @@ internal object XiaoAiHooks {
     private const val PENDING_DRAIN_LIMIT = 8
 
     private val queryCache = XiaoAiQueryCache()
+    private val turnTracker = XiaoAiTurnTracker()
     private val claimedDialogIds = XiaoAiRecentIds()
     private val activeRun = XiaoAiRunSlot<ActiveRun>()
     private val latestFloatManager = AtomicReference<Any?>()
@@ -138,7 +143,9 @@ internal object XiaoAiHooks {
         val hooks = HookRegistrar(module, rootLogger, "XiaoAi")
         val installation = hooks.install {
             hookQueryCapture(this, classLoader)
+            hookAsrFinalResult(this, classLoader)
             hookFloatManagerCapture(this, classLoader)
+            hookAgentActions(this, classLoader)
             hookOutboundRequest(this, classLoader)
             hookSessionCancellation(this, classLoader)
             schedulePendingResultDrains(logger, classLoader)
@@ -188,21 +195,87 @@ internal object XiaoAiHooks {
             executable = method,
             description = "XiaoAi OperationManager.setQueryInfo",
         ) { chain ->
-            val result = chain.proceed()
             val dialogId = chain.args.getOrNull(0) as? String
             val query = chain.args.getOrNull(1) as? String
             val extra = chain.args.getOrNull(2) as? JSONObject
-            if (!dialogId.isNullOrBlank() && query != null) {
+            if (!dialogId.isNullOrBlank() && !query.isNullOrBlank()) {
+                val imageFileId = extra?.optString(EXTRA_IMAGE_FILE_ID)
+                val documentInput = extra?.let { json ->
+                    DOCUMENT_EXTRA_KEYS.any(json::has)
+                } == true
                 queryCache.put(
                     dialogId = dialogId,
                     query = query,
-                    imageFileId = extra?.optString(EXTRA_IMAGE_FILE_ID),
-                    documentInput = extra?.let { json ->
-                        DOCUMENT_EXTRA_KEYS.any(json::has)
-                    } == true,
+                    imageFileId = imageFileId,
+                    documentInput = documentInput,
                 )
+                turnTracker.capture(
+                    dialogId = dialogId,
+                    query = query,
+                    hasImage = !imageFileId.isNullOrBlank(),
+                    documentInput = documentInput,
+                )
+                hooks.logger.debug {
+                    "捕获超级小爱查询: dialog=${shortId(dialogId)}, queryChars=${query.length}"
+                }
             }
-            result
+            chain.proceed()
+        }
+    }
+
+    private fun hookAsrFinalResult(
+        hooks: HookRegistrar,
+        classLoader: ClassLoader,
+    ) {
+        val processorClass = HookSupport.findClassOrNull(classLoader, ASR_PROCESSOR_CLASS)
+        val instructionClass = HookSupport.findClassOrNull(classLoader, INSTRUCTION_CLASS)
+        if (processorClass == null || instructionClass == null) {
+            hooks.missing(
+                id = "xiaoai.asr-final",
+                description = "ASR final result",
+                detail = "未找到超级小爱终态 ASR 处理器",
+            )
+            return
+        }
+        val method = HookSupport.findMethod(processorClass, "processed", instructionClass)
+        if (method == null || method.returnType != Boolean::class.javaPrimitiveType) {
+            hooks.missing(
+                id = "xiaoai.asr-final",
+                description = "ASR final result",
+                detail = "未找到 z10.a.processed(Instruction): boolean",
+            )
+            return
+        }
+        hooks.intercept(
+            id = "xiaoai.asr-final",
+            executable = method,
+            description = "XiaoAi final ASR result",
+        ) { chain ->
+            val instruction = chain.args.firstOrNull()
+            if (instruction != null) {
+                captureFinalAsr(hooks.logger, instruction)
+            }
+            chain.proceed()
+        }
+    }
+
+    private fun captureFinalAsr(
+        logger: ModuleLogger,
+        instruction: Any,
+    ) {
+        if (invokeString(instruction, "getFullName") != ASR_RESULT_FULL_NAME) return
+        val payload = HookSupport.invokeNoArgs(instruction, "getPayload") ?: return
+        if (HookSupport.invokeNoArgs(payload, "isFinal") != true) return
+        val results = HookSupport.invokeNoArgs(payload, "getResults") as? Iterable<*> ?: return
+        val query = results.joinToString(separator = "") { item ->
+            item?.let { invokeString(it, "getText") }.orEmpty()
+        }.trim()
+        if (query.isBlank()) return
+
+        val dialogId = optionalString(HookSupport.invokeNoArgs(instruction, "getDialogId"))
+        turnTracker.capture(dialogId = dialogId, query = query)
+        logger.debug {
+            "捕获超级小爱终态 ASR: dialog=${shortId(dialogId)}, queryChars=${query.length}"
         }
     }
 
@@ -280,6 +353,48 @@ internal object XiaoAiHooks {
         }
     }
 
+    private fun hookAgentActions(
+        hooks: HookRegistrar,
+        classLoader: ClassLoader,
+    ) {
+        val managerClass = HookSupport.findClassOrNull(classLoader, AGENT_ACTION_MANAGER_CLASS)
+        if (managerClass == null) {
+            hooks.missing(
+                id = "xiaoai.agent-action",
+                description = "AgentActionManager",
+                detail = "未找到超级小爱 Agent Action 执行器",
+            )
+            return
+        }
+        val methods = HookSupport.findDeclaredMethods(managerClass, makeAccessible = true) { method ->
+            (method.name == "execute" || method.name == "executeActionsAsync") &&
+                method.returnType == Boolean::class.javaPrimitiveType &&
+                method.parameterTypes.any { it.name.endsWith("Agent\$Action") }
+        }
+        if (methods.isEmpty()) {
+            hooks.missing(
+                id = "xiaoai.agent-action",
+                description = "AgentActionManager",
+                detail = "未找到 Agent Action boolean 执行入口",
+            )
+            return
+        }
+        methods.forEachIndexed { index, method ->
+            hooks.intercept(
+                id = "xiaoai.agent-action.$index",
+                executable = method,
+                description = "XiaoAi ${method.name}(Agent.Action)",
+            ) { chain ->
+                if (shouldOwnLatestTurn()) {
+                    hooks.logger.info("已拦截超级小爱原生 Agent Action")
+                    true
+                } else {
+                    chain.proceed()
+                }
+            }
+        }
+    }
+
     private fun hookSessionCancellation(
         hooks: HookRegistrar,
         classLoader: ClassLoader,
@@ -301,6 +416,8 @@ internal object XiaoAiHooks {
         ) { chain ->
             cancelActiveRun(hooks.logger, classLoader)
             queryCache.clear()
+            turnTracker.clear()
+            claimedDialogIds.clear()
             chain.proceed()
         }
     }
@@ -311,23 +428,57 @@ internal object XiaoAiHooks {
         event: Any,
     ): Boolean {
         val fullName = invokeString(event, "getFullName")
+        if (!XiaoAiTakeoverPolicy.matchesOutboundEvent(fullName)) return false
+
         val dialogId = invokeString(event, "getId").trim()
         if (dialogId.isBlank()) return false
         if (claimedDialogIds.contains(dialogId)) return true
 
-        val queryInfo = queryCache.take(dialogId) ?: return false
-        if (!XiaoAiTakeoverPolicy.matchesOutboundEvent(fullName, dialogId, queryInfo)) {
-            return false
-        }
-        if (queryInfo.documentInput) return false
         val payload = HookSupport.invokeNoArgs(event, "getPayload")
         val eventQuery = payload?.let { invokeString(it, "getQuery") }.orEmpty()
-        val query = eventQuery.ifBlank { queryInfo.query }
+        val queryInfo = queryCache.takeMatching(dialogId, eventQuery)
+        val latestTurn = turnTracker.latest()
+        val query = eventQuery.ifBlank { queryInfo?.query ?: latestTurn?.query.orEmpty() }
+        if (query.isBlank()) {
+            logger.warnThrottled("xiaoai_nlp_query_missing") {
+                "超级小爱 Nlp.Request 缺少可接管的查询文本"
+            }
+            return false
+        }
+        if (queryInfo == null && query.equals("blank", ignoreCase = true)) {
+            logger.warnThrottled("xiaoai_blank_query_uncorrelated") {
+                "超级小爱 blank 请求缺少图片上下文，保持原生行为"
+            }
+            return false
+        }
+        val sameTrackedQuery = latestTurn?.query?.trim() == query.trim()
+        if (queryInfo?.documentInput == true ||
+            (queryInfo == null && sameTrackedQuery && latestTurn.documentInput)
+        ) {
+            return false
+        }
+        if (queryInfo == null && sameTrackedQuery && latestTurn.hasImage) {
+            logger.warnThrottled("xiaoai_image_query_uncorrelated") {
+                "超级小爱图片请求无法关联 setQueryInfo，保持原生行为"
+            }
+            return false
+        }
+        if (queryInfo != null && queryInfo.dialogId != dialogId) {
+            logger.debug {
+                "关联超级小爱新 Event ID: queryDialog=${shortId(queryInfo.dialogId)}, " +
+                    "event=${shortId(dialogId)}"
+            }
+        } else if (queryInfo == null) {
+            logger.debug {
+                "直接从 Nlp.Request 捕获超级小爱查询: event=${shortId(dialogId)}, " +
+                    "queryChars=${query.length}"
+            }
+        }
 
         val imageResolution = resolveImage(
             logger = logger,
             classLoader = classLoader,
-            imageFileId = queryInfo.imageFileId,
+            imageFileId = queryInfo?.imageFileId,
         )
         if (imageResolution is XiaoAiImages.Resolution.Failure) {
             logger.warnThrottled("xiaoai_image_${imageResolution.code.name.lowercase()}") {
@@ -342,6 +493,11 @@ internal object XiaoAiHooks {
             customModelEnabled = Prefs.isEnabled(Prefs.Keys.AGENT_CUSTOM_MODEL),
             requirePrefix = Prefs.isEnabled(Prefs.Keys.AGENT_REQUIRE_PREFIX),
         ) ?: return false
+        turnTracker.capture(
+            dialogId = dialogId,
+            query = query,
+            hasImage = image != null,
+        )
         val context = AgentAppContext.resolve() ?: return false
         val renderer = XiaoAiStreamRenderer(
             logger = logger,
@@ -373,6 +529,17 @@ internal object XiaoAiHooks {
         run.activate()
         logger.info("已接管超级小爱请求: images=${if (image == null) 0 else 1}")
         return true
+    }
+
+    private fun shouldOwnLatestTurn(): Boolean {
+        val turn = turnTracker.latest() ?: return activeRun.get() != null
+        if (turn.documentInput) return false
+        return XiaoAiTakeoverPolicy.decide(
+            query = turn.query,
+            hasImage = turn.hasImage,
+            customModelEnabled = Prefs.isEnabled(Prefs.Keys.AGENT_CUSTOM_MODEL),
+            requirePrefix = Prefs.isEnabled(Prefs.Keys.AGENT_REQUIRE_PREFIX),
+        ) != null
     }
 
     private fun executeRun(
@@ -536,6 +703,20 @@ internal object XiaoAiHooks {
 
     private fun invokeString(target: Any, methodName: String): String =
         (HookSupport.invokeNoArgs(target, methodName) as? String).orEmpty()
+
+    private fun optionalString(optional: Any?): String {
+        if (optional == null || HookSupport.invokeNoArgs(optional, "isPresent") != true) return ""
+        return HookSupport.invokeNoArgs(optional, "get")?.toString().orEmpty()
+    }
+
+    private fun shortId(value: String): String =
+        value.trim().let { id ->
+            when {
+                id.isBlank() -> "-"
+                id.length <= 8 -> id
+                else -> "${id.take(4)}…${id.takeLast(4)}"
+            }
+        }
 
     private data class ActiveRun(
         val runId: String,

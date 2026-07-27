@@ -16,36 +16,9 @@ class XiaoAiHookStateTest {
     }
 
     @Test
-    fun outboundMatchRequiresNlpRequestAndTheSameDialogId() {
-        val queryInfo = XiaoAiQueryCache.QueryInfo(
-            dialogId = "dialog-1",
-            query = "测试",
-            imageFileId = null,
-            documentInput = false,
-            capturedAt = 0L,
-        )
-
-        assertTrue(
-            XiaoAiTakeoverPolicy.matchesOutboundEvent(
-                fullName = "Nlp.Request",
-                eventId = "dialog-1",
-                queryInfo = queryInfo,
-            )
-        )
-        assertFalse(
-            XiaoAiTakeoverPolicy.matchesOutboundEvent(
-                fullName = "SpeechRecognizer.Recognize",
-                eventId = "dialog-1",
-                queryInfo = queryInfo,
-            )
-        )
-        assertFalse(
-            XiaoAiTakeoverPolicy.matchesOutboundEvent(
-                fullName = "Nlp.Request",
-                eventId = "dialog-2",
-                queryInfo = queryInfo,
-            )
-        )
+    fun outboundMatchUsesTheEventTypeBecauseXiaoAiRegeneratesTheEventId() {
+        assertTrue(XiaoAiTakeoverPolicy.matchesOutboundEvent("Nlp.Request"))
+        assertFalse(XiaoAiTakeoverPolicy.matchesOutboundEvent("SpeechRecognizer.Recognize"))
     }
 
     @Test
@@ -125,6 +98,54 @@ class XiaoAiHookStateTest {
         now = 101L
         assertNull(cache.take("three"))
         assertEquals(0, cache.size())
+    }
+
+    @Test
+    fun queryCacheCanCorrelateARegeneratedEventIdByQueryText() {
+        val cache = XiaoAiQueryCache()
+        cache.put("query-dialog", "测试问题", "image")
+
+        val correlated = cache.takeMatching(
+            eventId = "new-event-id",
+            eventQuery = "测试问题",
+        )
+
+        assertEquals("query-dialog", correlated?.dialogId)
+        assertEquals("image", correlated?.imageFileId)
+        assertNull(cache.takeMatching("another-event", "测试问题"))
+    }
+
+    @Test
+    fun queryCacheStillPrefersAnExactDialogId() {
+        val cache = XiaoAiQueryCache()
+        cache.put("exact", "第一个问题", null)
+        cache.put("other", "第二个问题", null)
+
+        assertEquals(
+            "第一个问题",
+            cache.takeMatching("exact", "第二个问题")?.query,
+        )
+        assertEquals("第二个问题", cache.take("other")?.query)
+    }
+
+    @Test
+    fun turnTrackerKeepsOnlyAFreshLatestTurn() {
+        var now = 0L
+        val tracker = XiaoAiTurnTracker(
+            ttlMillis = 100L,
+            clock = { now },
+        )
+        tracker.capture(
+            dialogId = "asr-dialog",
+            query = "测试",
+            hasImage = true,
+            documentInput = false,
+        )
+
+        assertEquals("测试", tracker.latest()?.query)
+        assertTrue(tracker.latest()?.hasImage == true)
+        now = 101L
+        assertNull(tracker.latest())
     }
 
     @Test
