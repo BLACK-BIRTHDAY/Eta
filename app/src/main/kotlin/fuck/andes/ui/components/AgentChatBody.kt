@@ -6,11 +6,14 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,6 +43,9 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +68,10 @@ import fuck.andes.ui.model.ThinkingMessageUi
 import fuck.andes.ui.model.ToolActivityMessageUi
 import fuck.andes.ui.model.ToolSummaryMessageUi
 import fuck.andes.ui.model.UserMessageUi
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -261,6 +270,7 @@ private fun AgentChatMessages(
     val isAtBottom by remember(scrollState) {
         derivedStateOf { !scrollState.canScrollForward }
     }
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(
         isUserDragging,
@@ -277,68 +287,165 @@ private fun AgentChatMessages(
         }
     }
 
-    // 流式跟随只应响应「尾部内容真的变了」：新条目（bottomItemIndex）或尾部条目内容
-    // （tailEntry，逐 token 变化时 equals 变化）。绝不能把 isAtBottom 列为重启 key——
-    // 视口内任何高度动画（如展开思考块）都会让 canScrollForward 逐帧翻转，形成
-    // 「高度增长 → 离开底部 → scrollToItem 硬跳回底部」的逐帧反馈环，表现为整体剧烈抖动。
-    val tailEntry = timelineEntries.lastOrNull()
+    val shouldFollowBottom by rememberUpdatedState(keepBottomAnchored && !isUserDragging)
+    val currentBottomItemIndex by rememberUpdatedState(bottomItemIndex)
 
     LaunchedEffect(
         bottomPadding,
         bottomItemIndex,
-        tailEntry,
         keepBottomAnchored,
         isUserDragging,
     ) {
         if (keepBottomAnchored && !isUserDragging) {
-            scrollState.scrollToItem(bottomItemIndex)
+            scrollState.requestScrollToItem(bottomItemIndex)
         }
     }
 
-    LazyColumn(
-        state = scrollState,
-        verticalArrangement = Arrangement.Top,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            top = 14.dp,
-            bottom = 14.dp + bottomPadding,
-        ),
-    ) {
-        items(
-            items = timelineEntries,
-            key = { it.key },
-        ) { entry ->
-            when (entry) {
-                is AgentTimelineEntry.Message -> {
-                    val message = entry.message
-                    ChatMessageItem(
-                        message = message,
-                        onSuggestionClick = onSuggestionClick,
-                        onRunTraceClick = onRunTraceClick,
-                        onOpenBrowser = onOpenBrowser,
-                        showBrowserShortcut = message is ToolActivityMessageUi &&
-                            message.toolName == "browser_use" &&
-                            message.id == currentBrowserMessageId,
-                    )
-                }
-
-                is AgentTimelineEntry.WorkProcess -> {
-                    AgentWorkProcess(
-                        id = entry.key,
-                        messages = entry.messages,
-                        onOpenBrowser = onOpenBrowser,
-                        currentBrowserMessageId = currentBrowserMessageId,
-                    )
-                }
+    // 尾部文字增高后只补偿超出视口的距离。相比每个分片都 scrollToItem，
+    // 这不会反复取消协程、重定位整条 LazyColumn 或制造硬跳。
+    LaunchedEffect(scrollState) {
+        snapshotFlow {
+            val layoutInfo = scrollState.layoutInfo
+            val sentinel = layoutInfo.visibleItemsInfo.firstOrNull { item ->
+                item.key == ChatBottomSentinelKey
             }
-        }
-        item(key = ChatBottomSentinelKey) {
-            Spacer(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(1.dp),
+            BottomFollowLayout(
+                enabled = shouldFollowBottom,
+                bottomItemIndex = currentBottomItemIndex,
+                sentinelBottom = sentinel?.let { it.offset + it.size },
+                viewportEnd = layoutInfo.viewportEndOffset,
+                lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index,
             )
         }
+            .distinctUntilChanged()
+            .collect { layout ->
+                val decision = resolveBottomFollowDecision(
+                    enabled = layout.enabled,
+                    bottomItemIndex = layout.bottomItemIndex,
+                    sentinelBottom = layout.sentinelBottom,
+                    viewportEnd = layout.viewportEnd,
+                    lastVisibleIndex = layout.lastVisibleIndex,
+                )
+                if (decision.scrollByPx > 0) {
+                    scrollState.scrollBy(decision.scrollByPx.toFloat())
+                } else if (decision.requestIndex != null) {
+                    scrollState.requestScrollToItem(decision.requestIndex)
+                }
+            }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = scrollState,
+            verticalArrangement = Arrangement.Top,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                top = 14.dp,
+                bottom = 14.dp + bottomPadding,
+            ),
+        ) {
+            items(
+                items = timelineEntries,
+                key = { it.key },
+            ) { entry ->
+                val itemModifier = Modifier.animateItem(
+                    fadeInSpec = tween(durationMillis = 180),
+                    placementSpec = null,
+                    fadeOutSpec = tween(durationMillis = 120),
+                )
+                when (entry) {
+                    is AgentTimelineEntry.Message -> {
+                        val message = entry.message
+                        ChatMessageItem(
+                            message = message,
+                            onSuggestionClick = onSuggestionClick,
+                            onRunTraceClick = onRunTraceClick,
+                            onOpenBrowser = onOpenBrowser,
+                            showBrowserShortcut = message is ToolActivityMessageUi &&
+                                message.toolName == "browser_use" &&
+                                message.id == currentBrowserMessageId,
+                            modifier = itemModifier,
+                        )
+                    }
+
+                    is AgentTimelineEntry.WorkProcess -> {
+                        AgentWorkProcess(
+                            id = entry.key,
+                            messages = entry.messages,
+                            onOpenBrowser = onOpenBrowser,
+                            currentBrowserMessageId = currentBrowserMessageId,
+                            modifier = itemModifier,
+                        )
+                    }
+                }
+            }
+            item(key = ChatBottomSentinelKey) {
+                Spacer(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp),
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = !keepBottomAnchored && !isAtBottom,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = bottomPadding + 12.dp),
+            enter = fadeIn(tween(160)) + scaleIn(tween(180), initialScale = 0.82f),
+            exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
+        ) {
+            IconButton(
+                onClick = {
+                    onBottomAnchorChanged(true)
+                    coroutineScope.launch {
+                        scrollState.animateScrollToItem(bottomItemIndex)
+                    }
+                },
+                backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
+                minWidth = 40.dp,
+                minHeight = 40.dp,
+            ) {
+                Icon(
+                    painter = painterResource(LucideR.drawable.lucide_ic_arrow_down),
+                    contentDescription = "回到底部",
+                    modifier = Modifier.size(17.dp),
+                    tint = MiuixTheme.colorScheme.onSurface,
+                )
+            }
+        }
+    }
+}
+
+private data class BottomFollowLayout(
+    val enabled: Boolean,
+    val bottomItemIndex: Int,
+    val sentinelBottom: Int?,
+    val viewportEnd: Int,
+    val lastVisibleIndex: Int?,
+)
+
+internal data class BottomFollowDecision(
+    val scrollByPx: Int = 0,
+    val requestIndex: Int? = null,
+)
+
+internal fun resolveBottomFollowDecision(
+    enabled: Boolean,
+    bottomItemIndex: Int,
+    sentinelBottom: Int?,
+    viewportEnd: Int,
+    lastVisibleIndex: Int?,
+): BottomFollowDecision {
+    if (!enabled) return BottomFollowDecision()
+    val overflow = sentinelBottom?.minus(viewportEnd)
+    return when {
+        overflow != null && overflow > 0 -> BottomFollowDecision(scrollByPx = overflow)
+        sentinelBottom == null &&
+            lastVisibleIndex != null &&
+            lastVisibleIndex < bottomItemIndex -> BottomFollowDecision(requestIndex = bottomItemIndex)
+        else -> BottomFollowDecision()
     }
 }
 
@@ -551,9 +658,9 @@ private fun SuggestionCard(
             .clip(RoundedCornerShape(12.dp))
             .background(MiuixTheme.colorScheme.surface)
             .border(
-                0.5.dp,
-                MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
-                RoundedCornerShape(12.dp),
+                width = 0.5.dp,
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(12.dp),
             )
             .clickable(onClick = onClick)
             .padding(horizontal = 13.dp, vertical = 12.dp),

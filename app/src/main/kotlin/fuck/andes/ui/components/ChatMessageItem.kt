@@ -2,6 +2,7 @@ package fuck.andes.ui.components
 
 import android.graphics.BitmapFactory
 import android.util.Base64
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -15,6 +16,9 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -52,6 +56,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -117,7 +122,6 @@ import org.intellij.markdown.flavours.gfm.GFMElementTypes.ROW
 import org.intellij.markdown.flavours.gfm.GFMElementTypes.TABLE
 import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import top.yukonga.miuix.kmp.basic.Icon
@@ -125,6 +129,8 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.squircle.squircleBorder
+import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -168,6 +174,29 @@ fun AITypingIndicator(modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+/**
+ * 只有正在执行的状态才持有无限动画。历史思考和工具条目保持静态，避免长会话里
+ * 每个已完成节点都持续产生帧时钟与状态更新。
+ */
+@Composable
+private fun rememberActivePulse(
+    active: Boolean,
+    label: String,
+): Float {
+    if (!active) return 1f
+    val transition = rememberInfiniteTransition(label = label)
+    val alpha by transition.animateFloat(
+        initialValue = 0.58f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(820, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "${label}_alpha",
+    )
+    return alpha
 }
 
 @Composable
@@ -221,27 +250,20 @@ internal fun AgentWorkProcess(
         }
     }
 
-    val pulseTransition = rememberInfiniteTransition(label = "work_pulse")
-    val pulseAlpha by pulseTransition.animateFloat(
-        initialValue = 0.45f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "work_pulse_alpha"
-    )
+    val pulseAlpha = rememberActivePulse(active = running, label = "work_pulse")
 
     Column(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MiuixTheme.colorScheme.surface)
-            .border(
-                0.5.dp,
-                MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
-                RoundedCornerShape(12.dp),
+            .squircleSurface(
+                color = MiuixTheme.colorScheme.surface,
+                cornerRadius = 14.dp,
+            )
+            .squircleBorder(
+                width = 0.5.dp,
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.50f),
+                cornerRadius = 14.dp,
             ),
     ) {
         Row(
@@ -334,13 +356,6 @@ internal fun AgentWorkProcess(
 
 // ── 用户消息：轻盈美观气泡 ──────────────────────────────────────────────
 
-private val UserBubbleShape = RoundedCornerShape(
-    topStart = 20.dp,
-    topEnd = 20.dp,
-    bottomEnd = 6.dp,
-    bottomStart = 20.dp,
-)
-
 @Composable
 private fun UserMessageBubble(
     message: UserMessageUi,
@@ -355,8 +370,13 @@ private fun UserMessageBubble(
         Column(
             modifier = Modifier
                 .widthIn(max = 320.dp)
-                .clip(UserBubbleShape)
-                .background(MiuixTheme.colorScheme.surfaceContainerHigh)
+                .squircleSurface(
+                    color = MiuixTheme.colorScheme.surfaceContainerHigh,
+                    topStart = 20.dp,
+                    topEnd = 20.dp,
+                    bottomEnd = 6.dp,
+                    bottomStart = 20.dp,
+                )
                 .padding(horizontal = 16.dp, vertical = 11.dp),
         ) {
             if (message.images.isNotEmpty()) {
@@ -545,6 +565,7 @@ private fun StreamingMarkdown(
         val appendTargets = remember {
             Channel<StreamingMarkdownTarget>(Channel.CONFLATED)
         }
+        val sourceGraphemeIndex = remember { AppendOnlyGraphemeIndex() }
         val acceptedContent = remember { arrayOf("") }
         var fullyRevealed by remember { mutableStateOf(false) }
         val currentRevealCompleteCallback by rememberUpdatedState(onRevealCompleteChange)
@@ -579,18 +600,18 @@ private fun StreamingMarkdown(
                 }
 
                 if (parsedLength < target.content.length) {
-                    val batchEnd = streamingMarkdownBatchEnd(
-                        content = target.content,
+                    sourceGraphemeIndex.update(target.content)
+                    val backlogChars = target.content.length - parsedLength
+                    val batchEnd = sourceGraphemeIndex.endAfter(
                         start = parsedLength,
-                        maxGraphemes = StreamingMarkdownSourceBatchSize,
+                        maxGraphemes = streamingMarkdownBatchSize(backlogChars),
                     )
                     markdownState.append(target.content.substring(parsedLength, batchEnd))
                     parsedLength = batchEnd
 
-                    // 每小批之后让出一拍，给 Compose 一次重组与排版机会。
-                    // 消息高度由显现进度驱动，无需等显现完成，解析可以持续领先，
-                    // 否则供给被显现速度串行卡住，快速模型下输出会明显滞后、卡顿。
-                    delay(StreamingMarkdownLayoutSettleMillis)
+                    // 每帧最多向 Markdown 状态提交一次；积压越多批次越大。文本显现由
+                    // 独立帧时钟平滑推进，解析层无需用固定 12 字/50ms 的节拍制造积压。
+                    withFrameNanos { }
                     continue
                 }
 
@@ -610,7 +631,7 @@ private fun StreamingMarkdown(
             revealCoordinator.runFrameClock()
         }
 
-        val finalMarkdownState = if (!isStreaming) {
+        val finalMarkdownState = if (!isStreaming && fullyRevealed) {
             rememberMarkdownState(content = content, retainState = true)
         } else {
             null
@@ -670,22 +691,19 @@ private data class StreamingMarkdownTarget(
     val isStreaming: Boolean,
 )
 
-private const val StreamingMarkdownSourceBatchSize = 12
-private const val StreamingMarkdownLayoutSettleMillis = 50L
+internal fun streamingMarkdownBatchSize(backlogChars: Int): Int = when {
+    backlogChars >= 384 -> 96
+    backlogChars >= 160 -> 64
+    backlogChars >= 64 -> 40
+    else -> 24
+}
 
 internal fun streamingMarkdownBatchEnd(
     content: String,
     start: Int,
     maxGraphemes: Int,
 ): Int {
-    val clampedStart = start.coerceIn(0, content.length)
-    if (clampedStart == content.length || maxGraphemes <= 0) return clampedStart
-
-    val boundaries = graphemeBoundaries(content)
-    val foundIndex = boundaries.binarySearch(clampedStart)
-    val firstEndIndex = if (foundIndex >= 0) foundIndex + 1 else -foundIndex - 1
-    val endIndex = (firstEndIndex + maxGraphemes - 1).coerceAtMost(boundaries.lastIndex)
-    return boundaries[endIndex]
+    return AppendOnlyGraphemeIndex().apply { update(content) }.endAfter(start, maxGraphemes)
 }
 
 // ── Markdown 样式：克制的聊天排版，标题只作强调不作页面标题 ─────────────
@@ -1277,15 +1295,9 @@ private fun ThinkingRow(
         if (!message.isStreaming && message.collapsed) expanded = false
     }
 
-    val pulseTransition = rememberInfiniteTransition(label = "thinking_pulse")
-    val pulseAlpha by pulseTransition.animateFloat(
-        initialValue = 0.45f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "thinking_pulse_alpha"
+    val pulseAlpha = rememberActivePulse(
+        active = message.isStreaming,
+        label = "thinking_pulse",
     )
 
     // compact 模式渲染在工作过程卡片内部，不再携带自己的卡片外壳，避免卡中卡。
@@ -1297,12 +1309,14 @@ private fun ThinkingRow(
         modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(MiuixTheme.colorScheme.surface)
-            .border(
-                0.5.dp,
-                MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
-                RoundedCornerShape(12.dp),
+            .squircleSurface(
+                color = MiuixTheme.colorScheme.surface,
+                cornerRadius = 14.dp,
+            )
+            .squircleBorder(
+                width = 0.5.dp,
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.50f),
+                cornerRadius = 14.dp,
             )
     }
 
@@ -1392,16 +1406,9 @@ private fun ToolActivityInline(
 ) {
     var isExpanded by remember(message.id) { mutableStateOf(false) }
 
-    // Running pulse alpha
-    val pulseTransition = rememberInfiniteTransition(label = "pulse_alpha")
-    val pulseAlpha by pulseTransition.animateFloat(
-        initialValue = 0.4f,
-        targetValue = 1.0f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulse"
+    val pulseAlpha = rememberActivePulse(
+        active = message.status == ToolActivityStatusUi.Running,
+        label = "tool_pulse",
     )
 
     Column(
@@ -1441,21 +1448,36 @@ private fun ToolActivityInline(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                // Status dot
-                Box(
-                    modifier = Modifier
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(message.status.statusColor())
-                        .graphicsLayer(alpha = if (message.status == ToolActivityStatusUi.Running) pulseAlpha else 1.0f)
-                )
-                // Minimalist status label
-                Text(
-                    text = message.status.statusLabel(),
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f),
-                    modifier = Modifier.graphicsLayer(alpha = if (message.status == ToolActivityStatusUi.Running) pulseAlpha else 1.0f)
-                )
+                AnimatedContent(
+                    targetState = message.status,
+                    transitionSpec = {
+                        (fadeIn(tween(150)) + scaleIn(tween(170), initialScale = 0.86f))
+                            .togetherWith(
+                                fadeOut(tween(90)) + scaleOut(tween(110), targetScale = 0.86f)
+                            )
+                    },
+                    label = "tool_status",
+                ) { status ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        modifier = Modifier.graphicsLayer(
+                            alpha = if (status == ToolActivityStatusUi.Running) pulseAlpha else 1f
+                        ),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(status.statusColor())
+                        )
+                        Text(
+                            text = status.statusLabel(),
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f),
+                        )
+                    }
+                }
                 Icon(
                     painter = painterResource(
                         if (isExpanded) LucideR.drawable.lucide_ic_chevron_down
@@ -1473,8 +1495,10 @@ private fun ToolActivityInline(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 27.dp, top = 2.dp, bottom = 6.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MiuixTheme.colorScheme.surfaceContainer)
+                    .squircleSurface(
+                        color = MiuixTheme.colorScheme.surfaceContainer,
+                        cornerRadius = 10.dp,
+                    )
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             ) {
                 if (message.argumentsSummary.isNotBlank()) {

@@ -48,6 +48,33 @@ class SmoothTextRevealPolicyTest {
     }
 
     @Test
+    fun appendedTextOnlyRebuildsTheLastPotentiallyExtendedGrapheme() {
+        val familyPrefix = "A👨‍👩"
+        val prefixBoundaries = graphemeBoundaries(familyPrefix)
+        val family = "$familyPrefix‍👧‍👦B"
+
+        assertArrayEquals(
+            graphemeBoundaries(family),
+            updateGraphemeBoundaries(familyPrefix, prefixBoundaries, family),
+        )
+        assertArrayEquals(
+            graphemeBoundaries("A\r\nB"),
+            updateGraphemeBoundaries("A\r", graphemeBoundaries("A\r"), "A\r\nB"),
+        )
+    }
+
+    @Test
+    fun nonAppendReplacementFallsBackToACompleteBoundaryScan() {
+        val previous = "alpha 😀"
+        val replacement = "beta 👨‍👩‍👧‍👦"
+
+        assertArrayEquals(
+            graphemeBoundaries(replacement),
+            updateGraphemeBoundaries(previous, graphemeBoundaries(previous), replacement),
+        )
+    }
+
+    @Test
     fun commonPrefixNeverEndsInsideAChangedSurrogatePair() {
         assertEquals(0, commonUtf16PrefixLength("😀 alpha", "😁 beta"))
         assertEquals(3, commonUtf16PrefixLength("A😀x", "A😀y"))
@@ -153,6 +180,14 @@ class SmoothTextRevealPolicyTest {
         assertEquals(2, streamingMarkdownBatchEnd(content, start = 1, maxGraphemes = 1))
         assertEquals(0, streamingMarkdownBatchEnd(content, start = -2, maxGraphemes = 0))
         assertEquals(content.length, streamingMarkdownBatchEnd(content, start = 99, maxGraphemes = 4))
+    }
+
+    @Test
+    fun markdownBatchSizeCatchesUpWithoutFloodingAFrame() {
+        assertEquals(24, streamingMarkdownBatchSize(backlogChars = 1))
+        assertEquals(40, streamingMarkdownBatchSize(backlogChars = 64))
+        assertEquals(64, streamingMarkdownBatchSize(backlogChars = 160))
+        assertEquals(96, streamingMarkdownBatchSize(backlogChars = 384))
     }
 
     private companion object {

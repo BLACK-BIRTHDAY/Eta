@@ -1,6 +1,7 @@
 package fuck.andes.ui.components
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -35,6 +36,48 @@ class AgentChatScrollPolicyTest {
                 isUserDragging = false,
                 isAtBottom = true,
             )
+        )
+    }
+
+    @Test
+    fun growingTailOnlyScrollsByTheOverflowDistance() {
+        assertEquals(
+            BottomFollowDecision(scrollByPx = 24),
+            resolveBottomFollowDecision(
+                enabled = true,
+                bottomItemIndex = 8,
+                sentinelBottom = 1024,
+                viewportEnd = 1000,
+                lastVisibleIndex = 8,
+            ),
+        )
+    }
+
+    @Test
+    fun largeAppendRequestsBottomOnlyWhenSentinelLeftTheViewport() {
+        assertEquals(
+            BottomFollowDecision(requestIndex = 8),
+            resolveBottomFollowDecision(
+                enabled = true,
+                bottomItemIndex = 8,
+                sentinelBottom = null,
+                viewportEnd = 1000,
+                lastVisibleIndex = 6,
+            ),
+        )
+    }
+
+    @Test
+    fun disabledFollowingNeverMovesTheList() {
+        assertEquals(
+            BottomFollowDecision(),
+            resolveBottomFollowDecision(
+                enabled = false,
+                bottomItemIndex = 8,
+                sentinelBottom = 1100,
+                viewportEnd = 1000,
+                lastVisibleIndex = 8,
+            ),
         )
     }
 }
