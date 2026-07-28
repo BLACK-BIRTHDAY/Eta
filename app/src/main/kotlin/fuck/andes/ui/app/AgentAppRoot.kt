@@ -143,6 +143,7 @@ fun AgentAppRoot() {
     ) {
         AgentAppShell(
             currentRoute = route,
+            isCurrentRoute = backStack.lastOrNull() == route,
             conversationPaneState = agentState.conversationPaneState,
             isConversationPaneOpen = conversationPaneOpen,
             onBack = { popRoute() },
