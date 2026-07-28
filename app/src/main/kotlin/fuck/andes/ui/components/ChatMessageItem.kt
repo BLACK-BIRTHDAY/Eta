@@ -208,7 +208,7 @@ private fun rememberActivePulse(
 }
 
 @Composable
-fun ChatMessageItem(
+internal fun ChatMessageItem(
     message: AgentChatMessageUi,
     onSuggestionClick: (String) -> Unit,
     onRunTraceClick: () -> Unit,
@@ -216,10 +216,15 @@ fun ChatMessageItem(
     showBrowserShortcut: Boolean,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
+    retainedStreamingState: StreamingMarkdownState? = null,
 ) {
     when (message) {
         is UserMessageUi -> UserMessageBubble(message = message, modifier = modifier)
-        is AgentMessageUi -> AgentMessageBlock(message = message, modifier = modifier)
+        is AgentMessageUi -> AgentMessageBlock(
+            message = message,
+            retainedStreamingState = retainedStreamingState,
+            modifier = modifier,
+        )
         is ThinkingMessageUi -> ThinkingRow(
             message = message,
             modifier = modifier,
@@ -429,6 +434,7 @@ private fun UserMessageBubble(
 @Composable
 private fun AgentMessageBlock(
     message: AgentMessageUi,
+    retainedStreamingState: StreamingMarkdownState?,
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
@@ -437,6 +443,13 @@ private fun AgentMessageBlock(
     val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
     var streamingRevealComplete by remember(message.id) {
         mutableStateOf(!keepStreamingMarkdown)
+    }
+    // 渲染会话由列表层按 message.id 持有，item 滚出视口被销毁后滑回时复用同一
+    // 会话；没有外部持有者时（如嵌套条目）退回组合内 remember，行为与之前一致。
+    val streamingState = if (keepStreamingMarkdown) {
+        retainedStreamingState ?: remember(message.id) { StreamingMarkdownState() }
+    } else {
+        null
     }
     LaunchedEffect(copied) {
         if (copied) {
@@ -456,8 +469,9 @@ private fun AgentMessageBlock(
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
-            keepStreamingMarkdown -> {
+            streamingState != null -> {
                 StreamingMarkdown(
+                    state = streamingState,
                     content = message.content,
                     isStreaming = message.isStreaming,
                     onRevealCompleteChange = { streamingRevealComplete = it },
@@ -561,26 +575,42 @@ private fun StableMarkdown(
     )
 }
 
+/**
+ * 流式渲染会话，按 message.id 提升到 LazyColumn 外层持有。
+ *
+ * 流式 item 滚出视口后组合会被销毁，裸 remember 会让解析基线、打字机进度和最新
+ * 快照全部丢失；滑回时整段已生成内容会重新全量解析，并从头重放显现动画。会话
+ * 与组合解耦后，item 重建只是重新挂接效果，渲染进度原样保留。
+ */
+internal class StreamingMarkdownState {
+    val parserSession = StreamingGfmParserSession()
+    val revealCoordinator = SmoothTextRevealCoordinator()
+    val parseTargets = Channel<StreamingMarkdownTarget>(Channel.CONFLATED)
+    val acceptedContent = arrayOf("")
+    var snapshot by mutableStateOf<StreamingGfmSnapshot?>(null)
+}
+
 @Composable
 private fun StreamingMarkdown(
+    state: StreamingMarkdownState,
     content: String,
     isStreaming: Boolean,
     onRevealCompleteChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     tone: ChatMarkdownTone = ChatMarkdownTone.Answer,
 ) {
-    val parserSession = remember { StreamingGfmParserSession() }
-    val revealCoordinator = remember { SmoothTextRevealCoordinator() }
+    val parserSession = state.parserSession
+    val revealCoordinator = state.revealCoordinator
     val components = remember(revealCoordinator, isStreaming) {
         chatMarkdownComponents(
             revealCoordinator = revealCoordinator,
             suppressEmptyListMarkers = isStreaming,
         )
     }
-    val parseTargets = remember { Channel<StreamingMarkdownTarget>(Channel.CONFLATED) }
-    val acceptedContent = remember { arrayOf("") }
+    val parseTargets = state.parseTargets
+    val acceptedContent = state.acceptedContent
     val currentRevealCompleteCallback by rememberUpdatedState(onRevealCompleteChange)
-    var snapshot by remember { mutableStateOf<StreamingGfmSnapshot?>(null) }
+    val snapshot = state.snapshot
 
     LaunchedEffect(revealCoordinator) {
         revealCoordinator.runFrameClock()
@@ -623,7 +653,7 @@ private fun StreamingMarkdown(
                 continue
             }
 
-            snapshot = parsed
+            state.snapshot = parsed
             target = parseTargets.receive()
         }
     }
@@ -696,7 +726,7 @@ private fun StreamingGfmSuccess(
     }
 }
 
-private data class StreamingMarkdownTarget(
+internal data class StreamingMarkdownTarget(
     val content: String,
     val isStreaming: Boolean,
 )
@@ -1555,6 +1585,11 @@ private fun ThinkingRow(
     var expanded by remember(message.id) { mutableStateOf(!message.collapsed) }
     // 只给本次实际经历流式输出的思考保留显现时钟；历史消息直接静态渲染。
     val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
+    val streamingState = if (keepStreamingMarkdown) {
+        remember(message.id) { StreamingMarkdownState() }
+    } else {
+        null
+    }
     LaunchedEffect(message.isStreaming) {
         if (message.isStreaming) expanded = true
     }
@@ -1663,8 +1698,9 @@ private fun ThinkingRow(
                         top = if (compact) 2.dp else 8.dp,
                         bottom = if (compact) 8.dp else 12.dp,
                     )
-                if (keepStreamingMarkdown) {
+                if (streamingState != null) {
                     StreamingMarkdown(
+                        state = streamingState,
                         content = message.content,
                         isStreaming = message.isStreaming,
                         onRevealCompleteChange = {},

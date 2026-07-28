@@ -300,6 +300,9 @@ private fun AgentChatMessages(
     modifier: Modifier = Modifier,
 ) {
     val timelineEntries = remember(visibleMessages) { visibleMessages.toTimelineEntries() }
+    // 流式消息的渲染会话按 id 提升到列表层持有：item 滚出视口被 LazyColumn 销毁后，
+    // 滑回时复用同一解析会话与打字机进度，避免整段内容重新解析并重放显现动画。
+    val streamingMarkdownStates = remember { mutableMapOf<String, StreamingMarkdownState>() }
     val bottomItemIndex = timelineEntries.size
     val isUserDragging by scrollState.interactionSource.collectIsDraggedAsState()
     val isAtBottom by remember(scrollState) {
@@ -483,6 +486,13 @@ private fun AgentChatMessages(
                         val message = entry.message
                         ChatMessageItem(
                             message = message,
+                            retainedStreamingState = (message as? AgentMessageUi)
+                                ?.takeIf { it.isStreaming || streamingMarkdownStates.containsKey(it.id) }
+                                ?.let { agentMessage ->
+                                    streamingMarkdownStates.getOrPut(agentMessage.id) {
+                                        StreamingMarkdownState()
+                                    }
+                                },
                             onSuggestionClick = onSuggestionClick,
                             onRunTraceClick = onRunTraceClick,
                             onOpenBrowser = onOpenBrowser,
