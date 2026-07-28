@@ -339,8 +339,14 @@ private fun AgentChatMessages(
         bottomItemIndex,
         keepBottomAnchored,
         isUserDragging,
+        isStreaming,
     ) {
-        if (keepBottomAnchored && !isUserDragging) {
+        if (shouldRequestInitialBottom(
+                isStreaming = isStreaming,
+                keepBottomAnchored = keepBottomAnchored,
+                isUserDragging = isUserDragging,
+            )
+        ) {
             scrollState.requestScrollToItem(bottomItemIndex)
         }
     }
@@ -365,15 +371,14 @@ private fun AgentChatMessages(
         }
             .distinctUntilChanged()
             .collect { layout ->
-                bottomFollowDecisions.trySend(
-                    resolveBottomFollowDecision(
-                        enabled = layout.enabled,
-                        bottomItemIndex = layout.bottomItemIndex,
-                        sentinelBottom = layout.sentinelBottom,
-                        viewportEnd = layout.viewportEnd,
-                        lastVisibleIndex = layout.lastVisibleIndex,
-                    )
+                val decision = resolveBottomFollowDecision(
+                    enabled = layout.enabled,
+                    bottomItemIndex = layout.bottomItemIndex,
+                    sentinelBottom = layout.sentinelBottom,
+                    viewportEnd = layout.viewportEnd,
+                    lastVisibleIndex = layout.lastVisibleIndex,
                 )
+                bottomFollowDecisions.trySend(decision)
             }
     }
 
@@ -397,6 +402,12 @@ private fun AgentChatMessages(
             while (true) {
                 val latest = bottomFollowDecisions.tryReceive().getOrNull() ?: break
                 accept(latest)
+            }
+
+            if (!shouldFollowBottom) {
+                remainingDistancePx = 0f
+                requestIndex = null
+                continue
             }
 
             requestIndex?.let { targetIndex ->
@@ -426,10 +437,14 @@ private fun AgentChatMessages(
                 elapsedSeconds = elapsedSeconds,
                 density = densityScale,
             )
+            var consumedStep = 0f
             try {
-                val consumed = scrollState.scrollBy(step)
-                remainingDistancePx = if (consumed > 0f) {
-                    (remainingDistancePx - consumed).coerceAtLeast(0f)
+                scrollState.scroll {
+                    scrollBy(step)
+                    consumedStep = step
+                }
+                remainingDistancePx = if (consumedStep > 0f) {
+                    (remainingDistancePx - consumedStep).coerceAtLeast(0f)
                 } else {
                     0f
                 }
@@ -725,6 +740,12 @@ internal fun resolveKeepBottomAnchored(
 }
 
 internal fun resolveBottomFollowEnabled(
+    isStreaming: Boolean,
+    keepBottomAnchored: Boolean,
+    isUserDragging: Boolean,
+): Boolean = isStreaming && keepBottomAnchored && !isUserDragging
+
+internal fun shouldRequestInitialBottom(
     isStreaming: Boolean,
     keepBottomAnchored: Boolean,
     isUserDragging: Boolean,
