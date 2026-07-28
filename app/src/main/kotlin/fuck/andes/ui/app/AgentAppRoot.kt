@@ -179,6 +179,7 @@ fun AgentAppRoot() {
                 RoutedShell(route = AppRoute.Home) {
                     AgentHomeScreen(
                         state = agentState.homeState,
+                        conversationKey = agentState.conversationPaneState.selectedConversationId,
                         onAction = { action ->
                             when (action) {
                                 is AgentHomeAction.InputChanged -> agentState.updateInput(action.text)
@@ -204,6 +205,7 @@ fun AgentAppRoot() {
                 RoutedShell(route = AppRoute.Chat) {
                     AgentChatScreen(
                         state = agentState.homeState,
+                        conversationKey = agentState.conversationPaneState.selectedConversationId,
                         onAction = { action ->
                             when (action) {
                                 AgentChatAction.NavigateBack -> popRoute()
