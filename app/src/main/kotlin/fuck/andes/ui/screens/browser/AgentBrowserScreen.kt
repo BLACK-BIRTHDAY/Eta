@@ -54,7 +54,6 @@ import com.composables.icons.lucide.R as LucideR
 import fuck.andes.agent.browser.AgentBrowserSession
 import fuck.andes.agent.browser.BrowserSessionSnapshot
 import fuck.andes.ui.components.StatusError
-import fuck.andes.ui.components.StatusWarning
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -399,20 +398,17 @@ private fun BrowserControlButton(
 
 @Composable
 private fun BrowserStatusBanner(snapshot: BrowserSessionSnapshot) {
-    val risk = snapshot.riskChallengeKind
     val message = when {
-        risk != null -> "页面需要人工验证，Agent 已停止自动点击和输入。你可以在下方手动接管。"
         snapshot.error != null -> snapshot.error
         snapshot.isUserControlling && snapshot.available ->
             "你正在接管当前会话，Agent 的网页操作已停止；返回后可让 Agent 继续。"
         else -> null
     } ?: return
     val color = when {
-        risk != null -> StatusWarning
         snapshot.error != null -> StatusError
         else -> MiuixTheme.colorScheme.primary
     }
-    val icon = if (risk != null || snapshot.error != null) {
+    val icon = if (snapshot.error != null) {
         LucideR.drawable.lucide_ic_shield_alert
     } else {
         LucideR.drawable.lucide_ic_mouse_pointer_click

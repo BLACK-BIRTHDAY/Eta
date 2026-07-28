@@ -74,9 +74,9 @@ Eta 不要求用户背固定口令，也不会拿一份关键词表审核一句�
 
 ### 网页浏览
 
-`browser_use` 是运行在 Eta 内的 Agent 浏览器，不是简单调用系统 `ACTION_VIEW`。它可以在不抢占前台的情况下加载 JavaScript 网页、提取保留标题/段落/列表/链接等结构的正文、查找并操作页面元素、滚动和截图；需要人工验证或用户想查看过程时，可在 App 中挂载同一个 WebView 直接接管。外部打开链接仍由独立的 `open_uri` 工具负责，两种能力不会混淆。
+`browser_use` 是运行在 Eta 内的 Agent 浏览器，不是简单调用系统 `ACTION_VIEW`。它可以在不抢占前台的情况下加载 JavaScript 网页、提取保留标题/段落/列表/链接等结构的正文、查找并操作页面元素、提交表单、滚动和截图；用户想查看过程时，可在 App 中挂载同一个 WebView 直接接管。外部打开链接仍由独立的 `open_uri` 工具负责，两种能力不会混淆。
 
-浏览器只接受 HTTPS，SSL 错误不会被忽略，并对主页面与子资源执行 URL、DNS、主机数量和 Service Worker 限制；这些检查属于纵深防护，WebView 本身并不是可绑定实际连接 IP 的独立网络沙箱，因此不能把它当作访问内网或承载高敏感凭据的安全边界。网页内容会作为不可信数据交给模型，正文按偏移分页并以 UTF-8 字节严格限长；Cookie 不会作为工具结果暴露给模型。网页工具可在设置中关闭。
+Eta 不对浏览器请求执行额外的 URL、DNS、IP、主机数量、请求方法、重定向或 Service Worker 拦截，页面直接交给系统 WebView 加载。浏览器允许本地内容、混合内容、第三方 Cookie、自动媒体播放和表单提交；系统 WebView 与 Android 平台自身的协议支持、TLS 校验和权限行为保持不变。网页工具可在设置中关闭。
 
 ### 终端与文件
 
@@ -189,7 +189,7 @@ hook/xiaoai/               超级小爱入口接管
 agent/runtime/             Agent Runtime、跨进程协议、结果归档
 agent/model/               模型提供商抽象、SSE 解析
 agent/tool/                本机工具执行器
-agent/browser/             共享离屏浏览器、网页读取与安全边界
+agent/browser/             共享离屏浏览器、网页读取与交互
 agent/device/              root / 无障碍 / input 设备控制
 agent/terminal/            Android/Alpine 会话式 shell、环境安装与文件工具
 agent/overlay/             运行浮层与手势反馈
