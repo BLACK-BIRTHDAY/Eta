@@ -184,6 +184,9 @@ fun AgentChatBody(
         onThinkingChange = onThinkingChange,
         onSend = {
             sentFromKeyboard = true
+            // 发送即重新锚定底部：用户从历史上方直接发送时，同帧内 isStreaming 与
+            // 新消息一起到位，立即回到底部并恢复后续的流式平滑跟底。
+            keepBottomAnchored = true
             onSend()
         },
         onStop = onStop,
