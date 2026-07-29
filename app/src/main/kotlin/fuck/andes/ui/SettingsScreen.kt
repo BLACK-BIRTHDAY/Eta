@@ -79,9 +79,9 @@ private val ColorOSOrange = Color(0xFFFF7700)
 /**
  * 模块配置界面。
  *
- * 开关默认开启（与历史硬编码行为一致）。切换时同步提交（RemotePreferences.commit
- * 会同步等待 binder 提交到 LSPosed 数据库，失败返回 false）；XposedService 未就绪时
- * 不允许写入，避免保存到 hook 进程不可见的本地配置。
+ * 开关默认值由 [Prefs.Keys.BOOLEAN_DEFAULTS] 统一定义。切换时同步提交
+ * （RemotePreferences.commit 会同步等待 binder 提交到 LSPosed 数据库，失败返回
+ * false）；XposedService 未就绪时不允许写入，避免保存到 hook 进程不可见的本地配置。
  */
 @Composable
 internal fun SettingsScreen(
