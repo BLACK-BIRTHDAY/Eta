@@ -129,7 +129,7 @@ BYOK（Bring Your Own Key）意味着 Agent 能力跟随你选择的模型，而
 
 系统助手接入覆盖 ColorOS 小布，并提供 HyperOS 超级小爱适配。两者均由基于 [libxposed API 102](https://github.com/libxposed/api) 的 Xposed 模块实现；在这条链路中，Xposed 只承担入口适配，实际任务仍由 Eta 的 Agent Runtime 执行。
 
-- **小布接管**：接管小布对话入口，解析图片上下文，交给同一套 Agent Runtime 处理。支持 BYOK，默认只在 `/agent` 前缀下触发
+- **小布接管**：接管小布对话入口，继承当前房间的文本上下文并解析图片输入，交给同一套 Agent Runtime 处理。支持 BYOK，默认只在 `/agent` 前缀下触发
 - **超级小爱接管**：从终态 ASR 与 `setQueryInfo` 识别当前问话，再按查询文本关联小爱重新生成的 `Nlp.Request` Event ID；支持文本与单张本地图片或截图，并会阻止已接管轮次抢跑的原生 Agent Action。前缀、图片解析或任务入队任一前置检查失败时回到原生链路
 
 ### Google 能力解锁与入口创建
