@@ -65,6 +65,7 @@ import androidx.core.net.toUri
 import com.composables.icons.lucide.R as LucideR
 import fuck.andes.agent.browser.AgentBrowserSession
 import fuck.andes.agent.browser.BrowserSessionSnapshot
+import fuck.andes.ui.components.MiuixDialogActions
 import fuck.andes.ui.components.StatusError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -236,35 +237,19 @@ internal fun AgentBrowserScreen(
         WindowDialog(
             show = true,
             title = "重置浏览器会话",
+            summary = "将关闭当前页面并清除 Eta 浏览器的 Cookie 与站点数据。外部浏览器不会受到影响。",
             onDismissRequest = { showResetDialog = false },
         ) {
-            Text(
-                text = "将关闭当前页面并清除 Eta 浏览器的 Cookie 与站点数据。外部浏览器不会受到影响。",
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            MiuixDialogActions(
+                confirmText = "重置",
+                confirmEnabled = !actionPending,
+                onCancel = { showResetDialog = false },
+                onConfirm = {
+                    showResetDialog = false
+                    address = ""
+                    launchBrowserAction { AgentBrowserSession.resetFromUser() }
+                },
             )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 18.dp),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(
-                    text = "取消",
-                    onClick = { showResetDialog = false },
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(
-                    text = "重置",
-                    onClick = {
-                        showResetDialog = false
-                        address = ""
-                        launchBrowserAction { AgentBrowserSession.resetFromUser() }
-                    },
-                    enabled = !actionPending,
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                )
-            }
         }
     }
 }

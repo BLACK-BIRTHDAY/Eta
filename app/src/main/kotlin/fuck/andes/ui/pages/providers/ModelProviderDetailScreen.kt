@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +45,7 @@ import fuck.andes.data.repository.ModelRepository
 import fuck.andes.data.repository.ProviderRepository
 import fuck.andes.data.repository.RemoteModelFetcher
 import fuck.andes.data.repository.RuntimeConfigRepository
+import fuck.andes.ui.components.MiuixDialogActions
 import fuck.andes.ui.components.MiuixScaffold
 import fuck.andes.ui.components.StatusError
 import fuck.andes.ui.components.StatusSuccess
@@ -447,35 +447,37 @@ private fun ProviderConfigTab(
     }
 
     if (showDeleteDialog) {
-        OverlayDialog(show = true, title = "删除 Provider", onDismissRequest = { if (!isWorking) showDeleteDialog = false }) {
-            Text("确定删除「${provider.name}」吗？此操作不可恢复。")
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.End) {
-                TextButton(text = "取消", enabled = !isWorking, onClick = { showDeleteDialog = false })
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(
-                    text = "删除",
-                    enabled = !isWorking,
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    onClick = {
-                        scope.launch {
-                            isWorking = true
-                            try {
-                                ProviderRepository.deleteProvider(provider.id)
-                                RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
-                                showDeleteDialog = false
-                                onDeleted()
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (throwable: Throwable) {
-                                status = "失败：${throwable.message ?: "删除失败"}"
-                                showDeleteDialog = false
-                            } finally {
-                                isWorking = false
-                            }
+        OverlayDialog(
+            show = true,
+            title = "删除提供商",
+            summary = "删除「${provider.name}」后将不可恢复。",
+            onDismissRequest = { if (!isWorking) showDeleteDialog = false },
+        ) {
+            MiuixDialogActions(
+                confirmText = if (isWorking) "删除中..." else "删除",
+                cancelEnabled = !isWorking,
+                confirmEnabled = !isWorking,
+                destructive = true,
+                onCancel = { showDeleteDialog = false },
+                onConfirm = {
+                    scope.launch {
+                        isWorking = true
+                        try {
+                            ProviderRepository.deleteProvider(provider.id)
+                            RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
+                            showDeleteDialog = false
+                            onDeleted()
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (throwable: Throwable) {
+                            status = "失败：${throwable.message ?: "删除失败"}"
+                            showDeleteDialog = false
+                        } finally {
+                            isWorking = false
                         }
-                    },
-                )
-            }
+                    }
+                },
+            )
         }
     }
 
@@ -483,43 +485,33 @@ private fun ProviderConfigTab(
         OverlayDialog(
             show = true,
             title = "重置内置配置",
+            summary = "将恢复「${provider.name}」的默认配置和官方模型列表，API Key 会保留。",
             onDismissRequest = { if (!isWorking) showResetDialog = false },
         ) {
-            Text("将恢复「${provider.name}」的默认配置和官方模型列表，API Key 会保留。确定继续吗？")
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(
-                    text = "取消",
-                    enabled = !isWorking,
-                    onClick = { showResetDialog = false },
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(
-                    text = if (isWorking) "重置中..." else "重置",
-                    enabled = !isWorking,
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    onClick = {
-                        scope.launch {
-                            isWorking = true
-                            try {
-                                ProviderRepository.resetBuiltIn(provider.id)
-                                RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
-                                status = "已重置"
-                                showResetDialog = false
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (throwable: Throwable) {
-                                status = "失败：${throwable.message ?: "重置失败"}"
-                                showResetDialog = false
-                            } finally {
-                                isWorking = false
-                            }
+            MiuixDialogActions(
+                confirmText = if (isWorking) "重置中..." else "重置",
+                cancelEnabled = !isWorking,
+                confirmEnabled = !isWorking,
+                onCancel = { showResetDialog = false },
+                onConfirm = {
+                    scope.launch {
+                        isWorking = true
+                        try {
+                            ProviderRepository.resetBuiltIn(provider.id)
+                            RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
+                            status = "已重置"
+                            showResetDialog = false
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (throwable: Throwable) {
+                            status = "失败：${throwable.message ?: "重置失败"}"
+                            showResetDialog = false
+                        } finally {
+                            isWorking = false
                         }
-                    },
-                )
-            }
+                    }
+                },
+            )
         }
     }
 }
@@ -781,43 +773,34 @@ private fun ProviderModelsTab(
         OverlayDialog(
             show = true,
             title = "删除模型",
+            summary = "删除「${model.displayName}」后将不可恢复。",
             onDismissRequest = { if (!isMutatingModel) modelPendingDelete = null },
         ) {
-            Text("确定删除「${model.displayName}」吗？此操作不可恢复。")
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(
-                    text = "取消",
-                    enabled = !isMutatingModel,
-                    onClick = { modelPendingDelete = null },
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(
-                    text = if (isMutatingModel) "删除中..." else "删除",
-                    enabled = !isMutatingModel,
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    onClick = {
-                        scope.launch {
-                            isMutatingModel = true
-                            try {
-                                ModelRepository.deleteModel(provider.id, model.id)
-                                RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
-                                message = "已删除：${model.displayName}"
-                                modelPendingDelete = null
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (throwable: Throwable) {
-                                message = "失败：${throwable.message ?: "删除失败"}"
-                                modelPendingDelete = null
-                            } finally {
-                                isMutatingModel = false
-                            }
+            MiuixDialogActions(
+                confirmText = if (isMutatingModel) "删除中..." else "删除",
+                cancelEnabled = !isMutatingModel,
+                confirmEnabled = !isMutatingModel,
+                destructive = true,
+                onCancel = { modelPendingDelete = null },
+                onConfirm = {
+                    scope.launch {
+                        isMutatingModel = true
+                        try {
+                            ModelRepository.deleteModel(provider.id, model.id)
+                            RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
+                            message = "已删除：${model.displayName}"
+                            modelPendingDelete = null
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (throwable: Throwable) {
+                            message = "失败：${throwable.message ?: "删除失败"}"
+                            modelPendingDelete = null
+                        } finally {
+                            isMutatingModel = false
                         }
-                    },
-                )
-            }
+                    }
+                },
+            )
         }
     }
 
@@ -825,46 +808,37 @@ private fun ProviderModelsTab(
         OverlayDialog(
             show = true,
             title = "删除模型",
+            summary = "删除选中的 ${selectedModelIds.size} 个模型后将不可恢复。",
             onDismissRequest = { if (!isMutatingModel) showBatchDeleteDialog = false },
         ) {
-            Text("确定删除选中的 ${selectedModelIds.size} 个模型吗？此操作不可恢复。")
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                TextButton(
-                    text = "取消",
-                    enabled = !isMutatingModel,
-                    onClick = { showBatchDeleteDialog = false },
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                TextButton(
-                    text = if (isMutatingModel) "删除中..." else "删除",
-                    enabled = !isMutatingModel,
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    onClick = {
-                        scope.launch {
-                            val deletedCount = selectedModelIds.size
-                            isMutatingModel = true
-                            try {
-                                ModelRepository.deleteModels(provider.id, selectedModelIds)
-                                RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
-                                message = "已删除 $deletedCount 个模型"
-                                showBatchDeleteDialog = false
-                                selectionMode = false
-                                selectedModelIds = emptySet()
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (throwable: Throwable) {
-                                message = "失败：${throwable.message ?: "删除失败"}"
-                                showBatchDeleteDialog = false
-                            } finally {
-                                isMutatingModel = false
-                            }
+            MiuixDialogActions(
+                confirmText = if (isMutatingModel) "删除中..." else "删除",
+                cancelEnabled = !isMutatingModel,
+                confirmEnabled = !isMutatingModel,
+                destructive = true,
+                onCancel = { showBatchDeleteDialog = false },
+                onConfirm = {
+                    scope.launch {
+                        val deletedCount = selectedModelIds.size
+                        isMutatingModel = true
+                        try {
+                            ModelRepository.deleteModels(provider.id, selectedModelIds)
+                            RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
+                            message = "已删除 $deletedCount 个模型"
+                            showBatchDeleteDialog = false
+                            selectionMode = false
+                            selectedModelIds = emptySet()
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (throwable: Throwable) {
+                            message = "失败：${throwable.message ?: "删除失败"}"
+                            showBatchDeleteDialog = false
+                        } finally {
+                            isMutatingModel = false
                         }
-                    },
-                )
-            }
+                    }
+                },
+            )
         }
     }
 }

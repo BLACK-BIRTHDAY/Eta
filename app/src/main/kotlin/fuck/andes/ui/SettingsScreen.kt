@@ -4,12 +4,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.widget.Toast
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,6 +36,7 @@ import fuck.andes.data.repository.ProviderRepository
 import fuck.andes.data.repository.RuntimeConfigRepository
 import fuck.andes.systemizer.GoogleAppSystemizerInstaller
 import fuck.andes.ui.components.MiuixBackButton
+import fuck.andes.ui.components.MiuixDialogActions
 import fuck.andes.ui.navigation.AppRoute
 import fuck.andes.systemizer.RootManager
 import fuck.andes.systemizer.SystemizerInstallResult
@@ -47,7 +44,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
@@ -55,7 +51,6 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
@@ -599,39 +594,16 @@ private fun SystemizerConfirmDialog(
     OverlayDialog(
         show = show,
         title = "将 Google App 转为系统应用",
+        summary = "系统应用享有语音唤醒权限、更少的自启限制，体验接近原生。将通过 Magisk / KernelSU 模块安装，重启后生效。",
         onDismissRequest = onDismissRequest,
     ) {
-        Text(
-            text = "系统应用享有语音唤醒权限、更少的自启限制，体验接近原生。",
-            modifier = Modifier.fillMaxWidth(),
-            fontSize = MiuixTheme.textStyles.body2.fontSize,
-            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+        MiuixDialogActions(
+            confirmText = if (installing) "处理中..." else "确定",
+            cancelEnabled = !installing,
+            confirmEnabled = !installing,
+            onCancel = onDismissRequest,
+            onConfirm = onConfirm,
         )
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "通过 Magisk / KernelSU 模块安装，重启后生效。",
-            modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
-            fontSize = MiuixTheme.textStyles.footnote1.fontSize,
-            color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            TextButton(
-                text = "取消",
-                onClick = onDismissRequest,
-                modifier = Modifier.weight(1f),
-                enabled = !installing,
-            )
-            TextButton(
-                text = "确定",
-                onClick = onConfirm,
-                modifier = Modifier.weight(1f),
-                enabled = !installing,
-                colors = ButtonDefaults.textButtonColorsPrimary(),
-            )
-        }
     }
 }
 
