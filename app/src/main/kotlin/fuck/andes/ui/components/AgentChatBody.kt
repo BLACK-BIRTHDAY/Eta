@@ -301,8 +301,9 @@ private fun AgentChatMessages(
 ) {
     val timelineEntries = remember(visibleMessages) { visibleMessages.toTimelineEntries() }
     // 复制按钮只出现在每轮对话的最终结果上，中间步骤的过渡文本不提供复制入口。
-    val finalResultMessageIds = remember(visibleMessages) {
-        resolveFinalResultMessageIds(visibleMessages)
+    // 流式进行中当前这一轮尚未收尾，此时的“最后一条正文”只是中间步骤，不标记。
+    val finalResultMessageIds = remember(visibleMessages, isStreaming) {
+        resolveFinalResultMessageIds(visibleMessages, isStreaming = isStreaming)
     }
     // 流式消息的渲染会话按 id 提升到列表层持有：item 滚出视口被 LazyColumn 销毁后，
     // 滑回时复用同一解析会话与打字机进度，避免整段内容重新解析并重放显现动画。
@@ -649,9 +650,13 @@ private fun AgentChatMessageUi.isWorkProcessMessage(): Boolean =
 
 /**
  * 一轮对话（两条用户消息之间）里最后一条 Agent 正文视为最终结果，其余为中间步骤。
- * 流式期间最后一条仍在生成，复制按钮本就由 isStreaming 条件隐藏，这里无需额外处理。
+ * 流式传输期间当前轮次尚未结束，最后一轮不标记，等传输结束后复制按钮才出现；
+ * 之前已结束轮次的最终结果不受影响。
  */
-internal fun resolveFinalResultMessageIds(messages: List<AgentChatMessageUi>): Set<String> {
+internal fun resolveFinalResultMessageIds(
+    messages: List<AgentChatMessageUi>,
+    isStreaming: Boolean = false,
+): Set<String> {
     val ids = LinkedHashSet<String>()
     var lastAgentMessageId: String? = null
     messages.forEach { message ->
@@ -664,7 +669,9 @@ internal fun resolveFinalResultMessageIds(messages: List<AgentChatMessageUi>): S
             else -> Unit
         }
     }
-    lastAgentMessageId?.let(ids::add)
+    if (!isStreaming) {
+        lastAgentMessageId?.let(ids::add)
+    }
     return ids
 }
 

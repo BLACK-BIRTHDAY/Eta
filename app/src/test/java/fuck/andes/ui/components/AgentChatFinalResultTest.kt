@@ -59,6 +59,55 @@ class AgentChatFinalResultTest {
         assertEquals(emptySet<String>(), resolveFinalResultMessageIds(messages))
     }
 
+    @Test
+    fun streamingTurnDoesNotMarkIntermediateMessageAsFinalResult() {
+        val messages = listOf(
+            UserMessageUi(id = "user-1", content = "任务"),
+            AgentMessageUi(id = "agent-1", content = "我来帮你搜索。"),
+            toolActivity("tool-1"),
+        )
+
+        assertEquals(
+            emptySet<String>(),
+            resolveFinalResultMessageIds(messages, isStreaming = true),
+        )
+    }
+
+    @Test
+    fun streamingKeepsFinalResultOfCompletedEarlierTurns() {
+        val messages = listOf(
+            UserMessageUi(id = "user-1", content = "第一问"),
+            AgentMessageUi(id = "agent-1", content = "第一答"),
+            UserMessageUi(id = "user-2", content = "第二问"),
+            AgentMessageUi(id = "agent-2", content = "中间步骤"),
+            toolActivity("tool-1"),
+        )
+
+        assertEquals(
+            setOf("agent-1"),
+            resolveFinalResultMessageIds(messages, isStreaming = true),
+        )
+    }
+
+    @Test
+    fun streamingEndRestoresFinalResultOfLastTurn() {
+        val messages = listOf(
+            UserMessageUi(id = "user-1", content = "任务"),
+            AgentMessageUi(id = "agent-1", content = "中间步骤"),
+            toolActivity("tool-1"),
+            AgentMessageUi(id = "agent-2", content = "最终答案"),
+        )
+
+        assertEquals(
+            emptySet<String>(),
+            resolveFinalResultMessageIds(messages, isStreaming = true),
+        )
+        assertEquals(
+            setOf("agent-2"),
+            resolveFinalResultMessageIds(messages, isStreaming = false),
+        )
+    }
+
     private fun toolActivity(id: String): AgentChatMessageUi = ToolActivityMessageUi(
         id = id,
         toolName = "browser_use",
