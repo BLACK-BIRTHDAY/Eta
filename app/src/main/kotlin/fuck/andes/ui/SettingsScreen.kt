@@ -33,6 +33,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import fuck.andes.FuckAndesApp
+import fuck.andes.agent.accessibility.AccessibilityProtectionClient
 import fuck.andes.agent.accessibility.AgentAccessibilityService
 import fuck.andes.config.Prefs
 import fuck.andes.data.repository.ProviderRepository
@@ -100,12 +101,18 @@ internal fun SettingsScreen(
     var accessibilityGranted by remember {
         mutableStateOf(isAgentAccessibilityEnabled(context))
     }
+    var accessibilityProtectionEnabled by remember {
+        mutableStateOf(AccessibilityProtectionClient.isEnabled(context))
+    }
+    var accessibilityProtectionPending by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 overlayGranted = android.provider.Settings.canDrawOverlays(context)
                 accessibilityGranted = isAgentAccessibilityEnabled(context)
+                accessibilityProtectionEnabled =
+                    AccessibilityProtectionClient.isEnabled(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -440,6 +447,47 @@ internal fun SettingsScreen(
                                 )
                             }
                         },
+                    )
+                    PrefDivider()
+                    SwitchPreference(
+                        title = "强制保持无障碍",
+                        summary = "由 system_server 保护 Eta 服务并在断连时有限重绑；关闭后不再干预系统设置",
+                        checked = accessibilityProtectionEnabled,
+                        onCheckedChange = { enabled ->
+                            if (accessibilityProtectionPending) {
+                                return@SwitchPreference
+                            }
+                            accessibilityProtectionPending = true
+                            AccessibilityProtectionClient.setEnabled(
+                                context = context,
+                                enabled = enabled,
+                            ) { result ->
+                                accessibilityProtectionPending = false
+                                accessibilityProtectionEnabled = result.enabled
+                                accessibilityGranted = isAgentAccessibilityEnabled(context)
+                                val failureMessage = when (result.status) {
+                                    AccessibilityProtectionClient.ControlStatus.APPLIED -> null
+                                    AccessibilityProtectionClient.ControlStatus.UNAVAILABLE ->
+                                        "无障碍保护后端不可用，请确认 system 作用域已启用并重启"
+                                    AccessibilityProtectionClient.ControlStatus.REJECTED ->
+                                        "无障碍保护请求被系统拒绝"
+                                }
+                                if (failureMessage != null) {
+                                    Toast.makeText(
+                                        context.applicationContext,
+                                        failureMessage,
+                                        Toast.LENGTH_SHORT,
+                                    ).show()
+                                }
+                            }
+                        },
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_shield,
+                                tint = ColorOSVividGreen,
+                            )
+                        },
+                        enabled = !accessibilityProtectionPending,
                     )
                 }
             }

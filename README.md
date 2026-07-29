@@ -150,10 +150,36 @@ Gemini 解锁与一圈即搜是 Eta 早期建立的 Google 能力解锁功能，
 2. 配置模型提供商、API Key 和当前模型
 3. 按需授予悬浮窗、无障碍、应用列表读取、位置和后台运行等权限；位置仅在 Agent 调用时间与位置工具时读取，如需从小布等后台入口执行位置任务，应授予“始终允许”
 4. 按需开启设备直达、敏感信息读取、敏感设备操作和终端/文件工具；终端身份由用户明确选择为 `user` 或 `root`，需要 Python、Git 等通用命令时可另行安装 Linux 工具环境
-5. 用户主动执行 GUI Agent 操作时，如果 Eta 无障碍服务尚未连接，Runtime 可在已有 Root 授权下启用 Eta，同时保留其他无障碍服务，并在确认服务连接后继续执行
+5. 在系统设置中开启 Eta 无障碍服务；如需自动恢复，可在 Eta 设置页显式开启“强制保持无障碍”
 6. 如需系统助手接入或 Google 能力解锁，再在支持 libxposed API 102 的 LSPosed 环境中启用模块，确认作用域包含 `system`、`SystemUI`、Google App、小布识屏、小布助手和超级小爱，然后重启手机
 
 </details>
+
+### 强制保持无障碍
+
+该能力默认关闭。开启后，注入 `system_server` 的保护后端会校验 Eta 的服务声明、调用
+UID 与 APK 签名，并在无障碍服务列表、总开关、Eta 安装包或 owner 用户解锁状态变化时
+校正配置。它保留其他无障碍服务，不依赖 App 自启动，也不执行周期轮询。
+
+如果服务仍在启用列表中但没有真实连接，保护后端只重启 Eta 自身，并最多逐步尝试三轮；
+持续失败后冷却一分钟。ColorOS 持续反删设置时，写回间隔会从 300 ms 退避到 30 秒，
+稳定一分钟后恢复。关闭开关只停止保护，不会替用户关闭当前服务。
+
+GUI 工具执行前仍会确认真实服务连接。保护未开启、system 作用域未生效或重绑超时时，
+本次动作会明确失败，不会改用 Root 或 Shell 偷偷修改无障碍设置。
+
+若 App 控制入口不可用，可用 ADB 停止保护后再从系统设置关闭服务：
+
+```bash
+adb shell settings put global eta_accessibility_protection_enabled 0
+```
+
+删除该设置会恢复默认关闭状态。开发阶段主动更换签名且确认 APK 来源可信时，还需清除旧
+signer 钉扎值：
+
+```bash
+adb shell settings delete global eta_app_signer_sha256
+```
 
 ## 边界与限制
 
@@ -194,7 +220,7 @@ agent/device/              root / 无障碍 / input 设备控制
 agent/terminal/            Android/Alpine 会话式 shell、环境安装与文件工具
 agent/overlay/             运行浮层与手势反馈
 agent/skill/               Skills 解析、安装、安全读取与索引
-agent/accessibility/       无障碍服务、节点快照与授权状态检查
+agent/accessibility/       无障碍服务、节点快照、保护控制与连接状态检查
 
 data/db/                   Room：会话、模型提供商、运行归档
 data/repository/           仓库层
