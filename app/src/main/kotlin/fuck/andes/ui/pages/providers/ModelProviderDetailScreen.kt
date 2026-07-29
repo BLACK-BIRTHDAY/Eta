@@ -1,6 +1,13 @@
 package fuck.andes.ui.pages.providers
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,12 +31,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.state.ToggleableState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.R as LucideR
@@ -55,6 +66,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
+import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
@@ -70,9 +82,6 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
-
-private val DeleteButtonBg = Color(0xFFFFEBEE)
-private val DeleteButtonFg = Color(0xFFD32F2F)
 
 private data class ProviderConfigDraft(
     val name: String,
@@ -198,6 +207,7 @@ private fun ProviderConfigTab(
 ) {
     var apiKeyVisible by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
+    var testStatus by remember { mutableStateOf<String?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     var isWorking by remember { mutableStateOf(false) }
@@ -273,6 +283,39 @@ private fun ProviderConfigTab(
                         },
                     )
                 }
+                HorizontalDivider()
+                BasicComponent(
+                    title = "测试连接",
+                    summary = testStatus,
+                    enabled = !isWorking,
+                    onClick = {
+                        val validationError = validateProviderDraft(draft)
+                        if (validationError != null) {
+                            testStatus = "失败：$validationError"
+                            return@BasicComponent
+                        }
+                        scope.launch {
+                            isWorking = true
+                            testStatus = "测试中..."
+                            try {
+                                testStatus = testConnection(
+                                    buildUpdatedProvider(
+                                        source = provider,
+                                        name = draft.name,
+                                        baseUrl = draft.baseUrl,
+                                        apiKey = draft.apiKey,
+                                        systemPrompt = draft.systemPrompt,
+                                        isEnabled = draft.isEnabled,
+                                        endpointMode = draft.endpointMode,
+                                        anthropicVersion = draft.anthropicVersion,
+                                    )
+                                )
+                            } finally {
+                                isWorking = false
+                            }
+                        }
+                    },
+                )
             }
         }
 
@@ -305,145 +348,129 @@ private fun ProviderConfigTab(
         }
 
         item(key = "actions") {
-            ProviderSection(title = null, modifier = Modifier.padding(top = 12.dp)) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    TextButton(
-                        text = when {
-                            isWorking -> "保存中..."
-                            creationCommitted -> "已创建"
-                            isNew -> "创建"
-                            else -> "保存配置"
-                        },
-                        enabled = !isWorking && !creationCommitted,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.textButtonColorsPrimary(),
-                        onClick = {
-                            val validationError = validateProviderDraft(draft)
-                            if (validationError != null) {
-                                status = "失败：$validationError"
-                                return@TextButton
-                            }
-                            scope.launch {
-                                isWorking = true
-                                val built = buildUpdatedProvider(
-                                    source = provider,
-                                    name = draft.name,
-                                    baseUrl = draft.baseUrl,
-                                    apiKey = draft.apiKey,
-                                    systemPrompt = draft.systemPrompt,
-                                    isEnabled = draft.isEnabled,
-                                    endpointMode = draft.endpointMode,
-                                    anthropicVersion = draft.anthropicVersion,
-                                )
-                                try {
-                                    if (isNew) {
-                                        val added = ProviderRepository.addProvider(
-                                            built.withId(ProviderRepository.newId())
-                                        )
-                                        if (added.isEnabled) {
-                                            RuntimeConfigRepository.setSelectedProviderId(added.id)
-                                        }
-                                        val ok = RuntimeConfigRepository.syncToRemotePreferences(
-                                            FuckAndesApp.serviceInstance
-                                        )
-                                        status = if (ok) "已创建、设为当前并同步"
-                                        else "已创建并设为当前，LSPosed 服务未连接"
-                                        creationCommitted = true
-                                        onCreated(added.id)
-                                    } else {
-                                        ProviderRepository.updateProvider(built)
-                                        if (built.isEnabled) {
-                                            RuntimeConfigRepository.setSelectedProviderId(built.id)
-                                        }
-                                        val ok = RuntimeConfigRepository.syncToRemotePreferences(
-                                            FuckAndesApp.serviceInstance
-                                        )
-                                        status = when {
-                                            !built.isEnabled -> "已保存，Provider 未启用"
-                                            ok -> "已保存、设为当前并同步"
-                                            else -> "已保存并设为当前，LSPosed 服务未连接"
-                                        }
-                                    }
-                                } catch (cancelled: CancellationException) {
-                                    throw cancelled
-                                } catch (throwable: Throwable) {
-                                    status = "失败：${throwable.message ?: "保存失败"}"
-                                } finally {
-                                    isWorking = false
-                                }
-                            }
-                        },
-                    )
-                    TextButton(
-                        text = if (isWorking) "处理中..." else "测试连接",
-                        enabled = !isWorking,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            val validationError = validateProviderDraft(draft)
-                            if (validationError != null) {
-                                status = "失败：$validationError"
-                                return@TextButton
-                            }
-                            scope.launch {
-                                isWorking = true
-                                status = "测试中..."
-                                try {
-                                    status = testConnection(
-                                        buildUpdatedProvider(
-                                            source = provider,
-                                            name = draft.name,
-                                            baseUrl = draft.baseUrl,
-                                            apiKey = draft.apiKey,
-                                            systemPrompt = draft.systemPrompt,
-                                            isEnabled = draft.isEnabled,
-                                            endpointMode = draft.endpointMode,
-                                            anthropicVersion = draft.anthropicVersion,
-                                        )
-                                    )
-                                } finally {
-                                    isWorking = false
-                                }
-                            }
-                        },
-                    )
-                    if (!isNew) {
-                        if (provider.isBuiltIn) {
-                            TextButton(
-                                text = "重置内置配置",
-                                enabled = !isWorking,
-                                modifier = Modifier.fillMaxWidth(),
-                                onClick = {
-                                    showResetDialog = true
-                                },
-                            )
-                        } else {
-                            TextButton(
-                                text = "删除提供商",
-                                enabled = !isWorking,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.textButtonColors(
-                                    color = DeleteButtonBg,
-                                    textColor = DeleteButtonFg,
-                                ),
-                                onClick = { showDeleteDialog = true },
-                            )
+            // 操作分层：主按钮实心独占，次要操作降级为文字按钮，与弹窗按钮语言一致
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .padding(top = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                TextButton(
+                    text = when {
+                        isWorking -> "保存中..."
+                        creationCommitted -> "已创建"
+                        isNew -> "创建"
+                        else -> "保存配置"
+                    },
+                    enabled = !isWorking && !creationCommitted,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                    onClick = {
+                        val validationError = validateProviderDraft(draft)
+                        if (validationError != null) {
+                            status = "失败：$validationError"
+                            return@TextButton
                         }
-                    }
-                    status?.let { message ->
+                        scope.launch {
+                            isWorking = true
+                            val built = buildUpdatedProvider(
+                                source = provider,
+                                name = draft.name,
+                                baseUrl = draft.baseUrl,
+                                apiKey = draft.apiKey,
+                                systemPrompt = draft.systemPrompt,
+                                isEnabled = draft.isEnabled,
+                                endpointMode = draft.endpointMode,
+                                anthropicVersion = draft.anthropicVersion,
+                            )
+                            try {
+                                if (isNew) {
+                                    val added = ProviderRepository.addProvider(
+                                        built.withId(ProviderRepository.newId())
+                                    )
+                                    if (added.isEnabled) {
+                                        RuntimeConfigRepository.setSelectedProviderId(added.id)
+                                    }
+                                    val ok = RuntimeConfigRepository.syncToRemotePreferences(
+                                        FuckAndesApp.serviceInstance
+                                    )
+                                    status = if (ok) "已创建、设为当前并同步"
+                                    else "已创建并设为当前，LSPosed 服务未连接"
+                                    creationCommitted = true
+                                    onCreated(added.id)
+                                } else {
+                                    ProviderRepository.updateProvider(built)
+                                    if (built.isEnabled) {
+                                        RuntimeConfigRepository.setSelectedProviderId(built.id)
+                                    }
+                                    val ok = RuntimeConfigRepository.syncToRemotePreferences(
+                                        FuckAndesApp.serviceInstance
+                                    )
+                                    status = when {
+                                        !built.isEnabled -> "已保存，Provider 未启用"
+                                        ok -> "已保存、设为当前并同步"
+                                        else -> "已保存并设为当前，LSPosed 服务未连接"
+                                    }
+                                }
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (throwable: Throwable) {
+                                status = "失败：${throwable.message ?: "保存失败"}"
+                            } finally {
+                                isWorking = false
+                            }
+                        }
+                    },
+                )
+                status?.let { message ->
+                    Text(
+                        text = message,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = if (message.startsWith("失败")) StatusError else StatusSuccess,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+            }
+        }
+
+        if (!isNew) {
+            item(key = "danger_zone") {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .padding(top = 12.dp),
+                    showIndication = true,
+                    onClick = if (isWorking) {
+                        null
+                    } else {
+                        {
+                            if (provider.isBuiltIn) showResetDialog = true else showDeleteDialog = true
+                        }
+                    },
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 14.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Text(
-                            text = message,
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = if (message.startsWith("失败")) StatusError else StatusSuccess,
+                            text = if (provider.isBuiltIn) "重置内置配置" else "删除提供商",
+                            fontSize = MiuixTheme.textStyles.headline1.fontSize,
+                            fontWeight = FontWeight.Medium,
+                            color = MiuixTheme.colorScheme.error,
                         )
                     }
                 }
             }
         }
 
-        item(key = "bottom_spacer") { Spacer(modifier = Modifier.navigationBarsPadding()) }
+        item(key = "bottom_spacer") {
+            Spacer(modifier = Modifier.navigationBarsPadding().height(24.dp))
+        }
     }
 
     if (showDeleteDialog) {
@@ -534,199 +561,186 @@ private fun ProviderModelsTab(
     var selectedModelIds by remember(provider.id) { mutableStateOf(setOf<String>()) }
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .overScrollVertical()
-            .scrollEndHaptic()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        overscrollEffect = null,
-    ) {
-        item(key = "actions") {
-            ProviderSection(title = "模型管理") {
-                ArrowPreference(
-                    title = if (isFetching) "拉取中..." else "从远端自动拉取",
-                    summary = "读取 ${provider.baseUrl} 的 /models 列表",
-                    enabled = !isFetching && !isMutatingModel,
-                    startAction = {
-                        ProviderRoundIcon(
-                            icon = LucideR.drawable.lucide_ic_cloud_download,
-                            tint = MiuixTheme.colorScheme.primary,
-                        )
-                    },
-                    onClick = {
-                        scope.launch {
-                            isFetching = true
-                            message = null
-                            try {
-                                val models = RemoteModelFetcher.fetch(provider).getOrElse { throwable ->
-                                    message = "失败：${throwable.message ?: throwable.javaClass.simpleName}"
-                                    return@launch
+    BackHandler(enabled = selectionMode) {
+        selectionMode = false
+        selectedModelIds = emptySet()
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .overScrollVertical()
+                .scrollEndHaptic()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            overscrollEffect = null,
+        ) {
+            item(key = "actions") {
+                ProviderSection(title = "模型管理") {
+                    ArrowPreference(
+                        title = if (isFetching) "拉取中..." else "从远端自动拉取",
+                        summary = "读取 ${provider.baseUrl} 的 /models 列表",
+                        enabled = !isFetching && !isMutatingModel,
+                        startAction = {
+                            ProviderRoundIcon(
+                                icon = LucideR.drawable.lucide_ic_cloud_download,
+                                tint = MiuixTheme.colorScheme.primary,
+                            )
+                        },
+                        onClick = {
+                            scope.launch {
+                                isFetching = true
+                                message = null
+                                try {
+                                    val models = RemoteModelFetcher.fetch(provider).getOrElse { throwable ->
+                                        message = "失败：${throwable.message ?: throwable.javaClass.simpleName}"
+                                        return@launch
+                                    }
+                                    val chatModels = models.filter(RemoteModelFetcher::isChatCapableModel)
+                                    val sync = ModelRepository.syncRemoteModels(provider.id, chatModels)
+                                    if (sync.applied) {
+                                        RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
+                                    }
+                                    val filteredCount = models.size - chatModels.size
+                                    message = if (!sync.applied) {
+                                        "远端未返回可用对话模型，已保留现有模型"
+                                    } else if (filteredCount > 0) {
+                                        "已拉取 ${chatModels.size} 个模型，过滤 $filteredCount 个非对话模型"
+                                    } else {
+                                        "已拉取 ${chatModels.size} 个模型"
+                                    }
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (throwable: Throwable) {
+                                    message = "失败：${throwable.message ?: "同步失败"}"
+                                } finally {
+                                    isFetching = false
                                 }
-                                val chatModels = models.filter(RemoteModelFetcher::isChatCapableModel)
-                                val sync = ModelRepository.syncRemoteModels(provider.id, chatModels)
-                                if (sync.applied) {
-                                    RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
-                                }
-                                val filteredCount = models.size - chatModels.size
-                                message = if (!sync.applied) {
-                                    "远端未返回可用对话模型，已保留现有模型"
-                                } else if (filteredCount > 0) {
-                                    "已拉取 ${chatModels.size} 个模型，过滤 $filteredCount 个非对话模型"
-                                } else {
-                                    "已拉取 ${chatModels.size} 个模型"
-                                }
-                            } catch (cancelled: CancellationException) {
-                                throw cancelled
-                            } catch (throwable: Throwable) {
-                                message = "失败：${throwable.message ?: "同步失败"}"
-                            } finally {
-                                isFetching = false
                             }
-                        }
-                    },
-                )
-                ProviderDivider()
-                ArrowPreference(
-                    title = "添加自定义模型",
-                    summary = "手动填写展示名称与 Model ID",
-                    enabled = !isFetching && !isMutatingModel,
-                    startAction = {
-                        ProviderRoundIcon(
-                            icon = LucideR.drawable.lucide_ic_plus,
-                            tint = MiuixTheme.colorScheme.primary,
-                        )
-                    },
-                    onClick = {
-                        editorError = null
-                        isCreatingModel = true
-                        editingModel = Model(
-                            id = "",
-                            modelId = "",
-                            displayName = "自定义模型",
-                        )
-                    },
-                )
-                message?.let {
-                    HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-                    Text(
-                        text = it,
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = if (it.startsWith("失败")) StatusError else StatusSuccess,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        },
                     )
+                    ProviderDivider()
+                    ArrowPreference(
+                        title = "添加自定义模型",
+                        summary = "手动填写展示名称与 Model ID",
+                        enabled = !isFetching && !isMutatingModel,
+                        startAction = {
+                            ProviderRoundIcon(
+                                icon = LucideR.drawable.lucide_ic_plus,
+                                tint = MiuixTheme.colorScheme.primary,
+                            )
+                        },
+                        onClick = {
+                            editorError = null
+                            isCreatingModel = true
+                            editingModel = Model(
+                                id = "",
+                                modelId = "",
+                                displayName = "自定义模型",
+                            )
+                        },
+                    )
+                    message?.let {
+                        HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+                        Text(
+                            text = it,
+                            style = MiuixTheme.textStyles.footnote2,
+                            color = if (it.startsWith("失败")) StatusError else StatusSuccess,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        )
+                    }
                 }
             }
-        }
 
-        if (selectionMode) {
-            item(key = "selection_bar") {
-                ProviderSection(title = null, modifier = Modifier.padding(top = 12.dp)) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = "已选 ${selectedModelIds.size} 个",
-                            style = MiuixTheme.textStyles.body2,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(
-                            text = if (selectedModelIds.size == provider.models.size) "全不选" else "全选",
-                            enabled = !isFetching && !isMutatingModel,
-                            onClick = {
-                                selectedModelIds = if (selectedModelIds.size == provider.models.size) {
-                                    emptySet()
-                                } else {
-                                    provider.models.mapTo(mutableSetOf()) { it.id }
-                                }
-                            },
-                        )
-                        TextButton(
-                            text = "删除",
-                            enabled = selectedModelIds.isNotEmpty() && !isFetching && !isMutatingModel,
-                            colors = ButtonDefaults.textButtonColors(
-                                color = DeleteButtonBg,
-                                textColor = DeleteButtonFg,
-                            ),
-                            onClick = { showBatchDeleteDialog = true },
-                        )
-                        IconButton(
-                            enabled = !isFetching && !isMutatingModel,
-                            onClick = {
-                                selectionMode = false
-                                selectedModelIds = emptySet()
-                            },
+            item(key = "models_list") {
+                ProviderSection(
+                    title = "模型列表 (共 ${provider.models.size} 个)",
+                    modifier = Modifier.padding(bottom = 24.dp),
+                ) {
+                    if (provider.models.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Icon(
-                                painter = painterResource(LucideR.drawable.lucide_ic_x),
-                                contentDescription = "退出多选",
-                                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                            Text(
+                                text = "暂无模型，请从远端拉取或手动添加",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                            )
+                        }
+                    } else {
+                        provider.models.sortedBy { it.sortOrder }.forEachIndexed { index, model ->
+                            if (index > 0) {
+                                HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+                            }
+                            ModelListItem(
+                                model = model,
+                                enabled = !isFetching && !isMutatingModel,
+                                isSelected = model.id == selectedModelId,
+                                selectionMode = selectionMode,
+                                checked = model.id in selectedModelIds,
+                                onToggleChecked = {
+                                    selectedModelIds = if (model.id in selectedModelIds) {
+                                        selectedModelIds - model.id
+                                    } else {
+                                        selectedModelIds + model.id
+                                    }
+                                },
+                                onEnterSelection = {
+                                    selectionMode = true
+                                    selectedModelIds = setOf(model.id)
+                                },
+                                onEdit = {
+                                    editorError = null
+                                    isCreatingModel = false
+                                    editingModel = model
+                                },
+                                onSetCurrent = {
+                                    scope.launch {
+                                        RuntimeConfigRepository.setSelectedModelId(model.id)
+                                        RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
+                                    }
+                                },
                             )
                         }
                     }
                 }
             }
-        }
 
-        item(key = "models_list") {
-            ProviderSection(
-                title = "模型列表 (共 ${provider.models.size} 个)",
-                modifier = Modifier.padding(bottom = 24.dp),
-            ) {
-                if (provider.models.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "暂无模型，请从远端拉取或手动添加",
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        )
-                    }
-                } else {
-                    provider.models.sortedBy { it.sortOrder }.forEachIndexed { index, model ->
-                        if (index > 0) {
-                            HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
-                        }
-                        ModelListItem(
-                            model = model,
-                            enabled = !isFetching && !isMutatingModel,
-                            isSelected = model.id == selectedModelId,
-                            selectionMode = selectionMode,
-                            checked = model.id in selectedModelIds,
-                            onToggleChecked = {
-                                selectedModelIds = if (model.id in selectedModelIds) {
-                                    selectedModelIds - model.id
-                                } else {
-                                    selectedModelIds + model.id
-                                }
-                            },
-                            onEnterSelection = {
-                                selectionMode = true
-                                selectedModelIds = setOf(model.id)
-                            },
-                            onEdit = {
-                                editorError = null
-                                isCreatingModel = false
-                                editingModel = model
-                            },
-                            onSetCurrent = {
-                                scope.launch {
-                                    RuntimeConfigRepository.setSelectedModelId(model.id)
-                                    RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
-                                }
-                            },
-                        )
-                    }
-                }
+            item(key = "bottom_spacer") {
+                // 多选操作栏悬浮在底部时，预留高度避免遮挡最后一个列表项；其余情况与大圆角屏幕下沿保持间距
+                Spacer(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .height(if (selectionMode) 88.dp else 24.dp),
+                )
             }
         }
 
-        item(key = "bottom_spacer") { Spacer(modifier = Modifier.navigationBarsPadding()) }
+        AnimatedVisibility(
+            visible = selectionMode,
+            modifier = Modifier.align(Alignment.BottomCenter),
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+        ) {
+            ModelSelectionBar(
+                selectedCount = selectedModelIds.size,
+                totalCount = provider.models.size,
+                enabled = !isFetching && !isMutatingModel,
+                onToggleAll = {
+                    selectedModelIds = if (selectedModelIds.size == provider.models.size) {
+                        emptySet()
+                    } else {
+                        provider.models.mapTo(mutableSetOf()) { it.id }
+                    }
+                },
+                onDelete = { showBatchDeleteDialog = true },
+                onExit = {
+                    selectionMode = false
+                    selectedModelIds = emptySet()
+                },
+            )
+        }
     }
 
     editingModel?.let { model ->
@@ -738,19 +752,16 @@ private fun ProviderModelsTab(
             onDismiss = {
                 if (!isMutatingModel) editingModel = null
             },
-            onSubmit = { updated, setCurrent ->
+            onSubmit = { updated ->
                 if (isMutatingModel) return@ModelEditDialog
                 scope.launch {
                     isMutatingModel = true
                     editorError = null
                     try {
                         val saved = ModelRepository.saveModel(provider.id, updated)
-                        if (setCurrent) {
-                            RuntimeConfigRepository.setSelectedModelId(saved.id)
-                        }
                         RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
                         editingModel = null
-                        message = if (setCurrent) "已保存并设为当前：${saved.displayName}" else "已保存：${saved.displayName}"
+                        message = "已保存：${saved.displayName}"
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (throwable: Throwable) {
@@ -843,6 +854,60 @@ private fun ProviderModelsTab(
     }
 }
 
+/** 多选模式底部悬浮操作栏：退出在左，已选数量其次，全选与删除在右；删除沿用统一破坏性配色。 */
+@Composable
+private fun ModelSelectionBar(
+    selectedCount: Int,
+    totalCount: Int,
+    enabled: Boolean,
+    onToggleAll: () -> Unit,
+    onDelete: () -> Unit,
+    onExit: () -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp)
+            .padding(bottom = 12.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 4.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            IconButton(onClick = onExit, enabled = enabled) {
+                Icon(
+                    painter = painterResource(LucideR.drawable.lucide_ic_x),
+                    contentDescription = "退出多选",
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                )
+            }
+            Text(
+                text = "已选 $selectedCount 个",
+                style = MiuixTheme.textStyles.body2,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                text = if (selectedCount == totalCount) "全不选" else "全选",
+                enabled = enabled,
+                onClick = onToggleAll,
+            )
+            TextButton(
+                text = "删除",
+                enabled = selectedCount > 0 && enabled,
+                colors = ButtonDefaults.textButtonColorsPrimary(
+                    color = MiuixTheme.colorScheme.error,
+                    textColor = MiuixTheme.colorScheme.onError,
+                ),
+                onClick = onDelete,
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ModelListItem(
@@ -921,7 +986,7 @@ private fun ModelEditDialog(
     isSaving: Boolean,
     error: String?,
     onDismiss: () -> Unit,
-    onSubmit: (Model, Boolean) -> Unit,
+    onSubmit: (Model) -> Unit,
     onDelete: (() -> Unit)?,
 ) {
     var displayName by remember(model.id, isNew) { mutableStateOf(model.displayName) }
@@ -943,6 +1008,7 @@ private fun ModelEditDialog(
                 onValueChange = { displayName = it },
                 label = "展示名称",
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(modifier = Modifier.height(12.dp))
@@ -951,14 +1017,21 @@ private fun ModelEditDialog(
                 onValueChange = { modelId = it },
                 label = "Model ID",
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Ascii,
+                    imeAction = ImeAction.Done,
+                ),
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = "能力标签来自远端 /models 或官方 catalog：${buildCapabilityLabel(model)}",
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-            )
+            // 能力标签与列表项展示保持一致，来源细节不暴露给用户
+            Row(
+                modifier = Modifier.padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                capabilityTags(model).forEach { tag ->
+                    TagChip(text = tag)
+                }
+            }
             error?.let { message ->
                 Text(
                     text = message,
@@ -967,47 +1040,26 @@ private fun ModelEditDialog(
                     modifier = Modifier.padding(top = 8.dp),
                 )
             }
-        }
-        Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(
-                    text = "取消",
-                    enabled = !isSaving,
-                    modifier = Modifier.weight(1f),
-                    onClick = onDismiss,
-                )
-                onDelete?.let { delete ->
-                    TextButton(
-                        text = "删除",
-                        enabled = !isSaving,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.textButtonColors(
-                            color = DeleteButtonBg,
-                            textColor = DeleteButtonFg,
-                        ),
-                        onClick = delete,
-                    )
-                }
-            }
-            Row(
-                modifier = Modifier.padding(top = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                TextButton(
-                    text = "保存并设为当前",
-                    enabled = !isSaving,
-                    modifier = Modifier.weight(1f),
-                    onClick = { onSubmit(updated(), true) },
-                )
-                TextButton(
-                    text = if (isSaving) "保存中..." else "保存",
-                    enabled = !isSaving,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.textButtonColorsPrimary(),
-                    onClick = { onSubmit(updated(), false) },
+            onDelete?.let { delete ->
+                Text(
+                    text = "删除模型",
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.error,
+                    modifier = Modifier
+                        .padding(top = 12.dp)
+                        .clickable(enabled = !isSaving, onClick = delete)
+                        .padding(vertical = 4.dp),
                 )
             }
         }
+        MiuixDialogActions(
+            confirmText = if (isSaving) "保存中..." else "保存",
+            confirmEnabled = !isSaving && displayName.isNotBlank() && modelId.isNotBlank(),
+            cancelEnabled = !isSaving,
+            onCancel = onDismiss,
+            onConfirm = { onSubmit(updated()) },
+            modifier = Modifier.padding(top = 16.dp),
+        )
     }
 }
 
@@ -1073,8 +1125,6 @@ private fun capabilityTags(model: Model): List<String> = buildList {
         )
     }
 }.ifEmpty { listOf("基础文本") }
-
-private fun buildCapabilityLabel(model: Model): String = capabilityTags(model).joinToString(" · ")
 
 private suspend fun testConnection(provider: ProviderSetting): String =
     RemoteModelFetcher.fetch(provider)
