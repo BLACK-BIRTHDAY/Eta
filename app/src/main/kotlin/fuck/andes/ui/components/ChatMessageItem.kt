@@ -217,12 +217,14 @@ internal fun ChatMessageItem(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
     retainedStreamingState: StreamingMarkdownState? = null,
+    showCopyAction: Boolean = true,
 ) {
     when (message) {
         is UserMessageUi -> UserMessageBubble(message = message, modifier = modifier)
         is AgentMessageUi -> AgentMessageBlock(
             message = message,
             retainedStreamingState = retainedStreamingState,
+            showCopyAction = showCopyAction,
             modifier = modifier,
         )
         is ThinkingMessageUi -> ThinkingRow(
@@ -435,6 +437,7 @@ private fun UserMessageBubble(
 private fun AgentMessageBlock(
     message: AgentMessageUi,
     retainedStreamingState: StreamingMarkdownState?,
+    showCopyAction: Boolean,
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
@@ -498,6 +501,7 @@ private fun AgentMessageBlock(
         }
 
         if (
+            showCopyAction &&
             !message.isStreaming &&
             message.content.isNotBlank() &&
             (!keepStreamingMarkdown || streamingRevealComplete)

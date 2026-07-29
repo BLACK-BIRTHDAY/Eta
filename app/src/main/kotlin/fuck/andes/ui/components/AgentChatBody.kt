@@ -300,6 +300,10 @@ private fun AgentChatMessages(
     modifier: Modifier = Modifier,
 ) {
     val timelineEntries = remember(visibleMessages) { visibleMessages.toTimelineEntries() }
+    // 复制按钮只出现在每轮对话的最终结果上，中间步骤的过渡文本不提供复制入口。
+    val finalResultMessageIds = remember(visibleMessages) {
+        resolveFinalResultMessageIds(visibleMessages)
+    }
     // 流式消息的渲染会话按 id 提升到列表层持有：item 滚出视口被 LazyColumn 销毁后，
     // 滑回时复用同一解析会话与打字机进度，避免整段内容重新解析并重放显现动画。
     val streamingMarkdownStates = remember { mutableMapOf<String, StreamingMarkdownState>() }
@@ -499,6 +503,8 @@ private fun AgentChatMessages(
                             showBrowserShortcut = message is ToolActivityMessageUi &&
                                 message.toolName == "browser_use" &&
                                 message.id == currentBrowserMessageId,
+                            showCopyAction = message !is AgentMessageUi ||
+                                message.id in finalResultMessageIds,
                             modifier = itemModifier,
                         )
                     }
@@ -640,6 +646,27 @@ private fun List<AgentChatMessageUi>.toTimelineEntries(): List<AgentTimelineEntr
 
 private fun AgentChatMessageUi.isWorkProcessMessage(): Boolean =
     this is ThinkingMessageUi || this is ToolActivityMessageUi || this is ToolSummaryMessageUi
+
+/**
+ * 一轮对话（两条用户消息之间）里最后一条 Agent 正文视为最终结果，其余为中间步骤。
+ * 流式期间最后一条仍在生成，复制按钮本就由 isStreaming 条件隐藏，这里无需额外处理。
+ */
+internal fun resolveFinalResultMessageIds(messages: List<AgentChatMessageUi>): Set<String> {
+    val ids = LinkedHashSet<String>()
+    var lastAgentMessageId: String? = null
+    messages.forEach { message ->
+        when (message) {
+            is UserMessageUi -> {
+                lastAgentMessageId?.let(ids::add)
+                lastAgentMessageId = null
+            }
+            is AgentMessageUi -> lastAgentMessageId = message.id
+            else -> Unit
+        }
+    }
+    lastAgentMessageId?.let(ids::add)
+    return ids
+}
 
 @Composable
 private fun AgentChatBottomBar(

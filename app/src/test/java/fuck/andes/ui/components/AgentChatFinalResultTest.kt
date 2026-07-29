@@ -1,0 +1,68 @@
+package fuck.andes.ui.components
+
+import fuck.andes.ui.model.AgentChatMessageUi
+import fuck.andes.ui.model.AgentMessageUi
+import fuck.andes.ui.model.ToolActivityMessageUi
+import fuck.andes.ui.model.ToolActivityStatusUi
+import fuck.andes.ui.model.UserMessageUi
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class AgentChatFinalResultTest {
+
+    @Test
+    fun onlyLastAgentMessageOfEachTurnIsFinalResult() {
+        val messages = listOf(
+            UserMessageUi(id = "user-1", content = "查一下资料"),
+            AgentMessageUi(id = "agent-1", content = "我来帮你搜索。"),
+            toolActivity("tool-1"),
+            AgentMessageUi(id = "agent-2", content = "从搜索结果可以看到……"),
+            toolActivity("tool-2"),
+            AgentMessageUi(id = "agent-3", content = "最终答案"),
+        )
+
+        assertEquals(setOf("agent-3"), resolveFinalResultMessageIds(messages))
+    }
+
+    @Test
+    fun multipleTurnsEachHaveTheirOwnFinalResult() {
+        val messages = listOf(
+            UserMessageUi(id = "user-1", content = "第一问"),
+            AgentMessageUi(id = "agent-1", content = "第一答"),
+            UserMessageUi(id = "user-2", content = "第二问"),
+            AgentMessageUi(id = "agent-2", content = "中间步骤"),
+            toolActivity("tool-1"),
+            AgentMessageUi(id = "agent-3", content = "第二答"),
+        )
+
+        assertEquals(setOf("agent-1", "agent-3"), resolveFinalResultMessageIds(messages))
+    }
+
+    @Test
+    fun turnInterruptedAfterToolKeepsPreviousAgentMessageAsFinalResult() {
+        val messages = listOf(
+            UserMessageUi(id = "user-1", content = "任务"),
+            AgentMessageUi(id = "agent-1", content = "我先试试。"),
+            toolActivity("tool-1"),
+        )
+
+        assertEquals(setOf("agent-1"), resolveFinalResultMessageIds(messages))
+    }
+
+    @Test
+    fun turnWithoutAgentMessageProducesNoFinalResult() {
+        val messages = listOf(
+            UserMessageUi(id = "user-1", content = "任务"),
+            toolActivity("tool-1"),
+        )
+
+        assertEquals(emptySet<String>(), resolveFinalResultMessageIds(messages))
+    }
+
+    private fun toolActivity(id: String): AgentChatMessageUi = ToolActivityMessageUi(
+        id = id,
+        toolName = "browser_use",
+        status = ToolActivityStatusUi.Success,
+        argumentsSummary = "query",
+    )
+}
