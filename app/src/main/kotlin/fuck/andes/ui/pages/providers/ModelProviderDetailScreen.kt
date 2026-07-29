@@ -1112,8 +1112,6 @@ private fun validateProviderDraft(draft: ProviderConfigDraft): String? {
 }
 
 private fun capabilityTags(model: Model): List<String> = buildList {
-    if (model.supportsVision) add("Vision")
-    if (model.supportsTools) add("Tools")
     if (model.supportsReasoning) add("Reasoning")
     model.contextWindow?.let { contextWindow ->
         add(
