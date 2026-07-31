@@ -6,6 +6,7 @@ import fuck.andes.core.AgentLogger
 import java.util.concurrent.atomic.AtomicBoolean
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -131,9 +132,39 @@ class AgentLocalToolsPermissionTest {
         tools.close()
     }
 
+    @Test
+    fun weChatSendCanBeRetriedAndDoesNotBlockGuiFallback() {
+        val tools = tools(sensitiveActionsEnabled = { true })
+        val sendCall = AgentModelClient.ToolCall(
+            id = "call-1",
+            name = "send_message",
+            argumentsJson = """{"contact":"张三","message":"你好"}""",
+        )
+
+        val first = JSONObject(tools.execute(sendCall).content)
+        val second = JSONObject(tools.execute(sendCall.copy(id = "call-2")).content)
+        val guiFallback = JSONObject(
+            tools.execute(
+                AgentModelClient.ToolCall(
+                    id = "call-3",
+                    name = "input_text",
+                    argumentsJson = """{"text":"你好"}""",
+                ),
+            ).content,
+        )
+
+        assertEquals("ACCESSIBILITY_UNAVAILABLE", first.getString("code"))
+        assertEquals("ACCESSIBILITY_UNAVAILABLE", second.getString("code"))
+        assertNotEquals("MESSAGE_RETRY_BLOCKED", second.getString("code"))
+        assertEquals("ACCESSIBILITY_UNAVAILABLE", guiFallback.getString("code"))
+        assertNotEquals("MESSAGE_GUI_FALLBACK_BLOCKED", guiFallback.getString("code"))
+        tools.close()
+    }
+
     private fun tools(
         terminalEnabled: () -> Boolean = { false },
         browserEnabled: () -> Boolean = { false },
+        sensitiveActionsEnabled: () -> Boolean = { false },
         beforeToolExecution: (String) -> ToolExecutionDecision = {
             ToolExecutionDecision.Allow
         },
@@ -144,6 +175,7 @@ class AgentLocalToolsPermissionTest {
             browserRunId = "test-run",
             terminalToolsEnabled = terminalEnabled,
             browserToolsEnabled = browserEnabled,
+            deviceSensitiveActionToolsEnabled = sensitiveActionsEnabled,
             beforeToolExecution = beforeToolExecution,
         )
 

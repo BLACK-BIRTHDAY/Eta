@@ -6,14 +6,13 @@ import android.os.SystemClock
 import fuck.andes.agent.accessibility.AgentAccessibilityService
 import fuck.andes.agent.model.AgentModelClient
 import fuck.andes.core.AgentLogger
-import java.util.Locale
 import kotlin.math.abs
 import org.json.JSONObject
 
 /**
  * 微信消息的窄自动化流程。
  *
- * 只接受精确联系人匹配；发送按钮只点击一次。发送后若无法验证，不重试，避免重复消息。
+ * 只接受精确联系人匹配；发送指令本身即代表授权，直接发送而不经过草稿或二次确认。
  */
 internal class WeChatMessageSender(
     private val context: Context,
@@ -23,8 +22,6 @@ internal class WeChatMessageSender(
     fun execute(args: JSONObject): AgentModelClient.ToolResult {
         val contact = args.getString("contact").trim()
         val message = args.getString("message")
-        val mode = args.getString("mode").lowercase(Locale.ROOT)
-        val send = mode == "send"
         if (isCancelled()) return sensitiveError("CANCELLED", "运行已停止，本次未发送")
         val service = AgentAccessibilityService.current()
             ?: return sensitiveError("ACCESSIBILITY_UNAVAILABLE", "Eta 无障碍服务尚未连接")
@@ -78,40 +75,14 @@ internal class WeChatMessageSender(
             if (!writeResult.ok) {
                 return sensitiveError(writeResult.code, writeResult.message.ifBlank { "填写消息失败" })
             }
-            if (!send) {
-                logger.info("Agent direct tool action=send_message outcome=drafted")
-                return sensitiveOk()
-                    .put("mode", "draft")
-                    .put("contact_matched", true)
-                    .put("message_chars", message.length)
-                    .toToolResult()
-            }
-
             if (isCancelled()) {
                 return sensitiveError("CANCELLED", "运行已停止；消息已填入但未发送")
             }
-            val sendSnapshot = waitForSnapshot(service, CONTENT_TIMEOUT_MS) { snapshot ->
-                snapshot.nodes.any { node ->
-                    node.enabled &&
-                        node.bounds.centerY() > displayHeight * 0.55 &&
-                        (node.text == SEND_TEXT || node.desc == SEND_TEXT)
-                }
-            } ?: return sensitiveError("SEND_BUTTON_NOT_FOUND", "消息已填入，但未找到可验证的发送按钮；本次未发送")
-            val sendNodes = deduplicateRows(
-                sendSnapshot.nodes.filter { node ->
-                    node.enabled &&
-                        node.bounds.centerY() > displayHeight * 0.55 &&
-                        (node.text == SEND_TEXT || node.desc == SEND_TEXT)
-                },
-            )
-            if (sendNodes.size != 1) {
-                return sensitiveError("AMBIGUOUS_SEND_BUTTON", "发送按钮不唯一；消息已填入但未发送")
-            }
-            val click = service.clickNode(sendSnapshot, sendNodes.single().index)
-            if (!click.ok) {
+            val click = clickSendButton(service, displayHeight)
+            if (!click.ok && click.code != "ACTION_OUTCOME_UNKNOWN") {
                 return sensitiveError(
                     click.code,
-                    click.message.ifBlank { "发送动作结果未知；不会自动重试，以免重复发送" },
+                    click.message.ifBlank { "发送按钮点击失败，可继续自动重试" },
                 )
             }
 
@@ -129,23 +100,76 @@ internal class WeChatMessageSender(
                 inputCleared && (messageVisible || sendButtonGone)
             } != null
             if (!verified) {
-                return sensitiveError(
-                    "ACTION_OUTCOME_UNKNOWN",
-                    "已点击一次发送，但未能可靠验证结果；不会自动重试，请在微信中确认",
-                )
+                if (!click.ok) {
+                    return sensitiveError(
+                        "SEND_RESULT_UNVERIFIED",
+                        "发送动作结果未验证，可继续自动重试，无需用户确认",
+                    )
+                }
+                logger.info("Agent direct tool action=send_message outcome=dispatched_unverified")
+                return sensitiveOk()
+                    .put("contact_matched", true)
+                    .put("dispatched", true)
+                    .put("verified", false)
+                    .put("message_chars", message.length)
+                    .toToolResult()
             }
             logger.info("Agent direct tool action=send_message outcome=verified")
             sensitiveOk()
-                .put("mode", "send")
                 .put("contact_matched", true)
                 .put("sent", true)
                 .put("verified", true)
                 .put("message_chars", message.length)
                 .toToolResult()
         }.getOrElse {
-            sensitiveError("WECHAT_AUTOMATION_FAILED", "微信自动发送流程失败，本次不会自动重试")
+            sensitiveError("WECHAT_AUTOMATION_FAILED", "微信自动发送流程失败，可继续自动重试")
         }
     }
+
+    /** 窗口内容变化只会让旧快照失效；重新取当前发送按钮后继续执行。 */
+    private fun clickSendButton(
+        service: AgentAccessibilityService,
+        displayHeight: Int,
+    ): AgentAccessibilityService.NodeActionResult {
+        val deadline = SystemClock.elapsedRealtime() + CONTENT_TIMEOUT_MS
+        var lastFailure = AgentAccessibilityService.NodeActionResult.failure(
+            "SEND_BUTTON_NOT_FOUND",
+            "消息已填入，但未找到发送按钮",
+        )
+        do {
+            if (isCancelled()) {
+                return AgentAccessibilityService.NodeActionResult.failure(
+                    "CANCELLED",
+                    "运行已停止；消息已填入但未发送",
+                )
+            }
+            val snapshot = service.captureNodeSnapshot(MAX_NODES)
+            val sendNodes = snapshot?.let { current ->
+                deduplicateRows(current.nodes.filter { node -> isSendButton(node, displayHeight) })
+            }.orEmpty()
+            if (snapshot != null && sendNodes.size == 1) {
+                val click = service.clickNode(snapshot, sendNodes.single().index)
+                if (click.ok || click.code == "ACTION_OUTCOME_UNKNOWN") return click
+                lastFailure = click
+                if (click.code !in RETRYABLE_NODE_FAILURES) return click
+            } else if (sendNodes.size > 1) {
+                lastFailure = AgentAccessibilityService.NodeActionResult.failure(
+                    "AMBIGUOUS_SEND_BUTTON",
+                    "发送按钮不唯一",
+                )
+            }
+            SystemClock.sleep(POLL_MS)
+        } while (SystemClock.elapsedRealtime() < deadline)
+        return lastFailure
+    }
+
+    private fun isSendButton(
+        node: AgentAccessibilityService.UiNode,
+        displayHeight: Int,
+    ): Boolean =
+        node.enabled &&
+            node.bounds.centerY() > displayHeight * 0.55 &&
+            (node.text == SEND_TEXT || node.desc == SEND_TEXT)
 
     private fun findOrOpenSearch(
         service: AgentAccessibilityService,
@@ -255,5 +279,13 @@ internal class WeChatMessageSender(
         const val POLL_MS = 160L
         const val STEP_SETTLE_MS = 300L
         const val SAME_ROW_TOLERANCE_PX = 24
+        val RETRYABLE_NODE_FAILURES = setOf(
+            "STALE_ACTION_TARGET",
+            "STALE_WINDOW",
+            "STALE_CONTENT",
+            "STALE_NODE",
+            "IDENTITY_CHANGED",
+            "NODE_NOT_ACTIONABLE",
+        )
     }
 }

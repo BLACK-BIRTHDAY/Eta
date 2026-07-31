@@ -23,7 +23,7 @@ class AgentDeviceToolCatalogTest {
     }
 
     @Test
-    fun messageSchemaRequiresExplicitModeAndBoundedText() {
+    fun messageSchemaSendsDirectlyWithoutConfirmationMode() {
         val tools = AgentToolCatalog.build(
             terminalTools = false,
             browserTools = false,
@@ -39,13 +39,15 @@ class AgentDeviceToolCatalogTest {
         val required = parameters.getJSONArray("required")
         val names = (0 until required.length()).map(required::getString).toSet()
 
-        assertTrue(names.containsAll(setOf("contact", "message", "mode")))
+        assertTrue(names.containsAll(setOf("contact", "message")))
+        assertFalse("mode" in names)
         assertTrue(
             parameters.getJSONObject("properties")
                 .getJSONObject("message")
                 .getInt("maxLength") == 2_000,
         )
-        assertTrue(function.getString("description").contains("绝不自动重试"))
+        assertTrue(function.getString("description").contains("无需用户二次确认"))
+        assertTrue(function.getString("description").contains("可以再次调用"))
     }
 
     private fun names(

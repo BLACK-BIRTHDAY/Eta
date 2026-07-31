@@ -1352,7 +1352,7 @@ private fun buildToolsState(): AgentToolsUiState =
                 id = "device_sensitive",
                 title = "敏感设备能力",
                 tools = listOf(
-                    ToolItemUi("send_message", "发送微信消息", "精确匹配联系人并单次发送验证"),
+                    ToolItemUi("send_message", "发送微信消息", "精确匹配联系人并直接发送，失败可自动重试"),
                     ToolItemUi("read_sms_code", "读取验证码", "只提取最近短信中的验证码"),
                     ToolItemUi("recent_notifications", "读取通知", "读取当前通知标题与正文"),
                     ToolItemUi("wifi_credentials", "Wi‑Fi 密码", "读取手机保存的网络凭据"),

@@ -7,7 +7,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.SystemClock
 import fuck.andes.agent.browser.AgentBrowserSession
-import fuck.andes.agent.accessibility.AgentAccessibilityService
 import fuck.andes.agent.device.RootShellDeviceController
 import fuck.andes.agent.device.BoundedRootCommandExecutor
 import fuck.andes.agent.model.AgentModelClient
@@ -91,7 +90,6 @@ internal class AgentLocalTools(
         linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(context).absolutePath,
     )
     private val publishedObservation = AtomicReference(PublishedObservation())
-    private val messageToolAttempted = AtomicBoolean(false)
     private val clockMutationFingerprints = ConcurrentHashMap.newKeySet<String>()
     private val runAvailableSkillIds = runAvailableSkillIds
         .mapTo(mutableSetOf(), SkillParser::normalizeSkillLookup)
@@ -134,16 +132,6 @@ internal class AgentLocalTools(
                     ),
                 )
             }
-            if (toolCall.name == "send_message" && !messageToolAttempted.compareAndSet(false, true)) {
-                return@runCatching AgentModelClient.ToolResult(
-                    content = errorResult(
-                        "MESSAGE_RETRY_BLOCKED",
-                        "本轮已经尝试过一次微信消息流程；为避免发错人或重复发送，禁止自动重试",
-                    ),
-                    sensitive = true,
-                )
-            }
-            messageGuiFallbackError(toolCall.name)?.let { return@runCatching it }
             when (val decision = beforeToolExecution(toolCall.name)) {
                 ToolExecutionDecision.Allow -> Unit
                 is ToolExecutionDecision.Reject -> {
@@ -221,24 +209,6 @@ internal class AgentLocalTools(
                 result.copy(sensitive = true)
             }
         }
-
-    private fun messageGuiFallbackError(
-        toolName: String,
-    ): AgentModelClient.ToolResult? {
-        if (
-            !messageToolAttempted.get() ||
-            toolName !in MESSAGE_GUI_FALLBACK_TOOLS ||
-            AgentAccessibilityService.current()?.currentPackageName() != WECHAT_PACKAGE
-        ) {
-            return null
-        }
-        return textResult(
-            errorResult(
-                "MESSAGE_GUI_FALLBACK_BLOCKED",
-                "本轮已调用 send_message；为避免发错人或重复发送，禁止再用通用 GUI 动作重放微信发送流程",
-            ),
-        )
-    }
 
     private fun deviceToolPermissionError(
         toolName: String,
@@ -1266,19 +1236,6 @@ internal class AgentLocalTools(
         val DEVICE_TOOL_NAMES =
             DEVICE_DIRECT_TOOL_NAMES + DEVICE_SENSITIVE_READ_TOOL_NAMES +
                 (DEVICE_SENSITIVE_ACTION_TOOL_NAMES - "send_message")
-        const val WECHAT_PACKAGE = "com.tencent.mm"
         val CLOCK_MUTATION_TOOLS = setOf("set_alarm", "set_timer")
-        val MESSAGE_GUI_FALLBACK_TOOLS = setOf(
-            "tap",
-            "tap_area",
-            "tap_element",
-            "long_press",
-            "long_press_element",
-            "input_text",
-            "replace_text",
-            "clear_text",
-            "paste_text",
-            "press_key",
-        )
     }
 }

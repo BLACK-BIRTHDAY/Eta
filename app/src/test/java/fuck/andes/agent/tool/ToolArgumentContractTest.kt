@@ -118,11 +118,11 @@ class ToolArgumentContractTest {
             )?.field,
         )
         assertEquals(
-            "mode",
+            null,
             ToolArgumentContract.validate(
                 "send_message",
                 JSONObject("""{"contact":"张三","message":"你好"}"""),
-            )?.field,
+            ),
         )
         assertEquals(
             "message",
@@ -130,8 +130,7 @@ class ToolArgumentContractTest {
                 "send_message",
                 JSONObject()
                     .put("contact", "张三")
-                    .put("message", "x".repeat(2_001))
-                    .put("mode", "send"),
+                    .put("message", "x".repeat(2_001)),
             )?.field,
         )
     }

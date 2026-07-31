@@ -27,7 +27,7 @@ class AgentSensitiveTranscriptTest {
                                         .put("name", "send_message")
                                         .put(
                                             "arguments",
-                                            """{"contact":"张三","message":"敏感正文","mode":"send"}""",
+                                            """{"contact":"张三","message":"敏感正文"}""",
                                         ),
                                 ),
                         ),

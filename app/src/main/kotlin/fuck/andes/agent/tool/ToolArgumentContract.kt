@@ -197,12 +197,6 @@ internal object ToolArgumentContract {
                 nonBlank = true,
                 maximumLength = 2_000,
             ),
-            Field(
-                "mode",
-                Kind.STRING,
-                required = true,
-                values = setOf("draft", "send"),
-            ),
         ),
         "skills_inspect_github" to listOf(
             Field(
