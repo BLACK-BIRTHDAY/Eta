@@ -39,6 +39,8 @@ class AgentPromptBuilderTest {
         assertEquals("自定义系统约束", messages.getJSONObject(0).getString("content"))
         assertTrue(messages.systemContents().any { it.contains("system_server 有限重绑") })
         assertTrue(messages.systemContents().any { it.contains("不要改用坐标或 Shell 重放") })
+        assertTrue(messages.systemContents().any { it.contains("通用 GUI 工具完成输入和点击发送") })
+        assertTrue(messages.systemContents().any { it.contains("不追加二次确认") })
         assertTrue(messages.getJSONObject(2).getString("content").contains("open_and_exec"))
         assertFalse(messages.systemContents().any { it.contains("网页浏览、读取") })
         assertEquals("旧问题", messages.getJSONObject(3).getString("content"))

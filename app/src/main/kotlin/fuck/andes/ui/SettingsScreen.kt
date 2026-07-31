@@ -218,7 +218,7 @@ internal fun SettingsScreen(
                         context = context,
                         prefs = prefs,
                         title = "允许敏感设备操作",
-                        summary = "包括真实发送微信消息、冻结应用、修改系统设置和网络开关；开启后模型可直接调用",
+                        summary = "包括冻结应用、修改系统设置和网络开关；开启后模型可直接调用",
                         key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
                         icon = LucideR.drawable.lucide_ic_shield_alert,
                         iconTint = ColorOSAmberYellow,

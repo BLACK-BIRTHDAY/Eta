@@ -80,11 +80,6 @@ internal class AgentLocalTools(
         logger = logger,
         root = rootCommandExecutor,
     )
-    private val weChatMessageSender = WeChatMessageSender(
-        context = context,
-        logger = logger,
-        isCancelled = closed::get,
-    )
     private val terminalController = RootShellTerminalController(
         logger = logger,
         linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(context).absolutePath,
@@ -172,7 +167,6 @@ internal class AgentLocalTools(
                 in DEVICE_TOOL_NAMES ->
                     structuredDeviceTools.execute(toolCall.name, args)
                         ?: textResult(errorResult("UNKNOWN_TOOL", "未知设备工具"))
-                "send_message" -> weChatMessageSender.execute(args)
                 "terminal" -> textResult(terminalTool { terminal(args) })
                 "run_command" -> textResult(terminalTool { runCommand(args) })
                 "read_file" -> textResult(terminalTool { readFile(args) })
@@ -1231,11 +1225,10 @@ internal class AgentLocalTools(
             "set_setting",
             "set_device_state",
             "app_state_control",
-            "send_message",
         )
         val DEVICE_TOOL_NAMES =
             DEVICE_DIRECT_TOOL_NAMES + DEVICE_SENSITIVE_READ_TOOL_NAMES +
-                (DEVICE_SENSITIVE_ACTION_TOOL_NAMES - "send_message")
+                DEVICE_SENSITIVE_ACTION_TOOL_NAMES
         val CLOCK_MUTATION_TOOLS = setOf("set_alarm", "set_timer")
     }
 }

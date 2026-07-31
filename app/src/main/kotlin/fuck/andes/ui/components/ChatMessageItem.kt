@@ -2057,7 +2057,6 @@ private fun String.toToolIcon(): Int = when (this) {
     "media_control" -> LucideR.drawable.lucide_ic_play
     "set_volume" -> LucideR.drawable.lucide_ic_settings
     "top_memory_apps", "top_storage_apps" -> LucideR.drawable.lucide_ic_layers
-    "send_message" -> LucideR.drawable.lucide_ic_message_square
     "read_sms_code" -> LucideR.drawable.lucide_ic_key
     "recent_notifications" -> LucideR.drawable.lucide_ic_bell
     "wifi_credentials" -> LucideR.drawable.lucide_ic_lock
@@ -2098,7 +2097,6 @@ private fun String.toToolLabel(): String = when (this) {
     "set_volume" -> "设置音量"
     "top_memory_apps" -> "内存排行"
     "top_storage_apps" -> "存储排行"
-    "send_message" -> "发送微信消息"
     "read_sms_code" -> "读取验证码"
     "recent_notifications" -> "读取通知"
     "wifi_credentials" -> "读取 Wi‑Fi 密码"

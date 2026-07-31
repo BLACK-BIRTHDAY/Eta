@@ -166,17 +166,6 @@ internal object AgentDeviceToolCatalog {
                     "package_name", "action",
                 ),
             )
-            .put(
-                function(
-                    "send_message",
-                    "通过 Eta 无障碍服务在微信中精确查找联系人并直接发送消息，无需用户二次确认。窗口内容变化导致快照失效时会自动刷新并继续；失败后也可以再次调用或改用通用 GUI 工具继续。",
-                    properties(
-                        "contact" to string("微信联系人，必须精确匹配", 64),
-                        "message" to string("消息正文", 2_000),
-                    ),
-                    "contact", "message",
-                ),
-            )
     }
 
     private fun emptyFunction(name: String, description: String): JSONObject =

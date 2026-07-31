@@ -11,6 +11,5 @@ internal object AgentSensitiveToolPolicy {
         "read_sms_code",
         "get_logcat",
         "set_setting",
-        "send_message",
     )
 }

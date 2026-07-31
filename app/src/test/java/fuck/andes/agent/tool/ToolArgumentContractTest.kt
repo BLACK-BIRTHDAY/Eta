@@ -117,21 +117,5 @@ class ToolArgumentContractTest {
                 JSONObject("""{"hour":24,"minute":0}"""),
             )?.field,
         )
-        assertEquals(
-            null,
-            ToolArgumentContract.validate(
-                "send_message",
-                JSONObject("""{"contact":"张三","message":"你好"}"""),
-            ),
-        )
-        assertEquals(
-            "message",
-            ToolArgumentContract.validate(
-                "send_message",
-                JSONObject()
-                    .put("contact", "张三")
-                    .put("message", "x".repeat(2_001)),
-            )?.field,
-        )
     }
 }

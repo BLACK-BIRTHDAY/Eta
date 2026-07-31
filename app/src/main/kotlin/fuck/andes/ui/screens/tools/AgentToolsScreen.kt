@@ -210,7 +210,7 @@ private fun colorForTool(toolId: String): Color = when (toolId) {
     // 设备直达与敏感设备能力
     "set_alarm", "set_timer", "device_status", "network_info",
     "media_control", "set_volume", "top_memory_apps", "top_storage_apps" -> Color(0xFF00BD13)
-    "send_message", "read_sms_code", "recent_notifications", "wifi_credentials",
+    "read_sms_code", "recent_notifications", "wifi_credentials",
     "get_setting", "set_setting", "set_device_state", "app_state_control",
     "get_logcat" -> Color(0xFFFF7700)
 
@@ -253,7 +253,6 @@ private fun iconForTool(toolId: String): Int = when (toolId) {
     "media_control" -> LucideR.drawable.lucide_ic_play
     "set_volume" -> LucideR.drawable.lucide_ic_settings
     "top_memory_apps", "top_storage_apps" -> LucideR.drawable.lucide_ic_layers
-    "send_message" -> LucideR.drawable.lucide_ic_message_square
     "read_sms_code" -> LucideR.drawable.lucide_ic_key
     "recent_notifications" -> LucideR.drawable.lucide_ic_bell
     "wifi_credentials" -> LucideR.drawable.lucide_ic_lock

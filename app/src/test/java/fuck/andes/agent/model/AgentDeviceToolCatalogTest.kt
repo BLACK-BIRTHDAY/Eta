@@ -18,36 +18,8 @@ class AgentDeviceToolCatalogTest {
         assertFalse("read_sms_code" in direct)
         assertTrue("read_sms_code" in reads)
         assertFalse("send_message" in reads)
-        assertTrue("send_message" in actions)
+        assertFalse("send_message" in actions)
         assertTrue("app_state_control" in actions)
-    }
-
-    @Test
-    fun messageSchemaSendsDirectlyWithoutConfirmationMode() {
-        val tools = AgentToolCatalog.build(
-            terminalTools = false,
-            browserTools = false,
-            deviceDirectTools = false,
-            deviceSensitiveReadTools = false,
-            deviceSensitiveActionTools = true,
-        )
-        val function = (0 until tools.length())
-            .asSequence()
-            .map { tools.getJSONObject(it).getJSONObject("function") }
-            .first { it.getString("name") == "send_message" }
-        val parameters = function.getJSONObject("parameters")
-        val required = parameters.getJSONArray("required")
-        val names = (0 until required.length()).map(required::getString).toSet()
-
-        assertTrue(names.containsAll(setOf("contact", "message")))
-        assertFalse("mode" in names)
-        assertTrue(
-            parameters.getJSONObject("properties")
-                .getJSONObject("message")
-                .getInt("maxLength") == 2_000,
-        )
-        assertTrue(function.getString("description").contains("无需用户二次确认"))
-        assertTrue(function.getString("description").contains("可以再次调用"))
     }
 
     private fun names(

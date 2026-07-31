@@ -24,10 +24,10 @@ class AgentSensitiveTranscriptTest {
                                 .put(
                                     "function",
                                     JSONObject()
-                                        .put("name", "send_message")
+                                        .put("name", "set_setting")
                                         .put(
                                             "arguments",
-                                            """{"contact":"张三","message":"敏感正文"}""",
+                                            """{"namespace":"global","key":"demo","value":"敏感值"}""",
                                         ),
                                 ),
                         ),
@@ -46,8 +46,7 @@ class AgentSensitiveTranscriptTest {
             sensitiveToolCallIds = setOf(callId),
         ).joinToString { it.content + it.toolCallsJson }
 
-        assertFalse(encoded.contains("张三"))
-        assertFalse(encoded.contains("敏感正文"))
+        assertFalse(encoded.contains("敏感值"))
         assertFalse(encoded.contains("secret-value"))
         assertTrue(encoded.contains("redacted"))
         assertTrue(encoded.contains("未写入持久会话"))
