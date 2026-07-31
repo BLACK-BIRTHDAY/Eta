@@ -15,12 +15,12 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Request
 
 internal object RemoteModelFetcher {
@@ -38,14 +38,22 @@ internal object RemoteModelFetcher {
         }
 
     internal fun parseOpenAiModels(body: String): List<Model> {
-        val data = json.parseToJsonElement(body).jsonObject["data"]?.jsonArray ?: return emptyList()
+        val data = json.parseToJsonElement(body)
+            .jsonObjectOrNull()
+            ?.get("data")
+            ?.jsonArrayOrNull()
+            ?: return emptyList()
         return data.mapNotNull { element ->
             element.jsonObjectOrNull()?.toModel(defaultOwnedBy = null)
         }
     }
 
     internal fun parseAnthropicModels(body: String): List<Model> {
-        val data = json.parseToJsonElement(body).jsonObject["data"]?.jsonArray ?: return emptyList()
+        val data = json.parseToJsonElement(body)
+            .jsonObjectOrNull()
+            ?.get("data")
+            ?.jsonArrayOrNull()
+            ?: return emptyList()
         return data.mapNotNull { element ->
             element.jsonObjectOrNull()?.toModel(defaultOwnedBy = "anthropic")
         }
@@ -134,6 +142,8 @@ internal object RemoteModelFetcher {
     private fun JsonObject.toModel(defaultOwnedBy: String?): Model? {
         val modelId = string("id")?.trim().orEmpty()
         if (modelId.isBlank()) return null
+        val architecture = this["architecture"]?.jsonObjectOrNull()
+        val supportedParameters = stringList("supported_parameters", "supportedParameters").orEmpty()
         return Model(
             id = UUID.randomUUID().toString(),
             modelId = modelId,
@@ -150,33 +160,43 @@ internal object RemoteModelFetcher {
                 "contextLimit",
                 "max_context_tokens",
             ),
-            inputModalities = inputModalities(),
-            outputModalities = stringList("output_modalities", "outputModalities").orEmpty(),
+            inputModalities = inputModalities(architecture),
+            outputModalities = stringList("output_modalities", "outputModalities")
+                ?: architecture?.stringList("output_modalities", "outputModalities")
+                ?: emptyList(),
             attachment = boolean("attachment", "vision", "supports_image_in"),
-            toolCall = boolean("tool_call", "toolCall", "tools"),
-            reasoning = boolean("reasoning", "thinking", "supports_reasoning"),
-            structuredOutput = boolean("structured_output", "structuredOutput"),
-            supportsTemperature = boolean("supports_temperature", "supportsTemperature"),
+            toolCall = boolean("tool_call", "toolCall", "tools")
+                ?: supportedParameters.supportsAny("tools"),
+            reasoning = boolean("reasoning", "thinking", "supports_reasoning")
+                ?: supportedParameters.supportsAny("reasoning", "reasoning_effort", "include_reasoning")
+                ?: (this["reasoning"] as? JsonObject)?.let { true },
+            structuredOutput = boolean("structured_output", "structuredOutput")
+                ?: supportedParameters.supportsAny("structured_outputs", "response_format"),
+            supportsTemperature = boolean("supports_temperature", "supportsTemperature")
+                ?: supportedParameters.supportsAny("temperature"),
         )
     }
 
     private fun JsonObject.string(vararg names: String): String? =
-        names.firstNotNullOfOrNull { name -> this[name]?.jsonPrimitive?.contentOrNull }
+        names.firstNotNullOfOrNull { name -> (this[name] as? JsonPrimitive)?.contentOrNull }
 
     private fun JsonObject.int(vararg names: String): Int? =
-        names.firstNotNullOfOrNull { name -> this[name]?.jsonPrimitive?.intOrNull }
+        names.firstNotNullOfOrNull { name -> (this[name] as? JsonPrimitive)?.intOrNull }
 
     private fun JsonObject.boolean(vararg names: String): Boolean? =
-        names.firstNotNullOfOrNull { name -> this[name]?.jsonPrimitive?.booleanOrNull }
+        names.firstNotNullOfOrNull { name -> (this[name] as? JsonPrimitive)?.booleanOrNull }
 
     private fun JsonObject.stringList(vararg names: String): List<String>? =
         names.firstNotNullOfOrNull { name ->
             this[name]
                 ?.jsonArrayOrNull()
-                ?.mapNotNull { item -> item.jsonPrimitive.contentOrNull?.trim() }
+                ?.mapNotNull { item -> (item as? JsonPrimitive)?.contentOrNull?.trim() }
                 ?.filter { it.isNotBlank() }
                 ?.takeIf { it.isNotEmpty() }
         }
+
+    private fun List<String>.supportsAny(vararg names: String): Boolean? =
+        takeIf { supported -> names.any(supported::contains) }?.let { true }
 
     /**
      * 空列表表示远端没有提供输入模态元数据，后续才允许官方目录补齐。
@@ -184,8 +204,9 @@ internal object RemoteModelFetcher {
      * 不能把缺失字段直接折叠成 text：否则无法区分“远端明确声明仅文本”和
      * “标准 /models 根本未返回能力字段”，官方目录会错误覆盖前一种情况。
      */
-    private fun JsonObject.inputModalities(): List<String> {
+    private fun JsonObject.inputModalities(architecture: JsonObject?): List<String> {
         stringList("input_modalities", "inputModalities")?.let { return it }
+        architecture?.stringList("input_modalities", "inputModalities")?.let { return it }
         val capabilityNames = listOf(
             "attachment",
             "vision",
