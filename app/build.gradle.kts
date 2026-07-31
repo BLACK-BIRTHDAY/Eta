@@ -5,6 +5,17 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+val releaseStoreFile = System.getenv("ETA_RELEASE_STORE_FILE")
+val releaseStorePassword = System.getenv("ETA_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("ETA_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("ETA_RELEASE_KEY_PASSWORD")
+val hasReleaseSigning = listOf(
+    releaseStoreFile,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword
+).all { !it.isNullOrBlank() }
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
@@ -23,11 +34,23 @@ android {
         versionName = "2.2.1"
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseStoreFile))
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
         }
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
