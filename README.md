@@ -1,5 +1,7 @@
 # Eta
 
+**简体中文** | [English](README_EN.md)
+
 <p><img src="https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.0"> <img src="https://img.shields.io/badge/AGP-9.3.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.1"> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Coverage-ColorOS%20%26%20HyperOS-1677FF" alt="Coverage ColorOS and HyperOS"></p>
 
 **面向 Android 的第三方系统级 AI Agent**
