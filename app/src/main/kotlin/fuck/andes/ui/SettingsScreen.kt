@@ -235,6 +235,18 @@ internal fun SettingsScreen(
                     )
                     PrefDivider()
                     ArrowPreference(
+                        title = "记忆",
+                        summary = "管理由模型维护的跨对话长期记忆",
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_brain,
+                                tint = ColorOSOrange,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.Memory) },
+                    )
+                    PrefDivider()
+                    ArrowPreference(
                         title = "Linux 工具环境",
                         summary = "安装 Python、Git、jq、zip 等通用命令，当前约 120 MB",
                         startAction = {

@@ -52,3 +52,12 @@ sealed interface AgentSystemEnhanceAction {
     data object NavigateBack : AgentSystemEnhanceAction
     data class ToggleItem(val itemId: String) : AgentSystemEnhanceAction
 }
+
+sealed interface AgentMemoryAction {
+    data object NavigateBack : AgentMemoryAction
+    data class ToggleEnabled(val enabled: Boolean) : AgentMemoryAction
+    data class DraftChanged(val content: String) : AgentMemoryAction
+    data object Save : AgentMemoryAction
+    data object Clear : AgentMemoryAction
+    data object DismissNotice : AgentMemoryAction
+}

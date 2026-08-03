@@ -18,6 +18,8 @@ internal class AgentTraceFormatter {
                 summarizeTextLength("输入文本", toolCall.argumentsJson, "text")
             "search_apps" -> summarizeTextLength("搜索应用", toolCall.argumentsJson, "query")
             "observe_screen" -> summarizeObservationArguments(toolCall.argumentsJson)
+            "memory_get" -> summarizeMemoryGetArguments(toolCall.argumentsJson)
+            "memory_write" -> summarizeMemoryWriteArguments(toolCall.argumentsJson)
             else -> "参数已接收"
         }
 
@@ -71,15 +73,45 @@ internal class AgentTraceFormatter {
                 "ui_tree=${arguments.optBoolean("include_ui_tree", true)}"
         }.getOrDefault("观察屏幕")
 
+    private fun summarizeMemoryGetArguments(argumentsJson: String): String =
+        runCatching {
+            val arguments = JSONObject(argumentsJson)
+            if (arguments.optString("query").isNotBlank()) "检索记忆" else "读取记忆"
+        }.getOrDefault("读取记忆")
+
+    private fun summarizeMemoryWriteArguments(argumentsJson: String): String =
+        runCatching {
+            val arguments = JSONObject(argumentsJson)
+            val mode = arguments.optString("mode").takeIf {
+                it in setOf("replace_range", "append", "clear")
+            } ?: "unknown"
+            val content = arguments.optString("content")
+            val lines = if (content.isEmpty()) 0 else content.count { it == '\n' } + 1
+            "更新记忆 · mode=$mode · lines=$lines · bytes=${content.toByteArray(Charsets.UTF_8).size}"
+        }.getOrDefault("更新记忆")
+
     fun summarizeResult(
         toolName: String,
         result: AgentModelClient.ToolResult,
     ): String =
-        if (toolName == BROWSER_TOOL_NAME) {
-            summarizeBrowserResult(result)
-        } else {
-            summarizeGenericResult(result)
+        when (toolName) {
+            BROWSER_TOOL_NAME -> summarizeBrowserResult(result)
+            "memory_get", "memory_write" -> summarizeMemoryResult(result)
+            else -> summarizeGenericResult(result)
         }
+
+    private fun summarizeMemoryResult(result: AgentModelClient.ToolResult): String =
+        runCatching {
+            val json = JSONObject(result.content)
+            buildString {
+                append("ok=").append(json.optBoolean("ok", false))
+                json.optString("code").takeIf(String::isNotBlank)?.let {
+                    append(", code=").append(it)
+                }
+                if (json.has("line_count")) append(", lines=").append(json.optInt("line_count"))
+                if (json.has("bytes")) append(", bytes=").append(json.optInt("bytes"))
+            }
+        }.getOrDefault("ok=false")
 
     private fun summarizeGenericResult(result: AgentModelClient.ToolResult): String =
         runCatching {

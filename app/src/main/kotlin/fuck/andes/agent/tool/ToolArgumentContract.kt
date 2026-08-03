@@ -1,6 +1,7 @@
 package fuck.andes.agent.tool
 
 import java.util.Locale
+import fuck.andes.data.repository.AgentMemoryStore
 import org.json.JSONObject
 
 /**
@@ -182,6 +183,38 @@ internal object ToolArgumentContract {
                 values = setOf("force_stop", "freeze", "unfreeze"),
             ),
         ),
+        "memory_get" to listOf(
+            Field("query", Kind.STRING, maximumLength = 500),
+            Field("start_line", Kind.INTEGER, minimum = 1),
+            Field(
+                "max_chars",
+                Kind.INTEGER,
+                minimum = AgentMemoryStore.MIN_READ_CHARS,
+                maximum = AgentMemoryStore.MAX_READ_CHARS,
+            ),
+        ),
+        "memory_write" to listOf(
+            Field(
+                "mode",
+                Kind.STRING,
+                required = true,
+                values = setOf("replace_range", "append", "clear"),
+            ),
+            Field(
+                "revision",
+                Kind.STRING,
+                required = true,
+                nonBlank = true,
+                maximumLength = 64,
+            ),
+            Field("start_line", Kind.INTEGER, minimum = 1),
+            Field("end_line", Kind.INTEGER, minimum = 1),
+            Field(
+                "content",
+                Kind.STRING,
+                maximumLength = AgentMemoryStore.MAX_WRITE_CONTENT_CHARS,
+            ),
+        ),
         "skills_inspect_github" to listOf(
             Field(
                 "repository",
@@ -354,6 +387,38 @@ internal object ToolArgumentContract {
                 "replaceExisting=true 时必须提供上一轮冲突的 expectedReplacementId",
             )
         }
+        if (toolName == "memory_write") {
+            val revision = args.optString("revision")
+            if (!REVISION.matches(revision)) {
+                return Issue("revision", "revision 必须是 64 位 SHA-256")
+            }
+            when (args.optString("mode").lowercase(Locale.ROOT)) {
+                "replace_range" -> {
+                    if (!args.has("start_line") || args.isNull("start_line")) {
+                        return Issue("start_line", "replace_range 必须提供 start_line")
+                    }
+                    if (!args.has("end_line") || args.isNull("end_line")) {
+                        return Issue("end_line", "replace_range 必须提供 end_line")
+                    }
+                    if (!args.has("content") || args.isNull("content")) {
+                        return Issue("content", "replace_range 必须提供 content，删除时传空字符串")
+                    }
+                    if (args.optInt("end_line") < args.optInt("start_line")) {
+                        return Issue("end_line", "end_line 不能小于 start_line")
+                    }
+                }
+                "append" -> {
+                    if (!args.has("content") || args.isNull("content") || args.optString("content").isBlank()) {
+                        return Issue("content", "append 必须提供非空 content")
+                    }
+                }
+                "clear" -> {
+                    if (args.has("content") || args.has("start_line") || args.has("end_line")) {
+                        return Issue("mode", "clear 不能携带 content 或行范围")
+                    }
+                }
+            }
+        }
         return null
     }
 
@@ -411,4 +476,5 @@ internal object ToolArgumentContract {
 
     private val EDITABLE_TOOLS = setOf("input_text", "replace_text", "clear_text")
     private val REPEAT_DAYS = setOf("mon", "tue", "wed", "thu", "fri", "sat", "sun")
+    private val REVISION = Regex("^[0-9a-f]{64}$")
 }

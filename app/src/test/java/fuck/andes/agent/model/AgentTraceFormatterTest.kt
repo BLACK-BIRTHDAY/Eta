@@ -54,6 +54,18 @@ class AgentTraceFormatterTest {
                 expectedParts = listOf("搜索应用", "chars="),
                 sensitiveParts = listOf("confidential-app-name"),
             ),
+            RedactionCase(
+                toolName = "memory_get",
+                argumentsJson = """{"query":"private relationship"}""",
+                expectedParts = listOf("检索记忆"),
+                sensitiveParts = listOf("private relationship"),
+            ),
+            RedactionCase(
+                toolName = "memory_write",
+                argumentsJson = """{"mode":"append","revision":"secret-revision","content":"private memory"}""",
+                expectedParts = listOf("更新记忆", "mode=append", "lines=", "bytes="),
+                sensitiveParts = listOf("secret-revision", "private memory"),
+            ),
         )
 
         cases.forEach { case ->
@@ -92,6 +104,22 @@ class AgentTraceFormatterTest {
 
         assertTrue(summary.contains("终端"))
         assertFalse(summary.contains("secret-command"))
+    }
+
+    @Test
+    fun memoryResultSummaryContainsOnlyStatusLineAndByteMetadata() {
+        val summary = formatter.summarizeResult(
+            "memory_get",
+            AgentModelClient.ToolResult(
+                content = """{"ok":true,"bytes":321,"line_count":9,"content":"private memory"}""",
+                sensitive = true,
+            ),
+        )
+
+        assertTrue(summary.contains("ok=true"))
+        assertTrue(summary.contains("lines=9"))
+        assertTrue(summary.contains("bytes=321"))
+        assertFalse(summary.contains("private memory"))
     }
 
     private data class RedactionCase(

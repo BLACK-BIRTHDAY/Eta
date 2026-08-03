@@ -69,6 +69,7 @@ internal object AgentRuntimeWire {
     private const val KEY_API_KEY = "api_key"
     private const val KEY_MODEL = "model"
     private const val KEY_MODEL_DISPLAY_NAME = "model_display_name"
+    private const val KEY_CONTEXT_WINDOW = "context_window"
     private const val KEY_SYSTEM_PROMPT = "system_prompt"
     private const val KEY_ANTHROPIC_VERSION = "anthropic_version"
     private const val KEY_OPENAI_ENDPOINT_MODE = "openai_endpoint_mode"
@@ -227,6 +228,7 @@ internal object AgentRuntimeWire {
         putString(KEY_API_KEY, request.config.apiKey)
         putString(KEY_MODEL, request.config.model)
         putString(KEY_MODEL_DISPLAY_NAME, request.config.modelDisplayName)
+        request.config.contextWindow?.let { putInt(KEY_CONTEXT_WINDOW, it) }
         putString(KEY_SYSTEM_PROMPT, request.config.systemPrompt)
         putString(KEY_ANTHROPIC_VERSION, request.config.anthropicVersion)
         putString(KEY_OPENAI_ENDPOINT_MODE, request.config.openAiEndpointMode)
@@ -334,6 +336,7 @@ internal object AgentRuntimeWire {
                 apiKey = bundle.getString(KEY_API_KEY).orEmpty(),
                 model = bundle.getString(KEY_MODEL).orEmpty(),
                 modelDisplayName = bundle.getString(KEY_MODEL_DISPLAY_NAME).orEmpty(),
+                contextWindow = bundle.optionalInt(KEY_CONTEXT_WINDOW),
                 systemPrompt = bundle.getString(KEY_SYSTEM_PROMPT).orEmpty(),
                 anthropicVersion = bundle.getString(KEY_ANTHROPIC_VERSION).orEmpty()
                     .ifBlank { fuck.andes.data.model.AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION },

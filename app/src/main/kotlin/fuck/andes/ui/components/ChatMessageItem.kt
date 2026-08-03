@@ -2050,6 +2050,7 @@ private fun String.toToolIcon(): Int = when (this) {
     "launch_app" -> LucideR.drawable.lucide_ic_rocket
     "open_uri" -> LucideR.drawable.lucide_ic_external_link
     "browser_use" -> LucideR.drawable.lucide_ic_globe
+    "memory_get", "memory_write" -> LucideR.drawable.lucide_ic_brain
     "press_key" -> LucideR.drawable.lucide_ic_command
     "open_system_panel" -> LucideR.drawable.lucide_ic_panel_top_open
     "set_alarm", "set_timer" -> LucideR.drawable.lucide_ic_clock
@@ -2087,6 +2088,8 @@ private fun String.toToolLabel(): String = when (this) {
     "launch_app" -> "打开应用"
     "open_uri" -> "打开链接"
     "browser_use" -> "浏览网页"
+    "memory_get" -> "读取记忆"
+    "memory_write" -> "整理记忆"
     "press_key" -> "按键"
     "open_system_panel" -> "系统面板"
     "set_alarm" -> "设置闹钟"

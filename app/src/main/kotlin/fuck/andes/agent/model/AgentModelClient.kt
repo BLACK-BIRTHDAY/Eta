@@ -3,6 +3,7 @@ package fuck.andes.agent.model
 import fuck.andes.agent.runtime.AgentEvent
 import fuck.andes.agent.runtime.AgentRunCancelledException
 import fuck.andes.agent.runtime.AgentRunController
+import fuck.andes.agent.memory.AgentMemoryContext
 import fuck.andes.agent.skill.SkillContext
 import fuck.andes.config.Prefs
 import fuck.andes.data.model.AnthropicProviderSetting
@@ -75,10 +76,18 @@ internal object AgentModelClient {
         provider: AgentProviderClient = ProviderClientFactory.getClient(config),
         runController: AgentRunController = AgentRunController(),
         skillContext: SkillContext = SkillContext.EMPTY,
+        memoryContext: AgentMemoryContext = AgentMemoryContext.DISABLED,
         onEvent: (AgentEvent) -> Unit = {}
     ): ModelResponse.Text {
         config.validate()
-        val messages = AgentPromptBuilder.buildInitialMessages(config, prompt, images, history, skillContext)
+        val messages = AgentPromptBuilder.buildInitialMessages(
+            config,
+            prompt,
+            images,
+            history,
+            skillContext,
+            memoryContext,
+        )
         val transcriptStartIndex = messages.length()
         val tools = AgentToolCatalog.build(
             terminalTools = config.terminalTools,
@@ -88,6 +97,7 @@ internal object AgentModelClient {
             deviceSensitiveActionTools = config.deviceSensitiveActionTools,
             skillGitHubDiscovery = true,
             skillGitHubInstall = true,
+            memoryTools = memoryContext.enabled,
         )
         onEvent(
             AgentEvent.RunStarted(
@@ -170,6 +180,7 @@ internal object AgentModelClient {
         val apiKey: String,
         val model: String,
         val modelDisplayName: String = "",
+        val contextWindow: Int? = null,
         val systemPrompt: String,
         val anthropicVersion: String = AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION,
         val openAiEndpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS,

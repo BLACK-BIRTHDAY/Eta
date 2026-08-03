@@ -8,6 +8,12 @@ import org.junit.Test
 
 class AgentSensitiveTranscriptTest {
     @Test
+    fun memoryToolArgumentsAndResultsAreAlwaysSensitive() {
+        assertTrue(AgentSensitiveToolPolicy.isSensitive("memory_get"))
+        assertTrue(AgentSensitiveToolPolicy.isSensitive("memory_write"))
+    }
+
+    @Test
     fun sensitiveToolArgumentsAndResultAreRemovedTogether() {
         val callId = "call_sensitive"
         val messages = JSONArray()

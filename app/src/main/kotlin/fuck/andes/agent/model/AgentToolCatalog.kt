@@ -12,6 +12,7 @@ internal object AgentToolCatalog {
         deviceSensitiveActionTools: Boolean = false,
         skillGitHubDiscovery: Boolean = false,
         skillGitHubInstall: Boolean = false,
+        memoryTools: Boolean = false,
     ): JSONArray =
         JSONArray().also { tools ->
             AgentContextAppToolCatalog.appendTo(tools)
@@ -29,6 +30,7 @@ internal object AgentToolCatalog {
                 githubDiscovery = skillGitHubDiscovery,
                 githubInstall = skillGitHubInstall,
             )
+            if (memoryTools) AgentMemoryToolCatalog.appendTo(tools)
             if (terminalTools) AgentTerminalToolCatalog.appendTo(tools)
         }
 }

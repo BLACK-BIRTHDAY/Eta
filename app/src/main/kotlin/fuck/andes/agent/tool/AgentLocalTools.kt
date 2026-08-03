@@ -33,12 +33,17 @@ import fuck.andes.agent.terminal.RootShellTerminalController
 import fuck.andes.config.Prefs
 import fuck.andes.core.AgentLogger
 import fuck.andes.core.HookSupport
+import fuck.andes.data.repository.AgentMemoryException
+import fuck.andes.data.repository.AgentMemoryMutation
+import fuck.andes.data.repository.AgentMemoryRepository
+import fuck.andes.data.repository.AgentMemoryWriteResult
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlinx.coroutines.runBlocking
 
 internal class AgentLocalTools(
     private val context: Context,
@@ -58,6 +63,9 @@ internal class AgentLocalTools(
     },
     private val deviceSensitiveActionToolsEnabled: () -> Boolean = {
         Prefs.isEnabled(Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS)
+    },
+    private val memoryToolsEnabled: () -> Boolean = {
+        runBlocking { AgentMemoryRepository.isEnabled() }
     },
     private val screenshotExcludedPackages: () -> Set<String> = { emptySet() },
     private val beforeToolExecution: (String) -> ToolExecutionDecision = {
@@ -116,6 +124,7 @@ internal class AgentLocalTools(
                 )
             }
             deviceToolPermissionError(toolCall.name)?.let { return@runCatching it }
+            memoryToolPermissionError(toolCall.name)?.let { return@runCatching it }
             if (
                 toolCall.name in CLOCK_MUTATION_TOOLS &&
                 !clockMutationFingerprints.add("${toolCall.name}:${args}")
@@ -172,6 +181,8 @@ internal class AgentLocalTools(
                 "read_file" -> textResult(terminalTool { readFile(args) })
                 "write_file" -> textResult(terminalTool { writeFile(args) })
                 "list_directory" -> textResult(terminalTool { listDirectory(args) })
+                "memory_get" -> textResult(memoryGet(args))
+                "memory_write" -> textResult(memoryWrite(args))
                 "skills_list" -> textResult(skillsList(args))
                 "skills_read" -> textResult(skillsRead(args))
                 "skills_read_resource" -> textResult(skillsReadResource(args))
@@ -228,6 +239,71 @@ internal class AgentLocalTools(
             return errorResult("TERMINAL_TOOLS_DISABLED", "请先启用终端/文件工具")
         }
         return block()
+    }
+
+    private fun memoryToolPermissionError(toolName: String): AgentModelClient.ToolResult? {
+        if (toolName !in MEMORY_TOOL_NAMES || memoryToolsEnabled()) return null
+        return AgentModelClient.ToolResult(
+            content = errorResult("MEMORY_DISABLED", "记忆已在设置中关闭"),
+            sensitive = true,
+        )
+    }
+
+    private fun memoryGet(args: JSONObject): String = try {
+        val result = AgentMemoryRepository.read(
+            query = args.optString("query").takeIf(String::isNotBlank),
+            startLine = args.optInt("start_line", 1),
+            maxChars = args.optInt("max_chars", 12_000),
+        )
+        JSONObject()
+            .put("ok", true)
+            .put("revision", result.snapshot.revision)
+            .put("bytes", result.snapshot.byteSize)
+            .put("line_count", result.snapshot.lineCount)
+            .put("start_line", result.startLine ?: JSONObject.NULL)
+            .put("end_line", result.endLine ?: JSONObject.NULL)
+            .put("matched_lines", result.matchedLines)
+            .put("has_more", result.hasMore)
+            .put("content", result.content)
+            .toString()
+    } catch (failure: AgentMemoryException) {
+        errorResult(failure.code, failure.message ?: "记忆读取失败")
+    }
+
+    private fun memoryWrite(args: JSONObject): String = try {
+        val revision = args.getString("revision")
+        val mutation = when (args.getString("mode")) {
+            "replace_range" -> AgentMemoryMutation.ReplaceRange(
+                revision = revision,
+                startLine = args.getInt("start_line"),
+                endLine = args.getInt("end_line"),
+                content = args.getString("content"),
+            )
+            "append" -> AgentMemoryMutation.Append(
+                revision = revision,
+                content = args.getString("content"),
+            )
+            "clear" -> AgentMemoryMutation.Clear(revision)
+            else -> error("不支持的记忆写入模式")
+        }
+        when (val result = AgentMemoryRepository.mutate(mutation)) {
+            is AgentMemoryWriteResult.Success -> JSONObject()
+                .put("ok", true)
+                .put("revision", result.snapshot.revision)
+                .put("bytes", result.snapshot.byteSize)
+                .put("line_count", result.snapshot.lineCount)
+                .toString()
+            is AgentMemoryWriteResult.Conflict -> JSONObject()
+                .put("ok", false)
+                .put("code", "MEMORY_CONFLICT")
+                .put("message", "记忆已发生变化，请先调用 memory_get 获取最新内容")
+                .put("revision", result.snapshot.revision)
+                .put("bytes", result.snapshot.byteSize)
+                .put("line_count", result.snapshot.lineCount)
+                .toString()
+        }
+    } catch (failure: AgentMemoryException) {
+        errorResult(failure.code, failure.message ?: "记忆写入失败")
     }
 
     private fun browserUse(args: JSONObject, toolCallId: String): AgentModelClient.ToolResult {
@@ -1230,5 +1306,6 @@ internal class AgentLocalTools(
             DEVICE_DIRECT_TOOL_NAMES + DEVICE_SENSITIVE_READ_TOOL_NAMES +
                 DEVICE_SENSITIVE_ACTION_TOOL_NAMES
         val CLOCK_MUTATION_TOOLS = setOf("set_alarm", "set_timer")
+        val MEMORY_TOOL_NAMES = setOf("memory_get", "memory_write")
     }
 }

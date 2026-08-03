@@ -25,6 +25,7 @@ class RuntimeConfigRepositoryTest {
             id = "m1",
             modelId = "gpt-5.5",
             displayName = "GPT-5.5",
+            contextWindow = 1_000_000,
             customHeaders = listOf(CustomHeader("x-model", "2"))
         )
 
@@ -34,6 +35,7 @@ class RuntimeConfigRepositoryTest {
 
         assertEquals(ProviderTypes.OPENAI_COMPATIBLE, root.getValue("providerType").jsonPrimitive.content)
         assertEquals("gpt-5.5", root.getValue("model").jsonPrimitive.content)
+        assertEquals(1_000_000, config.contextWindow)
         assertEquals(listOf("x-provider", "x-model"), config.customHeaders.map { it.name })
         assertEquals(config, Json.decodeFromString<AgentModelClient.ModelConfig>(raw))
     }

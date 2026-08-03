@@ -15,6 +15,7 @@ import fuck.andes.FuckAndesApp
 import fuck.andes.agent.accessibility.AgentAccessibilityService
 import fuck.andes.agent.device.DeviceLocationProvider
 import fuck.andes.agent.media.AgentImageCodec
+import fuck.andes.agent.memory.AgentMemoryContextBuilder
 import fuck.andes.agent.model.AgentModelClient
 import fuck.andes.agent.runtime.AgentEvent
 import fuck.andes.agent.runtime.AgentExternalArchivePayload
@@ -28,9 +29,11 @@ import fuck.andes.config.Prefs
 import fuck.andes.core.AndroidAgentLogger
 import fuck.andes.core.safeLogType
 import fuck.andes.data.repository.RuntimeConfigRepository
+import fuck.andes.data.repository.AgentMemoryRepository
 import fuck.andes.ui.model.AgentChatHomeUiState
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
+import fuck.andes.ui.model.AgentMemoryUiState
 import fuck.andes.ui.model.AgentSkillsUiState
 import fuck.andes.ui.model.AgentSystemEnhanceUiState
 import fuck.andes.ui.model.AgentToolsUiState
@@ -117,6 +120,9 @@ internal class AgentAppState(
     var systemEnhanceState by mutableStateOf(buildSystemEnhanceState())
         private set
 
+    var memoryState by mutableStateOf(AgentMemoryUiState())
+        private set
+
     init {
         refreshConversationSummaries()
         runtimeRecoveryInProgress.set(true)
@@ -139,6 +145,144 @@ internal class AgentAppState(
                 runtimeRecoveryInProgress.set(false)
             }
         }
+    }
+
+    fun refreshMemory() {
+        memoryState = memoryState.copy(isLoading = true, notice = null)
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                val snapshot = AgentMemoryRepository.snapshot()
+                val enabled = AgentMemoryRepository.isEnabled()
+                val contextWindow = RuntimeConfigRepository.currentRuntimeConfig()?.contextWindow
+                Triple(snapshot, enabled, AgentMemoryContextBuilder.coreBudgetChars(contextWindow))
+            }.fold(
+                onSuccess = { (snapshot, enabled, coreBudget) ->
+                    withContext(Dispatchers.Main) {
+                        memoryState = AgentMemoryUiState(
+                            enabled = enabled,
+                            isLoading = false,
+                            draft = snapshot.content,
+                            savedContent = snapshot.content,
+                            draftBytes = snapshot.byteSize,
+                            coreBudgetChars = coreBudget,
+                        )
+                    }
+                },
+                onFailure = { throwable ->
+                    AndroidAgentLogger.warnThrottled("agent_memory_ui_load_failed") {
+                        "Agent memory UI load failed: type=${throwable.safeLogType()}"
+                    }
+                    withContext(Dispatchers.Main) {
+                        memoryState = memoryState.copy(
+                            isLoading = false,
+                            notice = "读取记忆失败，请稍后重试",
+                        )
+                    }
+                },
+            )
+        }
+    }
+
+    fun updateMemoryDraft(content: String) {
+        memoryState = memoryState.copy(
+            draft = content,
+            draftBytes = content.toByteArray(Charsets.UTF_8).size,
+            notice = null,
+        )
+    }
+
+    fun setMemoryEnabled(enabled: Boolean) {
+        scope.launch(Dispatchers.IO) {
+            runCatching { AgentMemoryRepository.setEnabled(enabled) }
+                .fold(
+                    onSuccess = {
+                        withContext(Dispatchers.Main) {
+                            memoryState = memoryState.copy(enabled = enabled, notice = null)
+                        }
+                    },
+                    onFailure = { throwable ->
+                        AndroidAgentLogger.warnThrottled("agent_memory_toggle_failed") {
+                            "Agent memory setting update failed: type=${throwable.safeLogType()}"
+                        }
+                        withContext(Dispatchers.Main) {
+                            memoryState = memoryState.copy(notice = "记忆开关保存失败")
+                        }
+                    },
+                )
+        }
+    }
+
+    fun saveMemory() {
+        if (!memoryState.canSave) return
+        val target = memoryState.draft
+        memoryState = memoryState.copy(isSaving = true, notice = null)
+        scope.launch(Dispatchers.IO) {
+            runCatching { AgentMemoryRepository.replaceAll(target) }
+                .fold(
+                    onSuccess = { snapshot ->
+                        withContext(Dispatchers.Main) {
+                            memoryState = memoryState.copy(
+                                isSaving = false,
+                                savedContent = snapshot.content,
+                                draft = if (memoryState.draft == target) {
+                                    snapshot.content
+                                } else {
+                                    memoryState.draft
+                                },
+                                draftBytes = memoryState.draft.toByteArray(Charsets.UTF_8).size,
+                                notice = "记忆已保存",
+                            )
+                        }
+                    },
+                    onFailure = { throwable ->
+                        AndroidAgentLogger.warnThrottled("agent_memory_ui_save_failed") {
+                            "Agent memory UI save failed: type=${throwable.safeLogType()}"
+                        }
+                        withContext(Dispatchers.Main) {
+                            memoryState = memoryState.copy(
+                                isSaving = false,
+                                notice = throwable.message ?: "记忆保存失败",
+                            )
+                        }
+                    },
+                )
+        }
+    }
+
+    fun clearMemory() {
+        if (memoryState.isSaving) return
+        memoryState = memoryState.copy(isSaving = true, notice = null)
+        scope.launch(Dispatchers.IO) {
+            runCatching { AgentMemoryRepository.replaceAll("") }
+                .fold(
+                    onSuccess = {
+                        withContext(Dispatchers.Main) {
+                            memoryState = memoryState.copy(
+                                isSaving = false,
+                                draft = "",
+                                savedContent = "",
+                                draftBytes = 0,
+                                notice = "记忆已清空",
+                            )
+                        }
+                    },
+                    onFailure = { throwable ->
+                        AndroidAgentLogger.warnThrottled("agent_memory_ui_clear_failed") {
+                            "Agent memory UI clear failed: type=${throwable.safeLogType()}"
+                        }
+                        withContext(Dispatchers.Main) {
+                            memoryState = memoryState.copy(
+                                isSaving = false,
+                                notice = throwable.message ?: "记忆清空失败",
+                            )
+                        }
+                    },
+                )
+        }
+    }
+
+    fun dismissMemoryNotice() {
+        memoryState = memoryState.copy(notice = null)
     }
 
     /**
@@ -1363,6 +1507,14 @@ private fun buildToolsState(): AgentToolsUiState =
                 ),
             ),
             ToolGroupUi(
+                id = "memory",
+                title = "记忆",
+                tools = listOf(
+                    ToolItemUi("memory_get", "读取记忆", "分页读取或检索 MEMORY.md 中的长期记忆"),
+                    ToolItemUi("memory_write", "整理记忆", "局部更新、追加或清空长期记忆"),
+                ),
+            ),
+            ToolGroupUi(
                 id = "terminal",
                 title = "终端与文件",
                 tools = listOf(
@@ -1477,6 +1629,12 @@ private fun buildSystemEnhanceState(): AgentSystemEnhanceUiState =
                         status = SystemEnhanceStatusUi.Active,
                     ),
                     SystemEnhanceItemUi(
+                        id = "memory",
+                        title = "记忆系统",
+                        summary = "核心记忆自动注入，详细内容由模型按需检索",
+                        status = SystemEnhanceStatusUi.Active,
+                    ),
+                    SystemEnhanceItemUi(
                         id = "overlay",
                         title = "运行浮窗",
                         summary = "Runtime 服务运行时显示状态浮窗",
@@ -1488,12 +1646,6 @@ private fun buildSystemEnhanceState(): AgentSystemEnhanceUiState =
                 id = "future",
                 title = "后续能力",
                 items = listOf(
-                    SystemEnhanceItemUi(
-                        id = "memory",
-                        title = "记忆系统",
-                        summary = "长期记忆和定时触发器后续接入",
-                        status = SystemEnhanceStatusUi.Inactive,
-                    ),
                     SystemEnhanceItemUi(
                         id = "hook",
                         title = "Hook 二级能力",

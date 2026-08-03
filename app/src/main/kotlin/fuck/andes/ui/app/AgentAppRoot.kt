@@ -46,6 +46,7 @@ import fuck.andes.ui.pages.providers.ModelProviderListScreen
 import fuck.andes.ui.model.AgentChatAction
 import fuck.andes.ui.model.AgentHomeAction
 import fuck.andes.ui.model.AgentSkillsAction
+import fuck.andes.ui.model.AgentMemoryAction
 import fuck.andes.ui.model.AgentSystemEnhanceAction
 import fuck.andes.ui.model.AgentToolsAction
 import fuck.andes.ui.model.PermissionHealthAction
@@ -55,6 +56,7 @@ import fuck.andes.ui.screens.chat.AgentChatScreen
 import fuck.andes.ui.screens.browser.AgentBrowserScreen
 import fuck.andes.ui.screens.enhance.SystemEnhanceScreen
 import fuck.andes.ui.screens.home.AgentHomeScreen
+import fuck.andes.ui.screens.memory.AgentMemoryScreen
 import fuck.andes.ui.screens.permissions.PermissionHealthScreen
 import fuck.andes.ui.screens.skills.AgentSkillsScreen
 import fuck.andes.ui.screens.terminal.LinuxEnvironmentScreen
@@ -355,6 +357,24 @@ fun AgentAppRoot() {
                     context = context,
                     onNavigate = { route -> pushRoute(route) },
                     onBack = ::popRoute
+                )
+            }
+            entry<AppRoute.Memory> {
+                LaunchedEffect(Unit) {
+                    agentState.refreshMemory()
+                }
+                AgentMemoryScreen(
+                    state = agentState.memoryState,
+                    onAction = { action ->
+                        when (action) {
+                            AgentMemoryAction.NavigateBack -> popRoute()
+                            is AgentMemoryAction.ToggleEnabled -> agentState.setMemoryEnabled(action.enabled)
+                            is AgentMemoryAction.DraftChanged -> agentState.updateMemoryDraft(action.content)
+                            AgentMemoryAction.Save -> agentState.saveMemory()
+                            AgentMemoryAction.Clear -> agentState.clearMemory()
+                            AgentMemoryAction.DismissNotice -> agentState.dismissMemoryNotice()
+                        }
+                    },
                 )
             }
             entry<AppRoute.LinuxEnvironment> {

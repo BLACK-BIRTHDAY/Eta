@@ -195,6 +195,7 @@ class AgentRuntimeWireTest {
                 baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1",
                 apiKey = "test-key",
                 model = "qwen3-max",
+                contextWindow = 262_144,
                 systemPrompt = "你是手机 Agent",
                 terminalTools = true,
                 browserTools = true,
@@ -237,6 +238,7 @@ class AgentRuntimeWireTest {
         val roundTripped = AgentRuntimeWire.runRequestFromBundle(bundle)
 
         assertEquals(request, roundTripped)
+        assertEquals(262_144, roundTripped.config.contextWindow)
     }
 
     @Test
@@ -255,11 +257,13 @@ class AgentRuntimeWireTest {
         )
         val legacyBundle = AgentRuntimeWire.toLegacyBundle(request).apply {
             remove("browser_tools")
+            remove("context_window")
         }
 
         val roundTripped = AgentRuntimeWire.runRequestFromBundle(legacyBundle)
 
         assertEquals(true, roundTripped.config.browserTools)
+        assertNull(roundTripped.config.contextWindow)
     }
 
     @Test

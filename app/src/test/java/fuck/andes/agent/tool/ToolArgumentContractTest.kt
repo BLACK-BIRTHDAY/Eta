@@ -118,4 +118,36 @@ class ToolArgumentContractTest {
             )?.field,
         )
     }
+
+    @Test
+    fun `memory writes require revision and mode specific arguments`() {
+        val revision = "a".repeat(64)
+        assertEquals(
+            "revision",
+            ToolArgumentContract.validate(
+                "memory_write",
+                JSONObject("""{"mode":"clear","revision":"bad"}"""),
+            )?.field,
+        )
+        assertEquals(
+            "content",
+            ToolArgumentContract.validate(
+                "memory_write",
+                JSONObject("""{"mode":"append","revision":"$revision","content":""}"""),
+            )?.field,
+        )
+        assertNull(
+            ToolArgumentContract.validate(
+                "memory_write",
+                JSONObject("""{"mode":"replace_range","revision":"$revision","start_line":2,"end_line":3,"content":""}"""),
+            ),
+        )
+        assertEquals(
+            "max_chars",
+            ToolArgumentContract.validate(
+                "memory_get",
+                JSONObject("""{"max_chars":32001}"""),
+            )?.field,
+        )
+    }
 }

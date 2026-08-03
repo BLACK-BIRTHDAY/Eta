@@ -218,6 +218,9 @@ private fun colorForTool(toolId: String): Color = when (toolId) {
     "browser_use", "browser_read",
     "browser_interact", "browser_screenshot" -> Color(0xFF0066FF)
 
+    // 记忆
+    "memory_get", "memory_write" -> Color(0xFF0066FF)
+
     // 终端与文件
     "terminal", "terminal_job",
     "run_command", "read_file",
@@ -246,6 +249,7 @@ private fun iconForTool(toolId: String): Int = when (toolId) {
     "browser_read" -> LucideR.drawable.lucide_ic_book_open_text
     "browser_interact" -> LucideR.drawable.lucide_ic_mouse_pointer_click
     "browser_screenshot" -> LucideR.drawable.lucide_ic_scan_eye
+    "memory_get", "memory_write" -> LucideR.drawable.lucide_ic_brain
     "press_key" -> LucideR.drawable.lucide_ic_smartphone
     "open_system_panel" -> LucideR.drawable.lucide_ic_panel_top_open
     "set_alarm", "set_timer" -> LucideR.drawable.lucide_ic_clock
