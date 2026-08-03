@@ -175,89 +175,6 @@ internal fun SettingsScreen(
             item(key = "section_agent") {
                 SmallTitle("Agent")
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = "默认启用深度思考",
-                        key = Prefs.Keys.AGENT_THINKING_ENABLED,
-                        icon = LucideR.drawable.lucide_ic_brain,
-                        iconTint = ColorOSRoyalBlue,
-                    )
-                    PrefDivider()
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = "启用网页浏览工具",
-                        summary = "在离屏浏览器中读取和操作网页，不会自动切换前台",
-                        key = Prefs.Keys.AGENT_BROWSER_TOOLS,
-                        icon = LucideR.drawable.lucide_ic_globe,
-                        iconTint = ColorOSVividGreen,
-                    )
-                    PrefDivider()
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = "启用设备直达工具",
-                        summary = "允许直达闹钟、计时器、媒体、音量和设备状态，默认无需操作界面",
-                        key = Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS,
-                        icon = LucideR.drawable.lucide_ic_smartphone,
-                        iconTint = ColorOSVividGreen,
-                    )
-                    PrefDivider()
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = "允许读取敏感设备信息",
-                        summary = "包括通知、短信验证码、已保存 Wi‑Fi 密码、系统设置和日志；原始结果不归档",
-                        key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS,
-                        icon = LucideR.drawable.lucide_ic_eye,
-                        iconTint = ColorOSAmberYellow,
-                    )
-                    PrefDivider()
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = "允许敏感设备操作",
-                        summary = "包括冻结应用、修改系统设置和网络开关；开启后模型可直接调用",
-                        key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
-                        icon = LucideR.drawable.lucide_ic_shield_alert,
-                        iconTint = ColorOSAmberYellow,
-                    )
-                    PrefDivider()
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = "启用终端/文件工具",
-                        summary = "允许 Agent 使用 Android user/root shell，并读取或写入手机文件",
-                        key = Prefs.Keys.AGENT_TERMINAL_TOOLS,
-                        icon = LucideR.drawable.lucide_ic_square_terminal,
-                        iconTint = ColorOSAmberYellow,
-                    )
-                    PrefDivider()
-                    ArrowPreference(
-                        title = "记忆",
-                        summary = "管理由模型维护的跨对话长期记忆",
-                        startAction = {
-                            TintedIcon(
-                                icon = LucideR.drawable.lucide_ic_brain,
-                                tint = ColorOSOrange,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.Memory) },
-                    )
-                    PrefDivider()
-                    ArrowPreference(
-                        title = "Linux 工具环境",
-                        summary = "安装 Python、Git、jq、zip 等通用命令，当前约 120 MB",
-                        startAction = {
-                            TintedIcon(
-                                icon = LucideR.drawable.lucide_ic_square_terminal,
-                                tint = ColorOSVividGreen,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.LinuxEnvironment) },
-                    )
-                    PrefDivider()
                     ArrowPreference(
                         title = "模型提供商",
                         summary = providerSummary,
@@ -268,6 +185,88 @@ internal fun SettingsScreen(
                             )
                         },
                         onClick = { onNavigate(AppRoute.ModelProviders) },
+                    )
+                    PrefDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = prefs,
+                        title = "默认启用深度思考",
+                        key = Prefs.Keys.AGENT_THINKING_ENABLED,
+                        icon = LucideR.drawable.lucide_ic_brain,
+                        iconTint = ColorOSRoyalBlue,
+                    )
+                    PrefDivider()
+                    ArrowPreference(
+                        title = "记忆",
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_brain,
+                                tint = ColorOSOrange,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.Memory) },
+                    )
+                }
+            }
+
+            // ── 工具 ───────────────────────────────────────────────────
+            item(key = "section_tools") {
+                SmallTitle("工具")
+                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                    SwitchPref(
+                        context = context,
+                        prefs = prefs,
+                        title = "启用网页浏览工具",
+                        key = Prefs.Keys.AGENT_BROWSER_TOOLS,
+                        icon = LucideR.drawable.lucide_ic_globe,
+                        iconTint = ColorOSVividGreen,
+                    )
+                    PrefDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = prefs,
+                        title = "启用设备直达工具",
+                        key = Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS,
+                        icon = LucideR.drawable.lucide_ic_smartphone,
+                        iconTint = ColorOSVividGreen,
+                    )
+                    PrefDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = prefs,
+                        title = "允许读取敏感设备信息",
+                        key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS,
+                        icon = LucideR.drawable.lucide_ic_eye,
+                        iconTint = ColorOSAmberYellow,
+                    )
+                    PrefDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = prefs,
+                        title = "允许敏感设备操作",
+                        key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
+                        icon = LucideR.drawable.lucide_ic_shield_alert,
+                        iconTint = ColorOSAmberYellow,
+                    )
+                    PrefDivider()
+                    SwitchPref(
+                        context = context,
+                        prefs = prefs,
+                        title = "启用终端/文件工具",
+                        key = Prefs.Keys.AGENT_TERMINAL_TOOLS,
+                        icon = LucideR.drawable.lucide_ic_square_terminal,
+                        iconTint = ColorOSAmberYellow,
+                    )
+                    PrefDivider()
+                    ArrowPreference(
+                        title = "Linux 工具环境",
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_square_terminal,
+                                tint = ColorOSVividGreen,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.LinuxEnvironment) },
                     )
                 }
             }
@@ -280,7 +279,6 @@ internal fun SettingsScreen(
                         context = context,
                         prefs = prefs,
                         title = "启用系统助手自定义模型",
-                        summary = "小布与超级小爱共用此开关",
                         key = Prefs.Keys.AGENT_CUSTOM_MODEL,
                         icon = LucideR.drawable.lucide_ic_cpu,
                         iconTint = ColorOSOrangeRed,
@@ -290,7 +288,6 @@ internal fun SettingsScreen(
                         context = context,
                         prefs = prefs,
                         title = "仅 /agent 前缀接管",
-                        summary = "同时适用于小布与超级小爱",
                         key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
                         icon = LucideR.drawable.lucide_ic_message_square,
                         iconTint = ColorOSAmberYellow,
@@ -458,7 +455,6 @@ internal fun SettingsScreen(
                     PrefDivider()
                     SwitchPreference(
                         title = "强制保持无障碍",
-                        summary = "由 system_server 保护 Eta 服务并在断连时有限重绑；关闭后不再干预系统设置",
                         checked = accessibilityProtectionEnabled,
                         onCheckedChange = { enabled ->
                             if (accessibilityProtectionPending) {
@@ -633,7 +629,6 @@ private fun SwitchPref(
     context: Context,
     prefs: SharedPreferences?,
     title: String,
-    summary: String? = null,
     key: String,
     icon: Int,
     iconTint: Color,
@@ -645,7 +640,6 @@ private fun SwitchPref(
     }
     SwitchPreference(
         title = title,
-        summary = summary,
         checked = checked,
         onCheckedChange = { value ->
             // 同步提交；RemotePreferences.commit() 失败（binder 提交失败）时回滚 UI 状态，
