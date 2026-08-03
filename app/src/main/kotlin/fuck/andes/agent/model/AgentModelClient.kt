@@ -10,7 +10,9 @@ import fuck.andes.data.model.AnthropicProviderSetting
 import fuck.andes.data.model.CustomBody
 import fuck.andes.data.model.CustomHeader
 import fuck.andes.data.model.OpenAiEndpointMode
+import fuck.andes.data.model.ModelReasoningCapabilities
 import fuck.andes.data.model.ProviderTypes
+import fuck.andes.data.model.ReasoningEffort
 import fuck.andes.data.provider.BuiltinProviders
 import fuck.andes.data.provider.ProviderSourceRegistry
 import kotlinx.serialization.Serializable
@@ -30,6 +32,12 @@ internal object AgentModelClient {
             runCatching {
                 json.decodeFromString<ModelConfig>(runtimeJson)
             }.getOrNull()?.let { runtime ->
+                val thinkingAllowed = Prefs.isEnabled(Prefs.Keys.AGENT_THINKING_ENABLED)
+                val effort = if (thinkingAllowed) {
+                    runtime.effectiveReasoningEffort
+                } else {
+                    ReasoningEffort.OFF
+                }
                 return runtime.copy(
                     terminalTools = Prefs.isEnabled(Prefs.Keys.AGENT_TERMINAL_TOOLS),
                     browserTools = Prefs.isEnabled(Prefs.Keys.AGENT_BROWSER_TOOLS),
@@ -38,7 +46,8 @@ internal object AgentModelClient {
                         Prefs.isEnabled(Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS),
                     deviceSensitiveActionTools =
                         Prefs.isEnabled(Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS),
-                    thinkingEnabled = Prefs.isEnabled(Prefs.Keys.AGENT_THINKING_ENABLED)
+                    thinkingEnabled = effort.enablesReasoning,
+                    reasoningEffort = effort,
                 )
             }
         }
@@ -63,7 +72,10 @@ internal object AgentModelClient {
                 Prefs.isEnabled(Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS),
             deviceSensitiveActionTools =
                 Prefs.isEnabled(Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS),
-            thinkingEnabled = Prefs.isEnabled(Prefs.Keys.AGENT_THINKING_ENABLED)
+            thinkingEnabled = Prefs.isEnabled(Prefs.Keys.AGENT_THINKING_ENABLED),
+            reasoningEffort = ReasoningEffort.fromLegacy(
+                Prefs.isEnabled(Prefs.Keys.AGENT_THINKING_ENABLED)
+            ),
         )
     }
 
@@ -147,6 +159,10 @@ internal object AgentModelClient {
         require(baseUrl.isNotBlank()) { "请先配置 API 地址" }
         require(apiKey.isNotBlank()) { "请先配置 API Key" }
         require(model.isNotBlank()) { "请先配置模型名" }
+        require(
+            reasoningCapabilities?.mandatory != true ||
+                effectiveReasoningEffort != ReasoningEffort.OFF
+        ) { "当前模型强制启用推理，不能选择 Off 或禁用思考权限" }
         if (extraBodyJson.isNotBlank()) {
             runCatching { JSONObject(extraBodyJson) }
                 .getOrElse { throwable ->
@@ -190,10 +206,15 @@ internal object AgentModelClient {
         val deviceSensitiveReadTools: Boolean = false,
         val deviceSensitiveActionTools: Boolean = false,
         val thinkingEnabled: Boolean = false,
+        val reasoningEffort: ReasoningEffort? = null,
+        val reasoningCapabilities: ModelReasoningCapabilities? = null,
         val extraBodyJson: String = "",
         val customHeaders: List<CustomHeader> = emptyList(),
         val customBody: List<CustomBody> = emptyList()
-    )
+    ) {
+        val effectiveReasoningEffort: ReasoningEffort
+            get() = reasoningEffort ?: ReasoningEffort.fromLegacy(thinkingEnabled)
+    }
 
     @Serializable
     data class ConversationMessage(

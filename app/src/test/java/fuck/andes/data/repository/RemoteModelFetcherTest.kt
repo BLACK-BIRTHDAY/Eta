@@ -4,6 +4,7 @@ import fuck.andes.data.model.Model
 import fuck.andes.data.model.ModelSource
 import fuck.andes.data.model.OpenAiCompatibleProviderSetting
 import fuck.andes.data.model.ProviderSourceTypes
+import fuck.andes.data.model.ReasoningEffort
 import fuck.andes.data.provider.OfficialModelCatalog
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -230,8 +231,38 @@ class RemoteModelFetcherTest {
         assertTrue(model.supportsVision)
         assertTrue(model.supportsTools)
         assertTrue(model.supportsReasoning)
+        assertEquals(
+            listOf(
+                ReasoningEffort.DEFAULT,
+                ReasoningEffort.LOW,
+                ReasoningEffort.MEDIUM,
+                ReasoningEffort.HIGH,
+            ),
+            model.reasoningCapabilities?.selectableEfforts,
+        )
+        assertTrue(model.reasoningCapabilities?.mandatory == true)
         assertEquals(true, model.structuredOutput)
         assertEquals(true, model.supportsTemperature)
+    }
+
+    @Test
+    fun parsesThinkingBudgetAndToggleMetadata() {
+        val model = RemoteModelFetcher.parseOpenAiModels(
+            """
+            {
+              "data":[
+                {
+                  "id":"vendor/reasoning-model",
+                  "supported_parameters":["enable_thinking","thinking_budget"]
+                }
+              ]
+            }
+            """.trimIndent()
+        ).single()
+
+        assertTrue(model.supportsReasoning)
+        assertEquals(ReasoningEffort.entries, model.reasoningCapabilities?.selectableEfforts)
+        assertTrue(model.reasoningCapabilities?.supportsBudget == true)
     }
 
     @Test

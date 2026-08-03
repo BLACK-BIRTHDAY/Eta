@@ -129,8 +129,8 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
                 val system = systemParts.joinToString("\n\n").trim()
                 if (system.isNotBlank()) request.put("system", system)
                 convertTools(tools)?.let { request.put("tools", it) }
-                ProviderReasoning.applyAnthropicRequest(request, config)
                 RequestBodyMerge.mergeCustomBody(request, config.customBody)
+                ProviderReasoning.applyAnthropicRequest(request, config)
             }
     }
 

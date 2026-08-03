@@ -16,6 +16,7 @@ import fuck.andes.core.toSafeLogToken
 import android.os.Handler
 import android.os.Looper
 import fuck.andes.config.Prefs
+import fuck.andes.data.model.ReasoningEffort
 import io.github.libxposed.api.XposedModule
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
@@ -606,7 +607,12 @@ internal object BreenoHooks {
                 val modelResponse = runCatching {
                     val baseConfig = AgentModelClient.loadConfig()
                     val config = request.thinkingEnabledOverride
-                        ?.let { baseConfig.copy(thinkingEnabled = it) }
+                        ?.let {
+                            baseConfig.copy(
+                                thinkingEnabled = it,
+                                reasoningEffort = ReasoningEffort.fromLegacy(it),
+                            )
+                        }
                         ?: baseConfig
                     if (!Prefs.isEnabled(Prefs.Keys.AGENT_CUSTOM_MODEL)) {
                         error("请先在 Eta 设置中启用“小布自定义模型”")
@@ -950,6 +956,7 @@ internal object BreenoHooks {
                     .ifBlank { runId },
                 title = archiveTitle(userText),
                 thinkingEnabled = thinkingEnabledOverride,
+                reasoningEffort = thinkingEnabledOverride?.let(ReasoningEffort::fromLegacy),
                 adapterPayload = JSONObject()
                     .put("recordId", recordId)
                     .put("originalRecordId", originalRecordId)

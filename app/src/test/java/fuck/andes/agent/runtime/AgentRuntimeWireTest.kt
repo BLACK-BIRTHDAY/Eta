@@ -5,6 +5,8 @@ import android.os.Parcel
 import android.util.Base64
 import fuck.andes.agent.media.AgentImageCodec
 import fuck.andes.agent.model.AgentModelClient
+import fuck.andes.data.model.ModelReasoningCapabilities
+import fuck.andes.data.model.ReasoningEffort
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.serialization.json.Json
@@ -31,6 +33,7 @@ class AgentRuntimeWireTest {
                 apiKey = "test-key",
                 model = "test-model",
                 systemPrompt = "",
+                reasoningEffort = ReasoningEffort.OFF,
             ),
             images = listOf(
                 AgentModelClient.ModelImage(
@@ -58,6 +61,7 @@ class AgentRuntimeWireTest {
                 apiKey = "test-key",
                 model = "test-model",
                 systemPrompt = "",
+                reasoningEffort = ReasoningEffort.OFF,
             ),
             images = listOf(
                 AgentModelClient.ModelImage(
@@ -186,6 +190,23 @@ class AgentRuntimeWireTest {
     }
 
     @Test
+    fun unknownReasoningEffortJsonFallsBackToDefault() {
+        val config = Json.decodeFromString<AgentModelClient.ModelConfig>(
+            """
+            {
+              "baseUrl":"https://api.openai.com/v1",
+              "apiKey":"test-key",
+              "model":"gpt-test",
+              "systemPrompt":"system",
+              "reasoningEffort":"future"
+            }
+            """.trimIndent()
+        )
+
+        assertEquals(ReasoningEffort.DEFAULT, config.reasoningEffort)
+    }
+
+    @Test
     fun runRequestBundleRoundTripPreservesConfigHistoryAndImages() {
         val request = AgentRuntimeWire.RunRequest(
             runId = "run-1",
@@ -203,6 +224,11 @@ class AgentRuntimeWireTest {
                 deviceSensitiveReadTools = true,
                 deviceSensitiveActionTools = true,
                 thinkingEnabled = true,
+                reasoningEffort = ReasoningEffort.HIGH,
+                reasoningCapabilities = ModelReasoningCapabilities(
+                    supportedEfforts = listOf(ReasoningEffort.HIGH),
+                    canDisable = true,
+                ),
                 extraBodyJson = """{"thinking_budget":256}""",
             ),
             images = listOf(
@@ -239,6 +265,7 @@ class AgentRuntimeWireTest {
 
         assertEquals(request, roundTripped)
         assertEquals(262_144, roundTripped.config.contextWindow)
+        assertEquals(ReasoningEffort.HIGH, roundTripped.config.reasoningEffort)
     }
 
     @Test
@@ -258,12 +285,15 @@ class AgentRuntimeWireTest {
         val legacyBundle = AgentRuntimeWire.toLegacyBundle(request).apply {
             remove("browser_tools")
             remove("context_window")
+            remove("reasoning_effort")
+            putBoolean("thinking_enabled", true)
         }
 
         val roundTripped = AgentRuntimeWire.runRequestFromBundle(legacyBundle)
 
         assertEquals(true, roundTripped.config.browserTools)
         assertNull(roundTripped.config.contextWindow)
+        assertEquals(ReasoningEffort.DEFAULT, roundTripped.config.reasoningEffort)
     }
 
     @Test

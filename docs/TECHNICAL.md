@@ -93,6 +93,12 @@ Google App 作为普通用户应用时，缺乏语音唤醒所需的系统权限
 
 不可关闭的底层依赖（ContextualSearch 服务补齐、机型伪装、资格补齐）始终执行，不暴露开关。
 
+## 会话级 Thinking Effort
+
+聊天会话保存独立的 `ReasoningEffort`，输入栏按当前 Provider、端点和模型能力显示 `Thinking · Off / Default / Low / Medium / High / XHigh / Max` 的实际子集。模型不支持推理时不显示入口；强制推理且没有可调档位的模型只显示不可点击的 `Thinking · Default`。模型切换或远端能力刷新后，已保存但不再合法的档位会向下裁剪到最近的有效档位，没有可比档位时回到 `Default`。
+
+能力解析依次采用远端精确元数据、内置模型目录、Provider 与模型家族规则，最后安全降级。`Default` 保留供应商或高级自定义请求体的默认行为；显式档位在请求体合并完成后应用，因此会话选择是最终覆盖。Room、Runtime Bundle、RemotePreferences JSON 和外部归档同时保留旧 `thinkingEnabled` 布尔投影，旧 `true/false` 分别解释为 `Default/Off`；强制推理模型收到 `Off` 时直接报告配置错误。
+
 ## 聊天流式渲染
 
 模型的 SSE 文本增量先在 App 状态层按 50 ms 合并，减少高频列表状态写入；思考、工具调用和块边界事件仍会立即刷新，事件顺序不变。聊天渲染使用增量 Markdown AST，但不会把尚未显示的大段网络 backlog 一次性交给布局：解析器每次最多追加 12 个 Unicode 字素，批与批之间让出一拍供重组排版，供给节奏与显现速度解耦；消息高度始终由显现进度驱动，解析领先不会提前撑高回答。

@@ -277,6 +277,7 @@ class OpenAiChatCompletionsProviderTest {
                         providerSourceType = "deepseek",
                         model = "deepseek-v4-pro",
                         thinkingEnabled = true,
+                        reasoningEffort = fuck.andes.data.model.ReasoningEffort.HIGH,
                     )
                 },
                 runController = AgentRunController(),

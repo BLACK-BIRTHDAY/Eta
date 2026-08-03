@@ -177,7 +177,8 @@ fun AgentAppRoot() {
                         onAction = { action ->
                             when (action) {
                                 is AgentHomeAction.InputChanged -> agentState.updateInput(action.text)
-                                is AgentHomeAction.ThinkingToggled -> agentState.updateThinkingEnabled(action.enabled)
+                                is AgentHomeAction.ReasoningEffortChanged ->
+                                    agentState.updateReasoningEffort(action.effort)
                                 AgentHomeAction.SendMessage -> agentState.sendCurrentMessage()
                                 AgentHomeAction.StopRun -> agentState.stopCurrentRun()
                                 is AgentHomeAction.ImageAttached -> agentState.attachImage(action.uri)
@@ -204,7 +205,8 @@ fun AgentAppRoot() {
                             when (action) {
                                 AgentChatAction.NavigateBack -> popRoute()
                                 is AgentChatAction.InputChanged -> agentState.updateInput(action.text)
-                                is AgentChatAction.ThinkingToggled -> agentState.updateThinkingEnabled(action.enabled)
+                                is AgentChatAction.ReasoningEffortChanged ->
+                                    agentState.updateReasoningEffort(action.effort)
                                 AgentChatAction.SendMessage -> agentState.sendCurrentMessage()
                                 AgentChatAction.StopRun -> agentState.stopCurrentRun()
                                 AgentChatAction.OpenBrowser -> pushRoute(AppRoute.Browser)

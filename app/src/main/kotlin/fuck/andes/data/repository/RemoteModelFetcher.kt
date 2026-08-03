@@ -5,8 +5,10 @@ import fuck.andes.agent.model.CustomHeaderFilter
 import fuck.andes.agent.model.ProviderUrls
 import fuck.andes.data.model.AnthropicProviderSetting
 import fuck.andes.data.model.Model
+import fuck.andes.data.model.ModelReasoningCapabilities
 import fuck.andes.data.model.ModelSource
 import fuck.andes.data.model.ProviderSetting
+import fuck.andes.data.model.ReasoningEffort
 import fuck.andes.data.provider.OfficialModelCatalog
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -144,6 +146,7 @@ internal object RemoteModelFetcher {
         if (modelId.isBlank()) return null
         val architecture = this["architecture"]?.jsonObjectOrNull()
         val supportedParameters = stringList("supported_parameters", "supportedParameters").orEmpty()
+        val reasoningMetadata = this["reasoning"]?.jsonObjectOrNull()
         return Model(
             id = UUID.randomUUID().toString(),
             modelId = modelId,
@@ -168,12 +171,72 @@ internal object RemoteModelFetcher {
             toolCall = boolean("tool_call", "toolCall", "tools")
                 ?: supportedParameters.supportsAny("tools"),
             reasoning = boolean("reasoning", "thinking", "supports_reasoning")
-                ?: supportedParameters.supportsAny("reasoning", "reasoning_effort", "include_reasoning")
-                ?: (this["reasoning"] as? JsonObject)?.let { true },
+                ?: supportedParameters.supportsAny(
+                    "reasoning",
+                    "reasoning_effort",
+                    "include_reasoning",
+                    "enable_thinking",
+                    "thinking_budget",
+                )
+                ?: reasoningMetadata?.let { true },
+            reasoningCapabilities = parseReasoningCapabilities(
+                metadata = reasoningMetadata,
+                supportedParameters = supportedParameters,
+            ),
             structuredOutput = boolean("structured_output", "structuredOutput")
                 ?: supportedParameters.supportsAny("structured_outputs", "response_format"),
             supportsTemperature = boolean("supports_temperature", "supportsTemperature")
                 ?: supportedParameters.supportsAny("temperature"),
+        )
+    }
+
+    private fun JsonObject.parseReasoningCapabilities(
+        metadata: JsonObject?,
+        supportedParameters: List<String>,
+    ): ModelReasoningCapabilities? {
+        val supportsBudget = supportedParameters.any {
+            it == "thinking_budget" || it == "reasoning_budget"
+        }
+        val supportsToggle = "enable_thinking" in supportedParameters
+        if (metadata == null && !supportsBudget && !supportsToggle) return null
+        val supportedEfforts = metadata
+            ?.stringList("supported_efforts", "supportedEfforts")
+            .orEmpty()
+            .mapNotNull(ReasoningEffort::fromWireValue)
+            .filter { it != ReasoningEffort.DEFAULT }
+            .ifEmpty {
+                if (supportsBudget) {
+                    listOf(
+                        ReasoningEffort.LOW,
+                        ReasoningEffort.MEDIUM,
+                        ReasoningEffort.HIGH,
+                        ReasoningEffort.XHIGH,
+                        ReasoningEffort.MAX,
+                    )
+                } else {
+                    emptyList()
+                }
+            }
+        val mandatory = metadata?.boolean("mandatory") == true
+        return ModelReasoningCapabilities(
+            supportedEfforts = supportedEfforts.filter { it != ReasoningEffort.OFF },
+            defaultEffort = ReasoningEffort.fromWireValue(
+                metadata?.string("default_effort", "defaultEffort")
+            ),
+            defaultEnabled = metadata?.boolean("default_enabled", "defaultEnabled"),
+            mandatory = mandatory,
+            canDisable = !mandatory && (
+                metadata != null ||
+                    supportsToggle ||
+                    supportedEfforts.contains(ReasoningEffort.OFF)
+                ),
+            supportsBudget = supportsBudget,
+            maxBudgetTokens = metadata?.int(
+                "max_budget_tokens",
+                "maxBudgetTokens",
+                "max_reasoning_tokens",
+            ),
+            supportsMaxTokens = metadata?.boolean("supports_max_tokens", "supportsMaxTokens"),
         )
     }
 
