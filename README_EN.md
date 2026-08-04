@@ -4,11 +4,13 @@
 
 <p><img src="https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.0"> <img src="https://img.shields.io/badge/AGP-9.3.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.1"> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Coverage-ColorOS%20%26%20HyperOS-1677FF" alt="System integration coverage: ColorOS and HyperOS"></p>
 
-**A system-level AI agent runtime for rooted Android devices**
+**A third-party, system-level AI agent for Android**
 
-Native Android tools · Cross-app computer use · Root shell · Linux userland
+Eta helps models understand their users, invoke system APIs, read on-device data, control the device, operate apps through a cross-app GUI agent, and complete complex tasks in a Root shell or Linux environment.
 
-Eta lets a model work with Android itself: it can invoke system capabilities, operate app interfaces, browse the web, and use a real terminal to carry multi-step tasks through to completion.
+The real test of an AI phone is not whether it can order coffee or takeout. It is whether it genuinely understands you. Your photos, notes, calendar, notifications, and files tell the story of your life; they should help AI understand what matters and act on your behalf. More than a tool for completing tasks, it can grow into a companion that knows you better over time.
+
+Eta puts that capability back in the user's hands. No OEM preinstallation required: it can find meaningful context in photos and calendars, ColorOS notes and recording summaries, and even cached chat images from QQ and WeChat. When an app exposes no suitable interface, the GUI agent takes over; when the task demands more, Eta can step into a Root shell or Linux environment.
 
 > [!NOTE]
 > The Eta app is the product's core workspace and hosts the complete Agent Runtime. ColorOS and HyperOS are the current targets for system-assistant entry-point integration, covering the OPPO family (OPPO, OnePlus, and realme) and Xiaomi devices; they do not define the app runtime's entire device-support boundary. Full functionality requires Root and LSPosed.
@@ -33,23 +35,26 @@ Eta is not a one-shot chat wrapper. Its runtime drives an agentic loop: the mode
 
 The runtime can combine four execution paths in a single task:
 
-1. **Structured device tools** call stable Android capabilities directly.
+1. **Native tools** work with Android capabilities and selected on-device data sources.
 2. **GUI / computer use** operates apps that expose no suitable machine interface.
 3. **The embedded browser** loads and interacts with web applications without taking over the foreground.
 4. **Android Shell and Alpine Linux** provide a complete command-line environment for diagnostics, scripting, and computation.
 
 The model chooses the path; Eta owns validation, permissions, execution, cancellation, event streaming, and result persistence.
 
-### Structured device tools
+### System capabilities and on-device context
 
-If Android already exposes a reliable system interface, Eta uses it instead of teaching the model how to navigate a Settings screen. Requests such as “set an alarm for 7 AM,” “pause playback,” “set media volume to 30%,” or “turn on Wi-Fi” become schema-constrained tool calls with dedicated executors and structured results.
+If Android already exposes a reliable system interface, Eta uses it instead of teaching the model how to navigate a Settings screen. Requests such as “set an alarm for 7 AM,” “pause playback,” “set media volume to 30%,” or “turn on Wi-Fi” become validated tool calls with dedicated executors and machine-readable results. When the task depends on the user's own context, Eta can also search selected system, OEM, and on-device data sources without opening each app by hand.
 
-This is a growing capability layer rather than a fixed command list. Each new system action is added with its own contract and execution boundary instead of becoming another brittle GUI script.
+This is a growing capability layer rather than a fixed command list. Each system action or data source is added with its own contract and execution boundary instead of becoming another brittle GUI script.
 
 - **Time and media:** create alarms and timers; control playback; adjust media, ring, notification, and alarm streams.
 - **Device state:** inspect battery, charging, memory, storage, OS, uptime, and network state; toggle Wi-Fi and Bluetooth.
 - **App insight:** identify the processes using the most memory and the apps consuming the most storage.
 - **Privileged inspection:** read notifications and SMS verification codes, query saved Wi-Fi credentials and Android Settings, and retrieve bounded system logs.
+- **Personal context:** search photos, audio, recordings, shared files, downloads, calendar events, contacts, call history, and SMS. On ColorOS, Eta can also search notes, to-dos, recordings, and recording summaries.
+- **Chat image discovery:** find recent images in the verified QQ and WeChat cache locations, returning bounded file metadata and paths without reading message databases, chat text, or video.
+- **General image reading:** pass a gallery URI or any absolute on-device image path to `read_image` for visual analysis. This is a general file-and-vision capability rather than a personal-data search tool. Multiple images are read one at a time to avoid overloading model requests.
 - **Device administration:** update non-security-critical settings and stop, freeze, or unfreeze apps, while protecting core packages and security-sensitive settings.
 
 | GUI-only mobile agents | Eta's native path |
@@ -64,7 +69,7 @@ Eta does not rely on a keyword list or a handful of magic phrases. Once a capabi
 
 - Native device access, sensitive reads, and sensitive device actions are separate switches. They are currently enabled by default and are re-read by the Runtime before every execution.
 - Arguments must pass the advertised tool schema and executor validation. Protected packages, security-critical settings, and out-of-range values remain blocked regardless of model output.
-- Verification codes, Wi-Fi passwords, notification bodies, and logs are available only to the active run; raw values are not written to persistent conversation history.
+- Verification codes, Wi-Fi passwords, notification bodies, logs, and personal-data search results are available only to the active run; raw values are not written to persistent conversation history.
 - Memory reads and writes are likewise persisted only as redacted operation summaries, not as raw tool arguments or results.
 
 ### GUI / computer use
@@ -123,6 +128,8 @@ Runs started from an external system-assistant entry point are archived into Eta
 ## What you can ask Eta to do
 
 - **Native device actions:** “Set an alarm for 7 AM,” “pause the music,” or “set media volume to 30%.”
+- **Personal context:** “What is on my calendar tomorrow?”, “find last week's calls and notes,” or “describe the newest photo in my gallery.”
+- **Chat image review:** find a small set of recent QQ or WeChat images, then inspect representative images one by one with the vision tool.
 - **Cross-app work:** “Go through the unfinished items in this app,” falling back to GUI operation only when no direct tool exists.
 - **Cross-app comparison:** analyze a product screenshot, open another shopping app, search for the same item, and return the findings.
 - **Web research:** read JavaScript-rendered documentation or news in a persistent background browser session and hand control to the user when a challenge appears.
@@ -148,7 +155,7 @@ The Xposed layer is an adapter around system entry points. It recognizes and han
 
 ### ColorOS and HyperOS assistants
 
-- **Breeno / Xiaobu on ColorOS:** Eta can take over the conversation entry point, inherit the current conversation's text context, parse image input, and send the request to the shared Runtime. BYOK is supported. Prefix-only takeover is optional and disabled by default; when enabled, only requests beginning with `/agent` are claimed.
+- **Breeno / Xiaobu on ColorOS:** Eta can take over the conversation entry point, inherit the current conversation's text context, parse image input, and send the request to the shared Runtime. BYOK is supported, and only requests beginning with `/agent` are claimed by default.
 - **Super XiaoAI on HyperOS:** Eta correlates final ASR and `setQueryInfo` input with XiaoAI's regenerated `Nlp.Request` event, supports text plus one local image or screenshot, and suppresses native agent actions only for a successfully claimed turn. If a required prefix, image parsing, or queueing check fails, control returns to the native flow.
 
 The Super XiaoAI adapter has been tested on version `7.13.32.0016` (`507013032`) on a physical device. These hooks depend on specific ROM and app implementations and may need adjustment after major updates.
@@ -224,17 +231,17 @@ An AI-native phone should be more than a stronger chatbot, and “click the scre
 
 Apps would not disappear. They would increasingly serve as data, services, and specialized human interfaces behind the agent, exposing machine-readable capabilities through APIs, CLIs, the open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro), or Android [AppFunctions](https://developer.android.com/ai/appfunctions). The AppFunctions API is currently experimental; it gives authorized agents an on-device way to discover and invoke app-provided tools. GUI remains important for presentation, critical confirmation, user takeover, and apps that expose no machine interface.
 
-The OS can also become a context-provisioning layer. With explicit authorization and data-governance controls, it can supply the minimum context needed for the current task: the active screen and workflow, notifications, calendar events, time and location, device state, preferences, and cross-device progress. Context should be classified, minimized, and prepared locally before reaching a model, with visible provenance, usage records, and revocation.
+The operating system can also serve as a context layer for the model. A system-level agent can work with the active screen and notifications as well as photos, calendars, contacts, calls, messages, notes, recordings, and device state, then relate those signals to time, location, habits, preferences, and longer-running goals. Eta already implements part of this model: purpose-built search tools return bounded results, while a separate general-purpose image tool can inspect an explicit path. The goal is not indiscriminate collection. It is to retrieve the context that matters for the task, when it matters. A mature OEM implementation should go further with sensitivity classification, provenance, usage records, and revocation.
 
 An Agentic OS should route execution according to availability, speed, reliability, permissions, and risk:
 
-1. **Native system capabilities:** use OS APIs and dedicated device tools for state, hardware, and system actions.
+1. **Native system and on-device data:** use OS APIs, providers, verified local data sources, and dedicated tools for device state, task context, hardware, and system actions.
 2. **Structured third-party capabilities:** use public APIs, CLIs, MCP servers, AppFunctions, or other authorized interfaces when an app or service provides them.
 3. **GUI agents for closed ecosystems:** use screenshots, accessibility nodes, vision, and coordinates when no machine interface exists.
 4. **Shell and Linux for general computation:** use the file system, scripts, diagnostics, and development tools under explicit user authorization.
 
 > [!IMPORTANT]
-> APIs, CLIs, MCP, and AppFunctions can make third-party apps or services directly operable only when their owners expose or authorize those interfaces. Root, Shell, and Linux do not create missing business APIs. Eta currently provides direct access to Android system capabilities through purpose-built tools; closed third-party apps still require GUI operation.
+> APIs, CLIs, MCP, and AppFunctions can make third-party apps or services directly operable only when their owners expose or authorize those interfaces. Root can let Eta read data already present on the user's device through a verified provider or file layout, such as a chat image cache, but that is not the same as gaining access to an app's private business API or understanding an undocumented protocol. Eta does not expose arbitrary databases, URIs, or SQL to the model. Closed third-party workflows still require the GUI agent unless Eta has a dedicated data adapter.
 
 ```mermaid
 flowchart LR
@@ -247,15 +254,15 @@ flowchart LR
 
 | Architecture layer | A future Agentic OS | Eta today |
 | --- | --- | --- |
-| Perception and context | Screen, voice, notifications, calendar, time and location, habits, memory, and cross-device state | Image input, screen observation, accessibility nodes, time and location, device state, recent notifications, history, and on-demand memory |
+| Perception and context | Screen, voice, notifications, calendar, time and location, habits, memory, and cross-device state | Image input and local-path reading, screen observation, accessibility nodes, time and location, device state, recent notifications, photos, files, calendars, contacts, calls, SMS, ColorOS notes and recordings, QQ and WeChat image caches, conversation history, and on-demand memory |
 | Planning and orchestration | Intent understanding, planning, risk assessment, and model routing | Agentic loop, tool schemas, system constraints, steering, and cancellation |
-| Capability routing | Native system calls; structured third-party APIs, CLIs, MCP, or AppFunctions; GUI coverage for closed apps | Android tools, public URIs and capabilities, GUI agent, browser, Skills, and terminal tools; no private third-party APIs |
+| Capability routing | Native system calls; structured third-party APIs, CLIs, MCP, or AppFunctions; GUI coverage for closed apps | Android tools, system and OEM providers, verified local file data, GUI agent, browser, Skills, and terminal tools; no private third-party business APIs |
 | Execution environment | Apps, system services, files, sensors, compute units, and multiple devices | Android `user`/`root` shell, file tools, and Alpine Linux |
 | Outcome loop | State verification, recovery, risk-based confirmation, and proactive service | Structured tool results, renewed observation, state waits, event streams, result archiving, and user takeover |
 
 For an OEM Agentic OS, the advantage over an ordinary AI app is not only a stronger model. It is the ability to provide continuous but controlled system context, maintain governable memory, orchestrate capabilities across apps and devices, and turn answers into verified outcomes. That power requires restraint: task-scoped context, transparent data use, visible sensing, explicit sensitive permissions, risk-aware confirmation, interruptible execution, and auditable results.
 
-Eta is exploring the part of this direction that can be built today within Android, Root, accessibility, and user-granted boundaries. One Runtime coordinates native system tools, GUI operation, the browser, Shell, Linux, Skills, and on-demand memory. A more complete Agentic OS will also require cross-device state, on-device models, hardware scheduling, stronger data governance, and a participating third-party ecosystem.
+Eta is exploring the part of this direction that can be built today within Android, Root, accessibility, and user-granted boundaries. One Runtime coordinates system and personal-data tools, general image vision, GUI operation, the browser, Shell, Linux, Skills, and on-demand memory. Together, those layers connect Android capabilities, on-device context, and the long tail of app interfaces. A more complete Agentic OS will also require cross-device state, on-device models, hardware scheduling, stronger data governance, and a participating third-party ecosystem.
 
 ## Project layout
 
@@ -275,6 +282,7 @@ agent/runtime/             Agent Runtime, IPC, and result archiving
 agent/memory/              Long-term memory budgets and selective context
 agent/model/               Provider abstractions and SSE parsing
 agent/tool/                Local tool executors
+agent/media/               Image decoding, compression, and model input
 agent/browser/             Shared offscreen browser and web interaction
 agent/device/              Root, accessibility, and input control
 agent/terminal/            Android/Alpine shells, installation, and file tools
@@ -294,7 +302,7 @@ systemizer/                Google App systemizer installer
 config/Prefs.kt            RemotePreferences configuration
 ```
 
-See [Agent Runtime](docs/AGENT_RUNTIME.md) for loop, tool-batch, steering, and transcript semantics. See [Technical Implementation](docs/TECHNICAL.md) for Gemini, Circle to Search, and RemotePreferences internals. These technical documents are currently maintained in Chinese.
+See [Agent Runtime](docs/AGENT_RUNTIME.md) for loop, tool-batch, steering, and transcript semantics. See [Technical Implementation](docs/TECHNICAL.md) for personal-data tools, file vision, Gemini, Circle to Search, and RemotePreferences internals. These technical documents are currently maintained in Chinese.
 
 ## References and acknowledgements
 
