@@ -1586,6 +1586,33 @@ private fun buildToolsState(): AgentToolsUiState =
                 ),
             ),
             ToolGroupUi(
+                id = "personal_data",
+                title = "个人数据直达",
+                tools = listOf(
+                    ToolItemUi("search_media", "相册图片", "按文件名或相册路径检索图片"),
+                    ToolItemUi("search_audio", "音频文件", "按标题、文件名或作者检索音频"),
+                    ToolItemUi("search_recordings", "系统录音", "从系统媒体库检索录音文件"),
+                    ToolItemUi("search_files", "共享文件", "检索文档和共享存储中的文件"),
+                    ToolItemUi("search_calendar_events", "日历事件", "按标题、地点或说明检索日程"),
+                    ToolItemUi("search_contacts", "通讯录", "检索联系人姓名与打开地址"),
+                    ToolItemUi("search_call_history", "通话记录", "按号码或联系人名称检索通话"),
+                    ToolItemUi("search_messages", "短信", "按发送方或正文关键词检索短信"),
+                    ToolItemUi("search_downloads", "下载记录", "检索系统下载任务和文件"),
+                    ToolItemUi("search_coloros_notes", "ColorOS 便签", "检索便签、待办及正文内容"),
+                    ToolItemUi("search_coloros_recordings", "ColorOS 录音", "检索普通录音与通话录音"),
+                    ToolItemUi("search_recording_summaries", "录音摘要", "检索录音关联的转写摘要和便签"),
+                    ToolItemUi("search_qq_chat_images", "QQ 聊天图片", "检索 QQ 聊天图片缓存中的最近图片"),
+                    ToolItemUi("search_wechat_chat_images", "微信聊天图片", "检索微信聊天图片缓存中的最近图片"),
+                ),
+            ),
+            ToolGroupUi(
+                id = "file_vision",
+                title = "文件视觉",
+                tools = listOf(
+                    ToolItemUi("read_image", "读取图片", "读取已知路径的图片并交给视觉模型解读"),
+                ),
+            ),
+            ToolGroupUi(
                 id = "memory",
                 title = "记忆",
                 tools = listOf(

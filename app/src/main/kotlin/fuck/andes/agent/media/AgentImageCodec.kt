@@ -64,6 +64,11 @@ internal object AgentImageCodec {
         image: AgentModelClient.ModelImage,
     ): AgentModelClient.ModelImage? = AgentModelImageEncoder.preview(context, image)
 
+    /** 文件工具图片会在发送模型前压缩，避免多张原图撑大 OpenAI 兼容请求体。 */
+    fun fromToolFile(file: File, source: String): AgentModelClient.ModelImage? = runCatching {
+        AgentModelImageEncoder.toolVision(file.readBytesLimited(), source)
+    }.getOrNull()
+
     fun fromReference(context: Context?, value: String, source: String): AgentModelClient.ModelImage? {
         val trimmed = value.trim()
         if (trimmed.isBlank()) return null

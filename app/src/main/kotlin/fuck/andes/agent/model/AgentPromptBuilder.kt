@@ -47,7 +47,9 @@ internal object AgentPromptBuilder {
                         "连续多步 shell 工作先 action=open 获取 session_id，再 action=exec 复用会话；" +
                         "长时间命令使用 async=true 启动后用 read_async_result 轮询，完成后 close；" +
                         "async 后台命令是独立 shell，不要和 session_id 混用。不要调用 search_apps 查询“终端”或“Termux”。" +
-                        "不要回答“没有终端应用”或建议用户安装 Termux；这些工具已经在当前 Android 设备上通过内置 Root Shell 可用。"
+                        "不要回答“没有终端应用”或建议用户安装 Termux；这些工具已经在当前 Android 设备上通过内置 Root Shell 可用。" +
+                        "读取图片内容必须调用 read_image。同一轮模型回复最多调用一次 read_image；需要查看多张图片时，" +
+                        "必须等待当前图片返回并观察内容，再在下一轮调用下一张，禁止在同一轮并行或批量调用多个 read_image。"
                 )
             )
         }

@@ -7,6 +7,35 @@ import org.junit.Test
 
 class ToolArgumentContractTest {
     @Test
+    fun `personal search bounds query and limit`() {
+        assertEquals(
+            "query",
+            ToolArgumentContract.validate(
+                "search_messages",
+                JSONObject().put("query", "x".repeat(201)),
+            )?.field,
+        )
+        assertEquals(
+            "limit",
+            ToolArgumentContract.validate(
+                "search_media",
+                JSONObject().put("limit", 31),
+            )?.field,
+        )
+        assertEquals(
+            "path",
+            ToolArgumentContract.validate("read_image", JSONObject())?.field,
+        )
+        assertEquals(
+            "limit",
+            ToolArgumentContract.validate(
+                "search_wechat_chat_images",
+                JSONObject().put("limit", 31),
+            )?.field,
+        )
+    }
+
+    @Test
     fun `missing coordinates cannot become a zero coordinate gesture`() {
         assertEquals("x", ToolArgumentContract.validate("tap", JSONObject())?.field)
         assertEquals(

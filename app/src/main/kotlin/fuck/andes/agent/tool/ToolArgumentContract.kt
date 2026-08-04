@@ -159,6 +159,23 @@ internal object ToolArgumentContract {
             Field("query", Kind.STRING, maximumLength = 200),
             Field("max_lines", Kind.INTEGER, minimum = 20, maximum = 500),
         ),
+        "search_media" to personalSearchFields(),
+        "search_audio" to personalSearchFields(),
+        "search_recordings" to personalSearchFields(),
+        "search_files" to personalSearchFields(),
+        "search_calendar_events" to personalSearchFields(),
+        "search_contacts" to personalSearchFields(),
+        "search_call_history" to personalSearchFields(),
+        "search_messages" to personalSearchFields(),
+        "search_downloads" to personalSearchFields(),
+        "search_coloros_notes" to personalSearchFields(),
+        "search_coloros_recordings" to personalSearchFields(),
+        "search_recording_summaries" to personalSearchFields(),
+        "search_qq_chat_images" to personalSearchFields(),
+        "search_wechat_chat_images" to personalSearchFields(),
+        "read_image" to listOf(
+            Field("path", Kind.STRING, required = true, nonBlank = true, maximumLength = 1_024),
+        ),
         "set_device_state" to listOf(
             Field(
                 "target",
@@ -473,6 +490,11 @@ internal object ToolArgumentContract {
             add(Field("value", Kind.STRING, required = true, maximumLength = 2_000))
         }
     }
+
+    private fun personalSearchFields(): List<Field> = listOf(
+        Field("query", Kind.STRING, maximumLength = 200),
+        Field("limit", Kind.INTEGER, minimum = 1, maximum = 30),
+    )
 
     private val EDITABLE_TOOLS = setOf("input_text", "replace_text", "clear_text")
     private val REPEAT_DAYS = setOf("mon", "tue", "wed", "thu", "fri", "sat", "sun")

@@ -31,8 +31,10 @@ internal class AgentStructuredDeviceTools(
     private val logger: AgentLogger,
     private val root: BoundedRootCommandExecutor,
 ) {
+    private val personalDataTools = AgentPersonalDataTools(root)
+
     fun execute(name: String, args: JSONObject): AgentModelClient.ToolResult? =
-        when (name) {
+        personalDataTools.execute(name, args) ?: when (name) {
             "set_alarm" -> text(setAlarm(args))
             "set_timer" -> text(setTimer(args))
             "device_status" -> text(deviceStatus())

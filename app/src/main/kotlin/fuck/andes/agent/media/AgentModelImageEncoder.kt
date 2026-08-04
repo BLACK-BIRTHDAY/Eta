@@ -53,6 +53,13 @@ internal object AgentModelImageEncoder {
         mimeType = "image/jpeg",
         quality = PREVIEW_JPEG_QUALITY,
     )
+    private val toolVisionProfile = EncodingProfile(
+        maxLongEdge = 1_600,
+        maxPixels = 1_500_000L,
+        format = Bitmap.CompressFormat.JPEG,
+        mimeType = "image/jpeg",
+        quality = 82,
+    )
 
     fun screen(
         bytes: ByteArray,
@@ -75,6 +82,21 @@ internal object AgentModelImageEncoder {
         source: String,
     ): AgentModelClient.ModelImage =
         encodeBitmap(bitmap, source, screenProfile, flattenAlpha = false)
+
+    /** 文件工具图片仅在发送模型前缩放压缩，保持多图请求的体积可控。 */
+    fun toolVision(
+        bytes: ByteArray,
+        source: String,
+        mimeHint: String = "image/jpeg",
+    ): AgentModelClient.ModelImage? = runCatching {
+        if (!bytes.hasSupportedImageMagic()) return@runCatching null
+        transcodeBytes(
+            bytes = bytes,
+            source = source,
+            bounds = inspectBounds(bytes, mimeHint),
+            profile = toolVisionProfile,
+        )
+    }.getOrNull()
 
     fun preview(
         context: Context,

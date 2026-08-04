@@ -128,6 +128,20 @@ internal object AgentDeviceToolCatalog {
                     ),
                 ),
             )
+            .put(searchFunction("search_media", "检索本机相册中的图片，可按文件名或相册路径筛选。返回元数据与可打开的 content URI，不读取图片内容。"))
+            .put(searchFunction("search_audio", "检索本机音乐和音频文件，可按标题或文件名筛选。"))
+            .put(searchFunction("search_recordings", "检索本机录音文件。结果来自系统媒体库，不读取录音转写或音频内容。"))
+            .put(searchFunction("search_files", "检索共享存储中的文档和下载文件，可按文件名筛选。不会遍历其他应用私有目录。"))
+            .put(searchFunction("search_calendar_events", "检索系统日历事件，可按标题、地点或说明筛选。"))
+            .put(searchFunction("search_contacts", "检索系统通讯录联系人，返回姓名和 lookup URI。"))
+            .put(searchFunction("search_call_history", "检索通话记录，可按号码或联系人缓存名筛选。"))
+            .put(searchFunction("search_messages", "检索短信，可按发送方或正文关键词筛选。结果属于敏感个人内容。"))
+            .put(searchFunction("search_downloads", "检索系统下载记录，可按文件名或说明筛选。"))
+            .put(searchFunction("search_coloros_notes", "检索 ColorOS 便签和待办，可按标题或正文筛选。仅在安装并可访问 ColorOS 便签时可用。"))
+            .put(searchFunction("search_coloros_recordings", "检索 ColorOS 录音应用中的普通录音和通话录音，返回名称、时长、类型和文件路径。"))
+            .put(searchFunction("search_recording_summaries", "检索 ColorOS 录音关联的转写摘要和便签内容。仅在录音应用生成过摘要时可用。"))
+            .put(searchFunction("search_qq_chat_images", "检索 QQ 聊天图片缓存，返回最近文件的时间、大小、类型和私有路径。仅在安装 QQ 且缓存仍存在时可用。"))
+            .put(searchFunction("search_wechat_chat_images", "检索微信聊天图片缓存，返回最近文件的时间、大小和私有路径。仅在安装微信且缓存仍存在时可用。"))
     }
 
     private fun appendSensitiveActionTools(tools: JSONArray) {
@@ -176,6 +190,16 @@ internal object AgentDeviceToolCatalog {
             name,
             description,
             properties("limit" to integer("最多返回数量，默认 10", 1, 30)),
+        )
+
+    private fun searchFunction(name: String, description: String): JSONObject =
+        function(
+            name,
+            description,
+            properties(
+                "query" to string("可选关键词，最多 200 字"),
+                "limit" to integer("最多返回数量，默认 10", 1, 30),
+            ),
         )
 
     private fun function(

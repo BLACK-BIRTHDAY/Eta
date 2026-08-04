@@ -43,6 +43,8 @@ class AgentPromptBuilderTest {
         assertTrue(messages.systemContents().any { it.contains("通用 GUI 工具完成输入和点击发送") })
         assertTrue(messages.systemContents().any { it.contains("不追加二次确认") })
         assertTrue(messages.getJSONObject(2).getString("content").contains("open_and_exec"))
+        assertTrue(messages.getJSONObject(2).getString("content").contains("同一轮模型回复最多调用一次 read_image"))
+        assertTrue(messages.getJSONObject(2).getString("content").contains("再在下一轮调用下一张"))
         assertFalse(messages.systemContents().any { it.contains("网页浏览、读取") })
         assertEquals("旧问题", messages.getJSONObject(3).getString("content"))
         assertEquals("旧回答", messages.getJSONObject(4).getString("content"))
