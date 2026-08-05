@@ -1601,6 +1601,7 @@ private fun buildToolsState(): AgentToolsUiState =
                     ToolItemUi("search_coloros_notes", "ColorOS 便签", "检索便签、待办及正文内容"),
                     ToolItemUi("search_coloros_recordings", "ColorOS 录音", "检索普通录音与通话录音"),
                     ToolItemUi("search_recording_summaries", "录音摘要", "检索录音关联的转写摘要和便签"),
+                    ToolItemUi("search_coloros_memories", "ColorOS 系统记忆", "检索已收集的信息及其结构化关联内容"),
                     ToolItemUi("search_qq_chat_images", "QQ 聊天图片", "检索 QQ 聊天图片缓存中的最近图片"),
                     ToolItemUi("search_wechat_chat_images", "微信聊天图片", "检索微信聊天图片缓存中的最近图片"),
                 ),
