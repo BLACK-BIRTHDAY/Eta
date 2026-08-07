@@ -188,7 +188,7 @@ internal object FakeAgentUiStates {
                 id = "screen",
                 title = "屏幕操作",
                 tools = listOf(
-                    ToolItemUi("observe", "观察屏幕", "截取并描述当前界面"),
+                    ToolItemUi("observe", "观察屏幕", "读取界面节点，必要时附原图"),
                     ToolItemUi("click", "点击", "点击指定坐标或元素"),
                     ToolItemUi("long_press", "长按", "长按指定元素"),
                     ToolItemUi("swipe", "滑动", "滑动、滚动、返回等手势"),

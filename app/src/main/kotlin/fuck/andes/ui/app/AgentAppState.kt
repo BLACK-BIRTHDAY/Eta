@@ -1516,7 +1516,7 @@ private fun buildToolsState(): AgentToolsUiState =
                 id = "screen",
                 title = "屏幕与控件",
                 tools = listOf(
-                    ToolItemUi("observe_screen", "观察屏幕", "截图并读取当前无障碍节点"),
+                    ToolItemUi("observe_screen", "观察屏幕", "读取当前节点，必要时附原图"),
                     ToolItemUi("tap_element", "点击元素", "按最近一次观察到的节点点击"),
                     ToolItemUi("tap_area", "点击区域", "按坐标区域点击"),
                     ToolItemUi("long_press", "长按", "长按坐标或元素"),
