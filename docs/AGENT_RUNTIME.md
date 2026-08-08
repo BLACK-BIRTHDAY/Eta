@@ -70,8 +70,6 @@ pending steering
 
 安装器只接受代码中固定版本、大小和 SHA-256 的 Alpine 官方 minirootfs，先在临时目录校验并解压，再原子替换 App 私有 rootfs。常用工具安装完成前不会写入完成标记；失败后可继续安装。安装环境不会改变终端/文件工具的用户设置。
 
-状态机语义研究参考了 MIT 许可的 [earendil-works/pi（研究时固定提交）](https://github.com/earendil-works/pi/tree/4c1861033b63a04563547ccdb5ed2bf31d4fdcd3)，Eta 按 Android Runtime、既有 IPC 和 Provider 协议做 Kotlin clean rewrite，没有直接引入其 TypeScript 运行时。
-
 ## 上下文与续接
 
 App 在发起请求前已经把当前用户消息写入会话 history，因此 Runtime 返回的 transcript 必须保持“增量”语义。已完成 run 的补充请求由 `AgentContinuationBuilder` 使用以下顺序重建上下文：
@@ -83,7 +81,7 @@ App 在发起请求前已经把当前用户消息写入会话 history，因此 R
 → 新补充消息
 ```
 
-图片只在需要它的当前模型回合中传递；持久 transcript 会删除 data URL，并写入稳定的省略说明，避免截图 base64 同时膨胀 Binder、Room 和后续上下文。启动请求在发送前按实际 `Parcel` 大小校验，超过 768 KiB 时会明确拒绝并提示减少图片数量或分辨率。持久 transcript 上限为 100 万字符，直接 IPC transcript 上限为 9.6 万字符；outbox 批量 drain 使用更紧的单项预算，确保最坏 8 条待交付结果仍处于 Binder 事务预算内。任何容量压缩都会在保留的 history 前插入明确的 Eta system notice，不会把删头后的 transcript 冒充成完整上下文。
+图片只在需要它的当前模型回合中传递；持久 transcript 会删除 data URL，并写入稳定的省略说明，避免截图 base64 同时膨胀 Binder、Room 和后续上下文。启动请求在发送前按实际 `Parcel` 大小校验，超过 768 KiB 时会明确拒绝并提示减少图片数量或分辨率。运行归档 transcript 上限为 100 万字符；会话上下文检查点和直接 IPC transcript 上限为 9.6 万字符；outbox 批量 drain 使用更紧的单项预算，确保最坏 8 条待交付结果仍处于 Binder 事务预算内。任何容量压缩都会在保留的 history 前插入明确的 Eta system notice，不会把删头后的 transcript 冒充成完整上下文。会话元数据、逐条展示消息和有界上下文检查点分别存储；会话列表查询不读取上下文正文，启动时也不会因单个长期会话阻塞全部会话恢复。
 
 浮层在已完成结果后发起的 continuation 会在 handoff 中只携带本次新增的 prompt supplement，不累计复制旧补充。App 回到前台时 drain outbox，把该用户消息和增量 transcript 一起写回 history。
 
@@ -101,7 +99,7 @@ Skill 安装工具始终向模型提供，不再根据顶层用户输入的固�
 
 已安装 Skill 的附属文本资源通过独立的有界读取工具访问，读取时再次做相对路径、canonical root、UTF-8 与大小检查；脚本和二进制 asset 不会借此被执行或当作无限文本送入上下文。
 
-待确认结果和外部入口归档会把 transcript 一并写入 Room。数据库 6 → 7 使用显式非破坏迁移为旧记录补 transcript，7 → 8 为会话增加已应用 run 标记。恢复幂等性不再靠比较 history 尾部猜测；保存任务严格按调用顺序串行，只有包含对应标记的快照落盘后才 ACK outbox。旧 6.x 结果仍可用已有 assistant 内容合成兼容 history。
+待确认结果和外部入口归档会把 transcript 一并写入 Room。数据库 6 → 7 使用显式非破坏迁移为旧记录补 transcript，7 → 8 为会话增加已应用 run 标记，10 → 11 将会话上下文迁入独立的有界检查点并清理旧的大字段。恢复幂等性不再靠比较 history 尾部猜测；保存任务严格按调用顺序串行，只有包含对应标记的快照落盘后才 ACK outbox。旧 6.x 结果仍可用已有 assistant 内容合成兼容 history。
 
 ## 验证
 

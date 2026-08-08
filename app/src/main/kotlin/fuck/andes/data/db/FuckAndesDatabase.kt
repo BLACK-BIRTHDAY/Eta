@@ -10,6 +10,7 @@ import androidx.room.migration.Migration
 @Database(
     entities = [
         ConversationEntity::class,
+        ConversationContextCheckpointEntity::class,
         ConversationMessageEntity::class,
         ConversationStateEntity::class,
         ProviderEntity::class,
@@ -19,7 +20,7 @@ import androidx.room.migration.Migration
         RuntimeArchiveEventEntity::class,
         SkillRegistryEntity::class,
     ],
-    version = 10,
+    version = 11,
     exportSchema = false,
 )
 internal abstract class FuckAndesDatabase : RoomDatabase() {
@@ -39,7 +40,13 @@ internal abstract class FuckAndesDatabase : RoomDatabase() {
                     FuckAndesDatabase::class.java,
                     "fuck_andes.db",
                 )
-                    .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                    .addMigrations(
+                        MIGRATION_6_7,
+                        MIGRATION_7_8,
+                        MIGRATION_8_9,
+                        MIGRATION_9_10,
+                        MIGRATION_10_11,
+                    )
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                     .also { instance = it }
@@ -107,6 +114,25 @@ internal abstract class FuckAndesDatabase : RoomDatabase() {
                 "ALTER TABLE provider_models ADD COLUMN " +
                     "reasoning_capabilities_json TEXT NOT NULL DEFAULT 'null'"
             )
+        }
+
+        internal val MIGRATION_10_11 = Migration(10, 11) { database ->
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS conversation_context_checkpoints (" +
+                    "conversation_id TEXT NOT NULL, " +
+                    "history_json TEXT NOT NULL, " +
+                    "PRIMARY KEY(conversation_id), " +
+                    "FOREIGN KEY(conversation_id) REFERENCES conversations(id) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE)"
+            )
+            database.execSQL(
+                "INSERT INTO conversation_context_checkpoints (conversation_id, history_json) " +
+                    "SELECT id, CASE " +
+                    "WHEN length(CAST(history_json AS BLOB)) <= 131072 THEN history_json " +
+                    "ELSE '[]' END FROM conversations"
+            )
+            // 会话列表不再使用旧字段；及时清空可保证旧版留下的超大行不会继续占用数据库。
+            database.execSQL("UPDATE conversations SET history_json = '[]'")
         }
     }
 }

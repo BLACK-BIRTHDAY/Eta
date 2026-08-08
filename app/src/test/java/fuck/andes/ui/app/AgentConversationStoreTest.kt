@@ -1,9 +1,12 @@
 package fuck.andes.ui.app
 
 import android.content.Context
-import fuck.andes.data.db.FuckAndesDatabase
+import fuck.andes.agent.model.AgentConversationCodec
+import fuck.andes.agent.model.AgentModelClient
 import fuck.andes.data.db.ConversationEntity
+import fuck.andes.data.db.ConversationMessageEntity
 import fuck.andes.data.db.ConversationStateEntity
+import fuck.andes.data.db.FuckAndesDatabase
 import fuck.andes.data.model.ReasoningEffort
 import fuck.andes.ui.model.AgentChatHomeUiState
 import fuck.andes.ui.model.AgentMessageUi
@@ -212,6 +215,96 @@ class AgentConversationStoreTest {
         assertEquals(131, restored.messages.size)
         assertEquals(longContent, (restored.messages.first() as UserMessageUi).content)
         assertEquals("assistant-129", (restored.messages.last() as AgentMessageUi).content)
+    }
+
+    @Test
+    fun saveBoundsConversationCheckpointWithoutClippingDisplayedMessages() {
+        val displayedContent = "展示消息-${"d".repeat(120_000)}"
+        val history = buildList {
+            repeat(20) { index ->
+                add(
+                    AgentModelClient.ConversationMessage(
+                        role = "assistant",
+                        content = "历史-$index-${"h".repeat(20_000)}",
+                    )
+                )
+            }
+            add(AgentModelClient.ConversationMessage(role = "user", content = "最新上下文"))
+        }
+
+        runBlocking {
+            AgentConversationStore.save(
+                context = context,
+                selectedConversationId = "conv-large",
+                conversationsById = mapOf(
+                    "conv-large" to AgentChatHomeUiState(
+                        messages = listOf(
+                            UserMessageUi(id = "user-large", content = displayedContent)
+                        ),
+                        history = history,
+                        input = "",
+                        isStreaming = false,
+                        thinkingEnabled = false,
+                    )
+                ),
+                titles = mapOf("conv-large" to "长对话"),
+                updatedAt = mapOf("conv-large" to 1L),
+            )
+        }
+
+        val checkpoint = runBlocking {
+            FuckAndesDatabase.get(context)
+                .conversationDao()
+                .contextCheckpoint("conv-large")!!
+        }
+        val restored = AgentConversationStore.load(context)
+            .conversationsById
+            .getValue("conv-large")
+
+        assertTrue(
+            checkpoint.historyJson.length <=
+                AgentConversationCodec.MAX_CONVERSATION_CHECKPOINT_CHARS
+        )
+        assertEquals(displayedContent, (restored.messages.single() as UserMessageUi).content)
+        assertTrue(restored.history.first().content.contains("容量上限已压缩"))
+        assertEquals("最新上下文", restored.history.last().content)
+    }
+
+    @Test
+    fun loadIgnoresLegacyHistoryColumnAndFallsBackToMessageRows() {
+        runBlocking {
+            val dao = FuckAndesDatabase.get(context).conversationDao()
+            dao.insertConversations(
+                listOf(
+                    ConversationEntity(
+                        id = "conv-legacy-large",
+                        title = "旧长对话",
+                        thinkingEnabled = false,
+                        historyJson = "x".repeat(2_500_000),
+                        createdAt = 1L,
+                        updatedAt = 1L,
+                    )
+                )
+            )
+            dao.insertMessages(
+                listOf(
+                    ConversationMessageEntity(
+                        id = "legacy-user",
+                        conversationId = "conv-legacy-large",
+                        sortIndex = 0,
+                        type = "user",
+                        content = "从消息记录恢复",
+                    )
+                )
+            )
+        }
+
+        val restored = AgentConversationStore.load(context)
+            .conversationsById
+            .getValue("conv-legacy-large")
+
+        assertEquals("从消息记录恢复", restored.history.single().content)
+        assertEquals("从消息记录恢复", (restored.messages.single() as UserMessageUi).content)
     }
 
     @Test

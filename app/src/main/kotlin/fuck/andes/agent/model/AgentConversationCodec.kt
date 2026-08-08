@@ -11,6 +11,7 @@ internal object AgentConversationCodec {
     internal const val MAX_IPC_TRANSCRIPT_CHARS = 96_000
     internal const val MAX_DRAIN_TRANSCRIPT_CHARS = 16_000
     internal const val MAX_STORAGE_TRANSCRIPT_CHARS = 1_000_000
+    internal const val MAX_CONVERSATION_CHECKPOINT_CHARS = 96_000
 
     private const val MAX_CONTENT_CHARS = 64_000
     private const val MAX_REASONING_CHARS = 64_000
@@ -35,6 +36,9 @@ internal object AgentConversationCodec {
 
     fun encodeTranscriptForStorage(messages: List<AgentModelClient.ConversationMessage>): String =
         encodeBounded(messages, MAX_STORAGE_TRANSCRIPT_CHARS)
+
+    fun encodeConversationCheckpoint(messages: List<AgentModelClient.ConversationMessage>): String =
+        encodeBounded(messages, MAX_CONVERSATION_CHECKPOINT_CHARS)
 
     fun messagesForIpc(
         messages: List<AgentModelClient.ConversationMessage>,

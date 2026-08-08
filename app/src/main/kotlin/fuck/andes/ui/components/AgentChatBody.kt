@@ -379,8 +379,8 @@ private fun AgentChatMessages(
                 enabled = shouldFollowBottom,
                 bottomItemIndex = currentBottomItemIndex,
                 sentinelBottom = sentinel?.let { it.offset + it.size },
-                // Operit 同样把输入器高度放进滚动内容的 bottom inset，而不是缩短
-                // 滚动容器。跟底目标应是 afterContentPadding 之前的正文边界。
+                // 输入器高度属于滚动内容的 bottom inset，而不是滚动容器高度。
+                // 跟底目标应是 afterContentPadding 之前的正文边界。
                 viewportEnd = layoutInfo.viewportEndOffset - layoutInfo.afterContentPadding,
                 lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index,
             )
@@ -471,7 +471,7 @@ private fun AgentChatMessages(
         }
     }
 
-    // 与 Operit 一致：滚动层保持整屏，输入器作为后绘制浮层；输入器高度进入列表
+    // 滚动层保持整屏，输入器作为后绘制浮层；输入器高度进入列表的
     // afterContentPadding，确保跟到底部时最后一行停在输入器上方。
     Box(modifier = modifier.clipToBounds()) {
         LazyColumn(

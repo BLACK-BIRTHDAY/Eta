@@ -1,8 +1,11 @@
 package fuck.andes.ui.app
 
 import android.content.Context
+import fuck.andes.agent.model.AgentConversationCodec
 import fuck.andes.agent.model.AgentModelClient
+import fuck.andes.data.db.ConversationContextCheckpointEntity
 import fuck.andes.data.db.ConversationEntity
+import fuck.andes.data.db.ConversationMetadata
 import fuck.andes.data.db.ConversationMessageEntity
 import fuck.andes.data.db.ConversationStateEntity
 import fuck.andes.data.db.FuckAndesDatabase
@@ -69,7 +72,6 @@ internal object AgentConversationStore {
                         title = titles[id] ?: "新对话",
                         thinkingEnabled = state.reasoningEffort.enablesReasoning,
                         reasoningEffort = state.reasoningEffort.wireValue,
-                        historyJson = json.encodeToString(state.history),
                         appliedRuntimeRunIdsJson = json.encodeToString(state.appliedRuntimeRunIds),
                         createdAt = updatedAt[id] ?: now,
                         updatedAt = updatedAt[id] ?: now,
@@ -81,11 +83,18 @@ internal object AgentConversationStore {
                             message.toEntityOrNull(conversationId, index)
                         }
                 }
+                val contextCheckpoints = sorted.map { (conversationId, state) ->
+                    ConversationContextCheckpointEntity(
+                        conversationId = conversationId,
+                        historyJson = AgentConversationCodec.encodeConversationCheckpoint(state.history),
+                    )
+                }
                 FuckAndesDatabase.get(appContext)
                     .conversationDao()
                     .replaceAll(
                         conversations = conversations,
                         messages = messages,
+                        contextCheckpoints = contextCheckpoints,
                         state = selected?.let { ConversationStateEntity(selectedConversationId = it) },
                     )
             }
@@ -104,7 +113,21 @@ internal object AgentConversationStore {
             )
         }
 
-        val messagesByConversation = dao.messages().groupBy { it.conversationId }
+        val messagesByConversation = conversations.associate { conversation ->
+            conversation.id to buildList {
+                var offset = 0
+                while (true) {
+                    val page = dao.messagesPage(
+                        conversationId = conversation.id,
+                        limit = MESSAGE_LOAD_PAGE_SIZE,
+                        offset = offset,
+                    )
+                    addAll(page)
+                    if (page.size < MESSAGE_LOAD_PAGE_SIZE) break
+                    offset += page.size
+                }
+            }
+        }
         val states = linkedMapOf<String, AgentChatHomeUiState>()
         val titles = mutableMapOf<String, String>()
         val updatedAt = mutableMapOf<String, Long>()
@@ -115,7 +138,9 @@ internal object AgentConversationStore {
                     .orEmpty()
                     .sortedBy { it.sortIndex }
                     .mapNotNull { it.toMessageOrNull() },
-                history = decodeHistory(conversation.historyJson)
+                history = AgentConversationCodec.decodeTranscript(
+                    dao.contextCheckpoint(conversation.id)?.historyJson
+                )
                     .ifEmpty {
                         messagesByConversation[conversation.id]
                             .orEmpty()
@@ -144,7 +169,7 @@ internal object AgentConversationStore {
         )
     }
 
-    private val ConversationEntity.reasoningEffortValue: ReasoningEffort
+    private val ConversationMetadata.reasoningEffortValue: ReasoningEffort
         get() = ReasoningEffort.fromWireValue(reasoningEffort) ?: ReasoningEffort.DEFAULT
 
     private fun AgentChatMessageUi.toEntityOrNull(
@@ -282,11 +307,6 @@ internal object AgentConversationStore {
             }
         }.getOrDefault(emptyList())
 
-    private fun decodeHistory(raw: String): List<AgentModelClient.ConversationMessage> =
-        runCatching {
-            json.decodeFromString<List<AgentModelClient.ConversationMessage>>(raw)
-        }.getOrDefault(emptyList())
-
     private fun List<ConversationMessageEntity>.toLegacyHistory(): List<AgentModelClient.ConversationMessage> =
         mapNotNull { message ->
             when (message.type) {
@@ -311,4 +331,5 @@ internal object AgentConversationStore {
     private const val TYPE_THINKING = "thinking"
     private const val TYPE_TOOL = "tool"
     private const val TYPE_TOOL_SUMMARY = "tool_summary"
+    private const val MESSAGE_LOAD_PAGE_SIZE = 128
 }

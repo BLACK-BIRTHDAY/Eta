@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class FuckAndesDatabaseMigrationTest {
     @Test
-    fun migration6To10PreservesDataAndMigratesReasoningEffort() {
+    fun migration6To11PreservesDataAndMovesBoundedConversationContext() {
         val context = RuntimeEnvironment.getApplication() as Context
         val databaseName = "migration-${UUID.randomUUID()}.db"
         createVersion6Database(context, databaseName)
@@ -31,6 +31,7 @@ class FuckAndesDatabaseMigrationTest {
                 FuckAndesDatabase.MIGRATION_7_8,
                 FuckAndesDatabase.MIGRATION_8_9,
                 FuckAndesDatabase.MIGRATION_9_10,
+                FuckAndesDatabase.MIGRATION_10_11,
             )
             .build()
         try {
@@ -43,6 +44,18 @@ class FuckAndesDatabaseMigrationTest {
             val conversations = runBlocking(Dispatchers.IO) {
                 database.conversationDao().conversations()
             }
+            val retainedCheckpoint = runBlocking(Dispatchers.IO) {
+                database.conversationDao().contextCheckpoint("conv-1")
+            }
+            val oversizedCheckpoint = runBlocking(Dispatchers.IO) {
+                database.conversationDao().contextCheckpoint("conv-oversized")
+            }
+            val clearedLegacyHistory = database.openHelper.readableDatabase
+                .query("SELECT history_json FROM conversations WHERE id = 'conv-oversized'")
+                .use { cursor ->
+                    check(cursor.moveToFirst())
+                    cursor.getString(0)
+                }
             val provider = runBlocking(Dispatchers.IO) {
                 database.providerDao().providerById("provider-1")!!.toDomain()
             }
@@ -52,9 +65,15 @@ class FuckAndesDatabaseMigrationTest {
             assertEquals("保留的归档", archive.content)
             assertEquals("[]", archive.transcriptJson)
             assertEquals(
-                setOf("conv-1", "conv-enabled", "conv-custom-empty"),
+                setOf("conv-1", "conv-enabled", "conv-custom-empty", "conv-oversized"),
                 conversations.mapTo(mutableSetOf()) { it.id },
             )
+            assertEquals(
+                "[{\"role\":\"user\",\"content\":\"保留上下文\"}]",
+                retainedCheckpoint?.historyJson,
+            )
+            assertEquals("[]", oversizedCheckpoint?.historyJson)
+            assertEquals("[]", clearedLegacyHistory)
             assertEquals("[]", conversations.first { it.id == "conv-1" }.appliedRuntimeRunIdsJson)
             assertEquals("off", conversations.first { it.id == "conv-1" }.reasoningEffort)
             assertEquals("default", conversations.first { it.id == "conv-enabled" }.reasoningEffort)
@@ -88,7 +107,8 @@ class FuckAndesDatabaseMigrationTest {
                         db.execSQL(
                             "INSERT INTO conversations " +
                                 "(id, title, thinking_enabled, history_json, created_at, updated_at) " +
-                                "VALUES ('conv-1', '保留的对话', 0, '[]', 1, 1)"
+                                "VALUES ('conv-1', '保留的对话', 0, " +
+                                "'[{\"role\":\"user\",\"content\":\"保留上下文\"}]', 1, 1)"
                         )
                         db.execSQL(
                             "INSERT INTO conversations " +
@@ -99,6 +119,19 @@ class FuckAndesDatabaseMigrationTest {
                             "INSERT INTO conversations " +
                                 "(id, title, thinking_enabled, history_json, created_at, updated_at) " +
                                 "VALUES ('conv-custom-empty', '用户命名', 0, '[]', 3, 3)"
+                        )
+                        db.execSQL(
+                            "INSERT INTO conversations " +
+                                "(id, title, thinking_enabled, history_json, created_at, updated_at) " +
+                                "VALUES (?, ?, ?, ?, ?, ?)",
+                            arrayOf<Any>(
+                                "conv-oversized",
+                                "超长上下文",
+                                0,
+                                "[\"${"x".repeat(140_000)}\"]",
+                                5,
+                                5,
+                            ),
                         )
                         db.execSQL(
                             "INSERT INTO conversation_state (id, selected_conversation_id) " +

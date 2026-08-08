@@ -85,4 +85,26 @@ class AgentConversationCodecTest {
         assertTrue(decoded.first().content.contains("容量上限已压缩"))
         assertTrue(decoded.last().content.contains("最终答案"))
     }
+
+    @Test
+    fun conversationCheckpointHasHardBudgetAndKeepsNewestContext() {
+        val messages = buildList {
+            repeat(20) { index ->
+                add(
+                    AgentModelClient.ConversationMessage(
+                        role = "assistant",
+                        content = "回答-$index-${"x".repeat(20_000)}",
+                    )
+                )
+            }
+            add(AgentModelClient.ConversationMessage(role = "user", content = "继续处理最新任务"))
+        }
+
+        val encoded = AgentConversationCodec.encodeConversationCheckpoint(messages)
+        val decoded = AgentConversationCodec.decodeTranscript(encoded)
+
+        assertTrue(encoded.length <= AgentConversationCodec.MAX_CONVERSATION_CHECKPOINT_CHARS)
+        assertTrue(decoded.first().content.contains("容量上限已压缩"))
+        assertEquals("继续处理最新任务", decoded.last().content)
+    }
 }
