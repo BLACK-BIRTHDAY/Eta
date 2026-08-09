@@ -59,7 +59,7 @@ internal object XiaoAiHooks {
     private val claimedDialogIds = XiaoAiRecentIds()
     private val activeRun = XiaoAiRunSlot<ActiveRun>()
     private val latestFloatManager = AtomicReference<Any?>()
-    private val lastRenderer = AtomicReference<XiaoAiStreamRenderer?>()
+    private val rendererSlot = XiaoAiRendererSlot<XiaoAiStreamRenderer>()
     private val bridgeThreadId = AtomicInteger()
     private val businessHooksInstalled = AtomicBoolean(false)
     private val deferredHookHandles = CopyOnWriteArrayList<HookHandle>()
@@ -147,7 +147,7 @@ internal object XiaoAiHooks {
             hookFloatManagerCapture(this, classLoader)
             hookAgentActions(this, classLoader)
             hookOutboundRequest(this, classLoader)
-            hookSessionCancellation(this, classLoader)
+            hookSessionClear(this, classLoader)
             schedulePendingResultDrains(logger, classLoader)
         }
         deferredHookHandles += installation.handles
@@ -395,7 +395,7 @@ internal object XiaoAiHooks {
         }
     }
 
-    private fun hookSessionCancellation(
+    private fun hookSessionClear(
         hooks: HookRegistrar,
         classLoader: ClassLoader,
     ) {
@@ -403,18 +403,19 @@ internal object XiaoAiHooks {
         val method = engineClass?.let { HookSupport.findMethod(it, "V") }
         if (method == null || method.parameterCount != 0) {
             hooks.missing(
-                id = "xiaoai.cancel",
+                id = "xiaoai.session-clear",
                 description = "MiSpeechEngine session clear",
                 detail = "未找到小爱会话清理入口",
             )
             return
         }
         hooks.intercept(
-            id = "xiaoai.cancel",
+            id = "xiaoai.session-clear",
             executable = method,
             description = "XiaoAi MiSpeechEngine session clear",
         ) { chain ->
-            cancelActiveRun(hooks.logger, classLoader)
+            // BACK 关闭小爱浮层也会清理 session；这里只分离入口 UI，不能取消仍在执行的 Runtime。
+            rendererSlot.detach()?.cancel(classLoader)
             queryCache.clear()
             turnTracker.clear()
             claimedDialogIds.clear()
@@ -522,7 +523,7 @@ internal object XiaoAiHooks {
             return false
         }
         run.future.set(future)
-        lastRenderer.getAndSet(renderer)?.cancel()
+        rendererSlot.attach(renderer)?.cancel()
         val previous = activeRun.replace(run)
         previous?.cancel(logger, classLoader)
         claimedDialogIds.add(dialogId)
@@ -616,14 +617,6 @@ internal object XiaoAiHooks {
         return XiaoAiImages.validatePath(path)
     }
 
-    private fun cancelActiveRun(
-        logger: ModuleLogger,
-        classLoader: ClassLoader,
-    ) {
-        activeRun.take()?.cancel(logger, classLoader)
-        lastRenderer.getAndSet(null)?.cancel(classLoader)
-    }
-
     private fun schedulePendingResultDrains(
         logger: ModuleLogger,
         classLoader: ClassLoader,
@@ -670,7 +663,7 @@ internal object XiaoAiHooks {
                             latestFloatManager.get() ?: resolveFloatManager(classLoader, context)
                         },
                     )
-                    lastRenderer.getAndSet(renderer)?.cancel()
+                    rendererSlot.attach(renderer)?.cancel()
                     renderer.complete(completed.result.content)
                 }
                 client.ackResult(completed.result.runId.ifBlank { completed.handoff.id })

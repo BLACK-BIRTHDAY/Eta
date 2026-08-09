@@ -175,4 +175,18 @@ class XiaoAiHookStateTest {
         assertTrue(slot.clear(second))
         assertNull(slot.get())
     }
+
+    @Test
+    fun sessionClearDetachesRendererWithoutTakingTheActiveRun() {
+        val activeRuns = XiaoAiRunSlot<Any>()
+        val renderers = XiaoAiRendererSlot<Any>()
+        val run = Any()
+        val renderer = Any()
+        activeRuns.replace(run)
+        renderers.attach(renderer)
+
+        assertSame(renderer, renderers.detach())
+        assertNull(renderers.detach())
+        assertSame(run, activeRuns.get())
+    }
 }

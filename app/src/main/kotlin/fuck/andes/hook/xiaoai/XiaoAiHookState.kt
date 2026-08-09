@@ -59,9 +59,15 @@ internal class XiaoAiRunSlot<T : Any> {
 
     fun replace(value: T): T? = current.getAndSet(value)
 
-    fun take(): T? = current.getAndSet(null)
-
     fun clear(value: T): Boolean = current.compareAndSet(value, null)
+}
+
+internal class XiaoAiRendererSlot<T : Any> {
+    private val attached = AtomicReference<T?>()
+
+    fun attach(value: T): T? = attached.getAndSet(value)
+
+    fun detach(): T? = attached.getAndSet(null)
 }
 
 internal class XiaoAiQueryCache(
