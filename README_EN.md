@@ -127,6 +127,8 @@ Installation stores files and updates the index; it does not execute packaged sc
 
 Runs started from an external system-assistant entry point are archived into Eta conversations. The app can recover pending results after its process has been killed, so work does not depend on the UI remaining alive.
 
+Long-press a user message to copy, edit, or delete from that turn onward. Each final assistant response can also be regenerated. Editing, deleting, or regenerating a historical turn truncates that turn and every later model-context entry; Eta does not retain the old branch.
+
 ## What you can ask Eta to do
 
 - **Native device actions:** “Set an alarm for 7 AM,” “pause the music,” or “set media volume to 30%.”

@@ -49,6 +49,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.shadow.Shadow
@@ -57,6 +59,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
@@ -100,15 +103,20 @@ fun AgentChatInputBar(
     reasoningEffort: ReasoningEffort,
     availableReasoningEfforts: List<ReasoningEffort>,
     pendingImages: List<PendingImageUi>,
+    isEditingMessage: Boolean,
+    editHasLaterTurns: Boolean,
     onInputChange: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
+    onCancelMessageEdit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusRequester = remember { FocusRequester() }
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
@@ -131,6 +139,13 @@ fun AgentChatInputBar(
     }.minus(ThinkingPopupMargin * 2)
         .coerceAtLeast(ListPopupDefaults.MinPopupHeight)
 
+    LaunchedEffect(isEditingMessage) {
+        if (isEditingMessage) {
+            focusRequester.requestFocus()
+            keyboard?.show()
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxWidth(),
@@ -144,6 +159,23 @@ fun AgentChatInputBar(
                 images = pendingImages,
                 onRemoveImage = onRemoveImage,
                 modifier = Modifier.padding(bottom = 8.dp),
+            )
+        }
+
+        AnimatedVisibility(
+            visible = isEditingMessage,
+            enter = fadeIn(tween(160)),
+            exit = fadeOut(tween(100)) + shrinkVertically(tween(140)),
+        ) {
+            Text(
+                text = if (editHasLaterTurns) {
+                    "发送后将替换此消息及之后内容"
+                } else {
+                    "发送后将替换此消息"
+                },
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
             )
         }
 
@@ -193,7 +225,9 @@ fun AgentChatInputBar(
                     BasicTextField(
                         value = input,
                         onValueChange = onInputChange,
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
                         textStyle = TextStyle(
                             color = MiuixTheme.colorScheme.onSurface,
@@ -210,36 +244,51 @@ fun AgentChatInputBar(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IconButton(
-                        onClick = {
-                            photoPicker.launch(
-                                PickVisualMediaRequest(
-                                    ActivityResultContracts.PickVisualMedia.ImageOnly
-                                )
+                    if (isEditingMessage) {
+                        IconButton(
+                            onClick = onCancelMessageEdit,
+                            minWidth = 38.dp,
+                            minHeight = 38.dp,
+                        ) {
+                            Icon(
+                                painter = painterResource(LucideR.drawable.lucide_ic_x),
+                                contentDescription = "取消编辑",
+                                modifier = Modifier.size(InputIconSize),
+                                tint = MiuixTheme.colorScheme.onSurface,
                             )
-                        },
-                        minWidth = 38.dp,
-                        minHeight = 38.dp,
-                    ) {
-                        Icon(
-                            painter = painterResource(LucideR.drawable.lucide_ic_plus),
-                            contentDescription = "添加图片",
-                            modifier = Modifier.size(InputIconSize + 2.dp),
-                            tint = MiuixTheme.colorScheme.onSurface,
-                        )
-                    }
+                        }
+                    } else {
+                        IconButton(
+                            onClick = {
+                                photoPicker.launch(
+                                    PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly
+                                    )
+                                )
+                            },
+                            minWidth = 38.dp,
+                            minHeight = 38.dp,
+                        ) {
+                            Icon(
+                                painter = painterResource(LucideR.drawable.lucide_ic_plus),
+                                contentDescription = "添加图片",
+                                modifier = Modifier.size(InputIconSize + 2.dp),
+                                tint = MiuixTheme.colorScheme.onSurface,
+                            )
+                        }
 
-                    Spacer(modifier = Modifier.width(2.dp))
+                        Spacer(modifier = Modifier.width(2.dp))
 
-                    if (availableReasoningEfforts.isNotEmpty()) {
-                        ThinkingEffortChip(
-                            effort = reasoningEffort,
-                            options = availableReasoningEfforts,
-                            enabled = !isStreaming,
-                            popupAnchorTopPx = inputContainerTopPx,
-                            popupMaxHeight = thinkingPopupMaxHeight,
-                            onEffortChange = onReasoningEffortChange,
-                        )
+                        if (availableReasoningEfforts.isNotEmpty()) {
+                            ThinkingEffortChip(
+                                effort = reasoningEffort,
+                                options = availableReasoningEfforts,
+                                enabled = !isStreaming,
+                                popupAnchorTopPx = inputContainerTopPx,
+                                popupMaxHeight = thinkingPopupMaxHeight,
+                                onEffortChange = onReasoningEffortChange,
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.weight(1f))

@@ -15,6 +15,7 @@ internal data class AgentChatUiState(
     val availableReasoningEfforts: List<ReasoningEffort> = emptyList(),
     val pendingImages: List<PendingImageUi> = emptyList(),
     val appliedRuntimeRunIds: List<String> = emptyList(),
+    val messageEdit: MessageEditUiState? = null,
 )
 
 @Immutable
@@ -27,6 +28,7 @@ data class UserMessageUi(
     override val id: String,
     val content: String,
     val images: List<String> = emptyList(),
+    val isEdited: Boolean = false,
 ) : AgentChatMessageUi
 
 @Immutable
@@ -118,4 +120,12 @@ data class PendingImageUi(
     val uri: String,
     val dataUrl: String,
     val mimeType: String,
+)
+
+@Immutable
+data class MessageEditUiState(
+    val targetMessageId: String,
+    val previousInput: String,
+    val previousImages: List<PendingImageUi>,
+    val hasLaterTurns: Boolean,
 )

@@ -184,6 +184,7 @@ internal object AgentConversationStore {
                 type = TYPE_USER,
                 content = content,
                 imagesJson = images.toJsonArrayString(),
+                isEdited = isEdited,
             )
 
             is AgentMessageUi -> {
@@ -246,6 +247,7 @@ internal object AgentConversationStore {
                 id = id,
                 content = content,
                 images = imagesJson.toStringList(),
+                isEdited = isEdited,
             )
 
             TYPE_ASSISTANT -> AgentMessageUi(

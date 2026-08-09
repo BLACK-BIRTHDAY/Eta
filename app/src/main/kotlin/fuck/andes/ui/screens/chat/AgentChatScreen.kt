@@ -27,12 +27,17 @@ internal fun AgentChatScreen(
             reasoningEffort = state.reasoningEffort,
             availableReasoningEfforts = state.availableReasoningEfforts,
             pendingImages = state.pendingImages,
+            messageEdit = state.messageEdit,
             onInputChange = { onAction(AgentChatAction.InputChanged(it)) },
             onReasoningEffortChange = { onAction(AgentChatAction.ReasoningEffortChanged(it)) },
             onSend = { onAction(AgentChatAction.SendMessage) },
             onStop = { onAction(AgentChatAction.StopRun) },
             onAttachImage = { uri -> onAction(AgentChatAction.ImageAttached(uri)) },
             onRemoveImage = { id -> onAction(AgentChatAction.RemoveImage(id)) },
+            onEditMessage = { id -> onAction(AgentChatAction.EditMessage(id)) },
+            onCancelMessageEdit = { onAction(AgentChatAction.CancelMessageEdit) },
+            onDeleteMessage = { id -> onAction(AgentChatAction.DeleteMessage(id)) },
+            onRegenerateMessage = { id -> onAction(AgentChatAction.RegenerateMessage(id)) },
             onSuggestionClick = { prompt ->
                 onAction(AgentChatAction.InputChanged(prompt))
                 onAction(AgentChatAction.SendMessage)

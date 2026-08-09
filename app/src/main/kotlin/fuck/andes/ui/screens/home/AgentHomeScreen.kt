@@ -30,12 +30,17 @@ internal fun AgentHomeScreen(
             reasoningEffort = state.reasoningEffort,
             availableReasoningEfforts = state.availableReasoningEfforts,
             pendingImages = state.pendingImages,
+            messageEdit = state.messageEdit,
             onInputChange = { onAction(AgentHomeAction.InputChanged(it)) },
             onReasoningEffortChange = { onAction(AgentHomeAction.ReasoningEffortChanged(it)) },
             onSend = { onAction(AgentHomeAction.SendMessage) },
             onStop = { onAction(AgentHomeAction.StopRun) },
             onAttachImage = { uri -> onAction(AgentHomeAction.ImageAttached(uri)) },
             onRemoveImage = { id -> onAction(AgentHomeAction.RemoveImage(id)) },
+            onEditMessage = { id -> onAction(AgentHomeAction.EditMessage(id)) },
+            onCancelMessageEdit = { onAction(AgentHomeAction.CancelMessageEdit) },
+            onDeleteMessage = { id -> onAction(AgentHomeAction.DeleteMessage(id)) },
+            onRegenerateMessage = { id -> onAction(AgentHomeAction.RegenerateMessage(id)) },
             onSuggestionClick = { prompt ->
                 onAction(AgentHomeAction.InputChanged(prompt))
                 onAction(AgentHomeAction.SendMessage)

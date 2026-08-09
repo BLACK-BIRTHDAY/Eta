@@ -20,7 +20,7 @@ import androidx.room.migration.Migration
         RuntimeArchiveEventEntity::class,
         SkillRegistryEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = false,
 )
 internal abstract class FuckAndesDatabase : RoomDatabase() {
@@ -46,6 +46,7 @@ internal abstract class FuckAndesDatabase : RoomDatabase() {
                         MIGRATION_8_9,
                         MIGRATION_9_10,
                         MIGRATION_10_11,
+                        MIGRATION_11_12,
                     )
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
@@ -133,6 +134,13 @@ internal abstract class FuckAndesDatabase : RoomDatabase() {
             )
             // 会话列表不再使用旧字段；及时清空可保证旧版留下的超大行不会继续占用数据库。
             database.execSQL("UPDATE conversations SET history_json = '[]'")
+        }
+
+        internal val MIGRATION_11_12 = Migration(11, 12) { database ->
+            database.execSQL(
+                "ALTER TABLE conversation_messages ADD COLUMN " +
+                    "is_edited INTEGER NOT NULL DEFAULT 0"
+            )
         }
     }
 }

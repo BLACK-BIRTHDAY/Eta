@@ -69,6 +69,7 @@ import fuck.andes.agent.browser.AgentBrowserSession
 import fuck.andes.data.model.ReasoningEffort
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
+import fuck.andes.ui.model.MessageEditUiState
 import fuck.andes.ui.model.PendingImageUi
 import fuck.andes.ui.model.RunTraceMessageUi
 import fuck.andes.ui.model.SuggestionChipsMessageUi
@@ -76,6 +77,7 @@ import fuck.andes.ui.model.ThinkingMessageUi
 import fuck.andes.ui.model.ToolActivityMessageUi
 import fuck.andes.ui.model.ToolSummaryMessageUi
 import fuck.andes.ui.model.UserMessageUi
+import fuck.andes.ui.app.AgentConversationRevisionReducer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
@@ -112,12 +114,17 @@ fun AgentChatBody(
     reasoningEffort: ReasoningEffort,
     availableReasoningEfforts: List<ReasoningEffort>,
     pendingImages: List<PendingImageUi>,
+    messageEdit: MessageEditUiState?,
     onInputChange: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
+    onEditMessage: (String) -> Unit,
+    onCancelMessageEdit: () -> Unit,
+    onDeleteMessage: (String) -> Unit,
+    onRegenerateMessage: (String) -> Unit,
     onSuggestionClick: (String) -> Unit,
     onRunTraceClick: () -> Unit,
     onOpenBrowser: () -> Unit,
@@ -131,8 +138,11 @@ fun AgentChatBody(
     val isKeyboardVisible = imeBottomPx > 0
     val browserSnapshot by AgentBrowserSession.snapshots.collectAsState()
 
-    val visibleMessages = remember(messages) {
-        messages.filterNot { message ->
+    val visibleMessages = remember(messages, messageEdit?.targetMessageId) {
+        AgentConversationRevisionReducer.visibleMessagesForEdit(
+            messages = messages,
+            targetMessageId = messageEdit?.targetMessageId,
+        ).filterNot { message ->
             message is AgentMessageUi && message.content.isBlank()
         }
     }
@@ -180,6 +190,7 @@ fun AgentChatBody(
         reasoningEffort = reasoningEffort,
         availableReasoningEfforts = availableReasoningEfforts,
         pendingImages = pendingImages,
+        messageEdit = messageEdit,
         showEmptySuggestions = !isKeyboardVisible,
         keepBottomAnchored = keepBottomAnchored,
         onBottomAnchorChanged = { keepBottomAnchored = it },
@@ -195,6 +206,10 @@ fun AgentChatBody(
         onStop = onStop,
         onAttachImage = onAttachImage,
         onRemoveImage = onRemoveImage,
+        onEditMessage = onEditMessage,
+        onCancelMessageEdit = onCancelMessageEdit,
+        onDeleteMessage = onDeleteMessage,
+        onRegenerateMessage = onRegenerateMessage,
         onSuggestionClick = onSuggestionClick,
         onRunTraceClick = onRunTraceClick,
         onOpenBrowser = onOpenBrowser,
@@ -214,6 +229,7 @@ private fun AgentChatScaffold(
     reasoningEffort: ReasoningEffort,
     availableReasoningEfforts: List<ReasoningEffort>,
     pendingImages: List<PendingImageUi>,
+    messageEdit: MessageEditUiState?,
     showEmptySuggestions: Boolean,
     keepBottomAnchored: Boolean,
     onBottomAnchorChanged: (Boolean) -> Unit,
@@ -223,6 +239,10 @@ private fun AgentChatScaffold(
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
+    onEditMessage: (String) -> Unit,
+    onCancelMessageEdit: () -> Unit,
+    onDeleteMessage: (String) -> Unit,
+    onRegenerateMessage: (String) -> Unit,
     onSuggestionClick: (String) -> Unit,
     onRunTraceClick: () -> Unit,
     onOpenBrowser: () -> Unit,
@@ -254,12 +274,14 @@ private fun AgentChatScaffold(
                 reasoningEffort = reasoningEffort,
                 availableReasoningEfforts = availableReasoningEfforts,
                 pendingImages = pendingImages,
+                messageEdit = messageEdit,
                 onInputChange = onInputChange,
                 onReasoningEffortChange = onReasoningEffortChange,
                 onSend = onSend,
                 onStop = onStop,
                 onAttachImage = onAttachImage,
                 onRemoveImage = onRemoveImage,
+                onCancelMessageEdit = onCancelMessageEdit,
             )
         },
     ) { innerPadding ->
@@ -283,6 +305,11 @@ private fun AgentChatScaffold(
                 onSuggestionClick = onSuggestionClick,
                 onRunTraceClick = onRunTraceClick,
                 onOpenBrowser = onOpenBrowser,
+                onEditMessage = onEditMessage,
+                onDeleteMessage = onDeleteMessage,
+                onRegenerateMessage = onRegenerateMessage,
+                messageActionsEnabled = !isStreaming && messageEdit == null,
+                editTargetMessageId = messageEdit?.targetMessageId,
                 currentBrowserMessageId = currentBrowserMessageId,
                 modifier = Modifier
                     .fillMaxSize()
@@ -304,6 +331,11 @@ private fun AgentChatMessages(
     onSuggestionClick: (String) -> Unit,
     onRunTraceClick: () -> Unit,
     onOpenBrowser: () -> Unit,
+    onEditMessage: (String) -> Unit,
+    onDeleteMessage: (String) -> Unit,
+    onRegenerateMessage: (String) -> Unit,
+    messageActionsEnabled: Boolean,
+    editTargetMessageId: String?,
     currentBrowserMessageId: String?,
     modifier: Modifier = Modifier,
 ) {
@@ -514,6 +546,12 @@ private fun AgentChatMessages(
                                 message.id == currentBrowserMessageId,
                             showCopyAction = message !is AgentMessageUi ||
                                 message.id in finalResultMessageIds,
+                            showMessageActions = message.id in finalResultMessageIds,
+                            messageActionsEnabled = messageActionsEnabled,
+                            isEditing = message.id == editTargetMessageId,
+                            onEditMessage = onEditMessage,
+                            onDeleteMessage = onDeleteMessage,
+                            onRegenerateMessage = onRegenerateMessage,
                             modifier = itemModifier,
                         )
                     }
@@ -691,12 +729,14 @@ private fun AgentChatBottomBar(
     reasoningEffort: ReasoningEffort,
     availableReasoningEfforts: List<ReasoningEffort>,
     pendingImages: List<PendingImageUi>,
+    messageEdit: MessageEditUiState?,
     onInputChange: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
     onSend: () -> Unit,
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
+    onCancelMessageEdit: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -762,12 +802,15 @@ private fun AgentChatBottomBar(
                 reasoningEffort = reasoningEffort,
                 availableReasoningEfforts = availableReasoningEfforts,
                 pendingImages = pendingImages,
+                isEditingMessage = messageEdit != null,
+                editHasLaterTurns = messageEdit?.hasLaterTurns == true,
                 onInputChange = onInputChange,
                 onReasoningEffortChange = onReasoningEffortChange,
                 onSend = onSend,
                 onStop = onStop,
                 onAttachImage = onAttachImage,
                 onRemoveImage = onRemoveImage,
+                onCancelMessageEdit = onCancelMessageEdit,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

@@ -97,6 +97,8 @@ fun AgentAppRoot() {
     var conversationPaneOpen by remember { mutableStateOf(false) }
     var conversationRenameTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     var conversationDeleteTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
+    var messageDeleteTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
+    var messageRegenerateTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
     val focusManager = LocalFocusManager.current
 
     LaunchedEffect(Unit) {
@@ -183,6 +185,21 @@ fun AgentAppRoot() {
                                 AgentHomeAction.StopRun -> agentState.stopCurrentRun()
                                 is AgentHomeAction.ImageAttached -> agentState.attachImage(action.uri)
                                 is AgentHomeAction.RemoveImage -> agentState.removePendingImage(action.id)
+                                is AgentHomeAction.EditMessage -> agentState.beginMessageEdit(action.id)
+                                AgentHomeAction.CancelMessageEdit -> agentState.cancelMessageEdit()
+                                is AgentHomeAction.DeleteMessage -> {
+                                    agentState.messageRevisionImpact(action.id)?.let { impact ->
+                                        messageDeleteTarget = MessageMutationTarget(action.id, impact.laterTurnCount)
+                                    }
+                                }
+                                is AgentHomeAction.RegenerateMessage -> {
+                                    val impact = agentState.messageRevisionImpact(action.id)
+                                    if (impact?.laterTurnCount == 0) {
+                                        agentState.regenerateMessage(action.id)
+                                    } else if (impact != null) {
+                                        messageRegenerateTarget = MessageMutationTarget(action.id, impact.laterTurnCount)
+                                    }
+                                }
                                 AgentHomeAction.OpenTools -> pushRoute(AppRoute.Tools)
                                 AgentHomeAction.OpenSkills -> pushRoute(AppRoute.Skills)
                                 AgentHomeAction.OpenPermissions -> pushRoute(AppRoute.Permissions)
@@ -212,6 +229,21 @@ fun AgentAppRoot() {
                                 AgentChatAction.OpenBrowser -> pushRoute(AppRoute.Browser)
                                 is AgentChatAction.ImageAttached -> agentState.attachImage(action.uri)
                                 is AgentChatAction.RemoveImage -> agentState.removePendingImage(action.id)
+                                is AgentChatAction.EditMessage -> agentState.beginMessageEdit(action.id)
+                                AgentChatAction.CancelMessageEdit -> agentState.cancelMessageEdit()
+                                is AgentChatAction.DeleteMessage -> {
+                                    agentState.messageRevisionImpact(action.id)?.let { impact ->
+                                        messageDeleteTarget = MessageMutationTarget(action.id, impact.laterTurnCount)
+                                    }
+                                }
+                                is AgentChatAction.RegenerateMessage -> {
+                                    val impact = agentState.messageRevisionImpact(action.id)
+                                    if (impact?.laterTurnCount == 0) {
+                                        agentState.regenerateMessage(action.id)
+                                    } else if (impact != null) {
+                                        messageRegenerateTarget = MessageMutationTarget(action.id, impact.laterTurnCount)
+                                    }
+                                }
                             }
                         },
                     )
@@ -472,4 +504,54 @@ fun AgentAppRoot() {
             )
         }
     }
+
+    messageDeleteTarget?.let { target ->
+        WindowDialog(
+            show = true,
+            title = "删除这轮对话",
+            summary = target.destructiveSummary("删除"),
+            onDismissRequest = { messageDeleteTarget = null },
+        ) {
+            MiuixDialogActions(
+                confirmText = "删除",
+                destructive = true,
+                onCancel = { messageDeleteTarget = null },
+                onConfirm = {
+                    agentState.deleteMessageTurn(target.messageId)
+                    messageDeleteTarget = null
+                },
+            )
+        }
+    }
+
+    messageRegenerateTarget?.let { target ->
+        WindowDialog(
+            show = true,
+            title = "重新生成回复",
+            summary = target.destructiveSummary("重新生成"),
+            onDismissRequest = { messageRegenerateTarget = null },
+        ) {
+            MiuixDialogActions(
+                confirmText = "重新生成",
+                destructive = true,
+                onCancel = { messageRegenerateTarget = null },
+                onConfirm = {
+                    agentState.regenerateMessage(target.messageId)
+                    messageRegenerateTarget = null
+                },
+            )
+        }
+    }
+}
+
+private data class MessageMutationTarget(
+    val messageId: String,
+    val laterTurnCount: Int,
+) {
+    fun destructiveSummary(action: String): String =
+        if (laterTurnCount == 0) {
+            "$action 后，当前轮次将不可恢复"
+        } else {
+            "$action 后，当前轮次及之后的 $laterTurnCount 轮对话将不可恢复"
+        }
 }

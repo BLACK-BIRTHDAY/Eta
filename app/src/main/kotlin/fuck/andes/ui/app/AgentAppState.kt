@@ -37,6 +37,7 @@ import fuck.andes.ui.model.AgentChatHomeUiState
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
 import fuck.andes.ui.model.AgentMemoryUiState
+import fuck.andes.ui.model.MessageEditUiState
 import fuck.andes.ui.model.AgentSkillsUiState
 import fuck.andes.ui.model.AgentSystemEnhanceUiState
 import fuck.andes.ui.model.AgentToolsUiState
@@ -469,6 +470,7 @@ internal class AgentAppState(
     }
 
     fun selectConversation(conversationId: String) {
+        if (homeState.messageEdit != null) cancelMessageEdit()
         val state = conversationsById[conversationId] ?: return
         selectedConversationId = conversationId
         val normalized = currentReasoningCapabilities?.normalize(state.reasoningEffort)
@@ -485,6 +487,7 @@ internal class AgentAppState(
     }
 
     fun createConversation() {
+        if (homeState.messageEdit != null) cancelMessageEdit()
         selectedConversationId = null
         homeState = emptyChatState(defaultThinkingEnabled).withCurrentReasoningCapabilities()
         conversationPaneState = conversationPaneState.copy(
@@ -529,47 +532,184 @@ internal class AgentAppState(
         val pendingImages = homeState.pendingImages
         if ((prompt.isBlank() && pendingImages.isEmpty()) || homeState.isStreaming) return
 
-        if (selectedConversationId?.isExternalArchiveConversation() == true) {
+        val edit = homeState.messageEdit
+        if (edit == null && selectedConversationId?.isExternalArchiveConversation() == true) {
             moveCurrentDraftToNewConversation()
+        }
+
+        val editBoundary = edit?.let {
+            AgentConversationRevisionReducer.boundary(homeState, it.targetMessageId)
+        }
+        if (edit != null && editBoundary == null) {
+            cancelMessageEdit()
+            return
         }
 
         val conversationId = selectedConversationId ?: newConversationId().also {
             selectedConversationId = it
         }
-        val history = homeState.history
-        val reasoningEffort = homeState.reasoningEffort
         val runId = "run-${UUID.randomUUID()}"
-        val imageDataUrls = pendingImages.map { it.dataUrl }
-        val userMessage = UserMessageUi(id = "user-$runId", content = prompt, images = imageDataUrls)
+        val userMessage = UserMessageUi(
+            id = editBoundary?.userMessage?.id ?: "user-$runId",
+            content = prompt,
+            images = pendingImages.map { it.dataUrl },
+            isEdited = editBoundary != null,
+        )
+        val history = editBoundary?.historyPrefix ?: homeState.history
+        val messages = if (editBoundary == null) {
+            homeState.messages + userMessage
+        } else {
+            homeState.messages.take(editBoundary.userMessageIndex) + userMessage
+        }
         val userHistoryMessage = AgentModelClient.buildUserHistoryMessage(
             text = prompt,
-            images = pendingImages.map { image ->
-                AgentModelClient.ModelImage(
-                    reference = image.dataUrl,
-                    mimeType = image.mimeType,
-                    bytes = image.dataUrl.length,
-                    source = image.uri,
-                )
-            },
+            images = pendingImages.toHistoryImages(),
         )
 
-        val title = conversationTitles[conversationId]
-            ?.takeUnless { it == "新对话" }
-            ?: prompt.lineSequence().firstOrNull().orEmpty().trim().take(MAX_TITLE_CHARS).ifBlank { "新对话" }
+        val currentTitle = conversationTitles[conversationId]
+        val oldAutoTitle = editBoundary
+            ?.takeIf { it.userMessageIndex == 0 }
+            ?.userMessage
+            ?.content
+            ?.defaultConversationTitle()
+        val title = if (
+            editBoundary?.userMessageIndex == 0 &&
+            (currentTitle == oldAutoTitle || currentTitle == "新对话")
+        ) {
+            prompt.defaultConversationTitle()
+        } else {
+            currentTitle?.takeUnless { it == "新对话" } ?: prompt.defaultConversationTitle()
+        }
 
         conversationTitles = conversationTitles + (conversationId to title)
         conversationPaneState = conversationPaneState.copy(selectedConversationId = conversationId)
+        launchConversationRun(
+            conversationId = conversationId,
+            runId = runId,
+            prompt = prompt,
+            images = pendingImages,
+            history = history,
+            userHistoryMessage = userHistoryMessage,
+            messages = messages,
+            state = homeState.copy(input = "", pendingImages = emptyList(), messageEdit = null),
+            reasoningEffort = homeState.reasoningEffort,
+        )
+    }
+
+    fun beginMessageEdit(messageId: String) {
+        if (homeState.isStreaming || homeState.messageEdit != null) return
+        val boundary = AgentConversationRevisionReducer.boundary(homeState, messageId) ?: return
+        val images = boundary.userMessage.images.mapIndexed { index, dataUrl ->
+            PendingImageUi(
+                id = "edit-${boundary.userMessage.id}-$index",
+                uri = dataUrl,
+                dataUrl = dataUrl,
+                mimeType = dataUrl.imageMimeType(),
+            )
+        }
+        updateCurrentConversation(
+            homeState.copy(
+                input = boundary.userMessage.content,
+                pendingImages = images,
+                messageEdit = MessageEditUiState(
+                    targetMessageId = boundary.userMessage.id,
+                    previousInput = homeState.input,
+                    previousImages = homeState.pendingImages,
+                    hasLaterTurns = boundary.laterTurnCount > 0,
+                ),
+            )
+        )
+        if (boundary.contextWasCompacted) showCompactedRevisionNotice()
+    }
+
+    fun cancelMessageEdit() {
+        val edit = homeState.messageEdit ?: return
+        updateCurrentConversation(
+            homeState.copy(
+                input = edit.previousInput,
+                pendingImages = edit.previousImages,
+                messageEdit = null,
+            )
+        )
+    }
+
+    fun messageRevisionImpact(messageId: String): MessageRevisionImpact? =
+        AgentConversationRevisionReducer.boundary(homeState, messageId)?.let { boundary ->
+            MessageRevisionImpact(laterTurnCount = boundary.laterTurnCount)
+        }
+
+    fun deleteMessageTurn(messageId: String) {
+        if (homeState.isStreaming || homeState.messageEdit != null) return
+        val conversationId = selectedConversationId ?: return
+        val revised = AgentConversationRevisionReducer.deleteFromTurn(homeState, messageId) ?: return
+        if (revised.messages.isEmpty()) {
+            conversationsById = conversationsById - conversationId
+            conversationTitles = conversationTitles - conversationId
+            conversationUpdatedAt = conversationUpdatedAt - conversationId
+            selectedConversationId = null
+            homeState = emptyChatState(defaultThinkingEnabled).withCurrentReasoningCapabilities()
+            conversationPaneState = conversationPaneState.copy(selectedConversationId = null)
+            refreshConversationSummaries()
+            persistConversations()
+            return
+        }
+        updateConversation(conversationId, revised)
+        refreshConversationSummaries()
+        persistConversations()
+    }
+
+    fun regenerateMessage(messageId: String) {
+        if (homeState.isStreaming || homeState.messageEdit != null) return
+        val conversationId = selectedConversationId ?: return
+        val boundary = AgentConversationRevisionReducer.boundary(homeState, messageId) ?: return
+        val images = boundary.userMessage.images.mapIndexed { index, dataUrl ->
+            PendingImageUi(
+                id = "regenerate-${boundary.userMessage.id}-$index",
+                uri = dataUrl,
+                dataUrl = dataUrl,
+                mimeType = dataUrl.imageMimeType(),
+            )
+        }
+        val runId = "run-${UUID.randomUUID()}"
+        val userHistoryMessage = AgentModelClient.buildUserHistoryMessage(
+            text = boundary.userMessage.content,
+            images = images.toHistoryImages(),
+        )
+        if (boundary.contextWasCompacted) showCompactedRevisionNotice()
+        launchConversationRun(
+            conversationId = conversationId,
+            runId = runId,
+            prompt = boundary.userMessage.content,
+            images = images,
+            history = boundary.historyPrefix,
+            userHistoryMessage = userHistoryMessage,
+            messages = homeState.messages.take(boundary.userMessageIndex + 1),
+            state = homeState,
+            reasoningEffort = homeState.reasoningEffort,
+        )
+    }
+
+    private fun launchConversationRun(
+        conversationId: String,
+        runId: String,
+        prompt: String,
+        images: List<PendingImageUi>,
+        history: List<AgentModelClient.ConversationMessage>,
+        userHistoryMessage: AgentModelClient.ConversationMessage,
+        messages: List<AgentChatMessageUi>,
+        state: AgentChatHomeUiState,
+        reasoningEffort: ReasoningEffort,
+    ) {
         runConversationIds[runId] = conversationId
         currentRunId = runId
 
         updateConversation(
             conversationId,
-            homeState.copy(
-                input = "",
+            state.copy(
                 isStreaming = true,
-                pendingImages = emptyList(),
-                history = homeState.history + userHistoryMessage,
-                messages = homeState.messages + userMessage,
+                history = history + userHistoryMessage,
+                messages = messages,
+                messageEdit = null,
             )
         )
         refreshConversationSummaries()
@@ -608,7 +748,7 @@ internal class AgentAppState(
                 }
                 return@launch
             }
-            val modelImages = pendingImages.map { p ->
+            val modelImages = images.map { p ->
                 AgentModelClient.ModelImage(
                     reference = p.uri,
                     mimeType = p.mimeType,
@@ -635,6 +775,34 @@ internal class AgentAppState(
                 applyRunResult(runId, result, acknowledgeRuntimeResult = true)
             }
         }
+    }
+
+    private fun List<PendingImageUi>.toHistoryImages(): List<AgentModelClient.ModelImage> =
+        map { image ->
+            AgentModelClient.ModelImage(
+                reference = image.dataUrl,
+                mimeType = image.mimeType,
+                bytes = image.dataUrl.length,
+                source = image.uri,
+            )
+        }
+
+    private fun String.imageMimeType(): String =
+        takeIf { startsWith("data:") }
+            ?.substringAfter("data:")
+            ?.substringBefore(';')
+            ?.takeIf { it.startsWith("image/") }
+            ?: "image/jpeg"
+
+    private fun String.defaultConversationTitle(): String =
+        lineSequence().firstOrNull().orEmpty().trim().take(MAX_TITLE_CHARS).ifBlank { "新对话" }
+
+    private fun showCompactedRevisionNotice() {
+        Toast.makeText(
+            appContext,
+            "较早上下文已压缩，将从此消息重新开始",
+            Toast.LENGTH_LONG,
+        ).show()
     }
 
     fun attachImage(uri: String) {
@@ -1494,6 +1662,10 @@ internal class AgentAppState(
         fun newConversationId(): String = "conv-${UUID.randomUUID()}"
     }
 }
+
+internal data class MessageRevisionImpact(
+    val laterTurnCount: Int,
+)
 
 private const val EXTERNAL_ARCHIVE_CONVERSATION_PREFIX = "archive-"
 

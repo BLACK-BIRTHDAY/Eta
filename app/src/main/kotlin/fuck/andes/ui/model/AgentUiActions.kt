@@ -9,6 +9,10 @@ sealed interface AgentHomeAction {
     data object StopRun : AgentHomeAction
     data class ImageAttached(val uri: String) : AgentHomeAction
     data class RemoveImage(val id: String) : AgentHomeAction
+    data class EditMessage(val id: String) : AgentHomeAction
+    data object CancelMessageEdit : AgentHomeAction
+    data class DeleteMessage(val id: String) : AgentHomeAction
+    data class RegenerateMessage(val id: String) : AgentHomeAction
     data object OpenTools : AgentHomeAction
     data object OpenSkills : AgentHomeAction
     data object OpenPermissions : AgentHomeAction
@@ -32,6 +36,10 @@ sealed interface AgentChatAction {
     data object OpenBrowser : AgentChatAction
     data class ImageAttached(val uri: String) : AgentChatAction
     data class RemoveImage(val id: String) : AgentChatAction
+    data class EditMessage(val id: String) : AgentChatAction
+    data object CancelMessageEdit : AgentChatAction
+    data class DeleteMessage(val id: String) : AgentChatAction
+    data class RegenerateMessage(val id: String) : AgentChatAction
 }
 
 sealed interface AgentToolsAction {

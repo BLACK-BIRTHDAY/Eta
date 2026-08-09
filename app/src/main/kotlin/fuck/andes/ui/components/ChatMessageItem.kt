@@ -137,6 +137,11 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.RichTooltip
+import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
+import top.yukonga.miuix.kmp.basic.TooltipBox
+import top.yukonga.miuix.kmp.basic.TooltipDefaults
+import top.yukonga.miuix.kmp.basic.rememberTooltipState
 import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -218,13 +223,30 @@ internal fun ChatMessageItem(
     compact: Boolean = false,
     retainedStreamingState: StreamingMarkdownState? = null,
     showCopyAction: Boolean = true,
+    showMessageActions: Boolean = false,
+    messageActionsEnabled: Boolean = true,
+    isEditing: Boolean = false,
+    onEditMessage: (String) -> Unit = {},
+    onDeleteMessage: (String) -> Unit = {},
+    onRegenerateMessage: (String) -> Unit = {},
 ) {
     when (message) {
-        is UserMessageUi -> UserMessageBubble(message = message, modifier = modifier)
+        is UserMessageUi -> UserMessageBubble(
+            message = message,
+            actionsEnabled = messageActionsEnabled,
+            isEditing = isEditing,
+            onEdit = { onEditMessage(message.id) },
+            onDelete = { onDeleteMessage(message.id) },
+            modifier = modifier,
+        )
         is AgentMessageUi -> AgentMessageBlock(
             message = message,
             retainedStreamingState = retainedStreamingState,
             showCopyAction = showCopyAction,
+            showMessageActions = showMessageActions,
+            messageActionsEnabled = messageActionsEnabled,
+            onDelete = { onDeleteMessage(message.id) },
+            onRegenerate = { onRegenerateMessage(message.id) },
             modifier = modifier,
         )
         is ThinkingMessageUi -> ThinkingRow(
@@ -378,56 +400,153 @@ internal fun AgentWorkProcess(
 @Composable
 private fun UserMessageBubble(
     message: UserMessageUi,
+    actionsEnabled: Boolean,
+    isEditing: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    @Suppress("DEPRECATION")
+    val clipboardManager = LocalClipboardManager.current
+    val tooltipState = rememberTooltipState(isPersistent = true)
+    LaunchedEffect(actionsEnabled) {
+        if (!actionsEnabled) tooltipState.dismiss()
+    }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 7.dp),
         horizontalArrangement = Arrangement.End,
     ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 320.dp)
-                .squircleSurface(
-                    color = MiuixTheme.colorScheme.surfaceContainerHigh,
-                    topStart = 20.dp,
-                    topEnd = 20.dp,
-                    bottomEnd = 6.dp,
-                    bottomStart = 20.dp,
-                )
-                .padding(horizontal = 16.dp, vertical = 11.dp),
+        TooltipBox(
+            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+                positioning = TooltipAnchorPosition.Below,
+            ),
+            tooltip = {
+                RichTooltip(insideMargin = PaddingValues(horizontal = 8.dp, vertical = 6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        MessageTooltipAction(
+                            icon = LucideR.drawable.lucide_ic_copy,
+                            label = "复制",
+                            onClick = {
+                                @Suppress("DEPRECATION")
+                                clipboardManager.setText(AnnotatedString(message.content))
+                                tooltipState.dismiss()
+                            },
+                        )
+                        MessageTooltipAction(
+                            icon = LucideR.drawable.lucide_ic_pencil,
+                            label = "编辑",
+                            onClick = {
+                                tooltipState.dismiss()
+                                onEdit()
+                            },
+                        )
+                        MessageTooltipAction(
+                            icon = LucideR.drawable.lucide_ic_trash_2,
+                            label = "删除",
+                            onClick = {
+                                tooltipState.dismiss()
+                                onDelete()
+                            },
+                        )
+                    }
+                }
+            },
+            state = tooltipState,
+            focusable = true,
+            enableUserInput = actionsEnabled,
         ) {
-            if (message.images.isNotEmpty()) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(bottom = 8.dp)
-                ) {
-                    message.images.forEach { dataUrl ->
-                        val bitmap = rememberDataUrlBitmap(dataUrl)
-                        if (bitmap != null) {
-                            Image(
-                                bitmap = bitmap,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(100.dp)
-                                    .clip(RoundedCornerShape(12.dp)),
-                                contentScale = ContentScale.Crop,
+            Column(
+                modifier = Modifier
+                    .widthIn(max = 320.dp)
+                    .squircleSurface(
+                        color = MiuixTheme.colorScheme.surfaceContainerHigh,
+                        topStart = 20.dp,
+                        topEnd = 20.dp,
+                        bottomEnd = 6.dp,
+                        bottomStart = 20.dp,
+                    )
+                    .then(
+                        if (isEditing) {
+                            Modifier.squircleBorder(
+                                width = 1.dp,
+                                color = MiuixTheme.colorScheme.primary,
+                                cornerRadius = 20.dp,
                             )
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .padding(horizontal = 16.dp, vertical = 11.dp),
+            ) {
+                if (message.images.isNotEmpty()) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    ) {
+                        message.images.forEach { dataUrl ->
+                            val bitmap = rememberDataUrlBitmap(dataUrl)
+                            if (bitmap != null) {
+                                Image(
+                                    bitmap = bitmap,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(100.dp)
+                                        .clip(RoundedCornerShape(12.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            }
                         }
                     }
                 }
-            }
-            if (message.content.isNotBlank()) {
-                SelectionContainer {
+                if (message.content.isNotBlank()) {
+                    SelectionContainer {
+                        Text(
+                            text = message.content,
+                            style = MiuixTheme.textStyles.body1,
+                            color = MiuixTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+                if (message.isEdited) {
                     Text(
-                        text = message.content,
-                        style = MiuixTheme.textStyles.body1,
-                        color = MiuixTheme.colorScheme.onSurface,
+                        text = "已编辑",
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.padding(top = 4.dp),
                     )
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MessageTooltipAction(
+    icon: Int,
+    label: String,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = label,
+            modifier = Modifier.size(16.dp),
+            tint = MiuixTheme.colorScheme.onSurface,
+        )
+        Text(
+            text = label,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurface,
+        )
     }
 }
 
@@ -438,6 +557,10 @@ private fun AgentMessageBlock(
     message: AgentMessageUi,
     retainedStreamingState: StreamingMarkdownState?,
     showCopyAction: Boolean,
+    showMessageActions: Boolean,
+    messageActionsEnabled: Boolean,
+    onDelete: () -> Unit,
+    onRegenerate: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     @Suppress("DEPRECATION")
@@ -534,6 +657,38 @@ private fun AgentMessageBlock(
                             MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f)
                         },
                     )
+                }
+                if (showMessageActions) {
+                    TooltipBox(text = "重新生成", enabled = messageActionsEnabled) {
+                        IconButton(
+                            onClick = onRegenerate,
+                            enabled = messageActionsEnabled,
+                            minWidth = 30.dp,
+                            minHeight = 30.dp,
+                        ) {
+                            Icon(
+                                painter = painterResource(LucideR.drawable.lucide_ic_refresh_cw),
+                                contentDescription = "重新生成回复",
+                                modifier = Modifier.size(15.dp),
+                                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                            )
+                        }
+                    }
+                    TooltipBox(text = "删除", enabled = messageActionsEnabled) {
+                        IconButton(
+                            onClick = onDelete,
+                            enabled = messageActionsEnabled,
+                            minWidth = 30.dp,
+                            minHeight = 30.dp,
+                        ) {
+                            Icon(
+                                painter = painterResource(LucideR.drawable.lucide_ic_trash_2),
+                                contentDescription = "删除这轮对话",
+                                modifier = Modifier.size(15.dp),
+                                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
+                            )
+                        }
+                    }
                 }
             }
         }

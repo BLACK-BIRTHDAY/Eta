@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class FuckAndesDatabaseMigrationTest {
     @Test
-    fun migration6To11PreservesDataAndMovesBoundedConversationContext() {
+    fun migration6To12PreservesDataAndMovesBoundedConversationContext() {
         val context = RuntimeEnvironment.getApplication() as Context
         val databaseName = "migration-${UUID.randomUUID()}.db"
         createVersion6Database(context, databaseName)
@@ -32,6 +32,7 @@ class FuckAndesDatabaseMigrationTest {
                 FuckAndesDatabase.MIGRATION_8_9,
                 FuckAndesDatabase.MIGRATION_9_10,
                 FuckAndesDatabase.MIGRATION_10_11,
+                FuckAndesDatabase.MIGRATION_11_12,
             )
             .build()
         try {
@@ -59,6 +60,9 @@ class FuckAndesDatabaseMigrationTest {
             val provider = runBlocking(Dispatchers.IO) {
                 database.providerDao().providerById("provider-1")!!.toDomain()
             }
+            val migratedMessage = runBlocking(Dispatchers.IO) {
+                database.conversationDao().messages().single()
+            }
 
             assertEquals("保留的结果", result.content)
             assertEquals("[]", result.transcriptJson)
@@ -79,6 +83,7 @@ class FuckAndesDatabaseMigrationTest {
             assertEquals("default", conversations.first { it.id == "conv-enabled" }.reasoningEffort)
             assertEquals(null, runBlocking(Dispatchers.IO) { database.conversationDao().state() })
             assertEquals(listOf("built-in", "manual"), provider.models.map { it.modelId })
+            assertEquals(false, migratedMessage.isEdited)
             assertEquals(
                 listOf(ModelSource.CATALOG, ModelSource.MANUAL),
                 provider.models.map { it.source },
@@ -136,6 +141,12 @@ class FuckAndesDatabaseMigrationTest {
                         db.execSQL(
                             "INSERT INTO conversation_state (id, selected_conversation_id) " +
                                 "VALUES ('main', 'conv-bug-empty')"
+                        )
+                        db.execSQL(
+                            "INSERT INTO conversation_messages " +
+                                "(id, conversation_id, sort_index, type, content, images_json, " +
+                                "image_count, tools_json) VALUES " +
+                                "('message-1', 'conv-1', 0, 'user', '旧消息', '[]', 0, '[]')"
                         )
                         db.execSQL(
                             "INSERT INTO model_providers " +

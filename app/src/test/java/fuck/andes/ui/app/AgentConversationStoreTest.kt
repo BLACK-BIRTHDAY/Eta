@@ -49,6 +49,7 @@ class AgentConversationStoreTest {
                 UserMessageUi(
                     id = "user-1",
                     content = "看一下当前屏幕",
+                    isEdited = true,
                 ),
                 ThinkingMessageUi(
                     id = "thinking-1",

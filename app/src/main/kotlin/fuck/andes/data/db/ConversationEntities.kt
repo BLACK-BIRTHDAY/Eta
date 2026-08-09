@@ -79,6 +79,7 @@ internal data class ConversationMessageEntity(
     val type: String,
     val content: String,
     @ColumnInfo(name = "images_json") val imagesJson: String = "[]",
+    @ColumnInfo(name = "is_edited", defaultValue = "0") val isEdited: Boolean = false,
     @ColumnInfo(name = "render_markdown") val renderMarkdown: Boolean? = null,
     @ColumnInfo(name = "context_tokens") val contextTokens: Int? = null,
     @ColumnInfo(name = "input_tokens") val inputTokens: Int? = null,
