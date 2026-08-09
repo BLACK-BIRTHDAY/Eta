@@ -9,7 +9,8 @@ import org.json.JSONObject
  * 单次 Agent run 的纯编排循环。
  *
  * 轮次边界参考 pi-agent-core：一次 assistant 响应及其完整工具批次构成一个 turn；
- * steering 只在 turn 结束后注入，不能用取消网络或关闭工具资源来模拟。
+ * steering 只在 turn 结束后注入，不能用取消网络或关闭工具资源来模拟。循环不设置本地轮次上限，
+ * 由模型自然结束、取消或错误终止。
  */
 internal class AgentLoop(
     private val config: AgentModelClient.ModelConfig,
@@ -20,18 +21,7 @@ internal class AgentLoop(
     private val runController: AgentRunController,
     private val traceFormatter: AgentTraceFormatter,
     private val onEvent: (AgentEvent) -> Unit,
-    private val limits: Limits = Limits(),
 ) {
-    data class Limits(
-        val maxRounds: Int = 64,
-        val maxToolCalls: Int = 256,
-    ) {
-        init {
-            require(maxRounds > 0) { "maxRounds must be positive" }
-            require(maxToolCalls > 0) { "maxToolCalls must be positive" }
-        }
-    }
-
     data class Result(
         val content: String,
         val reasoningContent: String,
@@ -54,10 +44,8 @@ internal class AgentLoop(
 
     fun run(): Result {
         var round = 1
-        var seenToolCalls = 0
 
         while (true) {
-            checkRoundLimit(round)
             runController.throwIfCancelled()
             appendPendingSteeringMessage()
             onEvent(AgentEvent.RoundStarted(round = round, messageCount = messages.length()))
@@ -112,34 +100,6 @@ internal class AgentLoop(
             )
 
             if (toolCalls.isNotEmpty()) {
-                if (seenToolCalls + toolCalls.size > limits.maxToolCalls) {
-                    appendToolOutcomes(
-                        round = round,
-                        outcomes = toolCalls.map { call ->
-                            rejectedToolOutcome(
-                                round = round,
-                                toolCall = call,
-                                code = "TOOL_CALL_LIMIT_EXCEEDED",
-                                message = "Agent 工具调用次数超过安全上限 ${limits.maxToolCalls}；本批调用未执行。",
-                            )
-                        },
-                    )
-                    error("Agent 工具调用次数超过安全上限 ${limits.maxToolCalls}")
-                }
-                if (round >= limits.maxRounds) {
-                    appendToolOutcomes(
-                        round = round,
-                        outcomes = toolCalls.map { call ->
-                            rejectedToolOutcome(
-                                round = round,
-                                toolCall = call,
-                                code = "ROUND_LIMIT_EXCEEDED",
-                                message = "Agent 已到达轮次上限 ${limits.maxRounds}；本批调用未执行。",
-                            )
-                        },
-                    )
-                    error("Agent 已到达轮次上限 ${limits.maxRounds}，为避免无法消费工具结果，本批工具未执行")
-                }
                 val outcomes = when (providerResponse.stopReason) {
                     AssistantStopReason.TOOL_USE ->
                         toolCalls.map { call -> executeTool(round, call) }
@@ -163,7 +123,6 @@ internal class AgentLoop(
                             )
                         }
                 }
-                seenToolCalls += toolCalls.size
                 appendToolOutcomes(round, outcomes)
                 round += 1
                 continue
@@ -187,12 +146,6 @@ internal class AgentLoop(
                 reasoningContent = reasoningSnapshot(),
                 sensitiveToolCallIds = sensitiveToolCallIds.toSet(),
             )
-        }
-    }
-
-    private fun checkRoundLimit(round: Int) {
-        if (round > limits.maxRounds) {
-            error("Agent 轮次超过安全上限 ${limits.maxRounds}")
         }
     }
 

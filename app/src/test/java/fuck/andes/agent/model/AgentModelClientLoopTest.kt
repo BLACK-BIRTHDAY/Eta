@@ -453,45 +453,6 @@ class AgentModelClientLoopTest {
     }
 
     @Test
-    fun lastAllowedRoundNeverStartsToolSideEffects() {
-        val provider = ScriptedProvider(
-            assistant(
-                finishReason = "tool_calls",
-                toolCalls = listOf(toolCall("call-1", "tap", "{\"x\":1,\"y\":2}")),
-            )
-        )
-        var executed = false
-
-        val messages = JSONArray().put(AgentConversationCodec.userTextMessage("开始"))
-        val error = assertThrows(IllegalStateException::class.java) {
-            AgentLoop(
-                config = modelConfig(),
-                messages = messages,
-                tools = AgentToolCatalog.build(terminalTools = false, browserTools = false),
-                provider = provider,
-                toolExecutor = AgentModelClient.ToolExecutor {
-                    executed = true
-                    AgentModelClient.ToolResult("unexpected")
-                },
-                runController = AgentRunController(),
-                traceFormatter = AgentTraceFormatter(),
-                onEvent = {},
-                limits = AgentLoop.Limits(maxRounds = 1, maxToolCalls = 10),
-            ).run()
-        }
-
-        assertFalse(executed)
-        assertTrue(error.message.orEmpty().contains("未执行"))
-        assertEquals("assistant", messages.getJSONObject(messages.length() - 2).getString("role"))
-        assertEquals("tool", messages.getJSONObject(messages.length() - 1).getString("role"))
-        assertTrue(
-            messages.getJSONObject(messages.length() - 1)
-                .getString("content")
-                .contains("ROUND_LIMIT_EXCEEDED")
-        )
-    }
-
-    @Test
     fun providerFailureCarriesCompletedToolTranscriptForSafeRecovery() {
         val provider = ScriptedProvider(
             responses = listOf(
@@ -524,37 +485,39 @@ class AgentModelClientLoopTest {
     }
 
     @Test
-    fun roundLimitStopsRunawayProvider() {
-        val provider = ScriptedProvider(
-            responses = List(3) {
-                { _, _ ->
-                    assistant(
-                        finishReason = "tool_calls",
-                        toolCalls = listOf(toolCall("call-$it", "echo", "{}")),
-                    )
-                }
+    fun loopContinuesPastFormerLocalLimitsUntilProviderFinishes() {
+        val toolRounds = 257
+        val responses = List<(ProviderRequest, AgentRunController) -> JSONObject>(toolRounds) { index ->
+            { _, _ ->
+                assistant(
+                    finishReason = "tool_calls",
+                    toolCalls = listOf(toolCall("call-$index", "get_current_context", "{}")),
+                )
             }
+        } + listOf<(ProviderRequest, AgentRunController) -> JSONObject>(
+            { _, _ -> assistant(content = "完成", finishReason = "stop") }
         )
+        val provider = ScriptedProvider(responses)
+        var executions = 0
         val messages = JSONArray().put(AgentConversationCodec.userTextMessage("开始"))
 
-        val error = assertThrows(IllegalStateException::class.java) {
-            AgentLoop(
-                config = modelConfig(),
-                messages = messages,
-                tools = JSONArray(),
-                provider = provider,
-                toolExecutor = AgentModelClient.ToolExecutor {
-                    AgentModelClient.ToolResult(JSONObject().put("ok", true).toString())
-                },
-                runController = AgentRunController(),
-                traceFormatter = AgentTraceFormatter(),
-                onEvent = {},
-                limits = AgentLoop.Limits(maxRounds = 2, maxToolCalls = 10),
-            ).run()
-        }
+        val result = AgentLoop(
+            config = modelConfig(),
+            messages = messages,
+            tools = AgentToolCatalog.build(terminalTools = false, browserTools = false),
+            provider = provider,
+            toolExecutor = AgentModelClient.ToolExecutor {
+                executions += 1
+                AgentModelClient.ToolResult(JSONObject().put("ok", true).toString())
+            },
+            runController = AgentRunController(),
+            traceFormatter = AgentTraceFormatter(),
+            onEvent = {},
+        ).run()
 
-        assertTrue(error.message.orEmpty().contains("轮次"))
-        assertEquals(2, provider.requests.size)
+        assertEquals("完成", result.content)
+        assertEquals(toolRounds, executions)
+        assertEquals(toolRounds + 1, provider.requests.size)
     }
 
     private class ScriptedProvider(
