@@ -1,5 +1,6 @@
 package fuck.andes.ui.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
@@ -40,22 +41,28 @@ fun MiuixScaffoldPage(
     content: LazyListScope.() -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
+    val backdrop = rememberTopBarBackdrop()
+    val topBarColor = topBarContainerColor(backdrop)
     Scaffold(
         modifier = modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
         topBar = {
-            TopAppBar(
-                title = title,
-                largeTitle = title,
-                navigationIcon = { MiuixBackButton(onClick = onBack) },
-                actions = actions,
-                scrollBehavior = scrollBehavior,
-            )
+            TopBarBackdrop(backdrop) {
+                TopAppBar(
+                    title = title,
+                    largeTitle = title,
+                    color = topBarColor,
+                    navigationIcon = { MiuixBackButton(onClick = onBack) },
+                    actions = actions,
+                    scrollBehavior = scrollBehavior,
+                )
+            }
         },
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .captureForTopBar(backdrop)
                 .overScrollVertical()
                 .scrollEndHaptic()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -86,19 +93,26 @@ fun MiuixScaffold(
     content: @Composable (PaddingValues, ScrollBehavior) -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
+    val backdrop = rememberTopBarBackdrop()
+    val topBarColor = topBarContainerColor(backdrop)
     Scaffold(
         modifier = modifier.fillMaxSize(),
         contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
         topBar = {
-            TopAppBar(
-                title = title,
-                largeTitle = title,
-                navigationIcon = { MiuixBackButton(onClick = onBack) },
-                actions = actions,
-                scrollBehavior = scrollBehavior,
-            )
+            TopBarBackdrop(backdrop) {
+                TopAppBar(
+                    title = title,
+                    largeTitle = title,
+                    color = topBarColor,
+                    navigationIcon = { MiuixBackButton(onClick = onBack) },
+                    actions = actions,
+                    scrollBehavior = scrollBehavior,
+                )
+            }
         },
     ) { paddingValues ->
-        content(paddingValues, scrollBehavior)
+        Box(modifier = Modifier.fillMaxSize().captureForTopBar(backdrop)) {
+            content(paddingValues, scrollBehavior)
+        }
     }
 }

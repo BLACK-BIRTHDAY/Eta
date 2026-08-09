@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,6 +38,10 @@ import fuck.andes.data.repository.RuntimeConfigRepository
 import fuck.andes.systemizer.GoogleAppSystemizerInstaller
 import fuck.andes.ui.components.MiuixBackButton
 import fuck.andes.ui.components.MiuixDialogActions
+import fuck.andes.ui.components.TopBarBackdrop
+import fuck.andes.ui.components.captureForTopBar
+import fuck.andes.ui.components.rememberTopBarBackdrop
+import fuck.andes.ui.components.topBarContainerColor
 import fuck.andes.ui.navigation.AppRoute
 import fuck.andes.systemizer.RootManager
 import fuck.andes.systemizer.SystemizerInstallResult
@@ -57,6 +62,8 @@ import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 // ── ColorOS / COUI 主色（ColorOS 16.1 Settings.apk: coui_color_*） ────────────────
 // 约定：设置页圆形图标/按钮底色只使用 ColorOS 设置主色。
@@ -84,6 +91,8 @@ internal fun SettingsScreen(
     onBack: () -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
+    val backdrop = rememberTopBarBackdrop()
+    val topBarColor = topBarContainerColor(backdrop)
     val coroutineScope = rememberCoroutineScope()
     var showSystemizerDialog by remember { mutableStateOf(false) }
     var installingSystemizer by remember { mutableStateOf(false) }
@@ -149,17 +158,26 @@ internal fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = "设置",
-                largeTitle = "设置",
-                navigationIcon = { MiuixBackButton(onClick = onBack) },
-                scrollBehavior = scrollBehavior,
-            )
+            TopBarBackdrop(backdrop) {
+                TopAppBar(
+                    title = "设置",
+                    largeTitle = "设置",
+                    color = topBarColor,
+                    navigationIcon = { MiuixBackButton(onClick = onBack) },
+                    scrollBehavior = scrollBehavior,
+                )
+            }
         },
     ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+            modifier = Modifier
+                .fillMaxSize()
+                .captureForTopBar(backdrop)
+                .overScrollVertical()
+                .scrollEndHaptic()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
             contentPadding = innerPadding,
+            overscrollEffect = null,
         ) {
             // ── LSPosed 未连接提示 ──────────────────────────────────────
             if (prefs == null) {
