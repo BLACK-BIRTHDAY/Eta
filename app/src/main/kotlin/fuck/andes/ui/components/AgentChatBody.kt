@@ -545,7 +545,9 @@ private fun AgentChatMessages(
                 val itemModifier = Modifier.animateItem(
                     fadeInSpec = tween(durationMillis = 180),
                     placementSpec = null,
-                    fadeOutSpec = tween(durationMillis = 120),
+                    // 历史轮次被编辑、删除或重新生成时必须立即退出；退出动画会让已从
+                    // 状态中裁掉的旧消息继续绘制，并与同位置的新流式消息短暂重叠。
+                    fadeOutSpec = null,
                 )
                 when (entry) {
                     is AgentTimelineEntry.Message -> {
