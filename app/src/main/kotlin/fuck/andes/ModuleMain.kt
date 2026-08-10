@@ -10,6 +10,7 @@ import fuck.andes.core.HookInstallation
 import fuck.andes.core.ModuleConfig
 import fuck.andes.core.ModuleLogger
 import fuck.andes.core.safeLogType
+import fuck.andes.hook.aimemory.ColorOsMemoryHooks
 import fuck.andes.hook.breeno.BreenoHooks
 import fuck.andes.hook.colordirect.ColorDirectHooks
 import fuck.andes.hook.google.GoogleAppHooks
@@ -84,6 +85,12 @@ class ModuleMain : XposedModule() {
                 }
             }
 
+            ModuleConfig.COLOROS_MEMORY_PACKAGE -> {
+                if (currentProcessName == ModuleConfig.COLOROS_MEMORY_PACKAGE) {
+                    recordInstallation(ColorOsMemoryHooks.install(this, logger, param.classLoader))
+                }
+            }
+
             ModuleConfig.XIAOAI_PACKAGE -> {
                 if (isCurrentXiaoAiProcess()) {
                     recordInstallation(
@@ -115,6 +122,7 @@ class ModuleMain : XposedModule() {
             isPackageProcess(processName, ModuleConfig.GOOGLE_PACKAGE) ||
             isPackageProcess(processName, ModuleConfig.COLOR_DIRECT_PACKAGE) ||
             isPackageProcess(processName, ModuleConfig.BREENO_PACKAGE) ||
+            processName == ModuleConfig.COLOROS_MEMORY_PACKAGE ||
             processName == ModuleConfig.XIAOAI_PACKAGE ||
             processName == ModuleConfig.XIAOAI_CORE_PROCESS
     }

@@ -177,7 +177,7 @@ Gemini 解锁与一圈即搜是 Eta 早期建立的 Google 能力解锁功能，
 3. 按需授予悬浮窗、无障碍、应用列表读取、位置、通知使用权、使用情况访问和后台运行等权限；位置仅在 Agent 调用位置工具时读取，如需从小布等后台入口执行位置任务，应授予“始终允许”
 4. 按需开启设备直达、敏感信息读取、敏感设备操作和终端/文件工具；终端身份由用户明确选择为 `user` 或 `root`，需要 Python、Git 等通用命令时可另行安装 Linux 工具环境
 5. 在系统设置中开启 Eta 无障碍服务；如需自动恢复，可在 Eta 设置页显式开启“强制保持无障碍”
-6. 如需系统助手接入或 Google 能力解锁，再在支持 libxposed API 102 的 LSPosed 环境中启用模块，确认作用域包含 `system`、`SystemUI`、Google App、小布识屏、小布助手和超级小爱，然后重启手机
+6. 如需系统助手接入、ColorOS 系统记忆或 Google 能力解锁，再在支持 libxposed API 102 的 LSPosed 环境中启用模块，确认作用域包含 `system`、`SystemUI`、Google App、小布识屏、小布助手、小布记忆和超级小爱，然后重启手机
 
 </details>
 
@@ -280,6 +280,7 @@ hook/system/               system_server Hook
 hook/google/               Google App 进程 Hook
 hook/colordirect/          ColorDirectService Hook
 hook/breeno/               小布入口接管
+hook/aimemory/              小布记忆进程内只读查询桥
 hook/xiaoai/               超级小爱入口接管
 
 agent/runtime/             Agent Runtime、跨进程协议、结果归档

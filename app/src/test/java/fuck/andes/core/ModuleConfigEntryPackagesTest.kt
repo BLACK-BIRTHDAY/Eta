@@ -12,5 +12,6 @@ class ModuleConfigEntryPackagesTest {
             ModuleConfig.AGENT_RUNTIME_ENTRY_PACKAGES,
         )
         assertTrue(ModuleConfig.XIAOAI_CORE_PROCESS.endsWith(":core"))
+        assertEquals("com.oplus.aimemory", ModuleConfig.COLOROS_MEMORY_PACKAGE)
     }
 }
