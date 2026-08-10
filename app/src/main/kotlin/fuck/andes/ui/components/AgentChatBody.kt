@@ -580,11 +580,19 @@ private fun AgentChatMessages(
                     }
 
                     is AgentTimelineEntry.WorkProcess -> {
+                        entry.messages.forEach { message ->
+                            if (message is ThinkingMessageUi && message.isStreaming) {
+                                streamingMarkdownStates.getOrPut(message.id) {
+                                    StreamingMarkdownState()
+                                }
+                            }
+                        }
                         AgentWorkProcess(
                             id = entry.key,
                             messages = entry.messages,
                             onOpenBrowser = onOpenBrowser,
                             currentBrowserMessageId = currentBrowserMessageId,
+                            retainedStreamingStates = streamingMarkdownStates,
                             modifier = itemModifier,
                         )
                     }

@@ -252,6 +252,7 @@ internal fun ChatMessageItem(
         )
         is ThinkingMessageUi -> ThinkingRow(
             message = message,
+            retainedStreamingState = retainedStreamingState,
             modifier = modifier,
             compact = compact,
         )
@@ -277,6 +278,7 @@ internal fun AgentWorkProcess(
     messages: List<AgentChatMessageUi>,
     onOpenBrowser: () -> Unit,
     currentBrowserMessageId: String?,
+    retainedStreamingStates: Map<String, StreamingMarkdownState>,
     modifier: Modifier = Modifier,
 ) {
     val running = messages.any { message ->
@@ -387,6 +389,7 @@ internal fun AgentWorkProcess(
                             onRunTraceClick = {},
                             onOpenBrowser = onOpenBrowser,
                             showBrowserShortcut = message.id == currentBrowserMessageId,
+                            retainedStreamingState = retainedStreamingStates[message.id],
                             compact = true,
                         )
                     }
@@ -1750,6 +1753,7 @@ private fun MutableSet<RevealBlockKey>.collectTableCellRevealKeys(node: ASTNode)
 @Composable
 private fun ThinkingRow(
     message: ThinkingMessageUi,
+    retainedStreamingState: StreamingMarkdownState?,
     modifier: Modifier = Modifier,
     compact: Boolean = false,
 ) {
@@ -1757,7 +1761,7 @@ private fun ThinkingRow(
     // 只给本次实际经历流式输出的思考保留显现时钟；历史消息直接静态渲染。
     val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
     val streamingState = if (keepStreamingMarkdown) {
-        remember(message.id) { StreamingMarkdownState() }
+        retainedStreamingState ?: remember(message.id) { StreamingMarkdownState() }
     } else {
         null
     }
