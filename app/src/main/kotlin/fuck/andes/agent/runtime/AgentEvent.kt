@@ -131,6 +131,25 @@ internal sealed interface AgentEvent {
                 "${resultSummary.toSafeResultLogFields()}, images=$imageCount, image_bytes=$imageBytes"
     }
 
+    data class HostedToolStarted(
+        val round: Int,
+        val toolCallId: String,
+        val name: String,
+    ) : AgentEvent {
+        override fun toLogLine(): String =
+            "hosted_tool_started round=$round, name=${name.toSafeLogToken()}"
+    }
+
+    data class HostedToolFinished(
+        val round: Int,
+        val toolCallId: String,
+        val name: String,
+        val success: Boolean,
+    ) : AgentEvent {
+        override fun toLogLine(): String =
+            "hosted_tool_finished round=$round, name=${name.toSafeLogToken()}, success=$success"
+    }
+
     data class ToolImagesAttached(
         val round: Int,
         val toolName: String,

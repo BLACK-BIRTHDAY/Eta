@@ -14,10 +14,16 @@ internal object ReasoningCapabilityResolver {
         ReasoningEffort.MAX,
     )
 
-    fun resolve(sourceType: String, model: Model): ModelReasoningCapabilities? {
+    fun resolve(
+        sourceType: String,
+        model: Model,
+        inferExactCatalogModel: Boolean = false,
+    ): ModelReasoningCapabilities? {
         if (model.reasoning == false) return null
         model.reasoningCapabilities?.let { return it }
-        if (model.reasoning != true) return null
+        if (model.reasoning != true) {
+            return if (inferExactCatalogModel) catalogCapabilities(sourceType, model.modelId) else null
+        }
         return catalogCapabilities(sourceType, model.modelId)
             ?: familyCapabilities(sourceType, model.modelId)
             ?: ModelReasoningCapabilities(

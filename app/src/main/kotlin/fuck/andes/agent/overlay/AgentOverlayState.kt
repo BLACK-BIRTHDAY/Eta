@@ -110,6 +110,18 @@ internal fun AgentOverlayState.applyEvent(event: AgentEvent): AgentOverlayState 
         statusText = "工具完成：${event.name.toToolLabel()}",
     )
 
+    is AgentEvent.HostedToolStarted -> copy(
+        phase = AgentOverlayPhase.RUNNING,
+        round = event.round,
+        statusText = "正在${event.name}",
+    )
+
+    is AgentEvent.HostedToolFinished -> copy(
+        phase = AgentOverlayPhase.RUNNING,
+        round = event.round,
+        statusText = if (event.success) "${event.name}完成" else "${event.name}失败",
+    )
+
     is AgentEvent.ToolImagesAttached -> copy(
         phase = AgentOverlayPhase.RUNNING,
         round = event.round,

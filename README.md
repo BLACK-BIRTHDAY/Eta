@@ -140,7 +140,7 @@ Eta 使用 App 私有目录中的单一 `MEMORY.md` 保存跨对话长期记忆�
 
 Agent 的能力取决于你用什么模型。
 
-- **OpenAI-compatible** 与 **Anthropic** 双协议，支持 SSE 流式传输、流式工具调用、图片输入、推理内容
+- **模型协议**：支持 OpenAI-compatible Chat Completions、Responses API 与 Anthropic Messages，覆盖 SSE 流式传输、工具调用、图片输入和推理内容；Responses 可展示推理摘要，并可按 Provider 开启服务端网页搜索
 - **内置提供商**：OpenAI、Anthropic、阿里百炼、DeepSeek、Kimi、MiMo、MiniMax、StepFun、硅基流动、OpenRouter
 - **厂商品牌图标**：已知提供商在列表中显示本地品牌原色图标，未知或自定义接口保留通用图标；素材来源与许可见 [第三方声明](docs/THIRD_PARTY_NOTICES.md)
 - **自定义提供商**：自定义 HTTP/HTTPS Base URL、API Key、请求头、body JSON；HTTP 会明文传输 API Key、提示词与模型内容

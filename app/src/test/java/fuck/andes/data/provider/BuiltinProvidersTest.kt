@@ -2,6 +2,7 @@ package fuck.andes.data.provider
 
 import fuck.andes.data.model.AnthropicProviderSetting
 import fuck.andes.data.model.OpenAiCompatibleProviderSetting
+import fuck.andes.data.model.OpenAiEndpointMode
 import fuck.andes.data.model.ProviderSourceTypes
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -15,6 +16,11 @@ class BuiltinProvidersTest {
         assertTrue(providers[BuiltinProviders.OPENAI_ID] is OpenAiCompatibleProviderSetting)
         assertTrue(providers[BuiltinProviders.ANTHROPIC_ID] is AnthropicProviderSetting)
         assertEquals(0, providers.getValue(BuiltinProviders.OPENAI_ID).models.size)
+        assertEquals(
+            OpenAiEndpointMode.RESPONSES,
+            (providers.getValue(BuiltinProviders.OPENAI_ID) as OpenAiCompatibleProviderSetting).endpointMode,
+        )
+        assertEquals(false, providers.getValue(BuiltinProviders.OPENAI_ID).hostedWebSearchEnabled)
         assertEquals(0, providers.getValue(BuiltinProviders.BAILIAN_ID).models.size)
         assertEquals(0, providers.getValue(BuiltinProviders.MIMO_ID).models.size)
         assertEquals(0, providers.getValue(BuiltinProviders.MINIMAX_ID).models.size)

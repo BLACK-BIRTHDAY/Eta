@@ -5,6 +5,7 @@ import fuck.andes.data.model.ModelReasoningCapabilities
 import fuck.andes.data.model.ProviderSourceTypes
 import fuck.andes.data.model.ReasoningEffort
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ReasoningCapabilityResolverTest {
@@ -99,6 +100,34 @@ class ReasoningCapabilityResolverTest {
             listOf(ReasoningEffort.DEFAULT, ReasoningEffort.MEDIUM),
             resolved?.selectableEfforts,
         )
+    }
+
+    @Test
+    fun responsesRelayInfersOnlyExactOfficialModelUnlessExplicitlyDisabled() {
+        val inferred = ReasoningCapabilityResolver.resolve(
+            sourceType = ProviderSourceTypes.OPENAI,
+            model = Model(id = "luna", modelId = "gpt-5.6-luna", displayName = "Luna"),
+            inferExactCatalogModel = true,
+        )
+        val unknown = ReasoningCapabilityResolver.resolve(
+            sourceType = ProviderSourceTypes.OPENAI,
+            model = Model(id = "unknown", modelId = "relay-thinking", displayName = "Unknown"),
+            inferExactCatalogModel = true,
+        )
+        val disabled = ReasoningCapabilityResolver.resolve(
+            sourceType = ProviderSourceTypes.OPENAI,
+            model = Model(
+                id = "disabled",
+                modelId = "gpt-5.6-luna",
+                displayName = "Disabled",
+                reasoning = false,
+            ),
+            inferExactCatalogModel = true,
+        )
+
+        assertEquals(ReasoningEffort.MEDIUM, inferred?.defaultEffort)
+        assertNull(unknown)
+        assertNull(disabled)
     }
 
     private fun resolve(source: String, modelId: String): ModelReasoningCapabilities =

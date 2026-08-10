@@ -20,7 +20,7 @@ import androidx.room.migration.Migration
         RuntimeArchiveEventEntity::class,
         SkillRegistryEntity::class,
     ],
-    version = 12,
+    version = 13,
     exportSchema = false,
 )
 internal abstract class FuckAndesDatabase : RoomDatabase() {
@@ -47,6 +47,7 @@ internal abstract class FuckAndesDatabase : RoomDatabase() {
                         MIGRATION_9_10,
                         MIGRATION_10_11,
                         MIGRATION_11_12,
+                        MIGRATION_12_13,
                     )
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
@@ -140,6 +141,13 @@ internal abstract class FuckAndesDatabase : RoomDatabase() {
             database.execSQL(
                 "ALTER TABLE conversation_messages ADD COLUMN " +
                     "is_edited INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+
+        internal val MIGRATION_12_13 = Migration(12, 13) { database ->
+            database.execSQL(
+                "ALTER TABLE model_providers ADD COLUMN " +
+                    "hosted_web_search_enabled INTEGER NOT NULL DEFAULT 0"
             )
         }
     }

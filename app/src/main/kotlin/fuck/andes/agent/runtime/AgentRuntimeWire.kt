@@ -75,6 +75,7 @@ internal object AgentRuntimeWire {
     private const val KEY_SYSTEM_PROMPT = "system_prompt"
     private const val KEY_ANTHROPIC_VERSION = "anthropic_version"
     private const val KEY_OPENAI_ENDPOINT_MODE = "openai_endpoint_mode"
+    private const val KEY_HOSTED_WEB_SEARCH_ENABLED = "hosted_web_search_enabled"
     private const val KEY_TERMINAL_TOOLS = "terminal_tools"
     private const val KEY_BROWSER_TOOLS = "browser_tools"
     private const val KEY_DEVICE_DIRECT_TOOLS = "device_direct_tools"
@@ -236,6 +237,7 @@ internal object AgentRuntimeWire {
         putString(KEY_SYSTEM_PROMPT, request.config.systemPrompt)
         putString(KEY_ANTHROPIC_VERSION, request.config.anthropicVersion)
         putString(KEY_OPENAI_ENDPOINT_MODE, request.config.openAiEndpointMode)
+        putBoolean(KEY_HOSTED_WEB_SEARCH_ENABLED, request.config.hostedWebSearchEnabled)
         putBoolean(KEY_TERMINAL_TOOLS, request.config.terminalTools)
         putBoolean(KEY_BROWSER_TOOLS, request.config.browserTools)
         putBoolean(KEY_DEVICE_DIRECT_TOOLS, request.config.deviceDirectTools)
@@ -350,6 +352,7 @@ internal object AgentRuntimeWire {
                     .ifBlank { fuck.andes.data.model.AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION },
                 openAiEndpointMode = bundle.getString(KEY_OPENAI_ENDPOINT_MODE).orEmpty()
                     .ifBlank { fuck.andes.data.model.OpenAiEndpointMode.CHAT_COMPLETIONS },
+                hostedWebSearchEnabled = bundle.getBoolean(KEY_HOSTED_WEB_SEARCH_ENABLED, false),
                 terminalTools = bundle.getBoolean(KEY_TERMINAL_TOOLS),
                 browserTools = if (bundle.containsKey(KEY_BROWSER_TOOLS)) {
                     bundle.getBoolean(KEY_BROWSER_TOOLS)
@@ -601,6 +604,21 @@ internal object AgentRuntimeWire {
                 putInt("image_bytes", event.imageBytes)
             }
 
+            is AgentEvent.HostedToolStarted -> {
+                putString(KEY_TYPE, "hosted_tool_started")
+                putInt("round", event.round)
+                putString("tool_call_id", event.toolCallId)
+                putString("name", event.name)
+            }
+
+            is AgentEvent.HostedToolFinished -> {
+                putString(KEY_TYPE, "hosted_tool_finished")
+                putInt("round", event.round)
+                putString("tool_call_id", event.toolCallId)
+                putString("name", event.name)
+                putBoolean("success", event.success)
+            }
+
             is AgentEvent.ToolImagesAttached -> {
                 putString(KEY_TYPE, "tool_images_attached")
                 putInt("round", event.round)
@@ -707,6 +725,19 @@ internal object AgentRuntimeWire {
             resultSummary = bundle.getString("result_summary").orEmpty(),
             imageCount = bundle.getInt("image_count"),
             imageBytes = bundle.getInt("image_bytes"),
+        )
+
+        "hosted_tool_started" -> AgentEvent.HostedToolStarted(
+            round = bundle.getInt("round"),
+            toolCallId = bundle.getString("tool_call_id").orEmpty(),
+            name = bundle.getString("name").orEmpty(),
+        )
+
+        "hosted_tool_finished" -> AgentEvent.HostedToolFinished(
+            round = bundle.getInt("round"),
+            toolCallId = bundle.getString("tool_call_id").orEmpty(),
+            name = bundle.getString("name").orEmpty(),
+            success = bundle.getBoolean("success"),
         )
 
         "tool_images_attached" -> AgentEvent.ToolImagesAttached(

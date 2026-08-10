@@ -15,6 +15,10 @@ class ProviderUrlsTest {
             ProviderUrls.openAiModelsUrl("https://api.openai.com/v1")
         )
         assertEquals(
+            "https://api.openai.com/v1/responses",
+            ProviderUrls.openAiResponsesUrl("https://api.openai.com/v1/")
+        )
+        assertEquals(
             "https://api.anthropic.com/v1/messages",
             ProviderUrls.anthropicMessagesUrl("https://api.anthropic.com/")
         )

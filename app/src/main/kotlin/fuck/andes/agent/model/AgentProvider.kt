@@ -102,6 +102,17 @@ internal sealed interface ProviderEvent {
         val usage: AgentTokenUsage
     ) : ProviderEvent
 
+    data class HostedToolStarted(
+        val id: String,
+        val name: String,
+    ) : ProviderEvent
+
+    data class HostedToolFinished(
+        val id: String,
+        val name: String,
+        val success: Boolean,
+    ) : ProviderEvent
+
     data class Completed(
         val reason: String?
     ) : ProviderEvent

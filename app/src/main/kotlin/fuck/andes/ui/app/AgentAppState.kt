@@ -1477,6 +1477,20 @@ internal class AgentAppState(
                 }
             }
 
+            is AgentEvent.HostedToolStarted -> {
+                updateRunTrace(runId) { messages ->
+                    val finalizedThinking = runMessageProjector.finalizeThinking(runId, messages)
+                    val finalizedText = runMessageProjector.finalizeTextRound(runId, event.round, finalizedThinking)
+                    runMessageProjector.startHostedTool(runId, event, finalizedText)
+                }
+            }
+
+            is AgentEvent.HostedToolFinished -> {
+                updateRunTrace(runId) { messages ->
+                    runMessageProjector.finishHostedTool(runId, event, messages)
+                }
+            }
+
             is AgentEvent.RunFailed -> {
                 updateRunTrace(runId) { messages ->
                     val finalizedThinking = runMessageProjector.finalizeThinking(runId, messages)

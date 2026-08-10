@@ -39,6 +39,25 @@ internal object ProviderReasoning {
         }
     }
 
+    fun applyResponsesRequest(
+        request: JSONObject,
+        config: AgentModelClient.ModelConfig,
+    ) {
+        if (config.reasoningCapabilities == null) return
+        val effort = validatedEffort(config)
+        request.put(
+            "reasoning",
+            JSONObject().apply {
+                if (effort == ReasoningEffort.OFF) {
+                    put("effort", "none")
+                } else {
+                    put("summary", "auto")
+                    if (effort != ReasoningEffort.DEFAULT) put("effort", effort.wireValue)
+                }
+            },
+        )
+    }
+
     private fun applyProviderDefault(
         request: JSONObject,
         config: AgentModelClient.ModelConfig,

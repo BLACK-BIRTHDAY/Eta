@@ -107,4 +107,24 @@ class AgentConversationCodecTest {
         assertTrue(decoded.first().content.contains("容量上限已压缩"))
         assertEquals("继续处理最新任务", decoded.last().content)
     }
+
+    @Test
+    fun responsesOutputItemsStayInMemoryAndNeverEnterStableTranscript() {
+        val source = JSONObject().put("role", "assistant").put("content", "完成")
+        ResponsesEphemeralState.attachOutputItems(
+            source,
+            JSONArray().put(
+                JSONObject()
+                    .put("type", "reasoning")
+                    .put("encrypted_content", "opaque-secret"),
+            ),
+        )
+        val history = AgentConversationCodec.assistantHistoryMessage(source, emptyList())
+        assertTrue(ResponsesEphemeralState.outputItems(history) != null)
+
+        val stable = AgentConversationCodec.durableMessage(history)
+        val encoded = AgentConversationCodec.encodeTranscriptForStorage(listOf(stable))
+        assertFalse(encoded.contains("opaque-secret"))
+        assertFalse(encoded.contains("_eta_responses_output_items"))
+    }
 }

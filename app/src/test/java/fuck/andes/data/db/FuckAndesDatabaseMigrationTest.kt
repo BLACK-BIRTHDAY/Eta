@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class FuckAndesDatabaseMigrationTest {
     @Test
-    fun migration6To12PreservesDataAndMovesBoundedConversationContext() {
+    fun migration6To13PreservesDataAndMovesBoundedConversationContext() {
         val context = RuntimeEnvironment.getApplication() as Context
         val databaseName = "migration-${UUID.randomUUID()}.db"
         createVersion6Database(context, databaseName)
@@ -33,6 +33,7 @@ class FuckAndesDatabaseMigrationTest {
                 FuckAndesDatabase.MIGRATION_9_10,
                 FuckAndesDatabase.MIGRATION_10_11,
                 FuckAndesDatabase.MIGRATION_11_12,
+                FuckAndesDatabase.MIGRATION_12_13,
             )
             .build()
         try {
@@ -83,6 +84,7 @@ class FuckAndesDatabaseMigrationTest {
             assertEquals("default", conversations.first { it.id == "conv-enabled" }.reasoningEffort)
             assertEquals(null, runBlocking(Dispatchers.IO) { database.conversationDao().state() })
             assertEquals(listOf("built-in", "manual"), provider.models.map { it.modelId })
+            assertEquals(false, provider.hostedWebSearchEnabled)
             assertEquals(false, migratedMessage.isEdited)
             assertEquals(
                 listOf(ModelSource.CATALOG, ModelSource.MANUAL),

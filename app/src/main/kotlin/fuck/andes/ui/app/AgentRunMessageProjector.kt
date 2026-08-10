@@ -205,6 +205,38 @@ internal class AgentRunMessageProjector(
         }
     }
 
+    fun startHostedTool(
+        runId: String,
+        event: AgentEvent.HostedToolStarted,
+        messages: List<AgentChatMessageUi>,
+    ): List<AgentChatMessageUi> {
+        val message = ToolActivityMessageUi(
+            id = toolActivityMessageId(runId, event.round, event.toolCallId),
+            toolName = event.name,
+            status = ToolActivityStatusUi.Running,
+            argumentsSummary = "",
+        )
+        return if (messages.any { it.id == message.id }) messages else messages + message
+    }
+
+    fun finishHostedTool(
+        runId: String,
+        event: AgentEvent.HostedToolFinished,
+        messages: List<AgentChatMessageUi>,
+    ): List<AgentChatMessageUi> {
+        val targetId = toolActivityMessageId(runId, event.round, event.toolCallId)
+        return messages.map { message ->
+            if (message is ToolActivityMessageUi && message.id == targetId) {
+                message.copy(
+                    status = if (event.success) ToolActivityStatusUi.Success else ToolActivityStatusUi.Failed,
+                    resultSummary = if (event.success) "搜索完成" else "搜索失败",
+                )
+            } else {
+                message
+            }
+        }
+    }
+
     fun failRunningTools(
         reason: String,
         messages: List<AgentChatMessageUi>,

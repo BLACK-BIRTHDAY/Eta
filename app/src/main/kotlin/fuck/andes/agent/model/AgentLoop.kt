@@ -325,6 +325,17 @@ internal class AgentLoop(
                 contentChars = content.length,
             )
             is ProviderEvent.Usage -> AgentEvent.UsageReceived(round = round, usage = usage)
+            is ProviderEvent.HostedToolStarted -> AgentEvent.HostedToolStarted(
+                round = round,
+                toolCallId = id,
+                name = name,
+            )
+            is ProviderEvent.HostedToolFinished -> AgentEvent.HostedToolFinished(
+                round = round,
+                toolCallId = id,
+                name = name,
+                success = success,
+            )
             is ProviderEvent.Completed -> null
         }
 

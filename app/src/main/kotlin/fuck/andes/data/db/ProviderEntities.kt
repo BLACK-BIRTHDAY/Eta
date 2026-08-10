@@ -38,6 +38,8 @@ internal data class ProviderEntity(
     @ColumnInfo(name = "custom_body_json") val customBodyJson: String,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "endpoint_mode") val endpointMode: String,
+    @ColumnInfo(name = "hosted_web_search_enabled", defaultValue = "0")
+    val hostedWebSearchEnabled: Boolean,
     @ColumnInfo(name = "anthropic_version") val anthropicVersion: String,
 )
 
@@ -109,6 +111,7 @@ internal fun ProviderSetting.toEntity(): ProviderEntity =
             is CustomProviderSetting -> endpointMode
             is AnthropicProviderSetting -> OpenAiEndpointMode.CHAT_COMPLETIONS
         },
+        hostedWebSearchEnabled = hostedWebSearchEnabled,
         anthropicVersion = when (this) {
             is AnthropicProviderSetting -> anthropicVersion
             else -> AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION
@@ -162,6 +165,7 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             customBody = ProviderJson.decodeBody(provider.customBodyJson),
             createdAt = provider.createdAt,
             endpointMode = provider.endpointMode.ifBlank { OpenAiEndpointMode.CHAT_COMPLETIONS },
+            hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
         )
 
         else -> OpenAiCompatibleProviderSetting(
@@ -179,6 +183,7 @@ internal fun ProviderWithModels.toDomain(): ProviderSetting {
             customBody = ProviderJson.decodeBody(provider.customBodyJson),
             createdAt = provider.createdAt,
             endpointMode = provider.endpointMode.ifBlank { OpenAiEndpointMode.CHAT_COMPLETIONS },
+            hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
         )
     }
 }

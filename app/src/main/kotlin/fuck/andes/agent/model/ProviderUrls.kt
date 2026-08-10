@@ -7,6 +7,9 @@ internal object ProviderUrls {
     fun openAiChatCompletionsUrl(baseUrl: String): String =
         appendPath(baseUrl, "chat/completions")
 
+    fun openAiResponsesUrl(baseUrl: String): String =
+        appendPath(baseUrl, "responses")
+
     fun openAiModelsUrl(baseUrl: String): String =
         appendPath(baseUrl, "models")
 

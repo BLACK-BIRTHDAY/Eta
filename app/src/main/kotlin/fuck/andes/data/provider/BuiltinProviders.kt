@@ -2,6 +2,7 @@ package fuck.andes.data.provider
 
 import fuck.andes.data.model.AnthropicProviderSetting
 import fuck.andes.data.model.OpenAiCompatibleProviderSetting
+import fuck.andes.data.model.OpenAiEndpointMode
 import fuck.andes.data.model.ProviderSetting
 import fuck.andes.data.model.ProviderSourceTypes
 
@@ -29,6 +30,7 @@ internal object BuiltinProviders {
             isBuiltIn = true,
             sortOrder = 0,
             systemPrompt = DEFAULT_SYSTEM_PROMPT,
+            endpointMode = OpenAiEndpointMode.RESPONSES,
         ),
         AnthropicProviderSetting(
             id = ANTHROPIC_ID,

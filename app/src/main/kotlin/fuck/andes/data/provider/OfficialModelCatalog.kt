@@ -2,6 +2,9 @@ package fuck.andes.data.provider
 
 import fuck.andes.data.model.Model
 import fuck.andes.data.model.ModelSource
+import fuck.andes.data.model.CustomProviderSetting
+import fuck.andes.data.model.OpenAiCompatibleProviderSetting
+import fuck.andes.data.model.OpenAiEndpointMode
 import fuck.andes.data.model.ProviderSetting
 import fuck.andes.data.model.ProviderSourceTypes
 
@@ -293,9 +296,16 @@ internal object OfficialModelCatalog {
     private fun List<Model>.withStableSortOrder(): List<Model> =
         mapIndexed { index, model -> model.copy(sortOrder = index) }
 
-    private fun catalogIdFor(provider: ProviderSetting): String? =
-        ProviderSourceRegistry.resolve(provider)
-            .takeUnless { it == ProviderSourceTypes.CUSTOM }
+    private fun catalogIdFor(provider: ProviderSetting): String? {
+        val resolved = ProviderSourceRegistry.resolve(provider)
+        if (resolved != ProviderSourceTypes.CUSTOM) return resolved
+        val endpointMode = when (provider) {
+            is OpenAiCompatibleProviderSetting -> provider.endpointMode
+            is CustomProviderSetting -> provider.endpointMode
+            else -> null
+        }
+        return ProviderSourceTypes.OPENAI.takeIf { endpointMode == OpenAiEndpointMode.RESPONSES }
+    }
 
     private fun officialModel(
         id: String,

@@ -43,6 +43,8 @@ sealed interface ProviderSetting {
     val customHeaders: List<CustomHeader>
     val customBody: List<CustomBody>
     val createdAt: Long
+    val hostedWebSearchEnabled: Boolean
+        get() = false
 }
 
 @Serializable
@@ -61,7 +63,8 @@ data class OpenAiCompatibleProviderSetting(
     override val customHeaders: List<CustomHeader> = emptyList(),
     override val customBody: List<CustomBody> = emptyList(),
     override val createdAt: Long = System.currentTimeMillis(),
-    val endpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS
+    val endpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS,
+    override val hostedWebSearchEnabled: Boolean = false,
 ) : ProviderSetting
 
 @Serializable
@@ -103,7 +106,8 @@ data class CustomProviderSetting(
     override val customHeaders: List<CustomHeader> = emptyList(),
     override val customBody: List<CustomBody> = emptyList(),
     override val createdAt: Long = System.currentTimeMillis(),
-    val endpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS
+    val endpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS,
+    override val hostedWebSearchEnabled: Boolean = false,
 ) : ProviderSetting
 
 internal val ProviderSetting.runtimeProviderType: String

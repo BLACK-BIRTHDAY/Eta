@@ -149,6 +149,7 @@ internal object AgentConversationCodec {
                 if (source.has("reasoning_content") && !source.isNull("reasoning_content")) {
                     message.put("reasoning_content", source.optString("reasoning_content"))
                 }
+                ResponsesEphemeralState.copyOutputItems(source, message)
             }
 
     fun toolResultMessage(

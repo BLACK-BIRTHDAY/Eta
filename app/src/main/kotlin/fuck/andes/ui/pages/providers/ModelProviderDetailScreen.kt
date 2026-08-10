@@ -68,6 +68,7 @@ import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Checkbox
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -79,6 +80,7 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -90,6 +92,7 @@ private data class ProviderConfigDraft(
     val systemPrompt: String,
     val isEnabled: Boolean,
     val endpointMode: String,
+    val hostedWebSearchEnabled: Boolean,
     val anthropicVersion: String,
 ) {
     companion object {
@@ -104,6 +107,7 @@ private data class ProviderConfigDraft(
                 is CustomProviderSetting -> provider.endpointMode
                 is AnthropicProviderSetting -> ""
             },
+            hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
             anthropicVersion = (provider as? AnthropicProviderSetting)?.anthropicVersion
                 ?: AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION,
         )
@@ -271,17 +275,41 @@ private fun ProviderConfigTab(
                 }
                 if (provider !is AnthropicProviderSetting) {
                     HorizontalDivider()
-                    BasicComponent(
+                    WindowSpinnerPreference(
+                        items = listOf(
+                            DropdownItem(text = "Chat Completions"),
+                            DropdownItem(text = "Responses API"),
+                        ),
+                        selectedIndex = if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) 1 else 0,
                         title = "Endpoint 模式",
-                        summary = "当前协议使用标准 Chat Completions",
-                        endActions = {
-                            Text(
-                                text = "Chat Completions",
-                                color = MiuixTheme.colorScheme.primary,
-                                style = MiuixTheme.textStyles.body2,
+                        summary = if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) {
+                            "使用 typed Items 与语义化流式事件"
+                        } else {
+                            "使用标准 Chat Completions"
+                        },
+                        onSelectedIndexChange = { selectedIndex ->
+                            onDraftChange(
+                                draft.copy(
+                                    endpointMode = if (selectedIndex == 1) {
+                                        OpenAiEndpointMode.RESPONSES
+                                    } else {
+                                        OpenAiEndpointMode.CHAT_COMPLETIONS
+                                    },
+                                ),
                             )
                         },
                     )
+                    if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) {
+                        HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+                        SwitchPreference(
+                            title = "服务端网页搜索",
+                            summary = "允许模型调用 Provider 提供的网页搜索",
+                            checked = draft.hostedWebSearchEnabled,
+                            onCheckedChange = {
+                                onDraftChange(draft.copy(hostedWebSearchEnabled = it))
+                            },
+                        )
+                    }
                 }
                 HorizontalDivider()
                 BasicComponent(
@@ -307,6 +335,7 @@ private fun ProviderConfigTab(
                                         systemPrompt = draft.systemPrompt,
                                         isEnabled = draft.isEnabled,
                                         endpointMode = draft.endpointMode,
+                                        hostedWebSearchEnabled = draft.hostedWebSearchEnabled,
                                         anthropicVersion = draft.anthropicVersion,
                                     )
                                 )
@@ -382,6 +411,7 @@ private fun ProviderConfigTab(
                                 systemPrompt = draft.systemPrompt,
                                 isEnabled = draft.isEnabled,
                                 endpointMode = draft.endpointMode,
+                                hostedWebSearchEnabled = draft.hostedWebSearchEnabled,
                                 anthropicVersion = draft.anthropicVersion,
                             )
                             try {
@@ -1071,6 +1101,7 @@ private fun buildUpdatedProvider(
     systemPrompt: String,
     isEnabled: Boolean,
     endpointMode: String,
+    hostedWebSearchEnabled: Boolean,
     anthropicVersion: String,
 ): ProviderSetting {
     val prompt = systemPrompt.trim().takeIf { it.isNotBlank() }
@@ -1082,6 +1113,7 @@ private fun buildUpdatedProvider(
             systemPrompt = prompt,
             isEnabled = isEnabled,
             endpointMode = endpointMode,
+            hostedWebSearchEnabled = hostedWebSearchEnabled,
         )
         is CustomProviderSetting -> source.copy(
             name = name.trim(),
@@ -1090,6 +1122,7 @@ private fun buildUpdatedProvider(
             systemPrompt = prompt,
             isEnabled = isEnabled,
             endpointMode = endpointMode,
+            hostedWebSearchEnabled = hostedWebSearchEnabled,
         )
         is AnthropicProviderSetting -> source.copy(
             name = name.trim(),
