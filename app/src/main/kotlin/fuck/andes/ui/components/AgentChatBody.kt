@@ -70,6 +70,7 @@ import fuck.andes.data.model.ReasoningEffort
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
 import fuck.andes.ui.model.MessageEditUiState
+import fuck.andes.ui.model.PendingFileReferenceUi
 import fuck.andes.ui.model.PendingImageUi
 import fuck.andes.ui.model.RunTraceMessageUi
 import fuck.andes.ui.model.SuggestionChipsMessageUi
@@ -114,6 +115,7 @@ fun AgentChatBody(
     reasoningEffort: ReasoningEffort,
     availableReasoningEfforts: List<ReasoningEffort>,
     pendingImages: List<PendingImageUi>,
+    pendingFileReferences: List<PendingFileReferenceUi>,
     messageEdit: MessageEditUiState?,
     onInputChange: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
@@ -121,6 +123,10 @@ fun AgentChatBody(
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
+    onAttachFiles: (List<String>) -> Unit,
+    onAttachFolder: (String) -> Unit,
+    onAttachFilePath: (String) -> Unit,
+    onRemoveFileReference: (String) -> Unit,
     onEditMessage: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
     onDeleteMessage: (String) -> Unit,
@@ -190,6 +196,7 @@ fun AgentChatBody(
         reasoningEffort = reasoningEffort,
         availableReasoningEfforts = availableReasoningEfforts,
         pendingImages = pendingImages,
+        pendingFileReferences = pendingFileReferences,
         messageEdit = messageEdit,
         showEmptySuggestions = !isKeyboardVisible,
         keepBottomAnchored = keepBottomAnchored,
@@ -206,6 +213,10 @@ fun AgentChatBody(
         onStop = onStop,
         onAttachImage = onAttachImage,
         onRemoveImage = onRemoveImage,
+        onAttachFiles = onAttachFiles,
+        onAttachFolder = onAttachFolder,
+        onAttachFilePath = onAttachFilePath,
+        onRemoveFileReference = onRemoveFileReference,
         onEditMessage = onEditMessage,
         onCancelMessageEdit = onCancelMessageEdit,
         onDeleteMessage = onDeleteMessage,
@@ -229,6 +240,7 @@ private fun AgentChatScaffold(
     reasoningEffort: ReasoningEffort,
     availableReasoningEfforts: List<ReasoningEffort>,
     pendingImages: List<PendingImageUi>,
+    pendingFileReferences: List<PendingFileReferenceUi>,
     messageEdit: MessageEditUiState?,
     showEmptySuggestions: Boolean,
     keepBottomAnchored: Boolean,
@@ -239,6 +251,10 @@ private fun AgentChatScaffold(
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
+    onAttachFiles: (List<String>) -> Unit,
+    onAttachFolder: (String) -> Unit,
+    onAttachFilePath: (String) -> Unit,
+    onRemoveFileReference: (String) -> Unit,
     onEditMessage: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
     onDeleteMessage: (String) -> Unit,
@@ -274,6 +290,7 @@ private fun AgentChatScaffold(
                 reasoningEffort = reasoningEffort,
                 availableReasoningEfforts = availableReasoningEfforts,
                 pendingImages = pendingImages,
+                pendingFileReferences = pendingFileReferences,
                 messageEdit = messageEdit,
                 onInputChange = onInputChange,
                 onReasoningEffortChange = onReasoningEffortChange,
@@ -281,6 +298,10 @@ private fun AgentChatScaffold(
                 onStop = onStop,
                 onAttachImage = onAttachImage,
                 onRemoveImage = onRemoveImage,
+                onAttachFiles = onAttachFiles,
+                onAttachFolder = onAttachFolder,
+                onAttachFilePath = onAttachFilePath,
+                onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
             )
         },
@@ -729,6 +750,7 @@ private fun AgentChatBottomBar(
     reasoningEffort: ReasoningEffort,
     availableReasoningEfforts: List<ReasoningEffort>,
     pendingImages: List<PendingImageUi>,
+    pendingFileReferences: List<PendingFileReferenceUi>,
     messageEdit: MessageEditUiState?,
     onInputChange: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
@@ -736,6 +758,10 @@ private fun AgentChatBottomBar(
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
+    onAttachFiles: (List<String>) -> Unit,
+    onAttachFolder: (String) -> Unit,
+    onAttachFilePath: (String) -> Unit,
+    onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
 ) {
     Column(
@@ -802,6 +828,7 @@ private fun AgentChatBottomBar(
                 reasoningEffort = reasoningEffort,
                 availableReasoningEfforts = availableReasoningEfforts,
                 pendingImages = pendingImages,
+                pendingFileReferences = pendingFileReferences,
                 isEditingMessage = messageEdit != null,
                 editHasLaterTurns = messageEdit?.hasLaterTurns == true,
                 onInputChange = onInputChange,
@@ -810,6 +837,10 @@ private fun AgentChatBottomBar(
                 onStop = onStop,
                 onAttachImage = onAttachImage,
                 onRemoveImage = onRemoveImage,
+                onAttachFiles = onAttachFiles,
+                onAttachFolder = onAttachFolder,
+                onAttachFilePath = onAttachFilePath,
+                onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
                 modifier = Modifier.fillMaxWidth(),
             )

@@ -185,6 +185,11 @@ fun AgentAppRoot() {
                                 AgentHomeAction.StopRun -> agentState.stopCurrentRun()
                                 is AgentHomeAction.ImageAttached -> agentState.attachImage(action.uri)
                                 is AgentHomeAction.RemoveImage -> agentState.removePendingImage(action.id)
+                                is AgentHomeAction.FilesAttached -> agentState.attachFiles(action.uris)
+                                is AgentHomeAction.FolderAttached -> agentState.attachFolder(action.uri)
+                                is AgentHomeAction.FilePathAttached -> agentState.attachFilePath(action.path)
+                                is AgentHomeAction.RemoveFileReference ->
+                                    agentState.removePendingFileReference(action.id)
                                 is AgentHomeAction.EditMessage -> agentState.beginMessageEdit(action.id)
                                 AgentHomeAction.CancelMessageEdit -> agentState.cancelMessageEdit()
                                 is AgentHomeAction.DeleteMessage -> {
@@ -229,6 +234,11 @@ fun AgentAppRoot() {
                                 AgentChatAction.OpenBrowser -> pushRoute(AppRoute.Browser)
                                 is AgentChatAction.ImageAttached -> agentState.attachImage(action.uri)
                                 is AgentChatAction.RemoveImage -> agentState.removePendingImage(action.id)
+                                is AgentChatAction.FilesAttached -> agentState.attachFiles(action.uris)
+                                is AgentChatAction.FolderAttached -> agentState.attachFolder(action.uri)
+                                is AgentChatAction.FilePathAttached -> agentState.attachFilePath(action.path)
+                                is AgentChatAction.RemoveFileReference ->
+                                    agentState.removePendingFileReference(action.id)
                                 is AgentChatAction.EditMessage -> agentState.beginMessageEdit(action.id)
                                 AgentChatAction.CancelMessageEdit -> agentState.cancelMessageEdit()
                                 is AgentChatAction.DeleteMessage -> {

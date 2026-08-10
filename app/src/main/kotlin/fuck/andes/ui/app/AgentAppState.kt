@@ -13,10 +13,15 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import fuck.andes.FuckAndesApp
 import fuck.andes.agent.accessibility.AgentAccessibilityService
+import fuck.andes.agent.device.AgentFileReferenceGateway
 import fuck.andes.agent.device.DeviceLocationProvider
 import fuck.andes.agent.media.AgentImageCodec
 import fuck.andes.agent.memory.AgentMemoryContextBuilder
 import fuck.andes.agent.model.AgentModelClient
+import fuck.andes.agent.model.AgentFileReference
+import fuck.andes.agent.model.AgentFileReferenceKind
+import fuck.andes.agent.model.AgentFileReferencePolicy
+import fuck.andes.agent.model.AgentFileReferencePromptCodec
 import fuck.andes.agent.runtime.AgentEvent
 import fuck.andes.agent.runtime.AgentExternalArchivePayload
 import fuck.andes.agent.runtime.AgentRunArchiveStore
@@ -48,6 +53,7 @@ import fuck.andes.ui.model.PermissionHealthItemUi
 import fuck.andes.ui.model.PermissionHealthUiState
 import fuck.andes.ui.model.PermissionStatusUi
 import fuck.andes.ui.model.PendingImageUi
+import fuck.andes.ui.model.PendingFileReferenceUi
 import fuck.andes.ui.model.SkillItemUi
 import fuck.andes.ui.model.SkillNoticeUi
 import fuck.andes.ui.model.SkillReplacementUi
@@ -96,6 +102,7 @@ internal class AgentAppState(
     private var pendingSkillZipUri: Uri? = null
     private var pendingSkillZipSha256: String? = null
     private var currentReasoningCapabilities: ModelReasoningCapabilities? = null
+    private var fileAttachmentOwnerVersion = 0L
 
     private var selectedConversationId: String? = initialConversations.selectedConversationId
     private var conversationsById: Map<String, AgentChatHomeUiState> = initialConversations.conversationsById
@@ -472,6 +479,7 @@ internal class AgentAppState(
     fun selectConversation(conversationId: String) {
         if (homeState.messageEdit != null) cancelMessageEdit()
         val state = conversationsById[conversationId] ?: return
+        fileAttachmentOwnerVersion += 1
         selectedConversationId = conversationId
         val normalized = currentReasoningCapabilities?.normalize(state.reasoningEffort)
             ?: ReasoningEffort.OFF
@@ -488,6 +496,7 @@ internal class AgentAppState(
 
     fun createConversation() {
         if (homeState.messageEdit != null) cancelMessageEdit()
+        fileAttachmentOwnerVersion += 1
         selectedConversationId = null
         homeState = emptyChatState(defaultThinkingEnabled).withCurrentReasoningCapabilities()
         conversationPaneState = conversationPaneState.copy(
@@ -503,6 +512,7 @@ internal class AgentAppState(
         conversationTitles = conversationTitles - conversationId
         conversationUpdatedAt = conversationUpdatedAt - conversationId
         if (wasSelected) {
+            fileAttachmentOwnerVersion += 1
             val nextId = conversationsById.keys.firstOrNull()
             if (nextId != null) {
                 selectedConversationId = nextId
@@ -530,7 +540,28 @@ internal class AgentAppState(
     fun sendCurrentMessage() {
         val prompt = homeState.input.trim()
         val pendingImages = homeState.pendingImages
-        if ((prompt.isBlank() && pendingImages.isEmpty()) || homeState.isStreaming) return
+        val pendingFileReferences = homeState.pendingFileReferences
+        if (
+            (prompt.isBlank() && pendingImages.isEmpty() && pendingFileReferences.isEmpty()) ||
+            homeState.isStreaming
+        ) {
+            return
+        }
+        val fileReferences = pendingFileReferences.map { it.reference }
+        if (
+            !AgentFileReferencePolicy.canSend(
+                references = fileReferences,
+                terminalToolsEnabled = agentBooleanForUi(Prefs.Keys.AGENT_TERMINAL_TOOLS),
+            )
+        ) {
+            Toast.makeText(
+                appContext,
+                "文件路径引用需要先开启终端与文件工具",
+                Toast.LENGTH_SHORT,
+            ).show()
+            return
+        }
+        val runtimePrompt = AgentFileReferencePromptCodec.format(prompt, fileReferences)
 
         val edit = homeState.messageEdit
         if (edit == null && selectedConversationId?.isExternalArchiveConversation() == true) {
@@ -551,7 +582,7 @@ internal class AgentAppState(
         val runId = "run-${UUID.randomUUID()}"
         val userMessage = UserMessageUi(
             id = editBoundary?.userMessage?.id ?: "user-$runId",
-            content = prompt,
+            content = runtimePrompt,
             images = pendingImages.map { it.dataUrl },
             isEdited = editBoundary != null,
         )
@@ -562,7 +593,7 @@ internal class AgentAppState(
             homeState.messages.take(editBoundary.userMessageIndex) + userMessage
         }
         val userHistoryMessage = AgentModelClient.buildUserHistoryMessage(
-            text = prompt,
+            text = runtimePrompt,
             images = pendingImages.toHistoryImages(),
         )
 
@@ -571,14 +602,15 @@ internal class AgentAppState(
             ?.takeIf { it.userMessageIndex == 0 }
             ?.userMessage
             ?.content
-            ?.defaultConversationTitle()
+            ?.defaultConversationTitleFromMessage()
+        val nextAutoTitle = defaultConversationTitle(prompt, fileReferences)
         val title = if (
             editBoundary?.userMessageIndex == 0 &&
             (currentTitle == oldAutoTitle || currentTitle == "新对话")
         ) {
-            prompt.defaultConversationTitle()
+            nextAutoTitle
         } else {
-            currentTitle?.takeUnless { it == "新对话" } ?: prompt.defaultConversationTitle()
+            currentTitle?.takeUnless { it == "新对话" } ?: nextAutoTitle
         }
 
         conversationTitles = conversationTitles + (conversationId to title)
@@ -586,12 +618,17 @@ internal class AgentAppState(
         launchConversationRun(
             conversationId = conversationId,
             runId = runId,
-            prompt = prompt,
+            prompt = runtimePrompt,
             images = pendingImages,
             history = history,
             userHistoryMessage = userHistoryMessage,
             messages = messages,
-            state = homeState.copy(input = "", pendingImages = emptyList(), messageEdit = null),
+            state = homeState.copy(
+                input = "",
+                pendingImages = emptyList(),
+                pendingFileReferences = emptyList(),
+                messageEdit = null,
+            ),
             reasoningEffort = homeState.reasoningEffort,
         )
     }
@@ -607,14 +644,23 @@ internal class AgentAppState(
                 mimeType = dataUrl.imageMimeType(),
             )
         }
+        val parsedPrompt = AgentFileReferencePromptCodec.parse(boundary.userMessage.content)
+        val fileReferences = parsedPrompt.references.mapIndexed { index, reference ->
+            PendingFileReferenceUi(
+                id = "edit-${boundary.userMessage.id}-file-$index",
+                reference = reference,
+            )
+        }
         updateCurrentConversation(
             homeState.copy(
-                input = boundary.userMessage.content,
+                input = parsedPrompt.request,
                 pendingImages = images,
+                pendingFileReferences = fileReferences,
                 messageEdit = MessageEditUiState(
                     targetMessageId = boundary.userMessage.id,
                     previousInput = homeState.input,
                     previousImages = homeState.pendingImages,
+                    previousFileReferences = homeState.pendingFileReferences,
                     hasLaterTurns = boundary.laterTurnCount > 0,
                 ),
             )
@@ -628,6 +674,7 @@ internal class AgentAppState(
             homeState.copy(
                 input = edit.previousInput,
                 pendingImages = edit.previousImages,
+                pendingFileReferences = edit.previousFileReferences,
                 messageEdit = null,
             )
         )
@@ -646,6 +693,7 @@ internal class AgentAppState(
             conversationsById = conversationsById - conversationId
             conversationTitles = conversationTitles - conversationId
             conversationUpdatedAt = conversationUpdatedAt - conversationId
+            fileAttachmentOwnerVersion += 1
             selectedConversationId = null
             homeState = emptyChatState(defaultThinkingEnabled).withCurrentReasoningCapabilities()
             conversationPaneState = conversationPaneState.copy(selectedConversationId = null)
@@ -797,6 +845,18 @@ internal class AgentAppState(
     private fun String.defaultConversationTitle(): String =
         lineSequence().firstOrNull().orEmpty().trim().take(MAX_TITLE_CHARS).ifBlank { "新对话" }
 
+    private fun defaultConversationTitle(
+        request: String,
+        references: List<AgentFileReference>,
+    ): String = AgentFileReferencePolicy
+        .titleSource(request, references)
+        .defaultConversationTitle()
+
+    private fun String.defaultConversationTitleFromMessage(): String {
+        val parsed = AgentFileReferencePromptCodec.parse(this)
+        return defaultConversationTitle(parsed.request, parsed.references)
+    }
+
     private fun showCompactedRevisionNotice() {
         Toast.makeText(
             appContext,
@@ -851,6 +911,107 @@ internal class AgentAppState(
     fun removePendingImage(id: String) {
         updateCurrentConversation(homeState.copy(pendingImages = homeState.pendingImages.filterNot { it.id == id }))
     }
+
+    fun attachFiles(uris: List<String>) {
+        if (uris.isEmpty()) return
+        resolveAndAttachFileReferences {
+            val gateway = AgentFileReferenceGateway(appContext, AndroidAgentLogger)
+            uris.map { uri ->
+                gateway.resolveDocumentUri(
+                    uri = Uri.parse(uri),
+                    expectedKind = AgentFileReferenceKind.File,
+                )
+            }
+        }
+    }
+
+    fun attachFolder(uri: String) {
+        resolveAndAttachFileReferences {
+            val gateway = AgentFileReferenceGateway(appContext, AndroidAgentLogger)
+            listOf(
+                gateway.resolveDocumentUri(
+                    uri = Uri.parse(uri),
+                    expectedKind = AgentFileReferenceKind.Directory,
+                )
+            )
+        }
+    }
+
+    fun attachFilePath(path: String) {
+        resolveAndAttachFileReferences {
+            listOf(AgentFileReferenceGateway(AndroidAgentLogger).resolveAbsolutePath(path))
+        }
+    }
+
+    fun removePendingFileReference(id: String) {
+        updateCurrentConversation(
+            homeState.copy(
+                pendingFileReferences = homeState.pendingFileReferences.filterNot { it.id == id }
+            )
+        )
+    }
+
+    private fun resolveAndAttachFileReferences(
+        resolver: () -> List<AgentFileReferenceGateway.Resolution>,
+    ) {
+        val ownerVersion = fileAttachmentOwnerVersion
+        scope.launch(Dispatchers.IO) {
+            val resolutions = resolver()
+            val references = resolutions.mapNotNull { resolution ->
+                (resolution as? AgentFileReferenceGateway.Resolution.Success)?.reference
+            }
+            val failures = resolutions.mapNotNull { resolution ->
+                (resolution as? AgentFileReferenceGateway.Resolution.Failure)?.error
+            }
+            withContext(Dispatchers.Main) {
+                if (ownerVersion != fileAttachmentOwnerVersion) {
+                    Toast.makeText(appContext, "对话已切换，未添加所选路径", Toast.LENGTH_SHORT).show()
+                    return@withContext
+                }
+                val existingPaths = homeState.pendingFileReferences
+                    .mapTo(mutableSetOf()) { it.reference.absolutePath }
+                val additions = references
+                    .distinctBy { it.absolutePath }
+                    .filter { existingPaths.add(it.absolutePath) }
+                    .map { reference ->
+                        PendingFileReferenceUi(
+                            id = "file-${UUID.randomUUID()}",
+                            reference = reference,
+                        )
+                    }
+                if (additions.isNotEmpty()) {
+                    updateCurrentConversation(
+                        homeState.copy(
+                            pendingFileReferences = homeState.pendingFileReferences + additions
+                        )
+                    )
+                }
+                val message = when {
+                    failures.size == 1 && references.isEmpty() -> failures.single().userMessage
+                    failures.isNotEmpty() -> "已添加 ${additions.size} 项，${failures.size} 项无法引用"
+                    additions.isEmpty() -> "所选路径已经添加"
+                    else -> null
+                }
+                if (message != null) {
+                    Toast.makeText(appContext, message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private val AgentFileReferenceGateway.Error.userMessage: String
+        get() = when (this) {
+            AgentFileReferenceGateway.Error.UnsupportedDocumentProvider ->
+                "无法取得真实路径，请从“内部存储”选择或手动输入路径"
+            AgentFileReferenceGateway.Error.InvalidPath -> "请输入有效的绝对路径"
+            AgentFileReferenceGateway.Error.OutsideAllowedRoots ->
+                "仅支持内部存储和 /data/local/tmp 下的路径"
+            AgentFileReferenceGateway.Error.PathNotFound -> "路径不存在或已不可访问"
+            AgentFileReferenceGateway.Error.UnsupportedFileType -> "仅支持普通文件和文件夹"
+            AgentFileReferenceGateway.Error.TypeMismatch -> "选择的项目类型不匹配"
+            AgentFileReferenceGateway.Error.RootUnavailable -> "Root 不可用，无法校验路径"
+            AgentFileReferenceGateway.Error.ValidationTimedOut -> "路径校验超时，请重试"
+        }
 
     fun stopCurrentRun() {
         val runId = currentRunId ?: return
@@ -1542,6 +1703,7 @@ internal class AgentAppState(
             reasoningEffort = draft.reasoningEffort,
             availableReasoningEfforts = currentReasoningCapabilities?.selectableEfforts.orEmpty(),
             pendingImages = draft.pendingImages,
+            pendingFileReferences = draft.pendingFileReferences,
         )
         conversationPaneState = conversationPaneState.copy(selectedConversationId = null)
     }
@@ -1584,7 +1746,14 @@ internal class AgentAppState(
                     id = id,
                     title = conversationTitles[id] ?: "新对话",
                     preview = when (lastMessage) {
-                        is UserMessageUi -> lastMessage.content
+                        is UserMessageUi -> AgentFileReferencePromptCodec
+                            .parse(lastMessage.content)
+                            .let { parsed ->
+                                AgentFileReferencePolicy.titleSource(
+                                    request = parsed.request,
+                                    references = parsed.references,
+                                )
+                            }
                         is AgentMessageUi -> lastMessage.content.ifBlank { "Agent 正在思考" }
                         is ThinkingMessageUi -> "Agent 正在思考"
                         is ToolActivityMessageUi -> "调用工具：${lastMessage.toolName}"

@@ -106,6 +106,7 @@ import com.mikepenz.markdown.model.MarkdownState
 import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
+import fuck.andes.agent.model.AgentFileReferencePromptCodec
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
 import fuck.andes.ui.model.RunTraceMessageUi
@@ -412,6 +413,9 @@ private fun UserMessageBubble(
     LaunchedEffect(actionsEnabled) {
         if (!actionsEnabled) tooltipState.dismiss()
     }
+    val visiblePrompt = remember(message.content) {
+        AgentFileReferencePromptCodec.parse(message.content)
+    }
 
     Row(
         modifier = modifier
@@ -501,10 +505,18 @@ private fun UserMessageBubble(
                         }
                     }
                 }
-                if (message.content.isNotBlank()) {
+                if (visiblePrompt.references.isNotEmpty()) {
+                    SentFileReferenceFlow(
+                        references = visiblePrompt.references,
+                        modifier = Modifier.padding(
+                            bottom = if (visiblePrompt.request.isNotBlank()) 8.dp else 0.dp
+                        ),
+                    )
+                }
+                if (visiblePrompt.request.isNotBlank()) {
                     SelectionContainer {
                         Text(
-                            text = message.content,
+                            text = visiblePrompt.request,
                             style = MiuixTheme.textStyles.body1,
                             color = MiuixTheme.colorScheme.onSurface,
                         )
