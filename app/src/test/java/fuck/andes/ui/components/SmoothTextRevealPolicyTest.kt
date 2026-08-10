@@ -6,6 +6,17 @@ import org.junit.Test
 
 class SmoothTextRevealPolicyTest {
     @Test
+    fun coordinatorTracksBackgroundAnimationSuspension() {
+        val coordinator = SmoothTextRevealCoordinator()
+
+        assertEquals(false, coordinator.isAnimationPaused)
+        coordinator.pauseAnimationsAndCatchUp()
+        assertEquals(true, coordinator.isAnimationPaused)
+        coordinator.resumeAnimationsAfterCatchUp()
+        assertEquals(false, coordinator.isAnimationPaused)
+    }
+
+    @Test
     fun emptyAndOrdinaryTextExposeEveryGraphemeBoundary() {
         assertArrayEquals(intArrayOf(0), graphemeBoundaries(""))
         assertArrayEquals(intArrayOf(0, 1, 2, 3), graphemeBoundaries("A中B"))

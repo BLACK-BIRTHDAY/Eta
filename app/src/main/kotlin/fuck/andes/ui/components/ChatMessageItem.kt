@@ -53,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -80,6 +81,7 @@ import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.composables.icons.lucide.R as LucideR
 import com.mikepenz.markdown.annotator.annotatorSettings
 import com.mikepenz.markdown.annotator.buildMarkdownAnnotatedString
@@ -132,6 +134,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
@@ -785,6 +788,27 @@ private fun StreamingMarkdown(
     val acceptedContent = state.acceptedContent
     val currentRevealCompleteCallback by rememberUpdatedState(onRevealCompleteChange)
     val snapshot = state.snapshot
+    val lifecycleScope = rememberCoroutineScope()
+
+    LifecycleResumeEffect(state) {
+        val catchUpJob = if (revealCoordinator.isAnimationPaused) {
+            // ON_START 后恢复的首批重组和排版仍可能携带后台积压内容。保留两个绘制帧的
+            // 追平窗口，等这些块全部登记后再恢复动画，之后的新增量仍按正常速度显现。
+            lifecycleScope.launch {
+                revealCoordinator.pauseAnimationsAndCatchUp()
+                withFrameNanos { }
+                revealCoordinator.pauseAnimationsAndCatchUp()
+                withFrameNanos { }
+                revealCoordinator.resumeAnimationsAfterCatchUp()
+            }
+        } else {
+            null
+        }
+        onPauseOrDispose {
+            catchUpJob?.cancel()
+            revealCoordinator.pauseAnimationsAndCatchUp()
+        }
+    }
 
     LaunchedEffect(revealCoordinator) {
         revealCoordinator.runFrameClock()
@@ -1758,9 +1782,9 @@ private fun ThinkingRow(
     compact: Boolean = false,
 ) {
     var expanded by remember(message.id) { mutableStateOf(!message.collapsed) }
-    // 只给本次实际经历流式输出的思考保留显现时钟；历史消息直接静态渲染。
-    val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
-    val streamingState = if (keepStreamingMarkdown) {
+    // 思考结束后立即切换为与完成态回答相同的稳定 Markdown。工具执行期间 App 可能
+    // 处于后台，不能让旧思考保留显现债务，回来后在新回答旁边补播整段内容。
+    val streamingState = if (message.isStreaming) {
         retainedStreamingState ?: remember(message.id) { StreamingMarkdownState() }
     } else {
         null
@@ -1773,7 +1797,7 @@ private fun ThinkingRow(
     // 后台解析，而不是等到首次点击展开。否则首帧只能测量 loading fallback 的纯文本高度，
     // 解析完成后正文高度会再次变化；状态挂在行级还能在收起/展开循环中存活，
     // 避免每次展开都重新走一遍异步解析。
-    val stableMarkdownState = if (!keepStreamingMarkdown) {
+    val stableMarkdownState = if (!message.isStreaming) {
         rememberMarkdownState(
             content = message.content,
             retainState = true,

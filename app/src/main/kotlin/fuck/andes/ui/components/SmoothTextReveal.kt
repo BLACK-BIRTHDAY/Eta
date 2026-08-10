@@ -46,10 +46,32 @@ internal class SmoothTextRevealCoordinator {
     private val wakeups = Channel<Unit>(capacity = Channel.CONFLATED)
     private val drainedState = MutableStateFlow(true)
     private val startedState = MutableStateFlow<Set<RevealBlockKey>>(emptySet())
+    private var animationsPaused = false
 
     val drained: StateFlow<Boolean> = drainedState
     /** 已经开始显现的块，用于让列表 marker 与正文保持同一生命周期。 */
     val started: StateFlow<Set<RevealBlockKey>> = startedState
+
+    val isAnimationPaused: Boolean
+        get() = animationsPaused
+
+    /**
+     * 页面不可见时帧时钟会停，但 Runtime 仍可能继续追加文本。此时直接追平当前目标，
+     * 并让后续排版结果同样立即完成，避免回到页面后补播后台积压的显现动画。
+     */
+    fun pauseAnimationsAndCatchUp() {
+        animationsPaused = true
+        records.values.forEach(::completeRecord)
+        updateDrainedState()
+        wakeups.trySend(Unit)
+    }
+
+    fun resumeAnimationsAfterCatchUp() {
+        records.values.forEach(::completeRecord)
+        updateDrainedState()
+        animationsPaused = false
+        wakeups.trySend(Unit)
+    }
 
     fun retainBlocks(activeBlocks: Set<RevealBlockKey>) {
         val iterator = records.iterator()
@@ -163,7 +185,16 @@ internal class SmoothTextRevealCoordinator {
         if (record.layoutResult !== layoutResult) {
             record.layoutResult = layoutResult
         }
+        if (animationsPaused) completeRecord(record)
         updateDrainedState()
+        record.node?.onRevealDataChanged()
+    }
+
+    private fun completeRecord(record: RevealRecord) {
+        record.progress = record.targetCount
+        if (record.targetCount > 0f && record.key !in startedState.value) {
+            startedState.value = startedState.value + record.key
+        }
         record.node?.onRevealDataChanged()
     }
 
