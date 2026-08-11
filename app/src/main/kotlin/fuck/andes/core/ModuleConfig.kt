@@ -5,13 +5,16 @@ internal object ModuleConfig {
     const val HOT_PATH_LOG_WINDOW_MS = 60_000L
 
     const val GOOGLE_PACKAGE = "com.google.android.googlequicksearchbox"
+    const val ETA_PACKAGE = "fuck.andes"
     const val BREENO_PACKAGE = "com.heytap.speechassist"
     const val COLOROS_MEMORY_PACKAGE = "com.oplus.aimemory"
     const val XIAOAI_PACKAGE = "com.miui.voiceassist"
     const val XIAOAI_CORE_PROCESS = "$XIAOAI_PACKAGE:core"
     val AGENT_RUNTIME_ENTRY_PACKAGES = setOf(BREENO_PACKAGE, XIAOAI_PACKAGE)
     const val GOOGLE_ASSISTANT_COMPONENT =
-        "com.google.android.googlequicksearchbox/com.google.android.voiceinteraction.GsaVoiceInteractionService"
+        "$GOOGLE_PACKAGE/com.google.android.voiceinteraction.GsaVoiceInteractionService"
+    const val ETA_VOICE_INTERACTION_COMPONENT =
+        "$ETA_PACKAGE/fuck.andes.agent.voice.EtaVoiceInteractionService"
     const val ASSISTANT_ROLE = "android.app.role.ASSISTANT"
     const val SECURE_ASSISTANT = "assistant"
     const val SECURE_VOICE_INTERACTION_SERVICE = "voice_interaction_service"

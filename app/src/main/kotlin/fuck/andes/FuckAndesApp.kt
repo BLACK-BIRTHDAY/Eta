@@ -36,8 +36,11 @@ class FuckAndesApp : Application(), XposedServiceHelper.OnServiceListener {
 
     override fun onCreate() {
         super.onCreate()
-        SettingsDataStore.init(this)
         Prefs.initLocal(this)
+        if (!AppProcessPolicy.shouldInitializeFullRuntime(Application.getProcessName(), packageName)) {
+            return
+        }
+        SettingsDataStore.init(this)
         AgentMemoryRepository.init(this)
         ProviderRepository.init(this)
         XposedServiceHelper.registerListener(this)

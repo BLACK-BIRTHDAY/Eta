@@ -12,6 +12,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Message
 import android.os.SystemClock
+import fuck.andes.config.PowerAssistantTarget
 import fuck.andes.config.Prefs
 import io.github.libxposed.api.XposedModule
 
@@ -35,8 +36,7 @@ internal object PowerHooks {
     ): HookInstallation {
         val hooks = HookRegistrar(module, rootLogger, "Power")
         return hooks.install {
-            // 当前机型实测证明 OplusSpeechHandler 是必要路径。
-            // 开关在拦截回调里判断，关闭则走原逻辑。
+            // 当前机型实测证明 OplusSpeechHandler 是必要路径，目标在热路径即时读取。
             hookOplusSpeechHandler(hooks, classLoader)
         }
     }
@@ -69,8 +69,9 @@ internal object PowerHooks {
                 return@intercept chain.proceed()
             }
 
-            // 开关关闭则走原逻辑（小布），不拦截。
-            if (!Prefs.isEnabled(Prefs.Keys.POWER_KEY_TAKEOVER)) {
+            val target = Prefs.powerAssistantTarget()
+            val binding = assistantBindingFor(target)
+            if (binding == null) {
                 return@intercept chain.proceed()
             }
 
@@ -83,14 +84,18 @@ internal object PowerHooks {
                 return@intercept chain.proceed()
             }
 
-            when (tryLaunchGoogleAssist(
+            when (tryLaunchAssistant(
+                target = target,
+                binding = binding,
                 logger = logger,
                 phoneWindowManager = pwm,
                 source = "OplusSpeechHandler"
             )) {
                 LaunchResult.LAUNCHED -> null
                 LaunchResult.ACTIVITY_FALLBACK_REQUIRED -> {
-                    val activityStarted = tryStartGoogleAssistActivityFallback(
+                    val activityStarted = tryStartAssistantActivityFallback(
+                        target = target,
+                        binding = binding,
                         logger = logger,
                         phoneWindowManager = pwm,
                         source = "OplusSpeechHandler"
@@ -105,7 +110,7 @@ internal object PowerHooks {
                     if (activityStarted) {
                         null
                     } else {
-                        // 当前触发不再等待后台修复；Google 两条快速路径都失败时立即回退小布。
+                        // 当前触发不等待后台修复；所有快速路径失败后立即回退小布。
                         chain.proceed()
                     }
                 }
@@ -114,7 +119,9 @@ internal object PowerHooks {
         }
     }
 
-    private fun tryLaunchGoogleAssist(
+    private fun tryLaunchAssistant(
+        target: PowerAssistantTarget,
+        binding: AssistantBinding,
         logger: ModuleLogger,
         phoneWindowManager: Any,
         source: String
@@ -127,9 +134,9 @@ internal object PowerHooks {
             return LaunchResult.NOT_HANDLED
         }
 
-        if (!HookSupport.isPackageInstalled(context, ModuleConfig.GOOGLE_PACKAGE)) {
-            logger.warnThrottled("${source}_google_missing") {
-                "$source: Google App 未安装，回退原逻辑"
+        if (!HookSupport.isPackageInstalled(context, binding.packageName)) {
+            logger.warnThrottled("${source}_${target.persistedValue}_missing") {
+                "$source: ${binding.displayName} 未安装，回退原逻辑"
             }
             return LaunchResult.NOT_HANDLED
         }
@@ -140,21 +147,24 @@ internal object PowerHooks {
             return LaunchResult.LAUNCHED
         }
 
-        if (AssistantManager.showGoogleAssistantSession(
+        if (AssistantManager.showAssistantSession(
                 context = context,
+                target = target,
                 logger = logger,
                 source = source,
                 logFailures = false
             )) {
             finalizeSuccessfulLaunch(logger, phoneWindowManager, source, now)
-            logger.debug { "$source: 已通过 voiceinteraction 启动 Google" }
+            logger.debug { "$source: 已通过 voiceinteraction 启动 ${binding.displayName}" }
             return LaunchResult.LAUNCHED
         }
 
         return LaunchResult.ACTIVITY_FALLBACK_REQUIRED
     }
 
-    private fun tryStartGoogleAssistActivityFallback(
+    private fun tryStartAssistantActivityFallback(
+        target: PowerAssistantTarget,
+        binding: AssistantBinding,
         logger: ModuleLogger,
         phoneWindowManager: Any,
         source: String
@@ -162,25 +172,46 @@ internal object PowerHooks {
         val context = HookSupport.getFieldValue(phoneWindowManager, "mContext") as? Context
             ?: return false
         val now = SystemClock.uptimeMillis()
-        return startGoogleAssistActivity(
-            context = context,
-            logger = logger,
-            phoneWindowManager = phoneWindowManager,
-            source = source,
-            now = now,
-            action = Intent.ACTION_ASSIST
-        ) || startGoogleAssistActivity(
-            context = context,
-            logger = logger,
-            phoneWindowManager = phoneWindowManager,
-            source = source,
-            now = now,
-            action = Intent.ACTION_VOICE_COMMAND
-        )
+        return when (target) {
+            PowerAssistantTarget.OEM -> false
+            PowerAssistantTarget.GEMINI -> startAssistantActivity(
+                context = context,
+                binding = binding,
+                logger = logger,
+                phoneWindowManager = phoneWindowManager,
+                source = source,
+                now = now,
+                action = Intent.ACTION_ASSIST,
+            ) || startAssistantActivity(
+                context = context,
+                binding = binding,
+                logger = logger,
+                phoneWindowManager = phoneWindowManager,
+                source = source,
+                now = now,
+                action = Intent.ACTION_VOICE_COMMAND,
+            )
+            PowerAssistantTarget.ETA -> {
+                if (!AssistantManager.isAssistantConfigured(context, target)) {
+                    false
+                } else {
+                    startAssistantActivity(
+                        context = context,
+                        binding = binding,
+                        logger = logger,
+                        phoneWindowManager = phoneWindowManager,
+                        source = source,
+                        now = now,
+                        action = Intent.ACTION_ASSIST,
+                    )
+                }
+            }
+        }
     }
 
-    private fun startGoogleAssistActivity(
+    private fun startAssistantActivity(
         context: Context,
+        binding: AssistantBinding,
         logger: ModuleLogger,
         phoneWindowManager: Any,
         source: String,
@@ -188,19 +219,20 @@ internal object PowerHooks {
         action: String
     ): Boolean {
         val intent = Intent(action).apply {
-            setPackage(ModuleConfig.GOOGLE_PACKAGE)
+            setPackage(binding.packageName)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         val resolves = runCatching { HookSupport.resolvesActivity(context, intent) }
             .getOrElse { throwable ->
                 logger.warnThrottled("${source}_${action}_resolve_failed") {
-                    "$source: 查询 Google $action 入口失败，type=${throwable.safeLogType()}"
+                    "$source: 查询 ${binding.displayName} $action 入口失败，" +
+                        "type=${throwable.safeLogType()}"
                 }
                 false
             }
         if (!resolves) {
             logger.warnThrottled("${source}_${action}_missing") {
-                "$source: Google 未暴露 $action，回退原逻辑"
+                "$source: ${binding.displayName} 未暴露 $action，回退原逻辑"
             }
             return false
         }
@@ -208,7 +240,7 @@ internal object PowerHooks {
         return runCatching {
             context.startActivity(intent)
             finalizeSuccessfulLaunch(logger, phoneWindowManager, source, now)
-            logger.debug { "$source: 已通过 $action 启动 Google" }
+            logger.debug { "$source: 已通过 $action 启动 ${binding.displayName}" }
             true
         }.getOrElse { throwable ->
             logger.warnThrottled("${source}_${action}_failed") {
@@ -263,6 +295,11 @@ internal object PowerHooks {
         phoneWindowManager: Any,
         source: String
     ) {
+        if (!Prefs.isEnabled(Prefs.Keys.ASSISTANT_AUTO_CONFIG) ||
+            Prefs.powerAssistantTarget() == PowerAssistantTarget.OEM
+        ) {
+            return
+        }
         if (handler == null) {
             logger.warnThrottled("${source}_recovery_missing_handler") {
                 "$source: 无法取得 OplusSpeechHandler 实例，跳过后台配置修复"
@@ -278,12 +315,11 @@ internal object PowerHooks {
             return
         }
 
-        val scheduled = AssistantManager.scheduleGoogleAssistantRecovery(
+        val scheduled = AssistantManager.scheduleAssistantRecovery(
             context = context,
             logger = logger,
             handler = handler,
             forceRefresh = true,
-            requiredPreferenceKey = Prefs.Keys.POWER_KEY_TAKEOVER
         )
         if (!scheduled) {
             logger.warnThrottled("${source}_configuration_schedule_failed") {

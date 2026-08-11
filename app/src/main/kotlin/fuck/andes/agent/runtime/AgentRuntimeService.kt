@@ -43,7 +43,9 @@ import fuck.andes.config.Prefs
 import fuck.andes.core.AndroidAgentLogger
 import fuck.andes.core.ModuleConfig
 import fuck.andes.core.safeLogType
+import fuck.andes.data.repository.RuntimeConfigRepository
 import kotlin.concurrent.thread
+import kotlinx.coroutines.runBlocking
 import top.yukonga.miuix.kmp.squircle.LocalSquircleEnabled
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.darkColorScheme
@@ -235,14 +237,22 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         val pending = PendingStartRequest(generation, incoming, replyTo)
         pendingStartRequest = pending
         thread(name = "agent-runtime-image-ingest") {
-            val materialized = runCatching {
-                AgentRuntimeImageTransfer.materialize(incoming)
+            val prepared = runCatching {
+                val request = AgentRuntimeImageTransfer.materialize(incoming)
+                if (!AgentRuntimeRequestConfigResolver.requiresRuntimeConfig(request)) {
+                    request
+                } else {
+                    val runtimeConfig = runBlocking {
+                        RuntimeConfigRepository.currentRuntimeConfig()
+                    } ?: throw RuntimeConfigUnavailableException()
+                    AgentRuntimeRequestConfigResolver.applyRuntimeConfig(request, runtimeConfig)
+                }
             }
             mainHandler.post {
                 if (generation != startRequestGeneration || pendingStartRequest !== pending) return@post
                 pendingStartRequest = null
                 sendRequestIngestedTo(replyTo, incoming.request.runId)
-                materialized.fold(
+                prepared.fold(
                     onSuccess = { request ->
                         val permissions = AgentRuntimePolicy.permissions(
                             Prefs.localAgentPreferences()
@@ -255,13 +265,17 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                         )
                     },
                     onFailure = { throwable ->
-                        AndroidAgentLogger.warnThrottled("runtime_image_ingest_failed") {
-                            "Agent runtime image ingest failed: type=${throwable.safeLogType()}"
+                        AndroidAgentLogger.warnThrottled("runtime_request_prepare_failed") {
+                            "Agent runtime request preparation failed: type=${throwable.safeLogType()}"
                         }
                         finishWithFailure(
-                            (throwable as? AgentRuntimeImageTransfer.ImageTransferException)
-                                ?.message
-                                ?: "Agent Runtime 无法读取图片",
+                            when (throwable) {
+                                is AgentRuntimeImageTransfer.ImageTransferException ->
+                                    throwable.message ?: "Agent Runtime 无法读取图片"
+                                is RuntimeConfigUnavailableException ->
+                                    "请先在 Eta 中配置可用的模型"
+                                else -> "Agent Runtime 无法准备请求"
+                            },
                             replyTo,
                         )
                     },
@@ -977,4 +991,6 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         val request: AgentRuntimeWire.RunRequest,
         val response: AgentModelClient.ModelResponse.Text,
     )
+
+    private class RuntimeConfigUnavailableException : IllegalStateException()
 }

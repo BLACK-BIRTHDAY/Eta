@@ -1,6 +1,7 @@
 package fuck.andes.config
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class PrefsDefaultsTest {
@@ -25,6 +26,9 @@ class PrefsDefaultsTest {
                 Prefs.Keys.AGENT_THINKING_ENABLED to true,
             ),
             Prefs.Keys.BOOLEAN_DEFAULTS,
+        )
+        assertFalse(
+            Prefs.Keys.BOOLEAN_DEFAULTS.containsKey(Prefs.Keys.POWER_KEY_ASSISTANT_TARGET),
         )
     }
 

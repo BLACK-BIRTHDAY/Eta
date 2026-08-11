@@ -25,6 +25,8 @@ import kotlinx.serialization.json.Json
  * 不引入 AIDL：结构化字段使用 [Bundle]，图片正文使用 [ParcelFileDescriptor]，避免占用 Binder 事务缓冲区。
  */
 internal object AgentRuntimeWire {
+    const val ETA_VOICE_HANDOFF_SOURCE = "eta_voice"
+
     internal class PayloadTooLargeException(sizeBytes: Int) : IllegalArgumentException(
         "Agent Runtime 请求元数据过大（$sizeBytes bytes）；请缩短输入或会话历史后重试"
     )

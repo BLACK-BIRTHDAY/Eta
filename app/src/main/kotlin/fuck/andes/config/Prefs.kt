@@ -26,6 +26,8 @@ internal object Prefs {
 
     /** 所有功能开关 key。默认值按功能风险独立定义。 */
     object Keys {
+        const val POWER_KEY_ASSISTANT_TARGET = "power_key_assistant_target"
+        // 兼容旧版布尔协议；新 UI 不再写入，缺少三态配置时 true 仍表示 Gemini。
         const val POWER_KEY_TAKEOVER = "power_key_takeover"
         const val ASSISTANT_AUTO_CONFIG = "assistant_auto_config"
         const val HOTWORD_SELF_HEAL = "hotword_self_heal"
@@ -111,6 +113,19 @@ internal object Prefs {
 
     fun getString(key: String): String {
         return remote?.getString(key, "") ?: ""
+    }
+
+    fun powerAssistantTarget(): PowerAssistantTarget = powerAssistantTarget(remote)
+
+    fun powerAssistantTarget(preferences: SharedPreferences?): PowerAssistantTarget {
+        val persistedValue = runCatching {
+            preferences?.getString(Keys.POWER_KEY_ASSISTANT_TARGET, null)
+        }.getOrNull()
+        val legacyDefault = Keys.BOOLEAN_DEFAULTS.getValue(Keys.POWER_KEY_TAKEOVER)
+        val legacyTakeover = runCatching {
+            preferences?.getBoolean(Keys.POWER_KEY_TAKEOVER, legacyDefault)
+        }.getOrNull() ?: legacyDefault
+        return PowerAssistantTarget.resolve(persistedValue, legacyTakeover)
     }
 
     /**

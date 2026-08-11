@@ -33,11 +33,20 @@ Release 裁剪以 `app/proguard-rules.pro` 为唯一可执行事实来源，规�
 
 上述策略依据 Android 官方的 [R8 附加规则](https://developer.android.com/topic/performance/app-optimization/additional-rule-types)、[日志信息泄露防护](https://developer.android.com/privacy-and-security/risks/log-info-disclosure)、AOSP [日志级别约定](https://source.android.com/docs/core/tests/debug/understanding-logging)、OWASP [运行时日志测试](https://mas.owasp.org/MASTG/tests/android/MASVS-STORAGE/MASTG-TEST-0203/) 与 [CWE-532](https://cwe.mitre.org/data/definitions/532.html)。
 
+## Eta 原生数字助理
+
+Manifest 注册 `VoiceInteractionService`、独立进程的 `VoiceInteractionSessionService` 以及 Android 助理角色资格要求的 `RecognitionService`。设置页只负责打开系统数字助理选择界面；当前会话不会请求麦克风权限，也不会启动语音识别。
+
+会话显示 Miuix 文本输入框，窗口展示后主动请求输入焦点并弹出软键盘。全屏会话窗口不执行系统级 resize 或 pan，底部面板通过 Compose `WindowInsetsRulers` 统一适配导航栏与 IME，避免厂商系统与 Compose 重复应用键盘高度。用户提交的文本通过 `AgentRuntimeClient` 发送到主进程，沿用既有 Provider、工具权限、归档和取消协议；文本流直接显示在会话面板中，前台设备工具出现时面板收起并由全局操作浮层继续承载状态。最终结果进入同一会话归档，当前不执行语音朗读。`RecognitionService` 只作为系统角色声明保留；如果系统单独绑定它，才会把识别委托给外部 ASR，系统助手文本入口不会调用该服务。
+
+`:voice`、`:voice_session` 与 `:recognition` 进程只初始化本地偏好，不预热数据库、Skills 或 Xposed UI 服务。语音输入、语音唤醒与 HyperOS 按键适配不在当前实现范围内。
+
 ## system_server
 
-- **电源键接管**：Hook `PhoneWindowManagerExtImpl$OplusSpeechHandler.handleMessage()` 拦截系统分发给小布的唤醒消息（`what == 0x3F3`），接管电源键长按的最终入口。
-- **数字助理配置修复**：开机、解锁、切用户时，通过 `AssistantManager` 异步、低频地校正 `android.app.role.ASSISTANT` 及相关 secure settings。Google 已是 role holder 时不再执行清空后重加，避免制造不必要的助理空窗期。
-- **唤起逻辑优化**：本次长按优先通过 `VoiceInteractionManagerService` 拉起 Google `voiceinteraction`，失败后依次尝试 `ACTION_ASSIST` 与 `ACTION_VOICE_COMMAND`。三条快速路径均失败时立即回退小布原逻辑；配置修复在后台进行，只影响后续触发，不阻塞当前系统回调。
+- **电源键接管**：Hook `PhoneWindowManagerExtImpl$OplusSpeechHandler.handleMessage()` 处理系统分发给小布的唤醒消息（`what == 0x3F3`）。目标为小布时直接执行原方法；目标为 Gemini 或 Eta 时才拦截并分发到对应入口。
+- **兼容配置**：三态目标写入字符串键；键不存在或值非法时读取旧 `POWER_KEY_TAKEOVER` 布尔协议，`true` 继续表示 Gemini，`false` 表示小布。新安装默认保持小布，旧用户不会因新增 Eta 被改写目标。
+- **数字助理配置修复**：独立自动设置开关开启后，开机、解锁、切用户及启动失败恢复时，通过 `AssistantManager` 异步校正当前 Gemini/Eta 目标的 `android.app.role.ASSISTANT` 与 secure settings。小布模式和开关关闭时不写系统配置；校验缓存及异步回调同时核对用户与目标，旧目标任务不会继续覆盖新选择。
+- **唤起逻辑优化**：Gemini 恢复原有 `VoiceInteractionManagerService`、`ACTION_ASSIST`、`ACTION_VOICE_COMMAND` 顺序；Eta 优先使用活动 `voiceinteraction` 会话，再在已经配置为默认助理时尝试同包 `ACTION_ASSIST` 桥。所有路径失败后立即执行小布原逻辑，不阻塞系统回调。
 - **息屏后维持 Hey Google 可用**：Hook `PhoneWindowManager.screenTurnedOff()`，在默认显示息屏后短延迟检查 Google 的 `SoftwareTrustedHotwordDetectorSession`。只有已有 `mSoftwareCallback` 且当前未 running 时，才恢复 `startListeningFromMicLocked()`；亮屏或恢复成功后会取消未执行任务。
 - **一圈即搜支持**：强制启用 `ContextualSearchManagerService`，将包名指向 Google App，并放行 `SystemUI` 与 ColorDirectService 的调用权限。作为一圈即搜的底层依赖始终执行，不可关闭。
 - **无障碍保护**：复用已验证的 `SystemServer.startOtherServices(TimingsTraceAndSlog)` 生命周期点，在系统服务启动完成后接入事件驱动保护。后台工作复用 Android `BackgroundThread`，不开模块线程、不轮询；开关默认关闭，开启请求需同时通过 signature 权限、真实发送 UID、服务声明与 APK signer 钉扎校验。保护只维护 owner 用户中的 Eta 组件和总开关，保留其他服务；断连时通过仅允许 `system` UID 调用的健康 Provider 确认，并对 Eta 做带次数上限和冷却的定向重绑。
@@ -148,14 +157,14 @@ Runtime 提示要求模型在用户目标会明显受益于本机上下文时主
 - 默认助理配置检查带 15 秒冷却，息屏后的 Hey Google 恢复路径不主动查写默认助理配置
 - 高频成功路径使用 `DEBUG`；Debug 构建可诊断，Release 由 R8 确定性裁剪
 - 电源键拦截路径不执行休眠、轮询或阻塞等待；本次触发只做快速启动尝试，失败即回退系统原逻辑
-- 默认助理修复异步执行并按用户去重，完成时重新核验 role 与开关状态
+- 默认助理修复异步执行并按用户串行，完成时重新核验 role、目标与开关状态
 - 息屏后的 Hey Google 恢复只响应系统息屏事件；最多串行尝试 3 次，失败才投递下一次，亮屏/成功/结束都会移除未执行 callback
 - Google App 的锁屏/亮屏语音输入优先 Hook 固定 FloatyActivity，不常驻拦截 Google App 所有页面；语音补偿只按同一 FloatyActivity 实例去重，避免重复补发又不影响快速关闭后再次启动
 
 ## 预期行为
 
-正常情况下，第一次长按电源键就能直接唤起 Gemini。
+电源键目标为小布时，ColorOS 长按电源键保持厂商原始行为且不修改当前默认助理。目标为 Gemini 时，长按恢复 Google 原有系统助手与 Activity 兜底链路。目标为 Eta 且 Eta 已是默认数字助理时，长按会打开文本会话并弹出软键盘；用户手动发送请求，工具执行、流式结果和归档仍由主进程中的 Agent Runtime 负责，当前流程不启动 ASR 或 TTS。
 
-如果 Google 的 `voiceinteraction` 尚未就绪，模块会尝试 Google 暴露的助理 Activity；仍无法处理时立即回到小布原逻辑，同时在后台修复默认助理配置。这样不会为了追求一次触发成功而占住 `system_server` 回调，也不会出现长按后无反馈的空窗。
+Eta 尚未成为默认助理且自动设置关闭时，按既定策略直接回到小布，不创建平行 Activity 会话。自动设置开启时，失败触发只在后台修复当前选择，当前长按仍立即回退；后续触发使用修复后的主路径。HyperOS 后续只需把厂商按键事件接到同一目标分发边界，不需要修改文本会话和 Runtime。
 
 配置界面按消费边界保存开关：Agent 与本地工具写入 App 私有配置，Hook 能力写入 LSPosed 侧 RemotePreferences。Hook 回调和延迟任务执行前都会读取对应开关，所以后续触发按当前配置执行。

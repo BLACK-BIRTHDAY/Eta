@@ -1,7 +1,11 @@
 package fuck.andes.ui
 
+import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.provider.Settings
+import android.service.voice.VoiceInteractionService
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -32,6 +36,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import fuck.andes.FuckAndesApp
 import fuck.andes.agent.accessibility.AccessibilityProtectionClient
 import fuck.andes.agent.accessibility.AgentAccessibilityService
+import fuck.andes.agent.voice.EtaVoiceInteractionService
+import fuck.andes.config.PowerAssistantTarget
 import fuck.andes.config.Prefs
 import fuck.andes.data.repository.ProviderRepository
 import fuck.andes.data.repository.RuntimeConfigRepository
@@ -60,6 +66,7 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
@@ -95,6 +102,7 @@ internal fun SettingsScreen(
     val topBarColor = topBarContainerColor(backdrop)
     val coroutineScope = rememberCoroutineScope()
     var showSystemizerDialog by remember { mutableStateOf(false) }
+    var showPowerAssistantTargetDialog by remember { mutableStateOf(false) }
     var installingSystemizer by remember { mutableStateOf(false) }
 
     // 悬浮窗权限状态：授权后从系统设置返回时（ON_RESUME）刷新。
@@ -108,6 +116,15 @@ internal fun SettingsScreen(
         mutableStateOf(AccessibilityProtectionClient.isEnabled(context))
     }
     var accessibilityProtectionPending by remember { mutableStateOf(false) }
+    var etaAssistantActive by remember { mutableStateOf(isEtaAssistantActive(context)) }
+    val openAssistantSettings: () -> Unit = {
+        val failed = runCatching {
+            context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
+        }.isFailure
+        if (failed) {
+            Toast.makeText(context, "无法打开默认助理设置", Toast.LENGTH_SHORT).show()
+        }
+    }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -116,6 +133,7 @@ internal fun SettingsScreen(
                 accessibilityGranted = isAgentAccessibilityEnabled(context)
                 accessibilityProtectionEnabled =
                     AccessibilityProtectionClient.isEnabled(context)
+                etaAssistantActive = isEtaAssistantActive(context)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -142,6 +160,21 @@ internal fun SettingsScreen(
     // LSPosed 数据库）；未就绪时保持 null，UI 禁止修改。
     var prefs by remember { mutableStateOf(Prefs.remotePreferencesForUi(FuckAndesApp.serviceInstance)) }
     val agentPrefs = remember { Prefs.localAgentPreferences() }
+    var powerAssistantTarget by remember(prefs) {
+        mutableStateOf(Prefs.powerAssistantTarget(prefs))
+    }
+    DisposableEffect(prefs) {
+        val targetPrefs = prefs ?: return@DisposableEffect onDispose {}
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { changedPrefs, key ->
+            if (key == Prefs.Keys.POWER_KEY_ASSISTANT_TARGET ||
+                key == Prefs.Keys.POWER_KEY_TAKEOVER
+            ) {
+                powerAssistantTarget = Prefs.powerAssistantTarget(changedPrefs)
+            }
+        }
+        targetPrefs.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { targetPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     DisposableEffect(Unit) {
         val listener = object : FuckAndesApp.ServiceStateListener {
             override fun onServiceStateChanged(service: io.github.libxposed.service.XposedService?) {
@@ -295,10 +328,58 @@ internal fun SettingsScreen(
             item(key = "section_assistant_takeover") {
                 SmallTitle("系统助手接管")
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                    ArrowPreference(
+                        title = "Eta 系统助手",
+                        summary = if (etaAssistantActive) {
+                            "已设为默认数字助理"
+                        } else {
+                            "选择 Eta 作为默认数字助理"
+                        },
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_message_square,
+                                tint = ColorOSRoyalBlue,
+                            )
+                        },
+                        onClick = openAssistantSettings,
+                    )
+                    PrefDivider()
+                    ArrowPreference(
+                        title = "电源键长按",
+                        summary = powerAssistantTarget.displayName,
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_power,
+                                tint = ColorOSOrangeRed,
+                            )
+                        },
+                        enabled = prefs != null,
+                        holdDownState = showPowerAssistantTargetDialog,
+                        onClick = {
+                            if (prefs != null) showPowerAssistantTargetDialog = true
+                        },
+                    )
+                    PrefDivider()
                     SwitchPref(
                         context = context,
                         prefs = prefs,
-                        title = "启用系统助手自定义模型",
+                        title = "自动设置默认助理",
+                        summary = "仅对 Gemini 和 Eta 生效",
+                        key = Prefs.Keys.ASSISTANT_AUTO_CONFIG,
+                        icon = LucideR.drawable.lucide_ic_sparkles,
+                        iconTint = ColorOSVividGreen,
+                    )
+                }
+            }
+
+            // ── 厂商助手兼容入口 ──────────────────────────────────────────
+            item(key = "section_oem_assistant_compatibility") {
+                SmallTitle("小布/小爱兼容入口")
+                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                    SwitchPref(
+                        context = context,
+                        prefs = prefs,
+                        title = "启用厂商助手自定义模型",
                         key = Prefs.Keys.AGENT_CUSTOM_MODEL,
                         icon = LucideR.drawable.lucide_ic_cpu,
                         iconTint = ColorOSOrangeRed,
@@ -307,7 +388,7 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = prefs,
-                        title = "仅 /agent 前缀接管",
+                        title = "仅以 /agent 前缀接管",
                         key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
                         icon = LucideR.drawable.lucide_ic_message_square,
                         iconTint = ColorOSAmberYellow,
@@ -319,24 +400,6 @@ internal fun SettingsScreen(
             item(key = "section_gemini") {
                 SmallTitle("Gemini")
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = "长按电源键唤起 Gemini",
-                        key = Prefs.Keys.POWER_KEY_TAKEOVER,
-                        icon = LucideR.drawable.lucide_ic_power,
-                        iconTint = ColorOSOrangeRed,
-                    )
-                    PrefDivider()
-                    SwitchPref(
-                        context = context,
-                        prefs = prefs,
-                        title = "自动设置 Google 为默认助理",
-                        key = Prefs.Keys.ASSISTANT_AUTO_CONFIG,
-                        icon = LucideR.drawable.lucide_ic_sparkles,
-                        iconTint = ColorOSVividGreen,
-                    )
-                    PrefDivider()
                     SwitchPref(
                         context = context,
                         prefs = prefs,
@@ -571,6 +634,36 @@ internal fun SettingsScreen(
                 }
             },
         )
+        PowerAssistantTargetDialog(
+            show = showPowerAssistantTargetDialog,
+            selected = powerAssistantTarget,
+            enabled = prefs != null,
+            onDismissRequest = { showPowerAssistantTargetDialog = false },
+            onSelect = { target ->
+                val previousTarget = powerAssistantTarget
+                val targetPrefs = prefs
+                if (targetPrefs == null) {
+                    showPowerAssistantTargetDialog = false
+                    return@PowerAssistantTargetDialog
+                }
+                if (putStringSync(
+                        prefs = targetPrefs,
+                        key = Prefs.Keys.POWER_KEY_ASSISTANT_TARGET,
+                        value = target.persistedValue,
+                    )
+                ) {
+                    powerAssistantTarget = target
+                    showPowerAssistantTargetDialog = false
+                } else {
+                    powerAssistantTarget = previousTarget
+                    Toast.makeText(
+                        context.applicationContext,
+                        "配置写入失败",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            },
+        )
     }
 }
 
@@ -635,6 +728,34 @@ private fun SystemizerConfirmDialog(
     }
 }
 
+@Composable
+private fun PowerAssistantTargetDialog(
+    show: Boolean,
+    selected: PowerAssistantTarget,
+    enabled: Boolean,
+    onDismissRequest: () -> Unit,
+    onSelect: (PowerAssistantTarget) -> Unit,
+) {
+    OverlayDialog(
+        show = show,
+        title = "电源键长按",
+        summary = "选择 ColorOS 长按电源键时唤起的助理",
+        onDismissRequest = onDismissRequest,
+    ) {
+        Card {
+            PowerAssistantTarget.entries.forEach { target ->
+                RadioButtonPreference(
+                    title = target.displayName,
+                    summary = target.summary,
+                    selected = selected == target,
+                    onClick = { onSelect(target) },
+                    enabled = enabled,
+                )
+            }
+        }
+    }
+}
+
 // ── 带图标的布尔开关 ─────────────────────────────────────────────────────────
 
 /**
@@ -648,6 +769,7 @@ private fun SwitchPref(
     context: Context,
     prefs: SharedPreferences?,
     title: String,
+    summary: String? = null,
     key: String,
     icon: Int,
     iconTint: Color,
@@ -669,6 +791,7 @@ private fun SwitchPref(
     }
     SwitchPreference(
         title = title,
+        summary = summary,
         checked = checked,
         onCheckedChange = { value ->
             // 同步提交；RemotePreferences.commit() 失败（binder 提交失败）时回滚 UI 状态，
@@ -709,8 +832,22 @@ private fun putStringSync(
 ): Boolean =
     runCatching { prefs.edit().putString(key, value).commit() }.getOrDefault(false)
 
+private val PowerAssistantTarget.displayName: String
+    get() = when (this) {
+        PowerAssistantTarget.OEM -> "小布助手"
+        PowerAssistantTarget.GEMINI -> "Gemini"
+        PowerAssistantTarget.ETA -> "Eta"
+    }
+
+private val PowerAssistantTarget.summary: String
+    get() = when (this) {
+        PowerAssistantTarget.OEM -> "保留 ColorOS 原始电源键行为"
+        PowerAssistantTarget.GEMINI -> "使用原有 Gemini 系统助手链路"
+        PowerAssistantTarget.ETA -> "打开 Eta 文本助手"
+    }
+
 private fun isAgentAccessibilityEnabled(context: Context): Boolean {
-    val expected = android.content.ComponentName(
+    val expected = ComponentName(
         context,
         AgentAccessibilityService::class.java
     ).flattenToString()
@@ -720,6 +857,12 @@ private fun isAgentAccessibilityEnabled(context: Context): Boolean {
     ).orEmpty()
     return enabledServices.split(':').any { it.equals(expected, ignoreCase = true) }
 }
+
+private fun isEtaAssistantActive(context: Context): Boolean =
+    VoiceInteractionService.isActiveService(
+        context,
+        ComponentName(context, EtaVoiceInteractionService::class.java),
+    )
 
 private fun SystemizerInstallResult.toToastMessage(): String =
     when (this) {
