@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-<p><img src="https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.0"> <img src="https://img.shields.io/badge/AGP-9.3.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.1"> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Coverage-ColorOS%20%26%20HyperOS-1677FF" alt="System integration coverage: ColorOS and HyperOS"></p>
+<p><img src="https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.0"> <img src="https://img.shields.io/badge/AGP-9.3.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.1"> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
 
 **A third-party, system-level AI agent for Android**
 
@@ -15,7 +15,7 @@ What Eta wants is to open the capabilities hidden behind phone interfaces to the
 And when photos, notifications, calendars, notes, recordings, location, and health summaries—even recent chat images from WeChat and QQ, food-delivery orders, and delivery updates—join long-term memory as context with your permission, Eta is no longer just carrying out commands. Over time, it can learn what matters to you, understand the story behind a request, help when needed, and remember who you are when you simply want to talk—both a capable assistant and a friend who understands you better. Closeness does not mean giving up boundaries: every capability has its own switch and execution scope, sensitive raw results are not written to persistent conversations, and you choose the model, what it may see and do, and when it must stop.
 
 > [!NOTE]
-> The Eta app is the product's core workspace and hosts the complete Agent Runtime. ColorOS and HyperOS are the current targets for system-assistant entry-point integration, covering the OPPO family (OPPO, OnePlus, and realme) and Xiaomi devices; they do not define the app runtime's entire device-support boundary. Full functionality requires Root and LSPosed.
+> The Eta app targets rooted Android devices and is not limited to OPPO or Xiaomi hardware. ColorOS and HyperOS describe only the current system-assistant entry-point integrations: Eta can be selected as the default digital assistant on ColorOS, while Breeno and Super XiaoAI remain compatible entry points backed by the same Agent Runtime and BYOK model configuration. Complete system integration requires Root and LSPosed.
 
 ## See it in action
 
@@ -138,7 +138,7 @@ Long-press a user message to copy, edit, or delete from that turn onward. Each f
 - **Cross-app comparison:** analyze a product screenshot, open another shopping app, search for the same item, and return the findings.
 - **Web research:** read JavaScript-rendered documentation or news in a persistent background browser session and hand control to the user when a challenge appears.
 - **Terminal work:** inspect LSPosed logs, verify whether a Magisk module is active, clean up background processes, or update configuration through the shell.
-- **Assistant-triggered workflows:** start a multi-step task from Breeno or Super XiaoAI and let the same Runtime carry it out.
+- **Assistant-triggered workflows:** start a multi-step task from Eta's system-assistant text panel, Breeno, or Super XiaoAI and let the same Runtime carry it out.
 
 ## Models and BYOK
 
@@ -153,11 +153,27 @@ Eta's capabilities depend heavily on the model you connect.
 
 BYOK—Bring Your Own Key—means the agent follows the capabilities and policies of the model and provider you choose instead of being locked to one bundled service.
 
-## System integrations
+## System assistant and OEM entry points
 
-The Xposed layer is an adapter around system entry points. It recognizes and hands requests to the Eta app process; model calls, database access, terminal execution, and long-running work remain inside the shared Agent Runtime.
+### Eta as the native digital assistant
 
-### ColorOS and HyperOS assistants
+Eta registers a standard Android `VoiceInteractionService`, so it can be selected without first opening Breeno or XiaoAI. Open **Eta system assistant** on Eta's Settings page, then choose Eta in Android's digital-assistant picker.
+
+The current session is a keyboard-driven text panel. It focuses the input field and opens the keyboard when shown, supports streamed responses, follow-up turns, cancellation, and result archiving, and hands foreground device work to the Agent operation overlay. This entry point does not currently start the microphone, speech recognition, or text-to-speech playback.
+
+### ColorOS power-button target
+
+Under **System assistant takeover** in Eta's Settings, the ColorOS long-press target can be selected explicitly:
+
+| Target | Long-press behavior | Automatic default-assistant configuration |
+| ------ | ------------------- | ----------------------------------------- |
+| Breeno | Preserve the original ColorOS behavior | Never changes the system default assistant |
+| Gemini | Use Google's existing system-assistant path | Switch to Gemini when the option is enabled |
+| Eta | Open Eta's native text-assistant panel | Switch to Eta when the option is enabled |
+
+New installations default to Breeno. Existing users who had enabled the former **Launch Gemini with the power button** option remain on Gemini. Automatic default-assistant configuration is a separate option and applies only to Gemini and Eta; when disabled, the matching assistant must be selected manually. If the selected target cannot start, that long press immediately falls back to Breeno. HyperOS power-button routing is not implemented yet.
+
+### Breeno and Super XiaoAI compatibility
 
 - **Breeno / Xiaobu on ColorOS:** Eta can take over the conversation entry point, inherit the current conversation's text context, parse image input, and send the request to the shared Runtime. BYOK is supported, and only requests beginning with `/agent` are claimed by default.
 - **Super XiaoAI on HyperOS:** Eta correlates final ASR and `setQueryInfo` input with XiaoAI's regenerated `Nlp.Request` event, supports text plus one local image or screenshot, and suppresses native agent actions only for a successfully claimed turn. If a required prefix, image parsing, or queueing check fails, control returns to the native flow.
@@ -168,7 +184,7 @@ The Super XiaoAI adapter has been tested on version `7.13.32.0016` (`507013032`)
 
 These features do not adapt system entry points that ColorOS already provides. Eta takes over assistant paths that normally belong to Breeno and creates or repairs the missing Google capability and trigger path:
 
-- **Gemini unlock:** route the power button and default digital-assistant path to Gemini, including lock-screen voice, screen-on voice, and screen-off hotword behavior.
+- **Gemini unlock:** retain Google App eligibility repair, systemization, default-assistant and power-button routing, lock-screen and screen-on voice input, and screen-off hotword recovery. The power-button target can be switched back to Breeno or Eta at any time.
 - **Circle to Search:** enable and repair Android's otherwise unavailable `contextual_search` service and Google App eligibility, then use navigation-handle long press and ColorOS two-finger screen recognition as triggers without modifying system files.
 
 Gemini unlock and Circle to Search were Eta's original Google enablement features. They are no longer the project's main development focus, but they remain maintained.
@@ -183,7 +199,8 @@ Gemini unlock and Circle to Search were Eta's original Google enablement feature
 3. Grant overlay, accessibility, installed-app visibility, location, and background-execution permissions as needed. Location is read only when the agent calls a time-and-location tool; background location is required for location tasks launched from an assistant entry point such as Breeno.
 4. Enable native device tools, sensitive reads, sensitive device actions, and terminal/file tools as needed. Choose the terminal identity explicitly as `user` or `root`; install the optional Linux environment for tools such as Python and Git.
 5. Enable Eta's accessibility service in Android Settings. If automatic recovery is required, explicitly enable **Keep accessibility service active** in Eta.
-6. For system-assistant integration or Google capability enablement, activate the module in an LSPosed environment that supports libxposed API 102. Confirm that the scope includes `system`, SystemUI, the Google App, ColorOS screen recognition, Breeno, and Super XiaoAI, then reboot the device.
+6. To use Eta as the native digital assistant, open **Eta system assistant** on the Settings page and select Eta in Android's system picker.
+7. For ColorOS power-button routing, OEM-assistant takeover, ColorOS system memory, or Google capability enablement, activate the module in an LSPosed environment that supports libxposed API 102. Select the scopes required by the features you use; a complete setup includes `system`, SystemUI, the Google App, ColorOS screen recognition, Breeno, ColorOS memory, and Super XiaoAI. Then reboot the device.
 
 </details>
 
@@ -283,6 +300,7 @@ hook/breeno/               Breeno entry-point takeover
 hook/xiaoai/               Super XiaoAI entry-point takeover
 
 agent/runtime/             Agent Runtime, IPC, and result archiving
+agent/voice/               Native digital-assistant role, text session, and Runtime handoff
 agent/memory/              Long-term memory budgets and selective context
 agent/model/               Provider abstractions and SSE parsing
 agent/tool/                Local tool executors
@@ -311,8 +329,7 @@ See [Agent Runtime](docs/AGENT_RUNTIME.md) for loop, tool-batch, steering, and t
 ## References and acknowledgements
 
 - [Pi Coding Agent](https://github.com/earendil-works/pi), the main reference for Eta's agent loop, tool calling, steering, and transcript state model.
-- [OpenOmniBot](https://github.com/omnimind-ai/OpenOmniBot), a reference project for Android-based AI agents.
-- [Operit](https://github.com/AAswordman/Operit), a product reference for separating Android Shell from a complete Linux tool environment.
+- [OmniBot](https://github.com/omnimind-ai/OmniBot), a reference project for Android-based AI agents.
 
 Eta implements these ideas independently around its own Xposed entry points, Android Runtime, IPC, and provider protocol boundaries.
 
