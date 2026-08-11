@@ -250,6 +250,8 @@ internal class ShellProcessSupervisor(
             fi
             [ -d /data/local/tmp ] || exit 125
             eta_mount_required /data/local/tmp "${'$'}eta_rootfs/data/local/tmp" bind
+            "${'$'}eta_busybox" mkdir -p /data/local/tmp/fuck_andes || exit 125
+            eta_mount_required /data/local/tmp/fuck_andes "${'$'}eta_rootfs/workspace" bind
             if [ "${'$'}eta_mode" = command ]; then
               exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /usr/bin/env -i \
                 HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=dumb NO_COLOR=1 \

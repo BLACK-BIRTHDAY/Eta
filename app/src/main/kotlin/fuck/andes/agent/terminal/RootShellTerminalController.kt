@@ -19,6 +19,7 @@ internal class RootShellTerminalController(
 ) : AutoCloseable {
     private companion object {
         const val DEFAULT_CWD = "/data/local/tmp/fuck_andes"
+        const val LINUX_DEFAULT_CWD = "/workspace"
         const val USER_STORAGE = "/storage/emulated/0"
         const val DEFAULT_TIMEOUT_SECONDS = 30
         const val MAX_TIMEOUT_SECONDS = 180
@@ -122,7 +123,7 @@ internal class RootShellTerminalController(
         val normalizedIdentity = normalizeIdentity(identity.ifBlank { "root" })
         val normalizedEnvironment = normalizeEnvironment(environment)
         environmentPreflight(normalizedIdentity, normalizedEnvironment)?.let { return it }
-        val safeCwd = normalizeCwd(cwd)
+        val safeCwd = normalizeCwd(cwd, normalizedEnvironment)
         val id = "term_" + UUID.randomUUID().toString().take(8)
         val process = startSessionProcess(normalizedIdentity, normalizedEnvironment)
             ?: return errorJson(
@@ -250,7 +251,7 @@ internal class RootShellTerminalController(
         require(trimmed.length <= MAX_COMMAND_CHARS) { "command 过长：${trimmed.length}" }
         val normalizedIdentity = normalizeIdentity(identity)
         environmentPreflight(normalizedIdentity, environment)?.let { return it }
-        val safeCwd = normalizeCwd(cwd)
+        val safeCwd = normalizeCwd(cwd, environment)
         val setup = if (safeCwd == DEFAULT_CWD) "mkdir -p ${shellQuote(DEFAULT_CWD)} && " else ""
         val fullCommand = "${setup}cd ${shellQuote(safeCwd)} && export TERM=dumb NO_COLOR=1 && $trimmed"
         val process = processSupervisor.startShellProcess(
@@ -610,7 +611,7 @@ internal class RootShellTerminalController(
         require(trimmed.length <= MAX_COMMAND_CHARS) { "command 过长：${trimmed.length}" }
         val normalizedIdentity = normalizeIdentity(identity)
         environmentPreflight(normalizedIdentity, environment)?.let { return it }
-        val safeCwd = normalizeCwd(cwd)
+        val safeCwd = normalizeCwd(cwd, environment)
         val timeout = timeoutSeconds.coerceIn(1, MAX_TIMEOUT_SECONDS)
         val setup = if (safeCwd == DEFAULT_CWD) "mkdir -p ${shellQuote(DEFAULT_CWD)} && " else ""
         val fullCommand = "${setup}cd ${shellQuote(safeCwd)} && export TERM=dumb NO_COLOR=1 && $trimmed"
@@ -772,8 +773,15 @@ internal class RootShellTerminalController(
         else -> null
     }
 
-    private fun normalizeCwd(cwd: String?): String =
-        normalizePath(cwd?.trim().orEmpty().ifBlank { DEFAULT_CWD })
+    private fun normalizeCwd(cwd: String?, environment: TerminalEnvironment): String {
+        val defaultCwd = if (environment == TerminalEnvironment.LINUX) LINUX_DEFAULT_CWD else DEFAULT_CWD
+        val requested = cwd?.trim().orEmpty().ifBlank { defaultCwd }
+        val environmentPath = when {
+            requested == "~" || requested.startsWith("~/") || requested.startsWith("/") -> requested
+            else -> "$defaultCwd/$requested"
+        }
+        return normalizePath(environmentPath)
+    }
 
     private fun normalizePath(path: String): String {
         val raw = path.trim()

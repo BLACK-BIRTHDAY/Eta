@@ -35,7 +35,7 @@ Eta 更想做的，是让手机原本藏在界面背后的能力真正向模型�
 
 Agent 不会问一句答一句就结束。它在一个 loop 里运转：模型发指令，系统执行，结果写回上下文，模型再决定下一步。如此往复，直到做完。
 
-Eta 有三条可以组合使用的执行路径：有稳定系统接口时调用结构化设备工具，没有合适接口时通过 GUI 操作应用，需要完整计算环境时进入 Android Shell 或 Linux 工具环境。
+Eta 有四条可以组合使用的执行路径：有稳定系统接口时调用结构化设备工具，没有合适接口时通过 GUI 操作应用，网页任务交给内置浏览器，需要完整计算环境时进入 Android Shell 或 Linux 工具环境。
 
 ### 设备直达：让 AI 调用系统，而不是学习怎么点手机
 
@@ -97,7 +97,7 @@ Eta 不对浏览器请求执行额外的 URL、DNS、IP、主机数量、请求�
 终端按用途分为两个环境：
 
 - `android` 是原生 Android Shell，负责系统、应用、日志、Magisk 和设备文件操作。Root 会话会自动发现 Magisk、KernelSU 或 APatch 提供的 BusyBox，并以 standalone `ash` 补齐不在系统 PATH 中的 applet。
-- `linux` 是可选安装的 Alpine 工具环境，负责 Python、Git、Bash、jq、zip、OpenSSL、SQLite 等通用任务。Eta 下载固定版本的官方 minirootfs 并校验 SHA-256，在 App 私有目录中解压，通过独立 mount namespace + Root chroot 运行；它不是安全沙箱，也不会取代 Android 环境。
+- `linux` 是可选安装的 Alpine 工具环境，预装模型高频使用的 `rg`、`fd`、Git/SSH、diff/patch、curl、rsync、jq、SQLite、常用压缩工具与 Python 工具链。Eta 下载固定版本的官方 minirootfs 并校验 SHA-256，在 App 私有目录中解压，通过独立 mount namespace + Root chroot 运行；Linux 默认在映射到 Eta Android 工作目录的 `/workspace` 中执行，共享存储位于 `/sdcard`。它不是安全沙箱，也不会取代 Android 环境。
 
 ### 记忆
 

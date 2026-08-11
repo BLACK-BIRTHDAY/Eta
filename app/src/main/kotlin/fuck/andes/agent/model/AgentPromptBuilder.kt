@@ -58,7 +58,11 @@ internal object AgentPromptBuilder {
                         "Android 系统、应用、日志、Magisk 与设备文件操作使用 terminal 的 environment=android；" +
                         "Python、Git、压缩打包、JSON 处理或编译工具优先使用 environment=linux；如果返回 LINUX_ENVIRONMENT_NOT_READY，" +
                         "准确告知用户先到设置安装 Linux 工具环境，不要把 Android 缺少命令误报成设备不支持。" +
-                        "两个环境通过 /data/local/tmp 与共享存储交换文件；Linux 环境不能直接假定 Android 受保护路径可见。" +
+                        "Linux 环境默认在 /workspace 工作，该目录与 Android 的 /data/local/tmp/fuck_andes 对应；" +
+                        "共享存储可通过 /sdcard 使用，Linux 环境不能直接假定其他 Android 受保护路径可见。" +
+                        "分析 APK 时优先在 linux 环境使用 jadx、apktool、smali 或 baksmali；若命令不存在，" +
+                        "准确告知用户在 Linux 工具环境页面安装“APK 分析”，不要自行下载不受校验的工具。" +
+                        "当前 Apktool 只支持解码与检查，不支持 build/回编译；不要绕过该限制或宣称已经生成可安装 APK。" +
                         "用户说“执行命令 xxx”且未指定环境时，首轮必须调用 terminal，action=open_and_exec，identity=root，environment=android，command=xxx；" +
                         "连续多步 shell 工作先 action=open 获取 session_id，再 action=exec 复用会话；" +
                         "长时间命令使用 async=true 启动后用 read_async_result 轮询，完成后 close；" +

@@ -9,7 +9,7 @@ internal object AgentTerminalToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "terminal",
-                    description = "Manage terminal sessions on the current device. environment=android runs Android system commands and root operations; environment=linux runs the optional Eta Linux tool environment for Python, Git, archives, package management, and build tools. Use open_and_exec for one-shot commands. Use open to create a persistent shell session and exec with session_id for multi-step work. Use async=true without session_id for long-running independent commands, then read_async_result with job_id to stream output chunks. Use close to stop jobs or close sessions.",
+                    description = "Manage terminal sessions on the current device. environment=android runs Android system commands and root operations; environment=linux runs the optional Eta Linux tool environment for Python, Git, archives, package management, and optional APK analysis with jadx/apktool/smali/baksmali. Apktool build is unavailable until an ARM64 AAPT2 runtime is installed. Use open_and_exec for one-shot commands. Use open to create a persistent shell session and exec with session_id for multi-step work. Use async=true without session_id for long-running independent commands, then read_async_result with job_id to stream output chunks. Use close to stop jobs or close sessions.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -54,7 +54,7 @@ internal object AgentTerminalToolCatalog {
                                     "cwd",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "Working directory. Default /data/local/tmp/fuck_andes. ~/ means /storage/emulated/0.")
+                                        .put("description", "Working directory. Defaults to /data/local/tmp/fuck_andes for android and /workspace for linux. Relative paths use the environment default. ~/ means /storage/emulated/0.")
                                 )
                                 .put(
                                     "timeout_ms",

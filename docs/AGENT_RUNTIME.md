@@ -76,9 +76,11 @@ Responses 请求固定使用 `stream:true`、`store:false`，不发送 `previous
 `terminal` 的 `environment` 明确区分设备控制与通用 Linux 工具，默认值为 `android`：
 
 - `android` 继续使用系统 Shell。`user` 身份不升级权限；`root` 身份在 `su` 内探测 Magisk、KernelSU、APatch 或系统 BusyBox，并优先进入 standalone `ash`，因此 BusyBox applet 不要求预先加入 PATH。旧 `run_command`、文件读写和目录操作保持这一环境，避免改变既有 Android 路径与命令语义。
-- `linux` 仅允许 `root`，并要求用户先在设置中安装 Eta 管理的 Alpine 环境。每个命令或会话进入独立 mount namespace，挂载必要的 `/proc`、`/dev` 以及可用的共享存储后再 chroot；进程结束时命名空间一并销毁，不把 bind mount 留在 Android 全局。chroot 只提供 Linux userland，不构成安全沙箱。
+- `linux` 仅允许 `root`，并要求用户先在设置中安装 Eta 管理的 Alpine 环境。每个命令或会话进入独立 mount namespace，挂载必要的 `/proc`、`/dev` 以及可用的共享存储后再 chroot；`/workspace` 绑定 Eta 的 Android 工作目录 `/data/local/tmp/fuck_andes`，并作为 Linux 默认工作目录，`/sdcard` 继续指向共享存储。进程结束时命名空间一并销毁，不把 bind mount 留在 Android 全局。chroot 只提供 Linux userland，不构成安全沙箱。
 
-安装器只接受代码中固定版本、大小和 SHA-256 的 Alpine 官方 minirootfs，先在临时目录校验并解压，再原子替换 App 私有 rootfs。常用工具安装完成前不会写入完成标记；失败后可继续安装。安装环境不会改变终端/文件工具的用户设置。
+安装器只接受代码中固定版本、大小和 SHA-256 的 Alpine 官方 minirootfs，先在临时目录校验并解压，再原子替换 App 私有 rootfs。默认工具档案包含 Agent 高频使用的搜索、差异、补丁、Git/SSH、传输、结构化数据、进程与压缩工具，以及 Python、pip、venv、pipx、uv 和 Ruff。工具档案使用版本化完成标记；旧安装会保留 rootfs 和用户文件，只补装当前档案。工具安装完成前不会写入完成标记，失败后可继续安装。
+
+APK 分析是用户主动安装的独立档案。JADX、Apktool、smali 与 baksmali 使用固定官方 Release URL、大小和 SHA-256，下载完整校验后才进入 App 可写的 cache staging；不能把下载或解包暂存目录放进由 Root 创建的 Alpine 管理目录。GitHub 实际制品域名不可达时，安装器按固定顺序尝试 HTTPS 下载代理，但仍只接受与官方清单 SHA-256 完全一致的字节。JADX 只解出 CLI 脚本、运行库与许可证，成功验证全部命令后再原子切换当前版本。档案安装 OpenJDK 17，但不安装全局 Gradle、Android SDK 或 NDK。由于官方与 Apktool 随附的 Linux AAPT2 都不能直接用于手机 arm64 环境，`apktool build` 在当前档案中稳定拒绝；解码、代码查看和独立 Smali 汇编/反汇编不受影响。
 
 ## 上下文与续接
 

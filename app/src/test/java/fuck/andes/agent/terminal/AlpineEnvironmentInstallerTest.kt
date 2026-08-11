@@ -47,6 +47,50 @@ class AlpineEnvironmentInstallerTest {
         assertFalse(AlpineEnvironmentPaths.commonToolsReady(rootfs.absolutePath))
 
         File(rootfs, AlpineEnvironmentPaths.COMMON_TOOLS_MARKER).writeText("3.24.1\n")
+        assertFalse(AlpineEnvironmentPaths.commonToolsReady(rootfs.absolutePath))
+
+        File(rootfs, AlpineEnvironmentPaths.COMMON_TOOLS_MARKER).writeText(
+            "alpine=3.24.1\ntoolset=${AlpineEnvironmentPaths.TOOLSET_REVISION}\nprofiles=agent,python\n",
+        )
         assertTrue(AlpineEnvironmentPaths.commonToolsReady(rootfs.absolutePath))
+    }
+
+    @Test
+    fun defaultToolsetContainsAgentAndPythonEssentialsWithoutInteractiveEditors() {
+        val packages = AlpineEnvironmentInstaller.DEFAULT_PACKAGES
+
+        assertTrue(packages.containsAll(listOf("ripgrep", "fd", "diffutils", "patch", "rsync")))
+        assertTrue(packages.containsAll(listOf("python3", "py3-virtualenv", "pipx", "uv", "ruff")))
+        assertFalse(packages.contains("vim"))
+        assertFalse(packages.contains("nano"))
+        assertEquals(packages.distinct(), packages)
+    }
+
+    @Test
+    fun apkAnalysisReadinessRequiresCurrentMarkerAndManagedFiles() {
+        val rootfs = temporaryFolder.newFolder("analysis-rootfs")
+        File(rootfs, "bin").mkdirs()
+        File(rootfs, "bin/busybox").writeText("busybox")
+        File(rootfs, AlpineEnvironmentPaths.READY_MARKER).writeText("version=3.24.1\n")
+        File(rootfs, AlpineEnvironmentPaths.COMMON_TOOLS_MARKER).writeText(
+            "toolset=${AlpineEnvironmentPaths.TOOLSET_REVISION}\n",
+        )
+        val current = File(rootfs, "opt/eta/apk-analysis/current")
+        listOf("bin/java", "jadx/bin/jadx", "bin/apktool", "bin/smali", "bin/baksmali").forEach { path ->
+            File(current, path).apply {
+                parentFile?.mkdirs()
+                writeText(path)
+            }
+        }
+
+        File(rootfs, AlpineEnvironmentPaths.APK_ANALYSIS_MARKER).writeText("profile=0\n")
+        assertFalse(AlpineEnvironmentPaths.apkAnalysisReady(rootfs.absolutePath))
+
+        File(rootfs, AlpineEnvironmentPaths.APK_ANALYSIS_MARKER).writeText(
+            "profile=${AlpineEnvironmentPaths.APK_ANALYSIS_REVISION}\n",
+        )
+        assertTrue(AlpineEnvironmentPaths.apkAnalysisReady(rootfs.absolutePath))
+        File(current, "jadx/bin/jadx").delete()
+        assertFalse(AlpineEnvironmentPaths.apkAnalysisReady(rootfs.absolutePath))
     }
 }

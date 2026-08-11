@@ -98,10 +98,12 @@ The browser is not a security sandbox. Eta does not add URL, DNS, IP, host-count
 
 With explicit user authorization, Eta can run `user` or `root` shell commands, read and write files, list directories, execute scripts, inspect logs, and update configuration. Stateful shell sessions retain their working directory and environment, while asynchronous jobs continue in the background and expose output incrementally. Terminal and file tools are currently enabled by default and can be disabled in Settings.
 
+The chat composer can reference files or folders in internal storage and under `/data/local/tmp`. Eta displays the attachment name separately from the original request and adds only a Root-validated canonical absolute path to model context; it does not upload, copy, or cache the original. The system picker resolves internal-storage documents and recent items that map to local media-library paths. Cloud drives and other sources available only through `content://` URIs are not silently treated as uploads.
+
 Two environments serve different jobs:
 
 - **`android`** is the native Android shell for the OS, apps, logs, Magisk, and device files. Root sessions discover BusyBox supplied by Magisk, KernelSU, or APatch and use standalone `ash` so its applets do not need to be present in the system `PATH`.
-- **`linux`** is an optional Alpine environment for Python, Git, Bash, jq, zip, OpenSSL, SQLite, and other general-purpose tooling. Eta downloads a pinned official minirootfs, verifies its SHA-256 digest, extracts it under app-private storage, and runs it through a dedicated mount namespace and Root chroot. It is not a sandbox and does not replace the Android environment.
+- **`linux`** is an optional Alpine environment preloaded with model-friendly tools such as `rg`, `fd`, Git/SSH, diff/patch, curl, rsync, jq, SQLite, common archive utilities, and the Python toolchain. Eta downloads a pinned official minirootfs, verifies its SHA-256 digest, extracts it under app-private storage, and runs it through a dedicated mount namespace and Root chroot. Commands start in `/workspace`, which maps to Eta's Android workspace, while shared storage is available at `/sdcard`. It is not a sandbox and does not replace the Android environment.
 
 ### Long-term memory
 
@@ -131,10 +133,13 @@ Long-press a user message to copy, edit, or delete from that turn onward. Each f
 
 ## What you can ask Eta to do
 
-- **Native device actions:** “Set an alarm for 7 AM,” “pause the music,” or “set media volume to 30%.”
-- **Personal context:** “What is on my calendar tomorrow?”, “find last week's calls and notes,” or “describe the newest photo in my gallery.”
-- **Chat image review:** find a small set of recent QQ or WeChat images, then inspect representative images one by one with the vision tool.
-- **Cross-app work:** “Go through the unfinished items in this app,” falling back to GUI operation only when no direct tool exists.
+- **Native device actions:** “Set an alarm for 7 AM,” “pause the music,” or “set media volume to 30%,” using structured system interfaces first.
+- **Understand your recent activity:** “What have I been busy with lately?”, “Have I been sleeping too late?”, or “Where did my time go today?”, drawing only on relevant calendar, notification, app-activity, health-summary, and on-device memory context.
+- **Plan the day ahead:** combine tomorrow's schedule, places, and existing alarms to suggest when to leave, then create a reminder through a system capability.
+- **Track what is happening now:** find order status, pickup codes, recent shipments, and delivery clues in system memory and the notification history saved after authorization.
+- **Recover scattered information:** search recording summaries, files, photos, notes, and saved places for a book title, travel guide, or other detail the user remembers only approximately.
+- **Review chat images:** find a bounded set of recent QQ or WeChat images, then inspect representative images one by one with the vision tool.
+- **Cross-app GUI work:** handle unfinished items in an app, falling back to screen operation only when no direct capability exists.
 - **Cross-app comparison:** analyze a product screenshot, open another shopping app, search for the same item, and return the findings.
 - **Web research:** read JavaScript-rendered documentation or news in a persistent background browser session and hand control to the user when a challenge appears.
 - **Terminal work:** inspect LSPosed logs, verify whether a Magisk module is active, clean up background processes, or update configuration through the shell.
@@ -226,12 +231,10 @@ adb shell settings delete global eta_app_signer_sha256
 
 ## Security model and limitations
 
-- **Explicit capability boundaries:** Xposed, Root, accessibility, overlays, terminal tools, and sensitive device capabilities can be enabled only as needed. Foreground GUI work remains visible and interruptible.
-- **No hidden authorization fallback:** entry-point processes can narrow Runtime permissions but cannot grant new ones. Disabled capabilities fail instead of being silently replaced by Root or Shell behavior.
-- **Sensitive-data minimization:** API keys, authorization headers, complete request bodies, prompts, images, raw commands, and raw tool results are never written to operational logs. Ephemeral credentials, verification codes, notification contents, and logs are redacted from stored transcripts.
 - **Third-party integration limits:** Eta does not have every private permission available to OEM components. UI continuity, animations, and system-level polish may be weaker than a built-in assistant.
-- **Version sensitivity:** Xposed hooks depend on particular ROM, framework, and target-app implementations. Major OS or app updates can require a new adapter.
-- **Browser and Linux boundaries:** the embedded WebView and Alpine chroot are execution environments, not security sandboxes.
+- **Version sensitivity:** system-entry hooks depend on particular ROM, framework, and target-app implementations. Major OS or app updates can require a new adapter.
+- **HyperOS verification status:** Super XiaoAI `7.13.32.0016` (`507013032`) has been verified on a physical device.
+- **Authorization boundaries:** Xposed, `root`, accessibility, and overlays are enabled only as needed. Terminal and sensitive device capabilities can be disabled independently in Settings, while foreground GUI work retains its overlay, gesture feedback, interruption, and user-takeover paths.
 
 ## Why Eta takes a different path
 
