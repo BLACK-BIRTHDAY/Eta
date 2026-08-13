@@ -56,6 +56,27 @@ class AgentImageCodecTest {
     }
 
     @Test
+    fun assistantScreenContextUsesBoundedJpeg() {
+        val bitmap = patternedBitmap(width = 1_440, height = 3_200)
+        try {
+            val image = AgentImageCodec.fromScreenContextBitmap(
+                bitmap,
+                source = "screen_context",
+            )
+            val width = image.width ?: error("缺少图片宽度")
+            val height = image.height ?: error("缺少图片高度")
+
+            assertEquals("image/jpeg", image.mimeType)
+            assertTrue(image.reference.startsWith("data:image/jpeg;base64,"))
+            assertTrue(maxOf(width, height) <= 1_600)
+            assertTrue(width.toLong() * height <= 1_500_000L)
+            assertTrue(image.bytes < 1_000_000)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    @Test
     fun encodedScreenBytesNeverLosePixelsOrDimensions() {
         val bitmap = patternedBitmap(width = 900, height = 1_800)
         val png = ByteArrayOutputStream().use { output ->

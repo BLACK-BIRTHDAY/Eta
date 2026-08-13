@@ -875,15 +875,24 @@ class AgentAccessibilityService : AccessibilityService() {
      */
     fun captureScreenshotExcludingOverlays(
         excludedPackages: Set<String> = emptySet(),
+        onWindowsSubmitted: (() -> Unit)? = null,
     ): ScreenshotCaptureResult {
+        val windowsSubmitted = AtomicBoolean(false)
+        fun signalWindowsSubmitted() {
+            if (windowsSubmitted.compareAndSet(false, true)) {
+                runCatching { onWindowsSubmitted?.invoke() }
+            }
+        }
         if (Looper.myLooper() == Looper.getMainLooper()) {
-            return ScreenshotCaptureResult.unavailable()
+            return ScreenshotCaptureResult.unavailable().also { signalWindowsSubmitted() }
         }
         val startedAt = SystemClock.elapsedRealtime()
-        val allWindows = windows ?: return ScreenshotCaptureResult.unavailable()
+        val allWindows = windows
+            ?: return ScreenshotCaptureResult.unavailable().also { signalWindowsSubmitted() }
         val wm = getSystemService(Context.WINDOW_SERVICE) as? WindowManager
             ?: return ScreenshotCaptureResult.unavailable().also {
                 allWindows.forEach { window -> runCatching { window.recycle() } }
+                signalWindowsSubmitted()
             }
         val point = Point()
         @Suppress("DEPRECATION")
@@ -892,7 +901,7 @@ class AgentAccessibilityService : AccessibilityService() {
         val screenH = point.y
         if (screenW <= 0 || screenH <= 0) {
             allWindows.forEach { window -> runCatching { window.recycle() } }
-            return ScreenshotCaptureResult.unavailable()
+            return ScreenshotCaptureResult.unavailable().also { signalWindowsSubmitted() }
         }
         val screenBounds = Rect(0, 0, screenW, screenH)
 
@@ -930,7 +939,7 @@ class AgentAccessibilityService : AccessibilityService() {
             return ScreenshotCaptureResult.blockedByUnknownWindow(
                 expectedWindows = expectedWindows,
                 windowIds = unknownRelevantWindowIds,
-            )
+            ).also { signalWindowsSubmitted() }
         }
         val captureWindows = allWindows.mapNotNull { window ->
             if (windowDecisions[window.id] == ScreenshotWindowPolicy.Decision.EXCLUDE) {
@@ -955,7 +964,7 @@ class AgentAccessibilityService : AccessibilityService() {
         }.distinctBy { window -> window.id }.sortedBy { window -> window.layer }
         if (captureWindows.isEmpty()) {
             allWindows.forEach { window -> runCatching { window.recycle() } }
-            return ScreenshotCaptureResult.unavailable()
+            return ScreenshotCaptureResult.unavailable().also { signalWindowsSubmitted() }
         }
         val topApplicationWindowId = captureWindows
             .filter { window -> window.type == AccessibilityWindowInfo.TYPE_APPLICATION }
@@ -1018,6 +1027,8 @@ class AgentAccessibilityService : AccessibilityService() {
                 latch.countDown()
             }
         }
+        // 窗口 ID 已固定并全部提交后即可显示 Eta；后续合并和编码不会再把入口浮层拍进去。
+        signalWindowsSubmitted()
         val completed = try {
             latch.await(2, TimeUnit.SECONDS)
         } catch (_: InterruptedException) {

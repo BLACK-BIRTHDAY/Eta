@@ -83,6 +83,13 @@ internal object AgentModelImageEncoder {
     ): AgentModelClient.ModelImage =
         encodeBitmap(bitmap, source, screenProfile, flattenAlpha = false)
 
+    /** 助理入口截图直接进入网络请求，使用视觉模型尺寸避免全屏无损图撑大请求体。 */
+    fun screenContext(
+        bitmap: Bitmap,
+        source: String,
+    ): AgentModelClient.ModelImage =
+        encodeBitmap(bitmap, source, toolVisionProfile, flattenAlpha = true)
+
     /** 文件工具图片仅在发送模型前缩放压缩，保持多图请求的体积可控。 */
     fun toolVision(
         bytes: ByteArray,

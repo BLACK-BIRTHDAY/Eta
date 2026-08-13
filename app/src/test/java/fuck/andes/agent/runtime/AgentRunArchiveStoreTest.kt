@@ -83,6 +83,9 @@ class AgentRunArchiveStoreTest {
                 ),
             ),
             createdAt = createdAt,
+            userImagePreviews = listOf(
+                "data:image/png;base64,cHJldmlldw==",
+            ),
         )
 
         AgentRunArchiveStore.add(context, archivedRun)
@@ -92,6 +95,7 @@ class AgentRunArchiveStoreTest {
         assertEquals(archivedRun.handoff, restored.handoff)
         assertEquals(archivedRun.result, restored.result)
         assertEquals(archivedRun.createdAt, restored.createdAt)
+        assertEquals(archivedRun.userImagePreviews, restored.userImagePreviews)
         assertEquals(
             AgentEvent.AssistantBlockDelta(
                 round = 1,

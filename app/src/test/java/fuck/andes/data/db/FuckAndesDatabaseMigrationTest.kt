@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class FuckAndesDatabaseMigrationTest {
     @Test
-    fun migration6To13PreservesDataAndMovesBoundedConversationContext() {
+    fun migration6To14PreservesDataAndMovesBoundedConversationContext() {
         val context = RuntimeEnvironment.getApplication() as Context
         val databaseName = "migration-${UUID.randomUUID()}.db"
         createVersion6Database(context, databaseName)
@@ -34,6 +34,7 @@ class FuckAndesDatabaseMigrationTest {
                 FuckAndesDatabase.MIGRATION_10_11,
                 FuckAndesDatabase.MIGRATION_11_12,
                 FuckAndesDatabase.MIGRATION_12_13,
+                FuckAndesDatabase.MIGRATION_13_14,
             )
             .build()
         try {
@@ -69,6 +70,7 @@ class FuckAndesDatabaseMigrationTest {
             assertEquals("[]", result.transcriptJson)
             assertEquals("保留的归档", archive.content)
             assertEquals("[]", archive.transcriptJson)
+            assertEquals("[]", archive.userImagePreviewsJson)
             assertEquals(
                 setOf("conv-1", "conv-enabled", "conv-custom-empty", "conv-oversized"),
                 conversations.mapTo(mutableSetOf()) { it.id },

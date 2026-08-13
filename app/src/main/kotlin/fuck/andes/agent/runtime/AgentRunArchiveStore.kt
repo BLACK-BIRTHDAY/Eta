@@ -32,6 +32,7 @@ internal object AgentRunArchiveStore {
         val events: List<AgentEvent>,
         val result: AgentRuntimeWire.RunResult,
         val createdAt: Long,
+        val userImagePreviews: List<String> = emptyList(),
     )
 
     fun add(context: Context, run: ArchivedRun) {
@@ -92,6 +93,7 @@ internal object AgentRunArchiveStore {
             error = result.error,
             reasoningContent = result.reasoningContent,
             transcriptJson = AgentConversationCodec.encodeTranscriptForStorage(result.transcript),
+            userImagePreviewsJson = JSONArray(userImagePreviews).toString(),
             createdAt = createdAt,
         )
 
@@ -131,6 +133,15 @@ internal object AgentRunArchiveStore {
                     },
                 ),
                 createdAt = run.createdAt,
+                userImagePreviews = JSONArray(run.userImagePreviewsJson).let { previews ->
+                    buildList {
+                        for (index in 0 until previews.length()) {
+                            previews.optString(index)
+                                .takeIf { it.startsWith("data:image/") }
+                                ?.let(::add)
+                        }
+                    }
+                },
                 events = events
                     .sortedBy { it.sortIndex }
                     .mapNotNull { event ->

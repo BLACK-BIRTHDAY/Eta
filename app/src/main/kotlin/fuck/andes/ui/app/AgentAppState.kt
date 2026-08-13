@@ -458,7 +458,11 @@ internal class AgentAppState(
                 reasoningEffort = archivedEffort,
                 pendingImages = emptyList(),
                 messages = existingState.messages +
-                    UserMessageUi(id = "user-$runId", content = payload.userText) +
+                    UserMessageUi(
+                        id = "user-$runId",
+                        content = payload.userText,
+                        images = archivedRun.userImagePreviews,
+                    ) +
                     AgentMessageUi(
                         id = "assistant-$runId",
                         content = "",

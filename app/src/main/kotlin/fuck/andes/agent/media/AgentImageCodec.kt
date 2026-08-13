@@ -56,6 +56,12 @@ internal object AgentImageCodec {
         source: String,
     ): AgentModelClient.ModelImage = AgentModelImageEncoder.screen(bitmap, source)
 
+    /** 助理消息里的屏幕上下文使用有界视觉编码，不改变通用屏幕观察的无损合同。 */
+    fun fromScreenContextBitmap(
+        bitmap: Bitmap,
+        source: String,
+    ): AgentModelClient.ModelImage = AgentModelImageEncoder.screenContext(bitmap, source)
+
     /**
      * 为聊天列表生成独立的小预览。模型仍从 [image.reference] 读取原图，预览不会参与模型输入。
      */

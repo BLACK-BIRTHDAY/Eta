@@ -29,6 +29,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import fuck.andes.FuckAndesApp
 import fuck.andes.agent.accessibility.AgentAccessibilityService
+import fuck.andes.agent.media.AgentImageCodec
 import fuck.andes.agent.model.AgentModelClient
 import fuck.andes.agent.overlay.AgentHapticFeedback
 import fuck.andes.agent.overlay.AgentOverlayBubble
@@ -526,13 +527,27 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     ) {
         val handoff = request.handoff ?: return
         AgentExternalArchivePayload.from(handoff.payload) ?: return
+        val userImagePreviews = if (
+            handoff.source == AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE
+        ) {
+            request.images
+                .asSequence()
+                .take(MAX_ARCHIVED_USER_IMAGE_PREVIEWS)
+                .mapNotNull { image ->
+                    AgentImageCodec.previewFromReference(this, image)?.reference
+                }
+                .toList()
+        } else {
+            emptyList()
+        }
         AgentRunArchiveStore.add(
             this,
             AgentRunArchiveStore.ArchivedRun(
                 handoff = handoff,
                 events = events,
                 result = result,
-                createdAt = System.currentTimeMillis()
+                createdAt = System.currentTimeMillis(),
+                userImagePreviews = userImagePreviews,
             )
         )
     }
@@ -985,6 +1000,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         const val HIDE_DELAY_MS = 2_500L
         const val RESULT_REVIEW_DELAY_MS = 120_000L
         const val RESULT_CARD_HEIGHT_RATIO = 0.5f
+        const val MAX_ARCHIVED_USER_IMAGE_PREVIEWS = 4
     }
 
     private data class CompletedRunContext(
