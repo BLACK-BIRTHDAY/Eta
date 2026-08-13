@@ -55,4 +55,24 @@ class AssistantBindingTest {
             ),
         )
     }
+
+    @Test
+    fun `preference changes configure managed targets and restore OEM`() {
+        assertEquals(
+            AssistantSelectionAction.CONFIGURE_MANAGED,
+            assistantSelectionAction(true, PowerAssistantTarget.GEMINI),
+        )
+        assertEquals(
+            AssistantSelectionAction.CONFIGURE_MANAGED,
+            assistantSelectionAction(true, PowerAssistantTarget.ETA),
+        )
+        assertEquals(
+            AssistantSelectionAction.NONE,
+            assistantSelectionAction(false, PowerAssistantTarget.GEMINI),
+        )
+        assertEquals(
+            AssistantSelectionAction.RESTORE_OEM,
+            assistantSelectionAction(false, PowerAssistantTarget.OEM),
+        )
+    }
 }
