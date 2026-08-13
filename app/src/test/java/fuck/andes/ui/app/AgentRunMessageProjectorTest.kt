@@ -52,8 +52,9 @@ class AgentRunMessageProjectorTest {
             AgentEvent.ToolStarted(
                 round = 2,
                 toolCallId = "call_observe_2",
-                name = "observe_screen",
-                argsPreview = """{"include_ui_tree":true}""",
+                name = "run_command",
+                argsPreview = "执行命令 · Android · root",
+                command = "pm list packages | head",
             ),
             projector.finalizeThinkingRound(runId, round = 2, messages)
         )
@@ -79,7 +80,8 @@ class AgentRunMessageProjectorTest {
 
         val secondTool = messages[4] as ToolActivityMessageUi
         assertEquals(ToolActivityStatusUi.Running, secondTool.status)
-        assertEquals("""{"include_ui_tree":true}""", secondTool.argumentsSummary)
+        assertEquals("执行命令 · Android · root", secondTool.argumentsSummary)
+        assertEquals("pm list packages | head", secondTool.command)
     }
 
     @Test

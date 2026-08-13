@@ -183,6 +183,7 @@ internal class AgentLoop(
                 toolCallId = toolCall.id,
                 name = toolCall.name,
                 argsPreview = traceFormatter.summarizeArguments(toolCall),
+                command = traceFormatter.displayCommand(toolCall),
             )
         )
 
@@ -219,6 +220,7 @@ internal class AgentLoop(
                 toolCallId = toolCall.id,
                 name = toolCall.name,
                 argsPreview = traceFormatter.summarizeArguments(toolCall),
+                command = traceFormatter.displayCommand(toolCall),
             )
         )
         val result = AgentModelClient.ToolResult(

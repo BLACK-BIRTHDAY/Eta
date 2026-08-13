@@ -1,6 +1,8 @@
 package fuck.andes.agent.model
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -14,13 +16,13 @@ class AgentTraceFormatterTest {
                 toolName = "terminal",
                 argumentsJson =
                     """{"action":"open_and_exec","identity":"root","command":"echo bearer-secret"}""",
-                expectedParts = listOf("终端", "open_and_exec", "root", "command_chars="),
+                expectedParts = listOf("终端", "单次执行", "Android", "root"),
                 sensitiveParts = listOf("echo bearer-secret", "bearer-secret"),
             ),
             RedactionCase(
                 toolName = "run_command",
                 argumentsJson = """{"command":"cat /data/local/tmp/private-token"}""",
-                expectedParts = listOf("执行命令", "chars="),
+                expectedParts = listOf("执行命令", "Android", "root"),
                 sensitiveParts = listOf("cat ", "/data/local/tmp/private-token", "private-token"),
             ),
             RedactionCase(
@@ -93,6 +95,40 @@ class AgentTraceFormatterTest {
     }
 
     @Test
+    fun terminalCommandsAreExposedOnlyThroughDisplayField() {
+        val terminal = AgentModelClient.ToolCall(
+            id = "terminal-call",
+            name = "terminal",
+            argumentsJson =
+                """{"action":"open_and_exec","environment":"linux","command":"git status --short"}""",
+        )
+        val runCommand = AgentModelClient.ToolCall(
+            id = "run-command-call",
+            name = "run_command",
+            argumentsJson = """{"command":"pm list packages | head"}""",
+        )
+
+        assertEquals("git status --short", formatter.displayCommand(terminal))
+        assertEquals("pm list packages | head", formatter.displayCommand(runCommand))
+        assertTrue(formatter.summarizeArguments(terminal).contains("Linux"))
+        assertFalse(formatter.summarizeArguments(terminal).contains("git status"))
+        assertNull(
+            formatter.displayCommand(
+                AgentModelClient.ToolCall("observe", "observe_screen", "{}")
+            )
+        )
+        assertNull(
+            formatter.displayCommand(
+                AgentModelClient.ToolCall(
+                    "oversized",
+                    "run_command",
+                    """{"command":"${"x".repeat(4_001)}"}""",
+                )
+            )
+        )
+    }
+
+    @Test
     fun malformedSensitiveArgumentsUseSafeFallback() {
         val summary = formatter.summarizeArguments(
             AgentModelClient.ToolCall(
@@ -104,6 +140,11 @@ class AgentTraceFormatterTest {
 
         assertTrue(summary.contains("终端"))
         assertFalse(summary.contains("secret-command"))
+        assertNull(
+            formatter.displayCommand(
+                AgentModelClient.ToolCall("call-test", "terminal", "{secret-command")
+            )
+        )
     }
 
     @Test

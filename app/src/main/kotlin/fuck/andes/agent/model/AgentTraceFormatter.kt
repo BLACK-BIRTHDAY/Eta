@@ -3,14 +3,14 @@ package fuck.andes.agent.model
 import java.net.URI
 import org.json.JSONObject
 
-/** 只生成可展示、可记录且不泄露敏感参数的工具摘要。 */
+/** 工具摘要不包含敏感参数；终端命令通过独立字段提供给用户核对。 */
 internal class AgentTraceFormatter {
     fun summarizeArguments(toolCall: AgentModelClient.ToolCall): String =
         when (toolCall.name) {
             BROWSER_TOOL_NAME -> summarizeBrowserArguments(toolCall.argumentsJson)
             "open_uri" -> summarizeOpenUriArguments(toolCall.argumentsJson)
             "terminal" -> summarizeTerminalArguments(toolCall.argumentsJson)
-            "run_command" -> summarizeTextLength("执行命令", toolCall.argumentsJson, "command")
+            "run_command" -> "执行命令 · Android · root"
             "write_file" -> summarizeTextLength("写入文件", toolCall.argumentsJson, "content")
             "read_file" -> "读取文件"
             "list_directory" -> "列出目录"
@@ -21,6 +21,19 @@ internal class AgentTraceFormatter {
             "memory_get" -> summarizeMemoryGetArguments(toolCall.argumentsJson)
             "memory_write" -> summarizeMemoryWriteArguments(toolCall.argumentsJson)
             else -> "参数已接收"
+        }
+
+    /** 原始命令只进入运行轨迹供用户核对；日志仍由 AgentEvent 记录长度。 */
+    fun displayCommand(toolCall: AgentModelClient.ToolCall): String? =
+        if (toolCall.name == "terminal" || toolCall.name == "run_command") {
+            runCatching {
+                JSONObject(toolCall.argumentsJson)
+                    .optString("command")
+                    .trim()
+                    .takeIf { it.isNotBlank() && it.length <= MAX_DISPLAY_COMMAND_CHARS }
+            }.getOrNull()
+        } else {
+            null
         }
 
     /** 外部 URI 摘要不记录 path、query、fragment 或用户信息。 */
@@ -45,14 +58,17 @@ internal class AgentTraceFormatter {
     private fun summarizeTerminalArguments(argumentsJson: String): String =
         runCatching {
             val arguments = JSONObject(argumentsJson)
-            val action = arguments.optString("action").takeIf { it in TERMINAL_ACTIONS }
-            val identity = arguments.optString("identity").takeIf { it == "root" || it == "user" }
-            val commandChars = arguments.optString("command").length.takeIf { it > 0 }
+            val action = arguments.optString("action").terminalActionLabel()
+            val environment = arguments.optString("environment", "android")
+                .terminalEnvironmentLabel()
+            val identity = arguments.optString("identity", "root")
+                .takeIf { it == "root" || it == "user" }
             buildList {
                 add("终端")
-                action?.let(::add)
+                add(action)
+                add(environment)
                 identity?.let(::add)
-                commandChars?.let { add("command_chars=$it") }
+                if (arguments.optBoolean("async", false)) add("后台")
             }.joinToString(" · ")
         }.getOrDefault("终端")
 
@@ -228,17 +244,23 @@ internal class AgentTraceFormatter {
         else -> "浏览器操作"
     }
 
+    private fun String.terminalActionLabel(): String = when (this) {
+        "open" -> "创建会话"
+        "exec" -> "执行命令"
+        "open_and_exec" -> "单次执行"
+        "read_async_result" -> "读取后台输出"
+        "close" -> "关闭终端"
+        else -> "终端操作"
+    }
+
+    private fun String.terminalEnvironmentLabel(): String = when (this) {
+        "linux" -> "Linux"
+        else -> "Android"
+    }
+
     private companion object {
         const val BROWSER_TOOL_NAME = "browser_use"
-        val TERMINAL_ACTIONS = setOf(
-            "open",
-            "open_and_exec",
-            "exec",
-            "read",
-            "close",
-            "read_async_result",
-            "cancel_async",
-        )
+        const val MAX_DISPLAY_COMMAND_CHARS = 4_000
         val BROWSER_ACTIONS = setOf(
             "navigate",
             "get_readable",

@@ -55,7 +55,8 @@ class AgentRunArchiveStoreTest {
                     round = 1,
                     toolCallId = "call-1",
                     name = "run_command",
-                    argsPreview = """{"cmd":"uptime"}""",
+                    argsPreview = "执行命令 · Android · root",
+                    command = "uptime",
                 ),
                 AgentEvent.ToolFinished(
                     round = 1,
@@ -107,6 +108,7 @@ class AgentRunArchiveStoreTest {
             restored.events.first()
         )
         assertEquals(4, restored.events.size)
+        assertEquals(archivedRun.events[2], restored.events[1])
     }
 
     @Test

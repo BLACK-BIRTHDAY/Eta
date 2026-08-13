@@ -15,12 +15,14 @@ class AgentRuntimeSafetyTest {
             toolCallId = "call-1",
             name = "shell",
             argsPreview = "{\"command\":\"$secret\"}",
+            command = secret,
         ).toLogLine()
         val failureLine = AgentEvent.RunFailed(secret).toLogLine()
 
         assertFalse(toolLine.contains(secret))
         assertFalse(failureLine.contains(secret))
         assertTrue(toolLine.contains("args_chars="))
+        assertTrue(toolLine.contains("command_chars="))
         assertTrue(failureLine.contains("reason_chars="))
     }
 

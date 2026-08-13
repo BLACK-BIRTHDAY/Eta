@@ -221,7 +221,7 @@ internal object AgentConversationStore {
                 conversationId = conversationId,
                 sortIndex = sortIndex,
                 type = TYPE_TOOL,
-                content = "",
+                content = command.orEmpty(),
                 toolName = toolName,
                 toolStatus = status.name,
                 argumentsSummary = argumentsSummary,
@@ -277,6 +277,7 @@ internal object AgentConversationStore {
                 toolName = toolName.orEmpty(),
                 status = toolStatus.orEmpty().toToolStatus(),
                 argumentsSummary = argumentsSummary.orEmpty(),
+                command = content.takeIf(String::isNotBlank),
                 resultSummary = resultSummary,
                 imageCount = imageCount,
             )

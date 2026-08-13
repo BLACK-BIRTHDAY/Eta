@@ -97,6 +97,7 @@ data class ToolActivityMessageUi(
     val toolName: String,
     val status: ToolActivityStatusUi,
     val argumentsSummary: String,
+    val command: String? = null,
     val resultSummary: String? = null,
     val imageCount: Int = 0,
 ) : AgentChatMessageUi

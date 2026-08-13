@@ -398,8 +398,9 @@ class AgentRuntimeWireTest {
             AgentEvent.ToolStarted(
                 round = 2,
                 toolCallId = "call_abc",
-                name = "observe_screen",
-                argsPreview = """{"include_screenshot":true}""",
+                name = "run_command",
+                argsPreview = "执行命令 · Android · root",
+                command = "pm list packages | head",
             ),
             AgentEvent.ToolFinished(
                 round = 2,

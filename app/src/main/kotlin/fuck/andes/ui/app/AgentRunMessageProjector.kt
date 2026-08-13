@@ -173,6 +173,7 @@ internal class AgentRunMessageProjector(
             toolName = event.name,
             status = ToolActivityStatusUi.Running,
             argumentsSummary = event.argsPreview,
+            command = event.command,
         )
         if (messages.any { it.id == message.id }) return messages
         return messages + message

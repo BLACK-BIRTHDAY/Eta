@@ -112,10 +112,12 @@ internal sealed interface AgentEvent {
         val round: Int,
         val toolCallId: String,
         val name: String,
-        val argsPreview: String
+        val argsPreview: String,
+        val command: String? = null,
     ) : AgentEvent {
         override fun toLogLine(): String =
-            "tool_started round=$round, name=${name.toSafeLogToken()}, args_chars=${argsPreview.length}"
+            "tool_started round=$round, name=${name.toSafeLogToken()}, " +
+                "args_chars=${argsPreview.length}, command_chars=${command?.length ?: 0}"
     }
 
     data class ToolFinished(

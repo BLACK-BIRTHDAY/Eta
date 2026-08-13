@@ -60,9 +60,10 @@ class AgentConversationStoreTest {
                 ),
                 ToolActivityMessageUi(
                     id = "tool-1",
-                    toolName = "observe_screen",
+                    toolName = "run_command",
                     status = ToolActivityStatusUi.Success,
-                    argumentsSummary = "{}",
+                    argumentsSummary = "执行命令 · Android · root",
+                    command = "pm list packages | head",
                     resultSummary = "ok=true, chars=100",
                     imageCount = 1,
                 ),

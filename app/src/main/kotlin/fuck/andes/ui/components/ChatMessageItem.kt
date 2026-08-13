@@ -2026,7 +2026,15 @@ private fun ToolActivityInline(
                     )
                     .padding(horizontal = 12.dp, vertical = 10.dp),
             ) {
-                if (message.argumentsSummary.isNotBlank()) {
+                if (!message.command.isNullOrBlank()) {
+                    ToolCommandBlock(
+                        command = message.command,
+                        context = message.argumentsSummary,
+                        modifier = Modifier.padding(
+                            bottom = if (message.resultSummary.isNullOrBlank()) 0.dp else 10.dp,
+                        ),
+                    )
+                } else if (message.argumentsSummary.isNotBlank()) {
                     Text(
                         text = "操作",
                         style = MiuixTheme.textStyles.footnote1,
@@ -2070,6 +2078,94 @@ private fun ToolActivityInline(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ToolCommandBlock(
+    command: String,
+    context: String,
+    modifier: Modifier = Modifier,
+) {
+    @Suppress("DEPRECATION")
+    val clipboardManager = LocalClipboardManager.current
+    var copied by remember(command) { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            kotlinx.coroutines.delay(1_400)
+            copied = false
+        }
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .squircleSurface(
+                color = MiuixTheme.colorScheme.surface,
+                cornerRadius = 10.dp,
+            )
+            .squircleBorder(
+                width = 0.5.dp,
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
+                cornerRadius = 10.dp,
+            ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 12.dp, end = 5.dp, top = 3.dp, bottom = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = context.ifBlank { "Shell 命令" },
+                style = MiuixTheme.textStyles.footnote2,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(
+                onClick = {
+                    @Suppress("DEPRECATION")
+                    clipboardManager.setText(AnnotatedString(command))
+                    copied = true
+                },
+                minWidth = 28.dp,
+                minHeight = 28.dp,
+            ) {
+                Icon(
+                    painter = painterResource(
+                        if (copied) LucideR.drawable.lucide_ic_check
+                        else LucideR.drawable.lucide_ic_copy
+                    ),
+                    contentDescription = if (copied) "命令已复制" else "复制命令",
+                    modifier = Modifier.size(13.dp),
+                    tint = if (copied) {
+                        MiuixTheme.colorScheme.primary
+                    } else {
+                        MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
+                    },
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .height(0.5.dp)
+                .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.45f)),
+        )
+        SelectionContainer {
+            Text(
+                text = command,
+                style = MiuixTheme.textStyles.footnote2.copy(fontFamily = FontFamily.Monospace),
+                color = MiuixTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            )
         }
     }
 }

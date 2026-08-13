@@ -594,6 +594,7 @@ internal object AgentRuntimeWire {
                 putString("tool_call_id", event.toolCallId)
                 putString("name", event.name)
                 putString("args_preview", event.argsPreview)
+                event.command?.let { putString("command", it) }
             }
 
             is AgentEvent.ToolFinished -> {
@@ -718,6 +719,7 @@ internal object AgentRuntimeWire {
             toolCallId = bundle.getString("tool_call_id").orEmpty(),
             name = bundle.getString("name").orEmpty(),
             argsPreview = bundle.getString("args_preview").orEmpty(),
+            command = bundle.getString("command"),
         )
 
         "tool_finished" -> AgentEvent.ToolFinished(
