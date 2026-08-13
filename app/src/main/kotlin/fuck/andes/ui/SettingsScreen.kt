@@ -843,7 +843,7 @@ private val PowerAssistantTarget.summary: String
     get() = when (this) {
         PowerAssistantTarget.OEM -> "保留 ColorOS 原始电源键行为"
         PowerAssistantTarget.GEMINI -> "使用原有 Gemini 系统助手链路"
-        PowerAssistantTarget.ETA -> "打开 Eta 文本助手"
+        PowerAssistantTarget.ETA -> "打开 Eta 全屏键盘助理浮窗"
     }
 
 private fun isAgentAccessibilityEnabled(context: Context): Boolean {

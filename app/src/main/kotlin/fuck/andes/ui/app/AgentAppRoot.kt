@@ -66,7 +66,10 @@ import fuck.andes.ui.screens.tools.AgentToolsScreen
  * Agent App 根组件：持有本地导航栈，并把 Screen actions 交给 [AgentAppState]。
  */
 @Composable
-fun AgentAppRoot() {
+fun AgentAppRoot(
+    assistantConversationKey: String? = null,
+    onAssistantConversationOpened: (Boolean) -> Unit = {},
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val backStack = remember { mutableStateListOf<NavKey>(AppRoute.Home) }
@@ -103,6 +106,15 @@ fun AgentAppRoot() {
 
     LaunchedEffect(Unit) {
         RuntimeConfigRepository.ensureDefaults(FuckAndesApp.serviceInstance)
+    }
+
+    LaunchedEffect(assistantConversationKey) {
+        val conversationKey = assistantConversationKey ?: return@LaunchedEffect
+        val opened = agentState.openAssistantConversation(conversationKey)
+        if (opened) {
+            navigator.replace(AppRoute.Chat)
+        }
+        onAssistantConversationOpened(opened)
     }
 
     fun pushRoute(

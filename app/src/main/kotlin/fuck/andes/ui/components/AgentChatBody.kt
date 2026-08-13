@@ -316,7 +316,7 @@ private fun AgentChatScaffold(
                     .padding(bottom = bottomPadding),
             )
         } else {
-            AgentChatMessages(
+            AgentConversationMessages(
                 visibleMessages = visibleMessages,
                 scrollState = scrollState,
                 isStreaming = isStreaming,
@@ -342,22 +342,22 @@ private fun AgentChatScaffold(
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
-private fun AgentChatMessages(
+internal fun AgentConversationMessages(
     visibleMessages: List<AgentChatMessageUi>,
     scrollState: LazyListState,
     isStreaming: Boolean,
     bottomInset: Dp,
     keepBottomAnchored: Boolean,
     onBottomAnchorChanged: (Boolean) -> Unit,
-    onSuggestionClick: (String) -> Unit,
-    onRunTraceClick: () -> Unit,
-    onOpenBrowser: () -> Unit,
-    onEditMessage: (String) -> Unit,
-    onDeleteMessage: (String) -> Unit,
-    onRegenerateMessage: (String) -> Unit,
-    messageActionsEnabled: Boolean,
-    editTargetMessageId: String?,
-    currentBrowserMessageId: String?,
+    onSuggestionClick: (String) -> Unit = {},
+    onRunTraceClick: () -> Unit = {},
+    onOpenBrowser: () -> Unit = {},
+    onEditMessage: (String) -> Unit = {},
+    onDeleteMessage: (String) -> Unit = {},
+    onRegenerateMessage: (String) -> Unit = {},
+    messageActionsEnabled: Boolean = false,
+    editTargetMessageId: String? = null,
+    currentBrowserMessageId: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val timelineEntries = remember(visibleMessages) { visibleMessages.toTimelineEntries() }

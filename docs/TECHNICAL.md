@@ -35,11 +35,11 @@ Release 裁剪以 `app/proguard-rules.pro` 为唯一可执行事实来源，规�
 
 ## Eta 原生数字助理
 
-Manifest 注册 `VoiceInteractionService`、独立进程的 `VoiceInteractionSessionService` 以及 Android 助理角色资格要求的 `RecognitionService`。设置页只负责打开系统数字助理选择界面；当前会话不会请求麦克风权限，也不会启动语音识别。
+Manifest 注册 `VoiceInteractionService`、独立进程的 `VoiceInteractionSessionService`、全屏 `TYPE_APPLICATION_OVERLAY` 助理浮窗以及 Android 助理角色资格要求的 `RecognitionService`。设置页只负责打开系统数字助理选择界面；当前浮窗不请求麦克风权限。
 
-会话显示 Miuix 文本输入框，窗口展示后主动请求输入焦点并弹出软键盘。全屏会话窗口不执行系统级 resize 或 pan，底部面板通过 Compose `WindowInsetsRulers` 统一适配导航栏与 IME，避免厂商系统与 Compose 重复应用键盘高度。用户提交的文本通过 `AgentRuntimeClient` 发送到主进程，沿用既有 Provider、工具权限、归档和取消协议；文本流直接显示在会话面板中，前台设备工具出现时面板收起并由全局操作浮层继续承载状态。最终结果进入同一会话归档，当前不执行语音朗读。`RecognitionService` 只作为系统角色声明保留；如果系统单独绑定它，才会把识别委托给外部 ASR，系统助手文本入口不会调用该服务。
+`VoiceInteractionSession` 只承接系统入口并关闭自身 UI；`EtaAssistantOverlayService` 持有全屏窗口、彩色边缘动画和键盘输入。窗口通过 `setFitInsetsTypes(0)` 绘制到状态栏、导航栏与显示开孔后方，可交互内容再通过 `WindowInsetsRulers.SafeDrawing` 与 `Ime` 保持可触达，避免给根容器增加 Insets 后截断 edge-to-edge 背景。用户提交的文本交给 `AgentRuntimeClient`；请求、流式结果、前台工具收起、取消与归档沿用既有 Runtime 协议，当前不执行语音识别或语音朗读。
 
-`:voice`、`:voice_session` 与 `:recognition` 进程只初始化本地偏好，不预热数据库、Skills 或 Xposed UI 服务。语音输入、语音唤醒与 HyperOS 按键适配不在当前实现范围内。
+`:voice`、`:voice_session` 与 `:recognition` 进程只初始化本地偏好，不预热数据库、Skills 或 Xposed UI 服务。`RecognitionService` 仅保留 Android 数字助理角色资格所需声明，不由当前浮窗调用；HyperOS 按键适配不在当前实现范围内。
 
 ## system_server
 
@@ -163,7 +163,7 @@ Runtime 提示要求模型在用户目标会明显受益于本机上下文时主
 
 ## 预期行为
 
-电源键目标为小布时，ColorOS 长按电源键保持厂商原始行为且不修改当前默认助理。目标为 Gemini 时，长按恢复 Google 原有系统助手与 Activity 兜底链路。目标为 Eta 且 Eta 已是默认数字助理时，长按会打开文本会话并弹出软键盘；用户手动发送请求，工具执行、流式结果和归档仍由主进程中的 Agent Runtime 负责，当前流程不启动 ASR 或 TTS。
+电源键目标为小布时，ColorOS 长按电源键保持厂商原始行为且不修改当前默认助理。目标为 Gemini 时，长按恢复 Google 原有系统助手与 Activity 兜底链路。目标为 Eta 且 Eta 已是默认数字助理时，长按会打开 edge-to-edge 全屏助理浮窗并自动聚焦键盘输入框；用户提交文本后，工具执行、流式结果和归档仍由主进程中的 Agent Runtime 负责，当前流程不执行 ASR 或 TTS。
 
 Eta 尚未成为默认助理且自动设置关闭时，按既定策略直接回到小布，不创建平行 Activity 会话。自动设置开启时，失败触发只在后台修复当前选择，当前长按仍立即回退；后续触发使用修复后的主路径。HyperOS 后续只需把厂商按键事件接到同一目标分发边界，不需要修改文本会话和 Runtime。
 

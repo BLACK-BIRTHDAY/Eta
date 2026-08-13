@@ -195,6 +195,7 @@ internal class AgentAppState(
         scope.launch(Dispatchers.IO) {
             try {
                 recoverOrphanedRuns()
+                importArchivedExternalRuns()
             } finally {
                 runtimeRecoveryInProgress.set(false)
             }
@@ -386,8 +387,10 @@ internal class AgentAppState(
     }
 
     private suspend fun importArchivedExternalRuns() {
-        val archivedRuns = AgentRunArchiveStore.list(appContext)
-            .filter { AgentExternalArchivePayload.from(it.handoff.payload) != null }
+        val archivedRuns = withContext(Dispatchers.IO) {
+            AgentRunArchiveStore.list(appContext)
+                .filter { AgentExternalArchivePayload.from(it.handoff.payload) != null }
+        }
         if (archivedRuns.isEmpty()) return
 
         withContext(Dispatchers.Main) {
@@ -399,6 +402,23 @@ internal class AgentAppState(
                 importedRunIds.forEach { runId ->
                     AgentRunArchiveStore.remove(appContext, runId)
                 }
+            }
+        }
+    }
+
+    suspend fun openAssistantConversation(conversationKey: String): Boolean {
+        if (conversationKey.isBlank()) return false
+        importArchivedExternalRuns()
+        return withContext(Dispatchers.Main.immediate) {
+            val conversationId = archiveConversationId(
+                source = AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE,
+                conversationKey = conversationKey,
+            )
+            if (conversationsById[conversationId] == null) {
+                false
+            } else {
+                selectConversation(conversationId)
+                true
             }
         }
     }
@@ -564,7 +584,7 @@ internal class AgentAppState(
         val runtimePrompt = AgentFileReferencePromptCodec.format(prompt, fileReferences)
 
         val edit = homeState.messageEdit
-        if (edit == null && selectedConversationId?.isExternalArchiveConversation() == true) {
+        if (edit == null && selectedConversationId?.isReadOnlyExternalArchiveConversation() == true) {
             moveCurrentDraftToNewConversation()
         }
 
@@ -1852,11 +1872,19 @@ internal data class MessageRevisionImpact(
 
 private const val EXTERNAL_ARCHIVE_CONVERSATION_PREFIX = "archive-"
 
-private fun String.isExternalArchiveConversation(): Boolean =
+private fun String.isReadOnlyExternalArchiveConversation(): Boolean =
     startsWith(EXTERNAL_ARCHIVE_CONVERSATION_PREFIX)
 
-private fun archiveConversationId(source: String, conversationKey: String): String =
-    "$EXTERNAL_ARCHIVE_CONVERSATION_PREFIX${stableArchiveId("$source:$conversationKey")}"
+private fun archiveConversationId(source: String, conversationKey: String): String {
+    val prefix = if (source == AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE) {
+        ASSISTANT_CONVERSATION_PREFIX
+    } else {
+        EXTERNAL_ARCHIVE_CONVERSATION_PREFIX
+    }
+    return prefix + stableArchiveId("$source:$conversationKey")
+}
+
+private const val ASSISTANT_CONVERSATION_PREFIX = "assistant-"
 
 private fun stableArchiveId(value: String): String =
     java.security.MessageDigest.getInstance("SHA-256")
