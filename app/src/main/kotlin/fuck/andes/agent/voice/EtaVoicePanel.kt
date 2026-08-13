@@ -853,9 +853,9 @@ private fun AssistantInputBar(
                 },
             ) {
                 Icon(
-                    painter = painterResource(LucideR.drawable.lucide_ic_send),
+                    painter = painterResource(LucideR.drawable.lucide_ic_arrow_right),
                     contentDescription = "发送",
-                    modifier = Modifier.size(15.dp),
+                    modifier = Modifier.size(17.dp),
                     tint = if (canSubmit) Color.White else colors.inputSecondary,
                 )
             }
