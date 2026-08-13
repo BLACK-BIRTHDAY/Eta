@@ -66,6 +66,7 @@ import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.RadioButtonLocation
 import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -739,16 +740,15 @@ private fun PowerAssistantTargetDialog(
     OverlayDialog(
         show = show,
         title = "电源键长按",
-        summary = "选择 ColorOS 长按电源键时唤起的助理",
         onDismissRequest = onDismissRequest,
     ) {
         Card {
             PowerAssistantTarget.entries.forEach { target ->
                 RadioButtonPreference(
                     title = target.displayName,
-                    summary = target.summary,
                     selected = selected == target,
                     onClick = { onSelect(target) },
+                    radioButtonLocation = RadioButtonLocation.End,
                     enabled = enabled,
                 )
             }
@@ -834,16 +834,9 @@ private fun putStringSync(
 
 private val PowerAssistantTarget.displayName: String
     get() = when (this) {
-        PowerAssistantTarget.OEM -> "小布助手"
+        PowerAssistantTarget.OEM -> "系统默认助手"
         PowerAssistantTarget.GEMINI -> "Gemini"
         PowerAssistantTarget.ETA -> "Eta"
-    }
-
-private val PowerAssistantTarget.summary: String
-    get() = when (this) {
-        PowerAssistantTarget.OEM -> "保留 ColorOS 原始电源键行为"
-        PowerAssistantTarget.GEMINI -> "使用原有 Gemini 系统助手链路"
-        PowerAssistantTarget.ETA -> "打开 Eta 全屏键盘助理浮窗"
     }
 
 private fun isAgentAccessibilityEnabled(context: Context): Boolean {

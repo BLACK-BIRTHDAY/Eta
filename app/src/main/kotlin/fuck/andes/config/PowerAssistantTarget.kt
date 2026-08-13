@@ -3,9 +3,9 @@ package fuck.andes.config
 internal enum class PowerAssistantTarget(
     val persistedValue: String,
 ) {
-    OEM("oem"),
-    GEMINI("gemini"),
     ETA("eta"),
+    GEMINI("gemini"),
+    OEM("oem"),
     ;
 
     companion object {
