@@ -318,13 +318,12 @@ class AgentConversationStoreTest {
     }
 
     @Test
-    fun creatingConversationKeepsDraftOutOfHistoryAndDatabase() {
+    fun creatingConversationKeepsEmptyStateOutOfHistoryAndDatabase() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         try {
             val state = AgentAppState(context, scope)
 
             state.createConversation()
-            state.updateInput("尚未发送的草稿")
             state.createConversation()
 
             assertEquals(null, state.conversationPaneState.selectedConversationId)

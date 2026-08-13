@@ -477,10 +477,6 @@ internal class AgentAppState(
         return runId
     }
 
-    fun updateInput(text: String) {
-        updateCurrentConversation(homeState.copy(input = text))
-    }
-
     fun updateThinkingEnabled(enabled: Boolean) {
         updateReasoningEffort(ReasoningEffort.fromLegacy(enabled))
     }
@@ -561,8 +557,8 @@ internal class AgentAppState(
         persistConversations()
     }
 
-    fun sendCurrentMessage() {
-        val prompt = homeState.input.trim()
+    fun sendCurrentMessage(submittedText: String? = null) {
+        val prompt = (submittedText ?: homeState.input).trim()
         val pendingImages = homeState.pendingImages
         val pendingFileReferences = homeState.pendingFileReferences
         if (

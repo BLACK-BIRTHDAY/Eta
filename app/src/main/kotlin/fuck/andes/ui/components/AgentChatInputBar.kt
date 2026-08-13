@@ -57,6 +57,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -96,9 +97,8 @@ fun AgentChatInputBar(
     pendingFileReferences: List<PendingFileReferenceUi>,
     isEditingMessage: Boolean,
     editHasLaterTurns: Boolean,
-    onInputChange: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
-    onSend: () -> Unit,
+    onSubmit: (String) -> Unit,
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
@@ -111,7 +111,11 @@ fun AgentChatInputBar(
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
-    val canSend = input.isNotBlank() || pendingImages.isNotEmpty() || pendingFileReferences.isNotEmpty()
+    var textFieldValue by remember { mutableStateOf(TextFieldValue(input)) }
+    var wasEditingMessage by remember { mutableStateOf(isEditingMessage) }
+    val canSend = textFieldValue.text.isNotBlank() ||
+        pendingImages.isNotEmpty() ||
+        pendingFileReferences.isNotEmpty()
     val density = LocalDensity.current
     val statusBarTopPx = WindowInsets.statusBars.getTop(density)
     var inputContainerTopPx by remember { mutableIntStateOf(0) }
@@ -121,9 +125,22 @@ fun AgentChatInputBar(
         .coerceAtLeast(ListPopupDefaults.MinPopupHeight)
 
     LaunchedEffect(isEditingMessage) {
+        // 编辑态由外部业务状态驱动；普通输入只保留在本地，避免每个字符把聊天舞台
+        // 的消息流、滚动和 Markdown 一起带入重组。
+        if (isEditingMessage || wasEditingMessage) {
+            textFieldValue = TextFieldValue(input)
+        }
         if (isEditingMessage) {
             focusRequester.requestFocus()
             keyboard?.show()
+        }
+        wasEditingMessage = isEditingMessage
+    }
+
+    LaunchedEffect(isStreaming) {
+        if (isStreaming) {
+            // 发送按钮、建议词和外部恢复都可能启动流式任务，统一清掉本地草稿。
+            textFieldValue = TextFieldValue()
         }
     }
 
@@ -208,7 +225,7 @@ fun AgentChatInputBar(
                         .padding(horizontal = 8.dp, vertical = 5.dp),
                     contentAlignment = Alignment.TopStart,
                 ) {
-                    if (input.isBlank()) {
+                    if (textFieldValue.text.isBlank()) {
                         Text(
                             text = if (isStreaming) "Eta 正在执行…" else "交给 Eta 去完成",
                             style = MiuixTheme.textStyles.body1,
@@ -216,8 +233,8 @@ fun AgentChatInputBar(
                         )
                     }
                     BasicTextField(
-                        value = input,
-                        onValueChange = onInputChange,
+                        value = textFieldValue,
+                        onValueChange = { textFieldValue = it },
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
@@ -277,7 +294,17 @@ fun AgentChatInputBar(
                     Spacer(modifier = Modifier.weight(1f))
 
                     IconButton(
-                        onClick = if (isStreaming) onStop else onSend,
+                        onClick = if (isStreaming) {
+                            onStop
+                        } else {
+                            {
+                                if (canSend) {
+                                    val submittedText = textFieldValue.text
+                                    textFieldValue = TextFieldValue()
+                                    onSubmit(submittedText)
+                                }
+                            }
+                        },
                         enabled = isStreaming || canSend,
                         minWidth = 38.dp,
                         minHeight = 38.dp,

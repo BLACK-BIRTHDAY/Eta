@@ -190,10 +190,9 @@ fun AgentAppRoot(
                         conversationKey = agentState.conversationPaneState.selectedConversationId,
                         onAction = { action ->
                             when (action) {
-                                is AgentHomeAction.InputChanged -> agentState.updateInput(action.text)
                                 is AgentHomeAction.ReasoningEffortChanged ->
                                     agentState.updateReasoningEffort(action.effort)
-                                AgentHomeAction.SendMessage -> agentState.sendCurrentMessage()
+                                is AgentHomeAction.SubmitMessage -> agentState.sendCurrentMessage(action.text)
                                 AgentHomeAction.StopRun -> agentState.stopCurrentRun()
                                 is AgentHomeAction.ImageAttached -> agentState.attachImage(action.uri)
                                 is AgentHomeAction.RemoveImage -> agentState.removePendingImage(action.id)
@@ -238,10 +237,9 @@ fun AgentAppRoot(
                         onAction = { action ->
                             when (action) {
                                 AgentChatAction.NavigateBack -> popRoute()
-                                is AgentChatAction.InputChanged -> agentState.updateInput(action.text)
                                 is AgentChatAction.ReasoningEffortChanged ->
                                     agentState.updateReasoningEffort(action.effort)
-                                AgentChatAction.SendMessage -> agentState.sendCurrentMessage()
+                                is AgentChatAction.SubmitMessage -> agentState.sendCurrentMessage(action.text)
                                 AgentChatAction.StopRun -> agentState.stopCurrentRun()
                                 AgentChatAction.OpenBrowser -> pushRoute(AppRoute.Browser)
                                 is AgentChatAction.ImageAttached -> agentState.attachImage(action.uri)

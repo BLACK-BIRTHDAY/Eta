@@ -29,9 +29,8 @@ internal fun AgentChatScreen(
             pendingImages = state.pendingImages,
             pendingFileReferences = state.pendingFileReferences,
             messageEdit = state.messageEdit,
-            onInputChange = { onAction(AgentChatAction.InputChanged(it)) },
             onReasoningEffortChange = { onAction(AgentChatAction.ReasoningEffortChanged(it)) },
-            onSend = { onAction(AgentChatAction.SendMessage) },
+            onSubmit = { text -> onAction(AgentChatAction.SubmitMessage(text)) },
             onStop = { onAction(AgentChatAction.StopRun) },
             onAttachImage = { uri -> onAction(AgentChatAction.ImageAttached(uri)) },
             onRemoveImage = { id -> onAction(AgentChatAction.RemoveImage(id)) },
@@ -44,8 +43,7 @@ internal fun AgentChatScreen(
             onDeleteMessage = { id -> onAction(AgentChatAction.DeleteMessage(id)) },
             onRegenerateMessage = { id -> onAction(AgentChatAction.RegenerateMessage(id)) },
             onSuggestionClick = { prompt ->
-                onAction(AgentChatAction.InputChanged(prompt))
-                onAction(AgentChatAction.SendMessage)
+                onAction(AgentChatAction.SubmitMessage(prompt))
             },
             onRunTraceClick = { /* 对话页暂不做 Run trace 展开 */ },
             onOpenBrowser = { onAction(AgentChatAction.OpenBrowser) },

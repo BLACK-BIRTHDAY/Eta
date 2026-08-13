@@ -117,9 +117,8 @@ fun AgentChatBody(
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
     messageEdit: MessageEditUiState?,
-    onInputChange: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
-    onSend: () -> Unit,
+    onSubmit: (String) -> Unit,
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
@@ -201,15 +200,14 @@ fun AgentChatBody(
         showEmptySuggestions = !isKeyboardVisible,
         keepBottomAnchored = keepBottomAnchored,
         onBottomAnchorChanged = { keepBottomAnchored = it },
-        onInputChange = onInputChange,
-        onReasoningEffortChange = onReasoningEffortChange,
-        onSend = {
+        onSubmit = { text ->
             sentFromKeyboard = true
             // 发送即重新锚定底部：用户从历史上方直接发送时，同帧内 isStreaming 与
             // 新消息一起到位，立即回到底部并恢复后续的流式平滑跟底。
             keepBottomAnchored = true
-            onSend()
+            onSubmit(text)
         },
+        onReasoningEffortChange = onReasoningEffortChange,
         onStop = onStop,
         onAttachImage = onAttachImage,
         onRemoveImage = onRemoveImage,
@@ -245,9 +243,8 @@ private fun AgentChatScaffold(
     showEmptySuggestions: Boolean,
     keepBottomAnchored: Boolean,
     onBottomAnchorChanged: (Boolean) -> Unit,
-    onInputChange: (String) -> Unit,
+    onSubmit: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
-    onSend: () -> Unit,
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
@@ -292,9 +289,8 @@ private fun AgentChatScaffold(
                 pendingImages = pendingImages,
                 pendingFileReferences = pendingFileReferences,
                 messageEdit = messageEdit,
-                onInputChange = onInputChange,
+                onSubmit = onSubmit,
                 onReasoningEffortChange = onReasoningEffortChange,
-                onSend = onSend,
                 onStop = onStop,
                 onAttachImage = onAttachImage,
                 onRemoveImage = onRemoveImage,
@@ -762,9 +758,8 @@ private fun AgentChatBottomBar(
     pendingImages: List<PendingImageUi>,
     pendingFileReferences: List<PendingFileReferenceUi>,
     messageEdit: MessageEditUiState?,
-    onInputChange: (String) -> Unit,
+    onSubmit: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
-    onSend: () -> Unit,
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
@@ -841,9 +836,8 @@ private fun AgentChatBottomBar(
                 pendingFileReferences = pendingFileReferences,
                 isEditingMessage = messageEdit != null,
                 editHasLaterTurns = messageEdit?.hasLaterTurns == true,
-                onInputChange = onInputChange,
+                onSubmit = onSubmit,
                 onReasoningEffortChange = onReasoningEffortChange,
-                onSend = onSend,
                 onStop = onStop,
                 onAttachImage = onAttachImage,
                 onRemoveImage = onRemoveImage,

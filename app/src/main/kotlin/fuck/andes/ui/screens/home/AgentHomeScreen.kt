@@ -32,9 +32,8 @@ internal fun AgentHomeScreen(
             pendingImages = state.pendingImages,
             pendingFileReferences = state.pendingFileReferences,
             messageEdit = state.messageEdit,
-            onInputChange = { onAction(AgentHomeAction.InputChanged(it)) },
             onReasoningEffortChange = { onAction(AgentHomeAction.ReasoningEffortChanged(it)) },
-            onSend = { onAction(AgentHomeAction.SendMessage) },
+            onSubmit = { text -> onAction(AgentHomeAction.SubmitMessage(text)) },
             onStop = { onAction(AgentHomeAction.StopRun) },
             onAttachImage = { uri -> onAction(AgentHomeAction.ImageAttached(uri)) },
             onRemoveImage = { id -> onAction(AgentHomeAction.RemoveImage(id)) },
@@ -47,8 +46,7 @@ internal fun AgentHomeScreen(
             onDeleteMessage = { id -> onAction(AgentHomeAction.DeleteMessage(id)) },
             onRegenerateMessage = { id -> onAction(AgentHomeAction.RegenerateMessage(id)) },
             onSuggestionClick = { prompt ->
-                onAction(AgentHomeAction.InputChanged(prompt))
-                onAction(AgentHomeAction.SendMessage)
+                onAction(AgentHomeAction.SubmitMessage(prompt))
             },
             onRunTraceClick = { onAction(AgentHomeAction.ExpandRunTrace) },
             onOpenBrowser = { onAction(AgentHomeAction.OpenBrowser) },

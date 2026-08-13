@@ -3,9 +3,8 @@ package fuck.andes.ui.model
 import fuck.andes.data.model.ReasoningEffort
 
 sealed interface AgentHomeAction {
-    data class InputChanged(val text: String) : AgentHomeAction
     data class ReasoningEffortChanged(val effort: ReasoningEffort) : AgentHomeAction
-    data object SendMessage : AgentHomeAction
+    data class SubmitMessage(val text: String) : AgentHomeAction
     data object StopRun : AgentHomeAction
     data class ImageAttached(val uri: String) : AgentHomeAction
     data class RemoveImage(val id: String) : AgentHomeAction
@@ -33,9 +32,8 @@ sealed interface PermissionHealthAction {
 
 sealed interface AgentChatAction {
     data object NavigateBack : AgentChatAction
-    data class InputChanged(val text: String) : AgentChatAction
     data class ReasoningEffortChanged(val effort: ReasoningEffort) : AgentChatAction
-    data object SendMessage : AgentChatAction
+    data class SubmitMessage(val text: String) : AgentChatAction
     data object StopRun : AgentChatAction
     data object OpenBrowser : AgentChatAction
     data class ImageAttached(val uri: String) : AgentChatAction
