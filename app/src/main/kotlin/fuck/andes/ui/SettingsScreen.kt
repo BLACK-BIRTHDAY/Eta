@@ -246,7 +246,7 @@ internal fun SettingsScreen(
                         prefs = agentPrefs,
                         title = "默认启用深度思考",
                         key = Prefs.Keys.AGENT_THINKING_ENABLED,
-                        icon = LucideR.drawable.lucide_ic_brain,
+                        icon = LucideR.drawable.lucide_ic_brain_circuit,
                         iconTint = ColorOSRoyalBlue,
                     )
                     PrefDivider()
@@ -254,7 +254,7 @@ internal fun SettingsScreen(
                         title = "记忆",
                         startAction = {
                             TintedIcon(
-                                icon = LucideR.drawable.lucide_ic_brain,
+                                icon = LucideR.drawable.lucide_ic_notebook_tabs,
                                 tint = ColorOSOrange,
                             )
                         },
@@ -308,7 +308,7 @@ internal fun SettingsScreen(
                         prefs = agentPrefs,
                         title = "启用终端/文件工具",
                         key = Prefs.Keys.AGENT_TERMINAL_TOOLS,
-                        icon = LucideR.drawable.lucide_ic_square_terminal,
+                        icon = LucideR.drawable.lucide_ic_file_terminal,
                         iconTint = ColorOSAmberYellow,
                     )
                     PrefDivider()
@@ -316,7 +316,7 @@ internal fun SettingsScreen(
                         title = "Linux 工具环境",
                         startAction = {
                             TintedIcon(
-                                icon = LucideR.drawable.lucide_ic_square_terminal,
+                                icon = LucideR.drawable.lucide_ic_container,
                                 tint = ColorOSVividGreen,
                             )
                         },
@@ -338,7 +338,7 @@ internal fun SettingsScreen(
                         },
                         startAction = {
                             TintedIcon(
-                                icon = LucideR.drawable.lucide_ic_message_square,
+                                icon = LucideR.drawable.lucide_ic_bot,
                                 tint = ColorOSRoyalBlue,
                             )
                         },
@@ -367,7 +367,7 @@ internal fun SettingsScreen(
                         title = "自动设置默认助理",
                         summary = "仅对 Gemini 和 Eta 生效",
                         key = Prefs.Keys.ASSISTANT_AUTO_CONFIG,
-                        icon = LucideR.drawable.lucide_ic_sparkles,
+                        icon = LucideR.drawable.lucide_ic_settings_2,
                         iconTint = ColorOSVividGreen,
                     )
                 }
@@ -391,7 +391,7 @@ internal fun SettingsScreen(
                         prefs = prefs,
                         title = "仅以 /agent 前缀接管",
                         key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
-                        icon = LucideR.drawable.lucide_ic_message_square,
+                        icon = LucideR.drawable.lucide_ic_message_square_code,
                         iconTint = ColorOSAmberYellow,
                     )
                 }
@@ -406,7 +406,7 @@ internal fun SettingsScreen(
                         prefs = prefs,
                         title = "息屏后维持 Hey Google 检测",
                         key = Prefs.Keys.HOTWORD_SELF_HEAL,
-                        icon = LucideR.drawable.lucide_ic_mic,
+                        icon = LucideR.drawable.lucide_ic_ear,
                         iconTint = ColorOSAmberYellow,
                     )
                     PrefDivider()
@@ -432,7 +432,7 @@ internal fun SettingsScreen(
                         title = "将 Google App 转为系统应用",
                         startAction = {
                             TintedIcon(
-                                icon = LucideR.drawable.lucide_ic_shield,
+                                icon = LucideR.drawable.lucide_ic_package_check,
                                 tint = ColorOSVividGreen,
                             )
                         },
@@ -456,7 +456,7 @@ internal fun SettingsScreen(
                         prefs = prefs,
                         title = "手势条长按触发一圈即搜",
                         key = Prefs.Keys.GESTURE_BAR_CIRCLE_TO_SEARCH,
-                        icon = LucideR.drawable.lucide_ic_search,
+                        icon = LucideR.drawable.lucide_ic_panel_bottom,
                         iconTint = ColorOSRoyalBlue,
                     )
                     PrefDivider()
@@ -465,7 +465,7 @@ internal fun SettingsScreen(
                         prefs = prefs,
                         title = "双指长按触发一圈即搜",
                         key = Prefs.Keys.DOUBLE_FINGER_CIRCLE_TO_SEARCH,
-                        icon = LucideR.drawable.lucide_ic_mouse_pointer_click,
+                        icon = LucideR.drawable.lucide_ic_hand,
                         iconTint = ColorOSLightBlue,
                     )
                 }
@@ -570,7 +570,7 @@ internal fun SettingsScreen(
                         },
                         startAction = {
                             TintedIcon(
-                                icon = LucideR.drawable.lucide_ic_shield,
+                                icon = LucideR.drawable.lucide_ic_shield_check,
                                 tint = ColorOSVividGreen,
                             )
                         },
