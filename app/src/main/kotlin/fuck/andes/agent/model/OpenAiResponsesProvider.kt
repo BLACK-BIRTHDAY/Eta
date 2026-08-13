@@ -243,8 +243,16 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
         val finalResponse = terminal ?: error("模型接口 Responses SSE 流缺少合法终止事件")
         if (terminalType == "response.failed") throwResponseFailure(finalResponse)
 
-        val output = finalResponse.optJSONArray("output") ?: JSONArray()
-        val finalResult = extractFinalOutput(output)
+        val terminalOutput = finalResponse.optJSONArray("output")
+        val hasTerminalOutput = terminalOutput != null && terminalOutput.length() > 0
+        val output = terminalOutput ?: JSONArray()
+        val finalResult = if (terminalType == "response.completed" && !hasTerminalOutput) {
+            // 部分兼容接口只流式下发正文，终态 output 为空。这里只恢复本轮已经收到的
+            // 标准增量；不对非空终态做字段级拼补，也不把本地结果冒充为 opaque items。
+            finalOutputFromStream(streamedText, streamedReasoning, toolCalls.values)
+        } else {
+            extractFinalOutput(output)
+        }
         emitMissingSuffix(
             streamed = streamedReasoning,
             authoritative = finalResult.reasoning,
@@ -312,9 +320,29 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
                 },
             )
         }
-        ResponsesEphemeralState.attachOutputItems(assistant, output)
+        if (hasTerminalOutput) {
+            ResponsesEphemeralState.attachOutputItems(assistant, output)
+        }
         return assistant
     }
+
+    private fun finalOutputFromStream(
+        text: StringBuilder,
+        reasoning: StringBuilder,
+        calls: Collection<StreamingFunctionCall>,
+    ): FinalOutput = FinalOutput(
+        text = text.toString(),
+        rawText = text.toString(),
+        reasoning = reasoning.toString(),
+        toolCalls = calls.map { call ->
+            FinalFunctionCall(
+                itemId = call.itemId,
+                callId = call.callId,
+                name = call.name,
+                arguments = call.arguments.toString().ifBlank { "{}" },
+            )
+        },
+    )
 
     private fun extractFinalOutput(output: JSONArray): FinalOutput {
         val text = StringBuilder()

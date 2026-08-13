@@ -15,6 +15,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -192,6 +193,94 @@ class OpenAiResponsesProviderTest {
             assertEquals(18, usage.contextTokens)
             assertEquals(3, usage.cachedTokens)
             assertEquals(5, usage.reasoningTokens)
+        }
+    }
+
+    @Test
+    fun completeUsesStreamedTextWhenCompletedOutputIsEmpty() {
+        val body = buildString {
+            append(event("response.reasoning_summary_text.delta", JSONObject().put("delta", "简要分析")))
+            append(event("response.output_text.delta", JSONObject().put("delta", "你好")))
+            append(event("response.output_text.delta", JSONObject().put("delta", "世界")))
+            append(
+                event(
+                    "response.completed",
+                    JSONObject().put(
+                        "response",
+                        JSONObject().put("status", "completed"),
+                    ),
+                ),
+            )
+        }
+
+        withSseServer(body) { baseUrl ->
+            val result = OpenAiResponsesProvider.complete(
+                ProviderRequest(
+                    config(baseUrl),
+                    JSONArray().put(JSONObject().put("role", "user").put("content", "你好")),
+                    JSONArray(),
+                ),
+                AgentRunController(),
+            )
+
+            assertEquals("你好世界", result.assistantMessage.getString("content"))
+            assertEquals("简要分析", result.assistantMessage.getString("reasoning_content"))
+            assertEquals("stop", result.assistantMessage.getString("finish_reason"))
+            assertNull(ResponsesEphemeralState.outputItems(result.assistantMessage))
+        }
+    }
+
+    @Test
+    fun completeUsesStreamedToolCallWhenCompletedOutputIsEmpty() {
+        val body = buildString {
+            append(
+                event(
+                    "response.output_item.added",
+                    JSONObject()
+                        .put("output_index", 0)
+                        .put(
+                            "item",
+                            JSONObject()
+                                .put("id", "fc_1")
+                                .put("type", "function_call")
+                                .put("call_id", "call_1")
+                                .put("name", "device_info"),
+                        ),
+                ),
+            )
+            append(
+                event(
+                    "response.function_call_arguments.delta",
+                    JSONObject().put("item_id", "fc_1").put("delta", "{\"detail\":true}"),
+                ),
+            )
+            append(
+                event(
+                    "response.completed",
+                    JSONObject().put(
+                        "response",
+                        JSONObject().put("status", "completed").put("output", JSONArray()),
+                    ),
+                ),
+            )
+        }
+
+        withSseServer(body) { baseUrl ->
+            val result = OpenAiResponsesProvider.complete(
+                ProviderRequest(
+                    config(baseUrl),
+                    JSONArray().put(JSONObject().put("role", "user").put("content", "读取设备")),
+                    JSONArray(),
+                ),
+                AgentRunController(),
+            )
+
+            val call = result.assistantMessage.getJSONArray("tool_calls").getJSONObject(0)
+            assertEquals("call_1", call.getString("id"))
+            assertEquals("device_info", call.getJSONObject("function").getString("name"))
+            assertEquals("{\"detail\":true}", call.getJSONObject("function").getString("arguments"))
+            assertEquals("tool_calls", result.assistantMessage.getString("finish_reason"))
+            assertNull(ResponsesEphemeralState.outputItems(result.assistantMessage))
         }
     }
 
