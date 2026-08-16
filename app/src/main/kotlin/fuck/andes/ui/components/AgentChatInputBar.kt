@@ -33,6 +33,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,7 +61,6 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -111,9 +114,9 @@ fun AgentChatInputBar(
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
-    var textFieldValue by remember { mutableStateOf(TextFieldValue(input)) }
+    val textFieldState = rememberTextFieldState(initialText = input)
     var wasEditingMessage by remember { mutableStateOf(isEditingMessage) }
-    val canSend = textFieldValue.text.isNotBlank() ||
+    val canSend = textFieldState.text.isNotBlank() ||
         pendingImages.isNotEmpty() ||
         pendingFileReferences.isNotEmpty()
     val density = LocalDensity.current
@@ -128,7 +131,7 @@ fun AgentChatInputBar(
         // 编辑态由外部业务状态驱动；普通输入只保留在本地，避免每个字符把聊天舞台
         // 的消息流、滚动和 Markdown 一起带入重组。
         if (isEditingMessage || wasEditingMessage) {
-            textFieldValue = TextFieldValue(input)
+            textFieldState.setTextAndPlaceCursorAtEnd(input)
         }
         if (isEditingMessage) {
             focusRequester.requestFocus()
@@ -140,7 +143,7 @@ fun AgentChatInputBar(
     LaunchedEffect(isStreaming) {
         if (isStreaming) {
             // 发送按钮、建议词和外部恢复都可能启动流式任务，统一清掉本地草稿。
-            textFieldValue = TextFieldValue()
+            textFieldState.clearText()
         }
     }
 
@@ -225,7 +228,7 @@ fun AgentChatInputBar(
                         .padding(horizontal = 8.dp, vertical = 5.dp),
                     contentAlignment = Alignment.TopStart,
                 ) {
-                    if (textFieldValue.text.isBlank()) {
+                    if (textFieldState.text.isBlank()) {
                         Text(
                             text = if (isStreaming) "Eta 正在执行…" else "交给 Eta 去完成",
                             style = MiuixTheme.textStyles.body1,
@@ -233,8 +236,7 @@ fun AgentChatInputBar(
                         )
                     }
                     BasicTextField(
-                        value = textFieldValue,
-                        onValueChange = { textFieldValue = it },
+                        state = textFieldState,
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focusRequester),
@@ -245,8 +247,10 @@ fun AgentChatInputBar(
                             lineHeight = 22.sp,
                         ),
                         cursorBrush = SolidColor(MiuixTheme.colorScheme.primary),
-                        maxLines = 6,
-                        minLines = 1,
+                        lineLimits = TextFieldLineLimits.MultiLine(
+                            minHeightInLines = 1,
+                            maxHeightInLines = 6,
+                        ),
                     )
                 }
 
@@ -299,8 +303,8 @@ fun AgentChatInputBar(
                         } else {
                             {
                                 if (canSend) {
-                                    val submittedText = textFieldValue.text
-                                    textFieldValue = TextFieldValue()
+                                    val submittedText = textFieldState.text.toString()
+                                    textFieldState.clearText()
                                     onSubmit(submittedText)
                                 }
                             }
