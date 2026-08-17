@@ -58,6 +58,8 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 import top.yukonga.miuix.kmp.window.WindowListPopup
 
 internal val ChatInputPopupMargin = 8.dp
+internal val ChatInputActionSize = 40.dp
+internal val ChatInputActionIconSize = 24.dp
 
 @Composable
 internal fun AgentAttachmentPickerButton(
@@ -100,13 +102,13 @@ internal fun AgentAttachmentPickerButton(
     Box(modifier = modifier) {
         IconButton(
             onClick = { showPopup = true },
-            minWidth = 38.dp,
-            minHeight = 38.dp,
+            minWidth = ChatInputActionSize,
+            minHeight = ChatInputActionSize,
         ) {
             Icon(
                 painter = painterResource(LucideR.drawable.lucide_ic_plus),
                 contentDescription = "添加附件",
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(ChatInputActionIconSize),
                 tint = MiuixTheme.colorScheme.onSurface,
             )
         }
@@ -310,6 +312,7 @@ internal fun SentFileReferenceFlow(
 
 internal class InputPopupPositionProvider(
     private val inputContainerTopPx: Int,
+    private val windowHorizontalInsetPx: Int? = null,
 ) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
@@ -328,10 +331,15 @@ internal class InputPopupPositionProvider(
             else -> false
         }
         val physicalEnd = if (layoutDirection == LayoutDirection.Ltr) alignToEnd else !alignToEnd
-        val requestedX = if (physicalEnd) {
-            anchorBounds.right - popupContentSize.width - popupMargin.right
-        } else {
-            anchorBounds.left + popupMargin.left
+        val requestedX = when {
+            windowHorizontalInsetPx != null && physicalEnd ->
+                windowBounds.right - popupContentSize.width - popupMargin.right - windowHorizontalInsetPx
+
+            windowHorizontalInsetPx != null ->
+                windowBounds.left + popupMargin.left + windowHorizontalInsetPx
+
+            physicalEnd -> anchorBounds.right - popupContentSize.width - popupMargin.right
+            else -> anchorBounds.left + popupMargin.left
         }
         val maxX = (windowBounds.right - popupContentSize.width - popupMargin.right)
             .coerceAtLeast(windowBounds.left)

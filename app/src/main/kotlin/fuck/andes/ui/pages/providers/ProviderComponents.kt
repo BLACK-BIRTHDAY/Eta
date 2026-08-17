@@ -20,14 +20,12 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.R as LucideR
-import fuck.andes.R
 import fuck.andes.data.model.CustomProviderSetting
 import fuck.andes.data.model.ProviderSetting
-import fuck.andes.data.model.ProviderSourceTypes
-import fuck.andes.data.provider.ProviderSourceRegistry
 import fuck.andes.ui.components.IconTintBlue
 import fuck.andes.ui.components.IconTintGreen
 import fuck.andes.ui.components.StatusWarning
+import fuck.andes.ui.components.providerBrandLogoRes as sharedProviderBrandLogoRes
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
@@ -101,6 +99,14 @@ private fun ProviderBrandImage(
     )
 }
 
+@DrawableRes
+internal fun providerBrandLogoRes(provider: ProviderSetting): Int? =
+    sharedProviderBrandLogoRes(provider)
+
+@DrawableRes
+internal fun providerBrandLogoRes(sourceType: String): Int? =
+    sharedProviderBrandLogoRes(sourceType)
+
 /** 已知厂商使用品牌图标，未知来源继续按协议类型使用通用图标。 */
 @Composable
 internal fun ProviderIcon(
@@ -125,25 +131,6 @@ internal fun ProviderIcon(
             modifier = modifier,
         )
     }
-}
-
-@DrawableRes
-internal fun providerBrandLogoRes(provider: ProviderSetting): Int? =
-    providerBrandLogoRes(ProviderSourceRegistry.resolve(provider))
-
-@DrawableRes
-internal fun providerBrandLogoRes(sourceType: String): Int? = when (ProviderSourceRegistry.normalize(sourceType)) {
-    ProviderSourceTypes.OPENAI -> R.drawable.provider_logo_openai
-    ProviderSourceTypes.ANTHROPIC -> R.drawable.provider_logo_anthropic
-    ProviderSourceTypes.BAILIAN -> R.drawable.provider_logo_bailian
-    ProviderSourceTypes.DEEPSEEK -> R.drawable.provider_logo_deepseek
-    ProviderSourceTypes.MOONSHOT -> R.drawable.provider_logo_kimi
-    ProviderSourceTypes.MIMO -> R.drawable.provider_logo_mimo
-    ProviderSourceTypes.MINIMAX -> R.drawable.provider_logo_minimax
-    ProviderSourceTypes.STEPFUN -> R.drawable.provider_logo_stepfun
-    ProviderSourceTypes.SILICONFLOW -> R.drawable.provider_logo_siliconflow
-    ProviderSourceTypes.OPENROUTER -> R.drawable.provider_logo_openrouter
-    else -> null
 }
 
 /** 分隔线缩进对齐圆形图标之后的文字起始位置：insideMargin(16) + 图标(32) + 间距(12) = 60dp。 */

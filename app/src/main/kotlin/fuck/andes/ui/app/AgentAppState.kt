@@ -42,6 +42,8 @@ import fuck.andes.ui.model.AgentChatHomeUiState
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
 import fuck.andes.ui.model.AgentMemoryUiState
+import fuck.andes.ui.model.AgentModelPickerProjector
+import fuck.andes.ui.model.AgentModelPickerUiState
 import fuck.andes.ui.model.MessageEditUiState
 import fuck.andes.ui.model.AgentSkillsUiState
 import fuck.andes.ui.model.AgentSystemEnhanceUiState
@@ -114,6 +116,9 @@ internal class AgentAppState(
     )
         private set
 
+    var modelPickerState by mutableStateOf(AgentModelPickerUiState())
+        private set
+
     var conversationPaneState by mutableStateOf(
         ConversationPaneUiState(
             conversations = emptyList(),
@@ -140,7 +145,7 @@ internal class AgentAppState(
 
     init {
         refreshConversationSummaries()
-        observeReasoningCapabilities()
+        observeRuntimeSelection()
         runtimeRecoveryInProgress.set(true)
         scope.launch(Dispatchers.IO) {
             try {
@@ -152,20 +157,28 @@ internal class AgentAppState(
         }
     }
 
-    private fun observeReasoningCapabilities() {
+    private fun observeRuntimeSelection() {
         scope.launch(Dispatchers.IO) {
             combine(
                 RuntimeConfigRepository.selectedProviderIdFlow(),
                 RuntimeConfigRepository.selectedModelIdFlow(),
                 ProviderRepository.providersFlow(),
             ) { providerId, modelId, providers ->
-                Triple(providerId, modelId, providers.hashCode())
+                Triple(providerId, modelId, providers)
             }
                 .distinctUntilChanged()
-                .collectLatest {
+                .collectLatest { (providerId, modelId, providers) ->
+                    val pickerState = AgentModelPickerProjector.project(
+                        providers = providers,
+                        selectedProviderId = providerId,
+                        selectedModelId = modelId,
+                    )
                     val capabilities = RuntimeConfigRepository.currentRuntimeConfig()
                         ?.reasoningCapabilities
                     withContext(Dispatchers.Main) {
+                        modelPickerState = pickerState.copy(
+                            isChanging = modelPickerState.isChanging,
+                        )
                         applyReasoningCapabilities(capabilities)
                     }
                 }
@@ -490,6 +503,33 @@ internal class AgentAppState(
             )
         )
         if (selectedConversationId != null) persistConversations()
+    }
+
+    fun selectModel(modelId: String) {
+        if (
+            homeState.isStreaming ||
+            modelPickerState.isChanging ||
+            modelPickerState.selectedModel?.id == modelId
+        ) {
+            return
+        }
+        modelPickerState = modelPickerState.copy(isChanging = true)
+        scope.launch(Dispatchers.IO) {
+            try {
+                RuntimeConfigRepository.setSelectedModelId(modelId)
+                RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(appContext, "模型切换失败，请稍后重试", Toast.LENGTH_SHORT).show()
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    modelPickerState = modelPickerState.copy(isChanging = false)
+                }
+            }
+        }
     }
 
     fun updateSearchQuery(query: String) {

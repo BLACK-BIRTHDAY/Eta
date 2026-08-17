@@ -7,6 +7,7 @@ import fuck.andes.ui.components.AgentChatBody
 import fuck.andes.ui.components.chatConversationCompositionKey
 import fuck.andes.ui.model.AgentChatAction
 import fuck.andes.ui.model.AgentChatUiState
+import fuck.andes.ui.model.AgentModelPickerUiState
 
 /**
  * 独立对话页：与首页聊天主舞台共用同一套消息/输入组件，
@@ -15,6 +16,7 @@ import fuck.andes.ui.model.AgentChatUiState
 @Composable
 internal fun AgentChatScreen(
     state: AgentChatUiState,
+    modelPickerState: AgentModelPickerUiState,
     conversationKey: String?,
     onAction: (AgentChatAction) -> Unit,
     modifier: Modifier = Modifier,
@@ -22,6 +24,7 @@ internal fun AgentChatScreen(
     key(chatConversationCompositionKey(conversationKey)) {
         AgentChatBody(
             messages = state.messages,
+            modelPickerState = modelPickerState,
             input = state.input,
             isStreaming = state.isStreaming,
             reasoningEffort = state.reasoningEffort,
@@ -30,6 +33,7 @@ internal fun AgentChatScreen(
             pendingFileReferences = state.pendingFileReferences,
             messageEdit = state.messageEdit,
             onReasoningEffortChange = { onAction(AgentChatAction.ReasoningEffortChanged(it)) },
+            onModelSelected = { onAction(AgentChatAction.ModelSelected(it)) },
             onSubmit = { text -> onAction(AgentChatAction.SubmitMessage(text)) },
             onStop = { onAction(AgentChatAction.StopRun) },
             onAttachImage = { uri -> onAction(AgentChatAction.ImageAttached(uri)) },

@@ -187,11 +187,13 @@ fun AgentAppRoot(
                 RoutedShell(route = AppRoute.Home) {
                     AgentHomeScreen(
                         state = agentState.homeState,
+                        modelPickerState = agentState.modelPickerState,
                         conversationKey = agentState.conversationPaneState.selectedConversationId,
                         onAction = { action ->
                             when (action) {
                                 is AgentHomeAction.ReasoningEffortChanged ->
                                     agentState.updateReasoningEffort(action.effort)
+                                is AgentHomeAction.ModelSelected -> agentState.selectModel(action.modelId)
                                 is AgentHomeAction.SubmitMessage -> agentState.sendCurrentMessage(action.text)
                                 AgentHomeAction.StopRun -> agentState.stopCurrentRun()
                                 is AgentHomeAction.ImageAttached -> agentState.attachImage(action.uri)
@@ -233,12 +235,14 @@ fun AgentAppRoot(
                 RoutedShell(route = AppRoute.Chat) {
                     AgentChatScreen(
                         state = agentState.homeState,
+                        modelPickerState = agentState.modelPickerState,
                         conversationKey = agentState.conversationPaneState.selectedConversationId,
                         onAction = { action ->
                             when (action) {
                                 AgentChatAction.NavigateBack -> popRoute()
                                 is AgentChatAction.ReasoningEffortChanged ->
                                     agentState.updateReasoningEffort(action.effort)
+                                is AgentChatAction.ModelSelected -> agentState.selectModel(action.modelId)
                                 is AgentChatAction.SubmitMessage -> agentState.sendCurrentMessage(action.text)
                                 AgentChatAction.StopRun -> agentState.stopCurrentRun()
                                 AgentChatAction.OpenBrowser -> pushRoute(AppRoute.Browser)

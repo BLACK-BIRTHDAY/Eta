@@ -69,6 +69,8 @@ import fuck.andes.agent.browser.AgentBrowserSession
 import fuck.andes.data.model.ReasoningEffort
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
+import fuck.andes.ui.model.AgentContextUsageUi
+import fuck.andes.ui.model.AgentModelPickerUiState
 import fuck.andes.ui.model.MessageEditUiState
 import fuck.andes.ui.model.PendingFileReferenceUi
 import fuck.andes.ui.model.PendingImageUi
@@ -78,6 +80,7 @@ import fuck.andes.ui.model.ThinkingMessageUi
 import fuck.andes.ui.model.ToolActivityMessageUi
 import fuck.andes.ui.model.ToolSummaryMessageUi
 import fuck.andes.ui.model.UserMessageUi
+import fuck.andes.ui.model.latestContextUsage
 import fuck.andes.ui.app.AgentConversationRevisionReducer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -108,8 +111,9 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
  */
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
-fun AgentChatBody(
+internal fun AgentChatBody(
     messages: List<AgentChatMessageUi>,
+    modelPickerState: AgentModelPickerUiState,
     input: String,
     isStreaming: Boolean,
     reasoningEffort: ReasoningEffort,
@@ -118,6 +122,7 @@ fun AgentChatBody(
     pendingFileReferences: List<PendingFileReferenceUi>,
     messageEdit: MessageEditUiState?,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
+    onModelSelected: (String) -> Unit,
     onSubmit: (String) -> Unit,
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
@@ -142,6 +147,9 @@ fun AgentChatBody(
     val imeBottomPx = WindowInsets.ime.getBottom(density)
     val isKeyboardVisible = imeBottomPx > 0
     val browserSnapshot by AgentBrowserSession.snapshots.collectAsState()
+    val contextUsage = remember(messages, modelPickerState.selectedModel) {
+        latestContextUsage(messages, modelPickerState.selectedModel)
+    }
 
     val visibleMessages = remember(messages, messageEdit?.targetMessageId) {
         AgentConversationRevisionReducer.visibleMessagesForEdit(
@@ -191,6 +199,8 @@ fun AgentChatBody(
         hasMessages = visibleMessages.isNotEmpty(),
         scrollState = scrollState,
         input = input,
+        modelPickerState = modelPickerState,
+        contextUsage = contextUsage,
         isStreaming = isStreaming,
         reasoningEffort = reasoningEffort,
         availableReasoningEfforts = availableReasoningEfforts,
@@ -208,6 +218,7 @@ fun AgentChatBody(
             onSubmit(text)
         },
         onReasoningEffortChange = onReasoningEffortChange,
+        onModelSelected = onModelSelected,
         onStop = onStop,
         onAttachImage = onAttachImage,
         onRemoveImage = onRemoveImage,
@@ -234,6 +245,8 @@ private fun AgentChatScaffold(
     hasMessages: Boolean,
     scrollState: LazyListState,
     input: String,
+    modelPickerState: AgentModelPickerUiState,
+    contextUsage: AgentContextUsageUi,
     isStreaming: Boolean,
     reasoningEffort: ReasoningEffort,
     availableReasoningEfforts: List<ReasoningEffort>,
@@ -245,6 +258,7 @@ private fun AgentChatScaffold(
     onBottomAnchorChanged: (Boolean) -> Unit,
     onSubmit: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
+    onModelSelected: (String) -> Unit,
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
@@ -283,6 +297,9 @@ private fun AgentChatScaffold(
             AgentChatBottomBar(
                 messageBackdrop = messageBackdrop.takeIf { frostEnabled },
                 input = input,
+                modelPickerState = modelPickerState,
+                contextUsage = contextUsage,
+                showContextUsage = hasMessages,
                 isStreaming = isStreaming,
                 reasoningEffort = reasoningEffort,
                 availableReasoningEfforts = availableReasoningEfforts,
@@ -291,6 +308,7 @@ private fun AgentChatScaffold(
                 messageEdit = messageEdit,
                 onSubmit = onSubmit,
                 onReasoningEffortChange = onReasoningEffortChange,
+                onModelSelected = onModelSelected,
                 onStop = onStop,
                 onAttachImage = onAttachImage,
                 onRemoveImage = onRemoveImage,
@@ -752,6 +770,9 @@ internal fun resolveFinalResultMessageIds(
 private fun AgentChatBottomBar(
     messageBackdrop: LayerBackdrop?,
     input: String,
+    modelPickerState: AgentModelPickerUiState,
+    contextUsage: AgentContextUsageUi,
+    showContextUsage: Boolean,
     isStreaming: Boolean,
     reasoningEffort: ReasoningEffort,
     availableReasoningEfforts: List<ReasoningEffort>,
@@ -760,6 +781,7 @@ private fun AgentChatBottomBar(
     messageEdit: MessageEditUiState?,
     onSubmit: (String) -> Unit,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
+    onModelSelected: (String) -> Unit,
     onStop: () -> Unit,
     onAttachImage: (String) -> Unit,
     onRemoveImage: (String) -> Unit,
@@ -829,6 +851,9 @@ private fun AgentChatBottomBar(
         ) {
             AgentChatInputBar(
                 input = input,
+                modelPickerState = modelPickerState,
+                contextUsage = contextUsage,
+                showContextUsage = showContextUsage,
                 isStreaming = isStreaming,
                 reasoningEffort = reasoningEffort,
                 availableReasoningEfforts = availableReasoningEfforts,
@@ -838,6 +863,7 @@ private fun AgentChatBottomBar(
                 editHasLaterTurns = messageEdit?.hasLaterTurns == true,
                 onSubmit = onSubmit,
                 onReasoningEffortChange = onReasoningEffortChange,
+                onModelSelected = onModelSelected,
                 onStop = onStop,
                 onAttachImage = onAttachImage,
                 onRemoveImage = onRemoveImage,
