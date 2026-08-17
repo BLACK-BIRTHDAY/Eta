@@ -92,7 +92,8 @@ internal fun AgentModelPickerButton(
                 contentDescription = "切换模型，当前为 ${selected?.displayName ?: "未选择"}"
             },
         ) {
-            ProviderBrandMark(
+            ModelBrandMark(
+                modelId = selected?.modelId,
                 sourceType = selected?.providerSourceType,
                 size = ChatInputActionIconSize,
             )
@@ -288,11 +289,12 @@ internal fun AgentContextUsageButton(
 }
 
 @Composable
-private fun ProviderBrandMark(
+private fun ModelBrandMark(
+    modelId: String?,
     sourceType: String?,
     size: Dp,
 ) {
-    val logo = sourceType?.let(::providerBrandLogoRes)
+    val logo = modelOrProviderBrandLogoRes(modelId, sourceType)
     if (logo != null) {
         Image(
             painter = painterResource(logo),

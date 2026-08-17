@@ -151,7 +151,7 @@ Eta's capabilities depend heavily on the model you connect.
 
 - **Protocols:** OpenAI-compatible Chat Completions and the Anthropic Messages API, with Server-Sent Events (SSE), streamed tool calls, image input, and reasoning content.
 - **Built-in providers:** OpenAI, Anthropic, Alibaba Cloud Model Studio, DeepSeek, Kimi, Xiaomi MiMo, MiniMax, StepFun, SiliconFlow, and OpenRouter.
-- **Provider identity:** known providers use bundled full-color brand icons; unknown and custom endpoints retain a generic icon. Sources and licenses are listed in the [third-party notices](docs/THIRD_PARTY_NOTICES.md).
+- **Model and provider identity:** provider lists identify the access channel, while the chat composer uses the Model ID to show the actual model brand first. Unrecognized models fall back to the provider icon, and unknown custom endpoints retain a generic icon. Sources and licenses are listed in the [third-party notices](docs/THIRD_PARTY_NOTICES.md).
 - **Custom providers:** configure an HTTP or HTTPS base URL, API key, headers, and body JSON. Plain HTTP transmits the API key, prompts, and model content without transport encryption.
 - **Model management:** use bundled official catalogs, synchronize remote model lists, or add models manually. Remote synchronization updates remote entries without deleting manual ones. Capability metadata returned explicitly by `/models` takes precedence; bundled provider catalogs fill only missing metadata, and presets remain isolated by provider.
 - **Conversation drafts:** a new conversation remains a local draft until its first message is sent.

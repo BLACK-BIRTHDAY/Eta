@@ -2,7 +2,7 @@
 
 ## Lobe Icons
 
-模型提供商列表中的品牌图标来自
+模型与提供商品牌图标来自
 [Lobe Icons](https://github.com/lobehub/lobe-icons) 的
 `@lobehub/icons-static-avatar` 1.13.0。原始 1280×1280 WebP 素材在不改变颜色和比例的前提下，无损缩放为 128×128 后随 Eta 本地打包。
 
@@ -18,6 +18,18 @@
 | `provider_logo_stepfun.webp` | `stepfun.webp` |
 | `provider_logo_siliconflow.webp` | `siliconcloud.webp` |
 | `provider_logo_openrouter.webp` | `openrouter.webp` |
+| `model_logo_claude.webp` | `claude.webp` |
+| `model_logo_qwen.webp` | `qwen.webp` |
+| `model_logo_zai.webp` | `zai.webp` |
+| `model_logo_chatglm.webp` | `chatglm.webp` |
+| `model_logo_gemini.webp` | `gemini.webp` |
+| `model_logo_gemma.webp` | `gemma.webp` |
+| `model_logo_grok.webp` | `grok.webp` |
+| `model_logo_meta.webp` | `meta.webp` |
+| `model_logo_mistral.webp` | `mistral.webp` |
+| `model_logo_doubao.webp` | `doubao.webp` |
+| `model_logo_hunyuan.webp` | `hunyuan.webp` |
+| `model_logo_yi.webp` | `yi.webp` |
 
 Lobe Icons 使用 MIT License：
 
@@ -45,7 +57,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-OpenAI、Anthropic、阿里云百炼、DeepSeek、Kimi、Xiaomi MiMo、MiniMax、StepFun、硅基流动和 OpenRouter 的名称、图标及其他品牌标识归各自权利人所有。Eta 展示这些图标仅用于准确标识用户正在配置的模型服务，不表示这些厂商对 Eta 的赞助、认可或合作关系。OpenAI 图标的使用还应遵循其[品牌规范](https://openai.com/brand/)。
+OpenAI、Anthropic、Claude、阿里云百炼、Qwen、DeepSeek、Kimi、Xiaomi MiMo、MiniMax、StepFun、Z.ai、ChatGLM、Gemini、Gemma、Grok、Meta、Mistral、豆包、混元、Yi、硅基流动和 OpenRouter 的名称、图标及其他品牌标识归各自权利人所有。Eta 展示这些图标仅用于准确标识用户正在配置的模型服务，不表示这些厂商对 Eta 的赞助、认可或合作关系。OpenAI 图标的使用还应遵循其[品牌规范](https://openai.com/brand/)。
 
 ## 可选 APK 分析工具
 
