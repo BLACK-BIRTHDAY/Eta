@@ -2,6 +2,7 @@ package fuck.andes.ui.pages.providers
 
 import fuck.andes.R
 import fuck.andes.data.model.CustomProviderSetting
+import fuck.andes.data.model.Model
 import fuck.andes.data.model.ProviderSourceTypes
 import fuck.andes.data.provider.BuiltinProviders
 import org.junit.Assert.assertEquals
@@ -54,4 +55,50 @@ class ProviderComponentsTest {
         assertEquals(R.drawable.provider_logo_deepseek, providerBrandLogoRes(recognized))
         assertNull(providerBrandLogoRes(unknown))
     }
+
+    @Test
+    fun modelSearchSupportsCaseInsensitiveFuzzyTokensAcrossNameAndId() {
+        val models = listOf(
+            model(id = "1", modelId = "openai/gpt-5", displayName = "GPT 5", sortOrder = 2),
+            model(id = "2", modelId = "deepseek/deepseek-v3", displayName = "DeepSeek V3", sortOrder = 1),
+            model(
+                id = "3",
+                modelId = "liquid/lfm-2.5-2.6b:free",
+                displayName = "LiquidAI: LFM2.5-2.6B (free)",
+                sortOrder = 3,
+            ),
+        )
+
+        assertEquals(listOf("1"), filterProviderModels(models, "  gPt  ").map { it.id })
+        assertEquals(listOf("2"), filterProviderModels(models, "  DEEPSEEK-V3  ").map { it.id })
+        assertEquals(listOf("2"), filterProviderModels(models, "deep v3").map { it.id })
+        assertEquals(listOf("2"), filterProviderModels(models, "dsv3").map { it.id })
+        assertEquals(listOf("2"), filterProviderModels(models, "deep___v3").map { it.id })
+        assertEquals(listOf("3"), filterProviderModels(models, "liquid 2.6b").map { it.id })
+        assertEquals(emptyList<Model>(), filterProviderModels(models, "3vds"))
+    }
+
+    @Test
+    fun modelSearchKeepsSortOrderForBlankQueryAndReturnsEmptyForNoMatch() {
+        val models = listOf(
+            model(id = "later", modelId = "model-b", displayName = "Model B", sortOrder = 20),
+            model(id = "first", modelId = "model-a", displayName = "Model A", sortOrder = 10),
+        )
+
+        assertEquals(listOf("first", "later"), filterProviderModels(models, "   ").map { it.id })
+        assertEquals(listOf("first", "later"), filterProviderModels(models, "---").map { it.id })
+        assertEquals(emptyList<Model>(), filterProviderModels(models, "missing"))
+    }
+
+    private fun model(
+        id: String,
+        modelId: String,
+        displayName: String,
+        sortOrder: Int,
+    ) = Model(
+        id = id,
+        modelId = modelId,
+        displayName = displayName,
+        sortOrder = sortOrder,
+    )
 }

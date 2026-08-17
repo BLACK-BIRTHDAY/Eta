@@ -22,6 +22,7 @@ internal object SettingsDataStore {
     private val SELECTED_PROVIDER_ID = stringPreferencesKey("selected_provider_id")
     private val SELECTED_MODEL_ID = stringPreferencesKey("selected_model_id")
     private val MEMORY_ENABLED = booleanPreferencesKey("memory_enabled")
+    private const val SELECTED_MODEL_BY_PROVIDER_PREFIX = "selected_model_id_by_provider."
 
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = STORE_NAME)
 
@@ -76,6 +77,20 @@ internal object SettingsDataStore {
     fun selectedModelIdFlow(): Flow<String?> =
         settingsFlow().map { it.selectedModelId }
 
+    suspend fun selectedModelIdForProvider(providerId: String): String? {
+        ensureInitialized()
+        return dataStore.data
+            .catch { cause ->
+                if (cause is IOException) {
+                    emit(emptyPreferences())
+                } else {
+                    throw cause
+                }
+            }
+            .map { prefs -> prefs[selectedModelByProviderKey(providerId)] }
+            .first()
+    }
+
     fun memoryEnabledFlow(): Flow<Boolean> =
         settingsFlow().map { it.memoryEnabled }
 
@@ -88,11 +103,26 @@ internal object SettingsDataStore {
     }
 
     suspend fun setSelection(providerId: String?, modelId: String?) {
-        updateSettings {
-            it.copy(
-                selectedProviderId = providerId,
-                selectedModelId = modelId,
-            )
+        ensureInitialized()
+        dataStore.edit { prefs ->
+            val previousProviderId = prefs[SELECTED_PROVIDER_ID]
+            val previousModelId = prefs[SELECTED_MODEL_ID]
+            if (previousProviderId != null && previousModelId != null) {
+                prefs[selectedModelByProviderKey(previousProviderId)] = previousModelId
+            }
+
+            prefs.putOrRemove(SELECTED_PROVIDER_ID, providerId)
+            prefs.putOrRemove(SELECTED_MODEL_ID, modelId)
+            if (providerId != null && modelId != null) {
+                prefs[selectedModelByProviderKey(providerId)] = modelId
+            }
+        }
+    }
+
+    suspend fun clearSelectedModelIdForProvider(providerId: String) {
+        ensureInitialized()
+        dataStore.edit { prefs ->
+            prefs.remove(selectedModelByProviderKey(providerId))
         }
     }
 
@@ -105,6 +135,9 @@ internal object SettingsDataStore {
             "SettingsDataStore.init(context) must be called in Application.onCreate()"
         }
     }
+
+    private fun selectedModelByProviderKey(providerId: String): Preferences.Key<String> =
+        stringPreferencesKey("$SELECTED_MODEL_BY_PROVIDER_PREFIX$providerId")
 
     private fun MutablePreferences.putOrRemove(key: Preferences.Key<String>, value: String?) {
         if (value.isNullOrBlank()) {

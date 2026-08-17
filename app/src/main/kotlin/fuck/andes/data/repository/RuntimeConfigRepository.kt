@@ -36,9 +36,17 @@ internal object RuntimeConfigRepository {
     }
 
     suspend fun setSelectedProviderId(id: String?) {
+        val settings = SettingsDataStore.settings()
         val provider = id?.let { ProviderRepository.providerById(it) }
             ?.takeIf { it.isEnabled }
-        val model = provider?.selectedOrFirstModel(null)
+        val activeModel = provider
+            ?.takeIf { it.id == settings.selectedProviderId }
+            ?.models
+            ?.firstOrNull { it.id == settings.selectedModelId && it.isEnabled }
+        val rememberedModelId = provider?.let {
+            SettingsDataStore.selectedModelIdForProvider(it.id)
+        }
+        val model = activeModel ?: provider?.selectedOrFirstModel(rememberedModelId)
         SettingsDataStore.setSelection(
             providerId = provider?.id,
             modelId = model?.id,

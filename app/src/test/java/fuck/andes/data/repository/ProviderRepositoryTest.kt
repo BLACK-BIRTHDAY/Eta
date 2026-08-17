@@ -132,6 +132,43 @@ class ProviderRepositoryTest {
         assertEquals(provider.id, config.providerId)
         assertEquals("sk-test-key", config.apiKey)
     }
+
+    @Test
+    fun switchingProvidersRestoresEachProvidersSelectedModel() = runBlocking {
+        ProviderRepository.ensureBuiltInsMerged()
+        val openAi = ProviderRepository.providerById(BuiltinProviders.OPENAI_ID)!!
+        val anthropic = ProviderRepository.providerById(BuiltinProviders.ANTHROPIC_ID)!!
+        val openAiModel = openAi.models[1]
+        val anthropicModel = anthropic.models[1]
+        SettingsDataStore.clearSelectedModelIdForProvider(openAi.id)
+        SettingsDataStore.clearSelectedModelIdForProvider(anthropic.id)
+
+        RuntimeConfigRepository.setSelectedProviderId(openAi.id)
+        RuntimeConfigRepository.setSelectedModelId(openAiModel.id)
+        RuntimeConfigRepository.setSelectedProviderId(anthropic.id)
+        RuntimeConfigRepository.setSelectedModelId(anthropicModel.id)
+
+        RuntimeConfigRepository.setSelectedProviderId(openAi.id)
+        assertEquals(openAiModel.id, SettingsDataStore.settings().selectedModelId)
+
+        RuntimeConfigRepository.setSelectedProviderId(anthropic.id)
+        assertEquals(anthropicModel.id, SettingsDataStore.settings().selectedModelId)
+    }
+
+    @Test
+    fun repairSelectionMigratesLegacyActiveModelToProviderMemory() = runBlocking {
+        ProviderRepository.ensureBuiltInsMerged()
+        val provider = ProviderRepository.providerById(BuiltinProviders.OPENAI_ID)!!
+        val model = provider.models[1]
+        SettingsDataStore.clearSelectedModelIdForProvider(provider.id)
+        SettingsDataStore.updateSettings {
+            it.copy(selectedProviderId = provider.id, selectedModelId = model.id)
+        }
+
+        ProviderRepository.repairSelection()
+
+        assertEquals(model.id, SettingsDataStore.selectedModelIdForProvider(provider.id))
+    }
 }
 
 private fun ProviderSetting.copyForTest(

@@ -82,6 +82,7 @@ internal object ProviderRepository {
         val provider = providerById(id) ?: return
         if (provider.isBuiltIn) return
         dao().deleteProvider(id)
+        SettingsDataStore.clearSelectedModelIdForProvider(id)
         repairSelection()
     }
 
@@ -134,7 +135,14 @@ internal object ProviderRepository {
         val settings = SettingsDataStore.settings()
         val selectedProvider = providers.firstOrNull { it.id == settings.selectedProviderId && it.isEnabled }
             ?: providers.firstOrNull { it.isEnabled }
-        val selectedModel = selectedProvider?.selectedOrFirstModel(settings.selectedModelId)
+        val activeModel = selectedProvider
+            ?.takeIf { it.id == settings.selectedProviderId }
+            ?.models
+            ?.firstOrNull { it.id == settings.selectedModelId && it.isEnabled }
+        val rememberedModelId = selectedProvider?.let {
+            SettingsDataStore.selectedModelIdForProvider(it.id)
+        }
+        val selectedModel = activeModel ?: selectedProvider?.selectedOrFirstModel(rememberedModelId)
         val repaired = settings.copy(
             selectedProviderId = selectedProvider?.id,
             selectedModelId = selectedModel?.id,
