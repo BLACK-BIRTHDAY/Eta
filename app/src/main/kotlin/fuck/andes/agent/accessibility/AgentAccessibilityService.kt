@@ -34,11 +34,13 @@ import fuck.andes.agent.device.ScrollEvidenceContract
 import fuck.andes.agent.device.ScrollMovementSource
 import fuck.andes.agent.device.RootScrollMotionContract
 import fuck.andes.core.AndroidAgentLogger
+import java.util.ArrayDeque
+import java.util.concurrent.ArrayBlockingQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
-import java.util.ArrayDeque
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
@@ -72,6 +74,21 @@ class AgentAccessibilityService : AccessibilityService() {
     private val scrollActionLock = ReentrantLock()
     private var scrollEventSequence = 0L
     private val recentScrollSignals = ArrayDeque<ScrollSignal>()
+    private val scrollEventObservationGate = ScrollEventObservationGate(
+        uptimeMillis = SystemClock::uptimeMillis,
+    )
+    // 远端节点查询可能占住线程数秒；只保留一个最新候选，禁止滚动事件形成积压。
+    private val scrollEventExecutor = ThreadPoolExecutor(
+        1,
+        1,
+        0L,
+        TimeUnit.MILLISECONDS,
+        ArrayBlockingQueue(SCROLL_EVENT_QUEUE_CAPACITY),
+        { runnable ->
+            Thread(runnable, "agent-scroll-event").apply { isDaemon = true }
+        },
+        ThreadPoolExecutor.DiscardOldestPolicy(),
+    )
     private val windowContentGenerations = mutableMapOf<Int, Long>()
     private val serviceToken = SERVICE_TOKENS.incrementAndGet()
 
@@ -86,11 +103,13 @@ class AgentAccessibilityService : AccessibilityService() {
 
     override fun onDestroy() {
         clearCurrentInstance()
+        scrollEventExecutor.shutdownNow()
         super.onDestroy()
     }
 
     private fun clearCurrentInstance() {
         if (instance === this) instance = null
+        scrollEventObservationGate.clear()
         signalWindowChanged()
     }
 
@@ -103,7 +122,7 @@ class AgentAccessibilityService : AccessibilityService() {
             }
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
                 bumpWindowContentGeneration(event.windowId)
-                recordScrollEvent(event)
+                observeScrollEvent(event)
             }
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
             AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
@@ -259,10 +278,43 @@ class AgentAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun recordScrollEvent(event: AccessibilityEvent) {
-        val source = runCatching { event.source }.getOrNull()
-        val sourceBounds = source?.bounds() ?: Rect()
-        val signal = ScrollSignal(
+    private fun observeScrollEvent(event: AccessibilityEvent) {
+        scrollEventObservationGate.withMatchingObservation(
+            packageName = event.packageName?.toString().orEmpty(),
+            windowId = event.windowId,
+            eventTimeMillis = event.eventTime,
+        ) { observation ->
+            // 系统可能在滚动后清掉节点缓存，source 必须复制事件后在后台解析。
+            val eventCopy = try {
+                AccessibilityEvent(event)
+            } catch (error: RuntimeException) {
+                AndroidAgentLogger.warnThrottled("scroll_event_copy") {
+                    "Agent accessibility action=observe_scroll_event " +
+                        "outcome=copy_failed error=${error.javaClass.simpleName}"
+                }
+                return@withMatchingObservation
+            }
+            scrollEventExecutor.execute {
+                if (!scrollEventObservationGate.isActive(observation)) return@execute
+                val signal = resolveScrollSignal(eventCopy) ?: return@execute
+                if (scrollEventObservationGate.isActive(observation)) {
+                    recordScrollSignal(signal)
+                }
+            }
+        }
+    }
+
+    private fun resolveScrollSignal(event: AccessibilityEvent): ScrollSignal? {
+        val source = try {
+            event.getSource(0)
+        } catch (error: RuntimeException) {
+            AndroidAgentLogger.warnThrottled("scroll_event_source") {
+                "Agent accessibility action=resolve_scroll_event " +
+                    "outcome=source_failed error=${error.javaClass.simpleName}"
+            }
+            null
+        } ?: return null
+        return ScrollSignal(
             sequence = 0L,
             packageName = event.packageName?.toString().orEmpty(),
             windowId = event.windowId,
@@ -274,11 +326,14 @@ class AgentAccessibilityService : AccessibilityService() {
             maxScrollY = event.maxScrollY,
             fromIndex = event.fromIndex,
             toIndex = event.toIndex,
-            sourceUniqueId = source?.uniqueId.orEmpty(),
-            sourceViewId = source?.viewIdResourceName.orEmpty(),
-            sourceClassName = source?.className?.toString().orEmpty(),
-            sourceBounds = sourceBounds,
+            sourceUniqueId = source.uniqueId.orEmpty(),
+            sourceViewId = source.viewIdResourceName.orEmpty(),
+            sourceClassName = source.className?.toString().orEmpty(),
+            sourceBounds = source.bounds(),
         )
+    }
+
+    private fun recordScrollSignal(signal: ScrollSignal) {
         scrollEventLock.lock()
         try {
             scrollEventSequence++
@@ -491,162 +546,181 @@ class AgentAccessibilityService : AccessibilityService() {
         val beforeSequence = currentScrollEventSequence()
         val method = chooseScrollMethod(target, direction)
         var methodName = method?.name.orEmpty()
-        val nodeDispatch = method?.let { selected ->
-            performNodeAction(target, selected.actionId, selected.args)
-        }
-        if (nodeDispatch == ActionDispatch.OUTCOME_UNKNOWN) {
+        return withScrollEventObservation(packageName, windowId) {
+            val nodeDispatch = method?.let { selected ->
+                performNodeAction(target, selected.actionId, selected.args)
+            }
+            if (nodeDispatch == ActionDispatch.OUTCOME_UNKNOWN) {
+                return ScrollActionResult.failure(
+                    direction = direction,
+                    code = "ACTION_OUTCOME_UNKNOWN",
+                    message = "滚动动作可能已提交，但系统未在时限内返回结果；请先重新观察，避免重复滚动",
+                    method = methodName,
+                    targetIndex = targetIndex,
+                    elapsedMs = SystemClock.elapsedRealtime() - startedAt,
+                )
+            }
+            var accepted = nodeDispatch == ActionDispatch.ACCEPTED
+
+            if (!accepted) {
+                val boundaryBeforeGesture = runOnMainSync {
+                    target.refresh() && isAtScrollBoundary(target, direction)
+                } == true
+                if (boundaryBeforeGesture) {
+                    return ScrollActionResult.boundary(
+                        direction = direction,
+                        method = methodName,
+                        targetIndex = targetIndex,
+                        elapsedMs = SystemClock.elapsedRealtime() - startedAt,
+                    )
+                }
+                val bounds = clippedNodeBounds(target)
+                val gesture = direction.gestureWithin(bounds)
+                    ?: return ScrollActionResult.failure(
+                        direction = direction,
+                        code = "INVALID_NODE_BOUNDS",
+                        message = "滚动目标没有足够的可用区域",
+                        targetIndex = targetIndex,
+                    )
+                methodName = "GESTURE_SWIPE"
+                val gestureResult = gestureSwipe(
+                    gesture.start.x.toFloat(),
+                    gesture.start.y.toFloat(),
+                    gesture.end.x.toFloat(),
+                    gesture.end.y.toFloat(),
+                    SCROLL_GESTURE_DURATION_MS,
+                )
+                if (!gestureResult.ok) {
+                    return ScrollActionResult.failure(
+                        direction = direction,
+                        code = gestureResult.code,
+                        message = gestureResult.message,
+                        method = methodName,
+                        targetIndex = targetIndex,
+                        elapsedMs = SystemClock.elapsedRealtime() - startedAt,
+                    )
+                }
+                accepted = true
+            }
+            if (!accepted) {
+                val boundary = runOnMainSync {
+                    target.refresh() && isAtScrollBoundary(target, direction)
+                } == true
+                if (boundary) {
+                    return ScrollActionResult.boundary(
+                        direction = direction,
+                        method = methodName,
+                        targetIndex = targetIndex,
+                        elapsedMs = SystemClock.elapsedRealtime() - startedAt,
+                    )
+                }
+                return ScrollActionResult.failure(
+                    direction = direction,
+                    code = "ACTION_FAILED",
+                    message = "系统拒绝滚动动作",
+                    method = methodName,
+                    targetIndex = targetIndex,
+                    elapsedMs = SystemClock.elapsedRealtime() - startedAt,
+                )
+            }
+
+            val signal = awaitScrollSignal(
+                afterSequence = beforeSequence,
+                packageName = packageName,
+                windowId = windowId,
+                targetIdentity = targetIdentity,
+                timeoutMillis = SCROLL_VERIFY_TIMEOUT_MS,
+            )
+            val afterAnchors = runOnMainSync {
+                if (target.refresh()) scrollContentAnchors(target) else emptyList()
+            }.orEmpty()
+            val eventDelta = signal?.axisDelta(direction.axis)?.takeIf { delta -> delta != 0 }
+            val anchorDelta = inferScrollAnchorDelta(beforeAnchors, afterAnchors, direction)
+            val delta = eventDelta ?: anchorDelta
+            val movementSource = when {
+                eventDelta != null -> ScrollMovementSource.EVENT
+                anchorDelta != null -> ScrollMovementSource.ANCHOR_MOTION
+                else -> null
+            }
+            val boundary = runOnMainSync {
+                target.refresh() && isAtScrollBoundary(target, direction, signal)
+            } == true
+            val evidence = ScrollEvidenceContract.classify(
+                direction = direction,
+                delta = delta,
+                movementSource = movementSource,
+                atBoundary = boundary,
+            )
+            if (evidence == ScrollEvidence.DIRECTION_MISMATCH) {
+                return ScrollActionResult.failure(
+                    direction = direction,
+                    code = "DIRECTION_MISMATCH",
+                    message = "界面向请求方向的反方向移动",
+                    method = methodName,
+                    targetIndex = targetIndex,
+                    deltaX = delta.takeIf { direction.axis == ScrollAxis.HORIZONTAL },
+                    deltaY = delta.takeIf { direction.axis == ScrollAxis.VERTICAL },
+                    elapsedMs = SystemClock.elapsedRealtime() - startedAt,
+                )
+            }
+            val elapsedMs = SystemClock.elapsedRealtime() - startedAt
+            if (
+                evidence == ScrollEvidence.MOVED_BY_EVENT ||
+                evidence == ScrollEvidence.MOVED_BY_ANCHOR_MOTION
+            ) {
+                return ScrollActionResult(
+                    ok = true,
+                    direction = direction,
+                    moved = true,
+                    atBoundary = boundary,
+                    method = methodName,
+                    deltaX = delta.takeIf { direction.axis == ScrollAxis.HORIZONTAL },
+                    deltaY = delta.takeIf { direction.axis == ScrollAxis.VERTICAL },
+                    verifiedBy = if (evidence == ScrollEvidence.MOVED_BY_EVENT) {
+                        "scroll_event"
+                    } else {
+                        "anchor_motion"
+                    },
+                    elapsedMs = elapsedMs,
+                    targetIndex = targetIndex,
+                )
+            }
+            if (evidence == ScrollEvidence.AT_BOUNDARY) {
+                return ScrollActionResult.boundary(
+                    direction = direction,
+                    method = methodName,
+                    targetIndex = targetIndex,
+                    elapsedMs = elapsedMs,
+                )
+            }
             return ScrollActionResult.failure(
                 direction = direction,
                 code = "ACTION_OUTCOME_UNKNOWN",
-                message = "滚动动作可能已提交，但系统未在时限内返回结果；请先重新观察，避免重复滚动",
+                message = "滚动动作已经发出，但无法确认内容位移；请先重新观察，禁止直接重试",
                 method = methodName,
                 targetIndex = targetIndex,
-                elapsedMs = SystemClock.elapsedRealtime() - startedAt,
+                deltaX = delta.takeIf { direction.axis == ScrollAxis.HORIZONTAL },
+                deltaY = delta.takeIf { direction.axis == ScrollAxis.VERTICAL },
+                elapsedMs = elapsedMs,
             )
         }
-        var accepted = nodeDispatch == ActionDispatch.ACCEPTED
+    }
 
-        if (!accepted) {
-            val boundaryBeforeGesture = runOnMainSync {
-                target.refresh() && isAtScrollBoundary(target, direction)
-            } == true
-            if (boundaryBeforeGesture) {
-                return ScrollActionResult.boundary(
-                    direction = direction,
-                    method = methodName,
-                    targetIndex = targetIndex,
-                    elapsedMs = SystemClock.elapsedRealtime() - startedAt,
-                )
-            }
-            val bounds = clippedNodeBounds(target)
-            val gesture = direction.gestureWithin(bounds)
-                ?: return ScrollActionResult.failure(
-                    direction = direction,
-                    code = "INVALID_NODE_BOUNDS",
-                    message = "滚动目标没有足够的可用区域",
-                    targetIndex = targetIndex,
-                )
-            methodName = "GESTURE_SWIPE"
-            val gestureResult = gestureSwipe(
-                gesture.start.x.toFloat(),
-                gesture.start.y.toFloat(),
-                gesture.end.x.toFloat(),
-                gesture.end.y.toFloat(),
-                SCROLL_GESTURE_DURATION_MS,
-            )
-            if (!gestureResult.ok) {
-                return ScrollActionResult.failure(
-                    direction = direction,
-                    code = gestureResult.code,
-                    message = gestureResult.message,
-                    method = methodName,
-                    targetIndex = targetIndex,
-                    elapsedMs = SystemClock.elapsedRealtime() - startedAt,
-                )
-            }
-            accepted = true
-        }
-        if (!accepted) {
-            val boundary = runOnMainSync {
-                target.refresh() && isAtScrollBoundary(target, direction)
-            } == true
-            if (boundary) {
-                return ScrollActionResult.boundary(
-                    direction = direction,
-                    method = methodName,
-                    targetIndex = targetIndex,
-                    elapsedMs = SystemClock.elapsedRealtime() - startedAt,
-                )
-            }
-            return ScrollActionResult.failure(
-                direction = direction,
-                code = "ACTION_FAILED",
-                message = "系统拒绝滚动动作",
-                method = methodName,
-                targetIndex = targetIndex,
-                elapsedMs = SystemClock.elapsedRealtime() - startedAt,
-            )
-        }
-
-        val signal = awaitScrollSignal(
-            afterSequence = beforeSequence,
+    private inline fun <T> withScrollEventObservation(
+        packageName: String,
+        windowId: Int,
+        block: () -> T,
+    ): T {
+        val observation = scrollEventObservationGate.begin(
             packageName = packageName,
             windowId = windowId,
-            targetIdentity = targetIdentity,
-            timeoutMillis = SCROLL_VERIFY_TIMEOUT_MS,
+            validForMillis = SCROLL_EVENT_OBSERVATION_TIMEOUT_MS,
         )
-        val afterAnchors = runOnMainSync {
-            if (target.refresh()) scrollContentAnchors(target) else emptyList()
-        }.orEmpty()
-        val eventDelta = signal?.axisDelta(direction.axis)?.takeIf { delta -> delta != 0 }
-        val anchorDelta = inferScrollAnchorDelta(beforeAnchors, afterAnchors, direction)
-        val delta = eventDelta ?: anchorDelta
-        val movementSource = when {
-            eventDelta != null -> ScrollMovementSource.EVENT
-            anchorDelta != null -> ScrollMovementSource.ANCHOR_MOTION
-            else -> null
+        return try {
+            block()
+        } finally {
+            scrollEventObservationGate.end(observation)
         }
-        val boundary = runOnMainSync {
-            target.refresh() && isAtScrollBoundary(target, direction, signal)
-        } == true
-        val evidence = ScrollEvidenceContract.classify(
-            direction = direction,
-            delta = delta,
-            movementSource = movementSource,
-            atBoundary = boundary,
-        )
-        if (evidence == ScrollEvidence.DIRECTION_MISMATCH) {
-            return ScrollActionResult.failure(
-                direction = direction,
-                code = "DIRECTION_MISMATCH",
-                message = "界面向请求方向的反方向移动",
-                method = methodName,
-                targetIndex = targetIndex,
-                deltaX = delta.takeIf { direction.axis == ScrollAxis.HORIZONTAL },
-                deltaY = delta.takeIf { direction.axis == ScrollAxis.VERTICAL },
-                elapsedMs = SystemClock.elapsedRealtime() - startedAt,
-            )
-        }
-        val elapsedMs = SystemClock.elapsedRealtime() - startedAt
-        if (
-            evidence == ScrollEvidence.MOVED_BY_EVENT ||
-            evidence == ScrollEvidence.MOVED_BY_ANCHOR_MOTION
-        ) {
-            return ScrollActionResult(
-                ok = true,
-                direction = direction,
-                moved = true,
-                atBoundary = boundary,
-                method = methodName,
-                deltaX = delta.takeIf { direction.axis == ScrollAxis.HORIZONTAL },
-                deltaY = delta.takeIf { direction.axis == ScrollAxis.VERTICAL },
-                verifiedBy = if (evidence == ScrollEvidence.MOVED_BY_EVENT) {
-                    "scroll_event"
-                } else {
-                    "anchor_motion"
-                },
-                elapsedMs = elapsedMs,
-                targetIndex = targetIndex,
-            )
-        }
-        if (evidence == ScrollEvidence.AT_BOUNDARY) {
-            return ScrollActionResult.boundary(
-                direction = direction,
-                method = methodName,
-                targetIndex = targetIndex,
-                elapsedMs = elapsedMs,
-            )
-        }
-        return ScrollActionResult.failure(
-            direction = direction,
-            code = "ACTION_OUTCOME_UNKNOWN",
-            message = "滚动动作已经发出，但无法确认内容位移；请先重新观察，禁止直接重试",
-            method = methodName,
-            targetIndex = targetIndex,
-            deltaX = delta.takeIf { direction.axis == ScrollAxis.HORIZONTAL },
-            deltaY = delta.takeIf { direction.axis == ScrollAxis.VERTICAL },
-            elapsedMs = elapsedMs,
-        )
     }
 
     fun inputTextFocused(text: String): NodeActionResult = runNodeActionOnMainSync {
@@ -2236,6 +2310,12 @@ class AgentAccessibilityService : AccessibilityService() {
         private const val SCROLL_VERIFY_TIMEOUT_MS = 520L
         private const val GESTURE_CALLBACK_GRACE_MS = 1_500L
         private const val MAIN_SYNC_TIMEOUT_SECONDS = 3L
+        private const val SCROLL_EVENT_OBSERVATION_TIMEOUT_MS =
+            MAIN_SYNC_TIMEOUT_SECONDS * 1_000L +
+                SCROLL_GESTURE_DURATION_MS +
+                GESTURE_CALLBACK_GRACE_MS +
+                SCROLL_VERIFY_TIMEOUT_MS
+        private const val SCROLL_EVENT_QUEUE_CAPACITY = 1
         private const val MAX_SCROLL_SIGNALS = 64
 
         private val GESTURE_CALLBACK_THREAD = HandlerThread("agent-gesture-callback").apply {
