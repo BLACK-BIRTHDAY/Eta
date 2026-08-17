@@ -1,4 +1,6 @@
 package fuck.andes.ui.components
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -67,7 +69,7 @@ fun AgentStatusCard(
                 )
                 if (activeRun.status == RunStatusUi.Running) {
                     TextButton(
-                        text = "停止",
+                        text = stringResource(R.string.ui_stop_a17f70),
                         onClick = onStopRun,
                         colors = ButtonDefaults.textButtonColors(),
                     )

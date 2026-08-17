@@ -1,4 +1,6 @@
 package fuck.andes.ui.screens.skills
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -66,7 +68,7 @@ fun AgentSkillsScreen(
     }
 
     MiuixScaffoldPage(
-        title = "技能",
+        title = stringResource(R.string.ui_skill_53da13),
         onBack = { onAction(AgentSkillsAction.NavigateBack) },
         modifier = modifier,
     ) {
@@ -75,7 +77,7 @@ fun AgentSkillsScreen(
         val userInstalled = installed.filter { it.canDeleteUserSkill }
         val removed = state.skills.filter { !it.installed }
 
-        item(key = "zip-import-title") { SmallTitle("安装") }
+        item(key = "zip-import-title") { SmallTitle(stringResource(R.string.ui_install_087db6)) }
         item(key = "zip-import-card") {
             Card(
                 modifier = Modifier
@@ -83,11 +85,11 @@ fun AgentSkillsScreen(
                     .padding(bottom = CardBottomPadding),
             ) {
                 BasicComponent(
-                    title = if (state.isImporting) "正在检查技能包" else "从 ZIP 导入",
+                    title = if (state.isImporting) stringResource(R.string.skills_checking_package) else stringResource(R.string.skills_import_zip),
                     summary = if (state.isImporting) {
-                        "正在验证并安装，请稍候"
+                        stringResource(R.string.skills_installing_package)
                     } else {
-                        "选择包含 SKILL.md 的技能包"
+                        stringResource(R.string.skills_choose_package)
                     },
                     startAction = {
                         if (state.isImporting) {
@@ -105,13 +107,13 @@ fun AgentSkillsScreen(
                     },
                     enabled = !operationPending,
                     onClick = openZipPicker,
-                    onClickLabel = "选择 ZIP 技能包",
+                    onClickLabel = stringResource(R.string.skills_choose_zip),
                 )
             }
         }
 
         if (builtinInstalled.isNotEmpty()) {
-            item(key = "builtin-title") { SmallTitle("内置技能") }
+            item(key = "builtin-title") { SmallTitle(stringResource(R.string.ui_built_in_skills_1ceedf)) }
             item(key = "builtin-card") {
                 Card(
                     modifier = Modifier
@@ -133,7 +135,7 @@ fun AgentSkillsScreen(
         }
 
         if (userInstalled.isNotEmpty()) {
-            item(key = "user-title") { SmallTitle("用户技能") }
+            item(key = "user-title") { SmallTitle(stringResource(R.string.ui_user_skills_748e7f)) }
             item(key = "user-card") {
                 Card(
                     modifier = Modifier
@@ -156,7 +158,7 @@ fun AgentSkillsScreen(
         }
 
         if (removed.isNotEmpty()) {
-            item(key = "removed-title") { SmallTitle("已移除") }
+            item(key = "removed-title") { SmallTitle(stringResource(R.string.ui_removed_4e5c49)) }
             item(key = "removed-card") {
                 Card(
                     modifier = Modifier
@@ -166,7 +168,7 @@ fun AgentSkillsScreen(
                     removed.forEachIndexed { index, skill ->
                         BasicComponent(
                             title = skill.name,
-                            summary = "点击重新安装",
+                            summary = stringResource(R.string.ui_click_to_reinstall_dc60de),
                             startAction = { SkillIcon(skill) },
                             enabled = !operationPending,
                             onClick = {
@@ -180,19 +182,19 @@ fun AgentSkillsScreen(
         }
 
         if (state.skills.isEmpty() && !state.isLoading) {
-            item(key = "empty") { SmallTitle("暂无已安装技能") }
+            item(key = "empty") { SmallTitle(stringResource(R.string.ui_no_skills_installed_yet_4e960f)) }
         }
     }
 
     state.replacement?.let { replacement ->
         WindowDialog(
             show = true,
-            title = "替换用户技能？",
-            summary = "已存在用户技能「${replacement.name}」（${replacement.id}）。替换会覆盖它当前的全部文件。",
+            title = stringResource(R.string.ui_replace_user_skills_250e98),
+            summary = stringResource(R.string.skills_replace_summary, replacement.name, replacement.id),
             onDismissRequest = { onAction(AgentSkillsAction.CancelZipReplacement) },
         ) {
             MiuixDialogActions(
-                confirmText = "替换",
+                confirmText = stringResource(R.string.skills_replace),
                 confirmEnabled = !operationPending,
                 onCancel = { onAction(AgentSkillsAction.CancelZipReplacement) },
                 onConfirm = { onAction(AgentSkillsAction.ConfirmZipReplacement) },
@@ -203,12 +205,12 @@ fun AgentSkillsScreen(
     deleteTarget?.let { skill ->
         WindowDialog(
             show = true,
-            title = "删除用户技能",
-            summary = "删除「${skill.name}」后需要重新安装才能恢复。",
+            title = stringResource(R.string.ui_delete_user_skills_f319a9),
+            summary = stringResource(R.string.skills_delete_summary, skill.name),
             onDismissRequest = { deleteTarget = null },
         ) {
             MiuixDialogActions(
-                confirmText = "删除",
+                confirmText = stringResource(R.string.ui_delete_3755f5),
                 destructive = true,
                 confirmEnabled = !operationPending,
                 onCancel = { deleteTarget = null },
@@ -228,7 +230,7 @@ fun AgentSkillsScreen(
             onDismissRequest = { onAction(AgentSkillsAction.DismissNotice) },
         ) {
             TextButton(
-                text = "知道了",
+                text = stringResource(R.string.ui_knew_cb63c6),
                 onClick = { onAction(AgentSkillsAction.DismissNotice) },
                 modifier = Modifier.fillMaxWidth(),
                 colors = if (notice.isError) {
@@ -248,8 +250,9 @@ private fun SkillSwitchRow(
     onToggle: (Boolean) -> Unit,
     onDelete: (() -> Unit)? = null,
 ) {
+    val noDescription = stringResource(R.string.skills_no_description)
     val truncatedSummary = remember(skill.description) {
-        val desc = skill.description.ifBlank { "无描述" }
+        val desc = skill.description.ifBlank { noDescription }
         if (desc.length > 80) desc.take(80) + "..." else desc
     }
     BasicComponent(
@@ -266,7 +269,7 @@ private fun SkillSwitchRow(
                 ) {
                     Icon(
                         painter = painterResource(LucideR.drawable.lucide_ic_trash_2),
-                        contentDescription = "删除 ${skill.name}",
+                        contentDescription = stringResource(R.string.skills_delete_named, skill.name),
                         modifier = Modifier.size(20.dp),
                         tint = MiuixTheme.colorScheme.error,
                     )

@@ -46,6 +46,8 @@ import fuck.andes.ui.app.AgentRunMessageProjector
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
 import fuck.andes.ui.model.ThinkingMessageUi
+import fuck.andes.ui.model.SystemNoticeCode
+import fuck.andes.ui.model.SystemNoticeMessageUi
 import fuck.andes.ui.model.ToolActivityMessageUi
 import fuck.andes.ui.model.TokenUsageUi
 import fuck.andes.ui.model.UserMessageUi
@@ -334,7 +336,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         }
     }
 
-    private fun showKeyboard(status: String = "输入请求") {
+    private fun showKeyboard(status: EtaVoiceStatus = EtaVoiceStatus.InputRequest) {
         uiState = uiState.copy(
             phase = EtaVoicePhase.READY,
             status = status,
@@ -361,7 +363,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         val runId = activeRunId ?: return
         uiState = uiState.copy(
             phase = EtaVoicePhase.PROCESSING,
-            status = "Eta 正在思考",
+            status = EtaVoiceStatus.Reasoning,
             screenContext = EtaScreenContextStateReducer.consume(),
             messages = uiState.messages + UserMessageUi(
                 id = "user-$runId",
@@ -403,13 +405,13 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                         result.transcript
                     uiState = uiState.copy(
                         phase = EtaVoicePhase.READY,
-                        status = "已完成",
+                        status = EtaVoiceStatus.Completed,
                         messages = finishRunMessages(runId, result),
                     )
                 } else {
                     uiState = uiState.copy(
                         phase = EtaVoicePhase.ERROR,
-                        status = result.error ?: "Agent 执行失败",
+                        status = EtaVoiceStatus.Failed(result.error),
                         messages = finishRunMessages(runId, result),
                     )
                 }
@@ -504,7 +506,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             }
 
             is AgentEvent.ToolStarted -> {
-                status = "Eta 正在执行 ${event.name}"
+                status = EtaVoiceStatus.RunningTool(event.name)
                 messages = runMessageProjector.startTool(
                     runId,
                     event,
@@ -521,7 +523,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             }
 
             is AgentEvent.HostedToolStarted -> {
-                status = "Eta 正在执行 ${event.name}"
+                status = EtaVoiceStatus.RunningTool(event.name)
                 messages = runMessageProjector.startHostedTool(
                     runId,
                     event,
@@ -539,7 +541,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
 
             is AgentEvent.RunFailed -> {
                 phase = EtaVoicePhase.ERROR
-                status = event.reason
+                status = EtaVoiceStatus.Failed(event.reason)
                 messages = runMessageProjector.failRunningTools(
                     event.reason,
                     runMessageProjector.finalizeText(
@@ -567,7 +569,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 )
             }
 
-            is AgentEvent.ProviderRequestStarted -> status = "Eta 正在思考"
+            is AgentEvent.ProviderRequestStarted -> status = EtaVoiceStatus.Reasoning
             is AgentEvent.RunStarted,
             is AgentEvent.ProviderResponseStarted,
             is AgentEvent.ToolImagesAttached,
@@ -587,14 +589,15 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         )
         if (!result.ok) {
             messages = runMessageProjector.failRunningTools(
-                result.error ?: "Agent 执行失败",
+                result.error ?: SYNTHETIC_RUNTIME_FAILED,
                 messages,
             )
         }
-        val content = if (result.ok) {
-            result.content.ifBlank { "已完成。" }
-        } else {
-            result.error ?: "Agent 执行失败"
+        val notice = when {
+            result.ok && result.content.isBlank() -> SystemNoticeCode.EmptyResult
+            !result.ok && result.error == LEGACY_STOPPED_ERROR -> SystemNoticeCode.Stopped
+            !result.ok -> SystemNoticeCode.RuntimeFailed
+            else -> null
         }
         val lastAssistantIndex = messages.indexOfLast { message ->
             message is AgentMessageUi && message.id.startsWith("assistant-$runId-")
@@ -602,22 +605,38 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         messages = if (lastAssistantIndex >= 0) {
             messages.mapIndexed { index, message ->
                 if (index == lastAssistantIndex && message is AgentMessageUi) {
-                    message.copy(
-                        content = content,
-                        isStreaming = false,
-                        renderMarkdown = result.ok,
-                    )
+                    if (notice == null) {
+                        message.copy(
+                            content = result.content,
+                            isStreaming = false,
+                            renderMarkdown = true,
+                        )
+                    } else {
+                        SystemNoticeMessageUi(
+                            id = message.id,
+                            code = notice,
+                            detail = result.error.takeIf { notice == SystemNoticeCode.RuntimeFailed },
+                        )
+                    }
                 } else {
                     message
                 }
             }
         } else {
-            messages + AgentMessageUi(
-                id = "assistant-$runId-1",
-                content = content,
-                isStreaming = false,
-                renderMarkdown = result.ok,
-            )
+            if (notice == null) {
+                messages + AgentMessageUi(
+                    id = "assistant-$runId-1",
+                    content = result.content,
+                    isStreaming = false,
+                    renderMarkdown = true,
+                )
+            } else {
+                messages + SystemNoticeMessageUi(
+                    id = "assistant-$runId-1",
+                    code = notice,
+                    detail = result.error.takeIf { notice == SystemNoticeCode.RuntimeFailed },
+                )
+            }
         }
         runMessageProjector.clearRun(runId)
         return messages
@@ -632,9 +651,9 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             runJob = null
             uiState = uiState.copy(
                 phase = EtaVoicePhase.READY,
-                status = "已停止",
+                status = EtaVoiceStatus.Stopped,
                 messages = runMessageProjector.failRunningTools(
-                    "已停止",
+                    SYNTHETIC_STOPPED,
                     runMessageProjector.finalizeText(
                         runId,
                         runMessageProjector.finalizeThinking(runId, uiState.messages),
@@ -790,6 +809,9 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         private const val HANDOFF_TIMEOUT_MS = 5_000L
         private const val HANDOFF_EXIT_DURATION_MS = 220L
         private const val HANDOFF_REQUEST_CODE = 0x455441
+        private const val LEGACY_STOPPED_ERROR = "已停止"
+        private const val SYNTHETIC_STOPPED = "eta_status:stopped"
+        private const val SYNTHETIC_RUNTIME_FAILED = "eta_status:runtime_failed"
 
         fun show(context: Context) {
             context.applicationContext.startService(

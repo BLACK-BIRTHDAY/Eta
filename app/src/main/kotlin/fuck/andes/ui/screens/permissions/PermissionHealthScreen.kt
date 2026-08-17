@@ -1,4 +1,6 @@
 package fuck.andes.ui.screens.permissions
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -34,12 +36,12 @@ fun PermissionHealthScreen(
     modifier: Modifier = Modifier,
 ) {
     MiuixScaffoldPage(
-        title = "权限健康",
+        title = stringResource(R.string.ui_permission_health_3048bb),
         onBack = { onAction(PermissionHealthAction.NavigateBack) },
         modifier = modifier,
     ) {
         item(key = "title") {
-            SmallTitle("权限与状态")
+            SmallTitle(stringResource(R.string.ui_permissions_and_status_35f368))
         }
         item(key = "card") {
             Card(modifier = Modifier.padding(horizontal = 12.dp)) {

@@ -1,6 +1,10 @@
 package fuck.andes.ui.screens.terminal
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import android.content.Context
+import android.icu.text.ListFormatter
+import android.text.format.Formatter
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,8 +21,10 @@ import fuck.andes.agent.terminal.AlpineEnvironmentState
 import fuck.andes.agent.terminal.AlpineEnvironmentStatus
 import fuck.andes.agent.terminal.AlpineInstallProgress
 import fuck.andes.agent.terminal.AlpineInstallResult
+import fuck.andes.agent.terminal.AlpineInstallStage
 import fuck.andes.agent.terminal.ApkAnalysisInstallProgress
 import fuck.andes.agent.terminal.ApkAnalysisInstallResult
+import fuck.andes.agent.terminal.ApkAnalysisInstallStage
 import fuck.andes.ui.components.MiuixScaffoldPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -51,10 +57,10 @@ internal fun LinuxEnvironmentScreen(
     var apkAnalysisResultMessage by remember { mutableStateOf<String?>(null) }
 
     MiuixScaffoldPage(
-        title = "Linux 工具环境",
+        title = stringResource(R.string.ui_linux_tool_environment_314d22),
         onBack = onBack,
     ) {
-        item(key = "status-title") { SmallTitle("环境状态") }
+        item(key = "status-title") { SmallTitle(stringResource(R.string.ui_environmental_status_5b32a1)) }
         item(key = "status-card") {
             Card(
                 modifier = Modifier
@@ -62,16 +68,16 @@ internal fun LinuxEnvironmentScreen(
                     .padding(bottom = 12.dp),
             ) {
                 BasicComponent(
-                    title = status.title(),
-                    summary = progress?.summary() ?: status.summary(),
+                    title = status.title(context),
+                    summary = progress?.summary(context) ?: status.summary(context),
                     endActions = {
                         TextButton(
                             text = when {
-                                installing -> "安装中"
-                                status.state == AlpineEnvironmentState.READY -> "已就绪"
-                                status.state == AlpineEnvironmentState.BASE_READY && status.version != null -> "升级工具"
-                                status.state == AlpineEnvironmentState.BASE_READY -> "继续安装"
-                                else -> "下载并安装"
+                                installing -> context.getString(R.string.linux_installing)
+                                status.state == AlpineEnvironmentState.READY -> context.getString(R.string.linux_ready)
+                                status.state == AlpineEnvironmentState.BASE_READY && status.version != null -> context.getString(R.string.linux_upgrade_tools)
+                                status.state == AlpineEnvironmentState.BASE_READY -> context.getString(R.string.linux_continue_installation)
+                                else -> context.getString(R.string.linux_download_install)
                             },
                             enabled = !installing && status.state != AlpineEnvironmentState.READY,
                             onClick = {
@@ -89,7 +95,7 @@ internal fun LinuxEnvironmentScreen(
                                     health = null
                                     progress = null
                                     installing = false
-                                    resultMessage = result.toMessage()
+                                    resultMessage = result.toMessage(context)
                                 }
                             },
                         )
@@ -99,7 +105,7 @@ internal fun LinuxEnvironmentScreen(
         }
 
         if (status.state == AlpineEnvironmentState.READY) {
-            item(key = "health-title") { SmallTitle("环境检查") }
+            item(key = "health-title") { SmallTitle(stringResource(R.string.ui_environmental_inspection_d58123)) }
             item(key = "health-card") {
                 Card(
                     modifier = Modifier
@@ -107,16 +113,16 @@ internal fun LinuxEnvironmentScreen(
                         .padding(bottom = 12.dp),
                 ) {
                     BasicComponent(
-                        title = health?.title() ?: "尚未检查",
-                        summary = health?.summary() ?: "检查核心命令、工作区挂载、共享存储与剩余空间",
+                        title = health?.title(context) ?: context.getString(R.string.linux_not_checked),
+                        summary = health?.summary(context) ?: context.getString(R.string.linux_health_summary),
                         endActions = {
                             val repairNeeded = health?.healthy == false
                             TextButton(
                                 text = when {
-                                    installing -> "忙碌"
-                                    checkingHealth -> "检查中"
-                                    repairNeeded -> "修复"
-                                    else -> "检查"
+                                    installing -> context.getString(R.string.linux_busy)
+                                    checkingHealth -> context.getString(R.string.linux_checking)
+                                    repairNeeded -> context.getString(R.string.linux_repair)
+                                    else -> context.getString(R.string.linux_check)
                                 },
                                 enabled = !checkingHealth && !installing,
                                 onClick = {
@@ -134,7 +140,7 @@ internal fun LinuxEnvironmentScreen(
                                             status = installer.status()
                                             progress = null
                                             installing = false
-                                            resultMessage = result.toMessage()
+                                            resultMessage = result.toMessage(context)
                                         }
                                     } else {
                                         checkingHealth = true
@@ -152,7 +158,7 @@ internal fun LinuxEnvironmentScreen(
         }
 
         if (status.state == AlpineEnvironmentState.READY) {
-            item(key = "optional-tools-title") { SmallTitle("可选工具") }
+            item(key = "optional-tools-title") { SmallTitle(stringResource(R.string.ui_optional_tools_3097d6)) }
             item(key = "apk-analysis-card") {
                 Card(
                     modifier = Modifier
@@ -160,18 +166,18 @@ internal fun LinuxEnvironmentScreen(
                         .padding(bottom = 12.dp),
                 ) {
                     BasicComponent(
-                        title = "APK 分析",
-                        summary = apkAnalysisProgress?.summary() ?: if (apkAnalysisReady) {
-                            "JADX、Apktool、smali 与 baksmali 已就绪；Apktool 暂不支持回编译"
+                        title = stringResource(R.string.ui_apk_analysis_95ad17),
+                        summary = apkAnalysisProgress?.summary(context) ?: if (apkAnalysisReady) {
+                            context.getString(R.string.linux_apk_tools_ready)
                         } else {
-                            "安装 OpenJDK 17、JADX、Apktool、smali 与 baksmali；下载约 84 MB，需预留 768 MB；官方下载不可达时尝试校验镜像"
+                            context.getString(R.string.linux_apk_tools_summary)
                         },
                         endActions = {
                             TextButton(
                                 text = when {
-                                    apkAnalysisReady -> "已安装"
-                                    installing -> "安装中"
-                                    else -> "安装"
+                                    apkAnalysisReady -> context.getString(R.string.linux_installed)
+                                    installing -> context.getString(R.string.linux_installing)
+                                    else -> context.getString(R.string.linux_install)
                                 },
                                 enabled = !installing && !apkAnalysisReady,
                                 onClick = {
@@ -187,7 +193,7 @@ internal fun LinuxEnvironmentScreen(
                                         apkAnalysisReady = apkAnalysisInstaller.isReady()
                                         apkAnalysisProgress = null
                                         installing = false
-                                        apkAnalysisResultMessage = result.toMessage()
+                                        apkAnalysisResultMessage = result.toMessage(context)
                                     }
                                 },
                             )
@@ -221,7 +227,7 @@ internal fun LinuxEnvironmentScreen(
             }
         }
 
-        item(key = "details-title") { SmallTitle("说明") }
+        item(key = "details-title") { SmallTitle(stringResource(R.string.ui_illustrate_26670d)) }
         item(key = "details-card") {
             Card(
                 modifier = Modifier
@@ -229,88 +235,88 @@ internal fun LinuxEnvironmentScreen(
                     .padding(bottom = 12.dp),
             ) {
                 BasicComponent(
-                    title = "与 Android Root Shell 分离",
-                    summary = "系统、应用、日志和 Magisk 操作仍使用 Android 环境；Python、Git、jq、zip 等通用工具使用 Alpine 环境。",
+                    title = stringResource(R.string.ui_separate_from_android_root_shell_d2e22f),
+                    summary = stringResource(R.string.ui_system_application_log_and_magisk_operations_still_u_69659b),
                 )
                 BasicComponent(
-                    title = "Agent 基础工具",
-                    summary = "预装 rg、fd、Git、SSH、curl、rsync、diff、patch、jq、SQLite、进程工具和常用压缩格式，适合搜索、修改、传输与诊断。",
+                    title = stringResource(R.string.ui_agent_basic_tools_98276b),
+                    summary = stringResource(R.string.ui_pre_installed_rg_fd_git_ssh_curl_rsync_diff_patch_jq_c492d9),
                 )
                 BasicComponent(
-                    title = "Python 工具",
-                    summary = "预装 Python、pip、venv、pipx、uv 与 Ruff；项目依赖仍优先安装到独立虚拟环境。",
+                    title = stringResource(R.string.ui_python_tools_b811ed),
+                    summary = stringResource(R.string.ui_python_pip_venv_pipx_uv_and_ruff_are_pre_installed_p_1aa31e),
                 )
                 BasicComponent(
-                    title = "按需扩展",
-                    summary = "Node.js、编译器、tmux、Vim 与网络抓包工具不默认占用空间，可按项目需要使用 apk add 安装。",
+                    title = stringResource(R.string.ui_scale_on_demand_fdd11e),
+                    summary = stringResource(R.string.ui_node_js_compiler_tmux_vim_and_network_packet_capture_05dcca),
                 )
                 BasicComponent(
-                    title = "稳定工作区",
-                    summary = "Linux 默认进入 /workspace，并继续兼容 /data/local/tmp/fuck_andes；共享存储位于 /sdcard。",
+                    title = stringResource(R.string.ui_stable_workspace_86d734),
+                    summary = stringResource(R.string.ui_linux_defaults_to_workspace_and_continues_to_be_comp_052e9b),
                 )
                 BasicComponent(
-                    title = "权限边界",
-                    summary = "环境通过 Root chroot 运行，并用独立 mount namespace 避免挂载泄漏；它提供工具链，不是安全沙箱。",
+                    title = stringResource(R.string.ui_permission_boundaries_b11a0c),
+                    summary = stringResource(R.string.ui_the_environment_runs_through_root_chroot_and_uses_a__83aefe),
                 )
             }
         }
     }
 }
 
-private fun AlpineEnvironmentStatus.title(): String = when (state) {
-    AlpineEnvironmentState.NOT_INSTALLED -> "尚未安装"
-    AlpineEnvironmentState.BASE_READY -> "基础环境已就绪"
-    AlpineEnvironmentState.READY -> "Alpine ${version ?: ""} 已就绪".trim()
+private fun AlpineEnvironmentStatus.title(context: Context): String = when (state) {
+    AlpineEnvironmentState.NOT_INSTALLED -> context.getString(R.string.linux_not_installed)
+    AlpineEnvironmentState.BASE_READY -> context.getString(R.string.linux_base_ready)
+    AlpineEnvironmentState.READY -> context.getString(R.string.linux_alpine_ready, version.orEmpty()).trim()
 }
 
-private fun AlpineEnvironmentStatus.summary(): String = when (state) {
-    AlpineEnvironmentState.NOT_INSTALLED -> "需要 Root 与 Magisk、KernelSU 或 APatch BusyBox"
+private fun AlpineEnvironmentStatus.summary(context: Context): String = when (state) {
+    AlpineEnvironmentState.NOT_INSTALLED -> context.getString(R.string.linux_requirements)
     AlpineEnvironmentState.BASE_READY -> if (version == null) {
-        "常用工具安装尚未完成，可以从当前进度继续"
+        context.getString(R.string.linux_tools_incomplete)
     } else {
-        "基础环境可用，升级后补齐新版 Agent 与 Python 工具集"
+        context.getString(R.string.linux_tools_upgrade_summary)
     }
-    AlpineEnvironmentState.READY -> "Agent 可通过 terminal 的 environment=linux 在 /workspace 工作"
+    AlpineEnvironmentState.READY -> context.getString(R.string.linux_agent_ready_summary)
 }
 
-private fun AlpineEnvironmentHealth.title(): String = when {
-    healthy -> "环境正常"
-    missingTools.isNotEmpty() -> "缺少 ${missingTools.size} 个核心命令"
-    !workspaceReady -> "工作区挂载异常"
-    else -> "环境需要检查"
+private fun AlpineEnvironmentHealth.title(context: Context): String = when {
+    healthy -> context.getString(R.string.linux_health_ok)
+    missingTools.isNotEmpty() -> context.resources.getQuantityString(
+        R.plurals.linux_missing_core_commands,
+        missingTools.size,
+        missingTools.size,
+    )
+    !workspaceReady -> context.getString(R.string.linux_workspace_error)
+    else -> context.getString(R.string.linux_health_needs_check)
 }
 
-private fun AlpineEnvironmentHealth.summary(): String {
+private fun AlpineEnvironmentHealth.summary(context: Context): String {
     val details = buildList {
-        if (missingTools.isNotEmpty()) add("缺少 ${missingTools.joinToString(", ")}")
-        add(if (workspaceReady) "/workspace 可用" else "/workspace 不可用")
-        add(if (sharedStorageReady) "/sdcard 可用" else "/sdcard 当前不可用")
-        add("剩余 ${availableBytes.toReadableSize()}")
+        if (missingTools.isNotEmpty()) {
+            add(context.getString(R.string.linux_missing_tools, ListFormatter.getInstance().format(missingTools)))
+        }
+        add(context.getString(if (workspaceReady) R.string.linux_workspace_available else R.string.linux_workspace_unavailable))
+        add(context.getString(if (sharedStorageReady) R.string.linux_sdcard_available else R.string.linux_sdcard_unavailable))
+        add(context.getString(R.string.linux_space_remaining, availableBytes.toReadableSize(context)))
     }
-    return details.joinToString(" · ")
+    return ListFormatter.getInstance().format(details)
 }
 
-private fun Long.toReadableSize(): String {
-    val gibibyte = 1024L * 1024L * 1024L
-    val mebibyte = 1024L * 1024L
-    return if (this >= gibibyte) {
-        "%.1f GB".format(this.toDouble() / gibibyte)
-    } else {
-        "${this / mebibyte} MB"
-    }
-}
+private fun Long.toReadableSize(context: Context): String = Formatter.formatShortFileSize(context, this)
 
-private fun AlpineInstallProgress.summary(): String {
-    if (stage.displayName != "下载 Alpine 基础环境" || totalBytes <= 0L) {
-        return stage.displayName
+private fun AlpineInstallProgress.summary(context: Context): String {
+    val stageName = stage.displayName(context)
+    if (stage != AlpineInstallStage.DOWNLOADING || totalBytes <= 0L) {
+        return stageName
     }
     val percent = (downloadedBytes * 100L / totalBytes).coerceIn(0L, 100L)
-    return "${stage.displayName} · $percent%"
+    return context.getString(R.string.linux_progress_percent, stageName, percent)
 }
 
-private fun ApkAnalysisInstallProgress.summary(): String {
-    if (stage != fuck.andes.agent.terminal.ApkAnalysisInstallStage.DOWNLOADING || totalBytes <= 0L) {
-        return stage.displayName
+private fun ApkAnalysisInstallProgress.summary(context: Context): String {
+    val stageName = stage.displayName(context)
+    if (stage != ApkAnalysisInstallStage.DOWNLOADING || totalBytes <= 0L) {
+        return stageName
     }
     val percent = (downloadedBytes * 100L / totalBytes).coerceIn(0L, 100L)
     val name = when (artifactName) {
@@ -318,26 +324,52 @@ private fun ApkAnalysisInstallProgress.summary(): String {
         "apktool" -> "Apktool"
         "smali" -> "smali"
         "baksmali" -> "baksmali"
-        else -> "工具"
+        else -> context.getString(R.string.linux_tool)
     }
-    return "${stage.displayName} · $name $percent%"
+    return context.getString(R.string.linux_tool_progress_percent, stageName, name, percent)
 }
 
-private fun AlpineInstallResult.toMessage(): String = when (this) {
-    AlpineInstallResult.AlreadyReady -> "Linux 工具环境已经就绪"
-    is AlpineInstallResult.Installed -> "Alpine $version 与常用工具安装完成"
-    is AlpineInstallResult.UnsupportedAbi -> "暂不支持设备架构：$abi"
-    AlpineInstallResult.RootUnavailable -> "未获得 Root 权限，请在 Root 管理器中授权 Eta"
-    AlpineInstallResult.BusyBoxUnavailable -> "Root 环境缺少可用的 BusyBox 或必要 applet"
-    AlpineInstallResult.EnvironmentUnavailable -> "当前 Root 环境无法创建隔离 mount namespace 或 chroot"
-    is AlpineInstallResult.Failed -> "${stage.displayName}失败，请检查网络或稍后重试"
+private fun AlpineInstallResult.toMessage(context: Context): String = when (this) {
+    AlpineInstallResult.AlreadyReady -> context.getString(R.string.linux_already_ready)
+    is AlpineInstallResult.Installed -> context.getString(R.string.linux_install_complete, version)
+    is AlpineInstallResult.UnsupportedAbi -> context.getString(R.string.linux_unsupported_abi, abi)
+    AlpineInstallResult.RootUnavailable -> context.getString(R.string.linux_root_unavailable)
+    AlpineInstallResult.BusyBoxUnavailable -> context.getString(R.string.linux_busybox_unavailable)
+    AlpineInstallResult.EnvironmentUnavailable -> context.getString(R.string.linux_environment_unavailable)
+    is AlpineInstallResult.Failed -> context.getString(R.string.linux_stage_failed, stage.displayName(context))
 }
 
-private fun ApkAnalysisInstallResult.toMessage(): String = when (this) {
-    ApkAnalysisInstallResult.AlreadyReady -> "APK 分析工具已经就绪"
-    ApkAnalysisInstallResult.EnvironmentNotReady -> "请先完成 Linux 基础工具安装"
+private fun ApkAnalysisInstallResult.toMessage(context: Context): String = when (this) {
+    ApkAnalysisInstallResult.AlreadyReady -> context.getString(R.string.linux_apk_analysis_ready)
+    ApkAnalysisInstallResult.EnvironmentNotReady -> context.getString(R.string.linux_base_required)
     is ApkAnalysisInstallResult.InsufficientSpace ->
-        "空间不足：至少需要 ${requiredBytes.toReadableSize()}，当前剩余 ${availableBytes.toReadableSize()}"
-    ApkAnalysisInstallResult.Installed -> "JADX、Apktool、smali 与 baksmali 安装完成"
-    is ApkAnalysisInstallResult.Failed -> "${stage.displayName}失败，可以稍后重试"
+        context.getString(
+            R.string.linux_insufficient_space,
+            requiredBytes.toReadableSize(context),
+            availableBytes.toReadableSize(context),
+        )
+    ApkAnalysisInstallResult.Installed -> context.getString(R.string.linux_apk_analysis_installed)
+    is ApkAnalysisInstallResult.Failed -> context.getString(R.string.linux_apk_stage_failed, stage.displayName(context))
 }
+
+private fun AlpineInstallStage.displayName(context: Context): String = context.getString(
+    when (this) {
+        AlpineInstallStage.CHECKING -> R.string.linux_stage_checking
+        AlpineInstallStage.DOWNLOADING -> R.string.linux_stage_downloading
+        AlpineInstallStage.EXTRACTING -> R.string.linux_stage_extracting
+        AlpineInstallStage.INSTALLING_TOOLS -> R.string.linux_stage_installing_tools
+        AlpineInstallStage.COMPLETE -> R.string.linux_stage_complete
+    },
+)
+
+private fun ApkAnalysisInstallStage.displayName(context: Context): String = context.getString(
+    when (this) {
+        ApkAnalysisInstallStage.CHECKING -> R.string.linux_apk_stage_checking
+        ApkAnalysisInstallStage.DOWNLOADING -> R.string.linux_apk_stage_downloading
+        ApkAnalysisInstallStage.PREPARING -> R.string.linux_apk_stage_preparing
+        ApkAnalysisInstallStage.INSTALLING_JAVA -> R.string.linux_apk_stage_installing_java
+        ApkAnalysisInstallStage.ACTIVATING -> R.string.linux_apk_stage_activating
+        ApkAnalysisInstallStage.VERIFYING -> R.string.linux_apk_stage_verifying
+        ApkAnalysisInstallStage.COMPLETE -> R.string.linux_apk_stage_complete
+    },
+)

@@ -85,7 +85,9 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import com.composables.icons.lucide.R as LucideR
+import fuck.andes.R
 
 // Miuix 未提供语义 success 色，沿用项目既有值；失败色走主题 error
 private val SuccessColor = Color(0xFF34C759)
@@ -325,6 +327,7 @@ internal fun AgentOverlayBubble(
     }
 
     val accent = phaseAccent(state.phase)
+    val statusText = state.status.localizedText()
     val statusColor = if (state.phase == AgentOverlayPhase.RUNNING) accent
     else Color(0xFFFF9F0A)
 
@@ -355,7 +358,7 @@ internal fun AgentOverlayBubble(
         ) {
             // 一句话状态
             Text(
-                text = state.statusText,
+                text = statusText,
                 color = statusColor,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -417,7 +420,7 @@ internal fun AgentOverlayBubble(
                     ) {
                         Icon(
                             painter = painterResource(LucideR.drawable.lucide_ic_pencil),
-                            contentDescription = "补充",
+                            contentDescription = stringResource(R.string.overlay_supplement),
                             modifier = Modifier.size(14.dp),
                             tint = MiuixTheme.colorScheme.onSurface,
                         )
@@ -431,7 +434,7 @@ internal fun AgentOverlayBubble(
                         ) {
                             Icon(
                                 painter = painterResource(LucideR.drawable.lucide_ic_pause),
-                                contentDescription = "接管",
+                                contentDescription = stringResource(R.string.overlay_pause),
                                 modifier = Modifier.size(14.dp),
                                 tint = MiuixTheme.colorScheme.onSurface,
                             )
@@ -445,7 +448,7 @@ internal fun AgentOverlayBubble(
                         ) {
                             Icon(
                                 painter = painterResource(LucideR.drawable.lucide_ic_play),
-                                contentDescription = "继续",
+                                contentDescription = stringResource(R.string.overlay_resume),
                                 modifier = Modifier.size(14.dp),
                                 tint = MiuixTheme.colorScheme.primary,
                             )
@@ -459,7 +462,7 @@ internal fun AgentOverlayBubble(
                     ) {
                         Icon(
                             painter = painterResource(LucideR.drawable.lucide_ic_square),
-                            contentDescription = "停止",
+                            contentDescription = stringResource(R.string.action_stop),
                             modifier = Modifier.size(14.dp),
                             tint = MiuixTheme.colorScheme.error,
                         )
@@ -503,7 +506,7 @@ private fun SupplementInput(
         ) {
             if (value.isBlank()) {
                 Text(
-                    text = "补充要求，Agent 会基于当前任务继续",
+                    text = stringResource(R.string.overlay_supplement_hint),
                     color = textColor.copy(alpha = 0.45f),
                     fontSize = 14.sp,
                     lineHeight = 18.sp,
@@ -532,7 +535,7 @@ private fun SupplementInput(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextButton(
-                text = "取消",
+                text = stringResource(R.string.action_cancel),
                 onClick = onCancel,
                 minWidth = 44.dp,
                 minHeight = 32.dp,
@@ -540,7 +543,7 @@ private fun SupplementInput(
             )
             Spacer(modifier = Modifier.width(8.dp))
             TextButton(
-                text = "发送",
+                text = stringResource(R.string.overlay_send),
                 onClick = onSend,
                 enabled = value.isNotBlank(),
                 minWidth = 44.dp,
@@ -569,8 +572,11 @@ internal fun AgentResultCard(
 
     val isFailed = state.phase == AgentOverlayPhase.FAILED
     val dotColor = phaseAccent(state.phase)
-    val statusLabel = if (isFailed) "执行失败" else "已完成"
-    val content = state.detailText.ifBlank { state.statusText }
+    val statusText = state.status.localizedText()
+    val statusLabel = stringResource(
+        if (isFailed) R.string.overlay_substatus_failed else R.string.overlay_substatus_finished,
+    )
+    val content = state.detailText.ifBlank { statusText }
     val textColor = MiuixTheme.colorScheme.onSurface
 
     Box(
@@ -632,7 +638,7 @@ internal fun AgentResultCard(
                         ) {
                             Icon(
                                 painter = painterResource(LucideR.drawable.lucide_ic_x),
-                                contentDescription = "关闭",
+                                contentDescription = stringResource(R.string.action_close),
                                 modifier = Modifier.size(16.dp),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                             )

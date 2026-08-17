@@ -38,6 +38,7 @@ import fuck.andes.agent.overlay.AgentOverlayOrb
 import fuck.andes.agent.overlay.AgentResultCard
 import fuck.andes.agent.overlay.AgentOverlayPhase
 import fuck.andes.agent.overlay.AgentOverlayState
+import fuck.andes.agent.overlay.AgentOverlayStatus
 import fuck.andes.agent.overlay.AgentOverlayVisibilityPolicy
 import fuck.andes.agent.overlay.applyEvent
 import fuck.andes.config.Prefs
@@ -423,7 +424,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                     enterFinalState(
                         state.value.copy(
                             phase = AgentOverlayPhase.FINISHED,
-                            statusText = "已返回结果",
+                            status = AgentOverlayStatus.ResultReady,
                             detailText = result.content.trim().ifBlank { state.value.detailText },
                         ),
                         keepVisible = entrySurfaceGuard?.wasTriggered == true,
@@ -432,7 +433,11 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                     enterFinalState(
                         AgentOverlayState(
                             phase = AgentOverlayPhase.FAILED,
-                            statusText = if (result.error == "已停止") "已停止" else "调用失败",
+                            status = if (result.error == "已停止") {
+                                AgentOverlayStatus.Stopped
+                            } else {
+                                AgentOverlayStatus.RunFailed
+                            },
                             detailText = result.error.orEmpty(),
                         ),
                         keepVisible = entrySurfaceGuard?.wasTriggered == true,
@@ -564,7 +569,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         enterFinalState(
             AgentOverlayState(
                 phase = AgentOverlayPhase.FAILED,
-                statusText = "调用失败",
+                status = AgentOverlayStatus.RunFailed,
                 detailText = message
             )
         )
@@ -603,7 +608,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             return
         }
         if (session.cancel("已停止")) {
-            state.value = state.value.copy(statusText = "正在停止")
+            state.value = state.value.copy(status = AgentOverlayStatus.Stopping)
         }
     }
 
@@ -611,7 +616,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         activeSession?.controller?.pause()
         state.value = state.value.copy(
             phase = AgentOverlayPhase.PAUSED,
-            statusText = "已暂停",
+            status = AgentOverlayStatus.Paused,
         )
     }
 
@@ -619,7 +624,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         activeSession?.controller?.resume()
         state.value = state.value.copy(
             phase = AgentOverlayPhase.RUNNING,
-            statusText = "继续执行",
+            status = AgentOverlayStatus.Continuing,
         )
     }
 
@@ -634,7 +639,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             if (event == null) {
                 if (!session.isTerminal) {
                     state.value = state.value.copy(
-                        statusText = "任务正在收尾，请在结果出现后继续补充",
+                        status = AgentOverlayStatus.Finishing,
                     )
                     return
                 }
@@ -649,7 +654,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
 
         val completed = lastCompletedRunContext ?: return
         if (completed.request.handoff?.source != AGENT_UI_HANDOFF_SOURCE) {
-            state.value = state.value.copy(statusText = "当前入口不支持继续补充")
+            state.value = state.value.copy(status = AgentOverlayStatus.ContinuationUnavailable)
             return
         }
         val continuationRequest = AgentContinuationBuilder.build(

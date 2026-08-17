@@ -1,4 +1,8 @@
+@file:android.annotation.SuppressLint("LocalContextGetResourceValueCall")
+
 package fuck.andes.ui.pages.providers
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -36,7 +40,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -93,13 +99,16 @@ private val editableReasoningEfforts = listOf(
     ReasoningEffort.MAX,
 )
 
-internal fun contextWindowInputError(value: String): String? {
+internal fun contextWindowInputError(
+    value: String,
+    errorMessage: String = "Context window must be a positive integer",
+): String? {
     val normalized = value.trim()
     if (normalized.isEmpty()) return null
     return if (normalized.toIntOrNull()?.let { it > 0 } == true) {
         null
     } else {
-        "上下文长度必须是正整数"
+        errorMessage
     }
 }
 
@@ -138,6 +147,7 @@ internal fun ProviderModelsTab(
     scope: CoroutineScope,
     scrollBehavior: ScrollBehavior,
 ) {
+    val context = LocalContext.current
     val selectedModelId by RuntimeConfigRepository.selectedModelIdFlow().collectAsState(initial = null)
     var isFetching by remember { mutableStateOf(false) }
     var isMutatingModel by remember { mutableStateOf(false) }
@@ -170,10 +180,10 @@ internal fun ProviderModelsTab(
             overscrollEffect = null,
         ) {
             item(key = "actions", contentType = "section") {
-                ProviderSection(title = "模型管理") {
+                ProviderSection(title = stringResource(R.string.ui_model_management_183414)) {
                     ArrowPreference(
-                        title = if (isFetching) "拉取中..." else "从远端自动拉取",
-                        summary = "读取 ${provider.baseUrl} 的 /models 列表",
+                        title = if (isFetching) context.getString(R.string.page_retrieving_a880c9) else context.getString(R.string.page_automatically_pull_from_remote_f883d0),
+                        summary = stringResource(R.string.provider_models_endpoint_summary, provider.baseUrl),
                         enabled = !isFetching && !isMutatingModel,
                         startAction = {
                             ProviderRoundIcon(
@@ -187,7 +197,10 @@ internal fun ProviderModelsTab(
                                 message = null
                                 try {
                                     val models = RemoteModelFetcher.fetch(provider).getOrElse { throwable ->
-                                        message = "失败：${throwable.message ?: throwable.javaClass.simpleName}"
+                                        message = context.getString(
+                                            R.string.provider_error,
+                                            throwable.message ?: throwable.javaClass.simpleName,
+                                        )
                                         return@launch
                                     }
                                     val chatModels = models.filter(RemoteModelFetcher::isChatCapableModel)
@@ -197,16 +210,27 @@ internal fun ProviderModelsTab(
                                     }
                                     val filteredCount = models.size - chatModels.size
                                     message = if (!sync.applied) {
-                                        "远端未返回可用对话模型，已保留现有模型"
+                                        context.getString(R.string.page_the_remote_end_did_not_return_a_usable_conversation__781487)
                                     } else if (filteredCount > 0) {
-                                        "已拉取 ${chatModels.size} 个模型，过滤 $filteredCount 个非对话模型"
+                                        context.getString(
+                                            R.string.provider_models_fetched_filtered,
+                                            chatModels.size,
+                                            filteredCount,
+                                        )
                                     } else {
-                                        "已拉取 ${chatModels.size} 个模型"
+                                        context.resources.getQuantityString(
+                                            R.plurals.provider_models_fetched,
+                                            chatModels.size,
+                                            chatModels.size,
+                                        )
                                     }
                                 } catch (cancelled: CancellationException) {
                                     throw cancelled
                                 } catch (throwable: Throwable) {
-                                    message = "失败：${throwable.message ?: "同步失败"}"
+                                    message = context.getString(
+                                        R.string.provider_error,
+                                        throwable.message ?: context.getString(R.string.provider_sync_failed),
+                                    )
                                 } finally {
                                     isFetching = false
                                 }
@@ -215,8 +239,8 @@ internal fun ProviderModelsTab(
                     )
                     ProviderDivider()
                     ArrowPreference(
-                        title = "添加自定义模型",
-                        summary = "手动填写展示名称与 Model ID",
+                        title = stringResource(R.string.ui_add_custom_model_a5ddc0),
+                        summary = stringResource(R.string.ui_manually_fill_in_the_display_name_and_model_id_077a7b),
                         enabled = !isFetching && !isMutatingModel,
                         startAction = {
                             ProviderRoundIcon(
@@ -230,7 +254,7 @@ internal fun ProviderModelsTab(
                             editingModel = Model(
                                 id = "",
                                 modelId = "",
-                                displayName = "自定义模型",
+                                displayName = context.getString(R.string.page_custom_model_25be0f),
                             )
                         },
                     )
@@ -239,7 +263,7 @@ internal fun ProviderModelsTab(
                         Text(
                             text = it,
                             style = MiuixTheme.textStyles.footnote2,
-                            color = if (it.startsWith("失败")) StatusError else StatusSuccess,
+                            color = if (it.startsWith(context.getString(R.string.page_fail_3e3c80))) StatusError else StatusSuccess,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                         )
                     }
@@ -253,7 +277,7 @@ internal fun ProviderModelsTab(
                     onSearch = {},
                     expanded = false,
                     onExpandedChange = {},
-                    label = "搜索模型",
+                    label = stringResource(R.string.ui_search_model_df5586),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)
@@ -262,9 +286,13 @@ internal fun ProviderModelsTab(
             }
 
             val modelListTitle = if (normalizedModelSearchQuery.isBlank()) {
-                "模型列表 (共 ${provider.models.size} 个)"
+                context.getString(R.string.provider_model_list_count, provider.models.size)
             } else {
-                "模型列表 (匹配 ${filteredModels.size} / ${provider.models.size} 个)"
+                context.getString(
+                    R.string.provider_model_list_matches,
+                    filteredModels.size,
+                    provider.models.size,
+                )
             }
             if (provider.models.isEmpty() || filteredModels.isEmpty()) {
                 item(key = "models_empty", contentType = "empty") {
@@ -278,9 +306,9 @@ internal fun ProviderModelsTab(
                         ) {
                             Text(
                                 text = if (provider.models.isEmpty()) {
-                                    "暂无模型，请从远端拉取或手动添加"
+                                    context.getString(R.string.page_there_is_no_model_yet_please_pull_it_from_the_remote_ced865)
                                 } else {
-                                    "未找到匹配的模型"
+                                    context.getString(R.string.page_no_matching_model_found_ae7e96)
                                 },
                                 style = MiuixTheme.textStyles.body2,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -391,11 +419,11 @@ internal fun ProviderModelsTab(
                         val saved = ModelRepository.saveModel(provider.id, updated)
                         RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
                         editingModel = null
-                        message = "已保存：${saved.displayName}"
+                        message = context.getString(R.string.provider_model_saved, saved.displayName)
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (throwable: Throwable) {
-                        editorError = throwable.message ?: "保存失败"
+                        editorError = throwable.message ?: context.getString(R.string.page_save_failed_40525a)
                     } finally {
                         isMutatingModel = false
                     }
@@ -413,12 +441,12 @@ internal fun ProviderModelsTab(
     modelPendingDelete?.let { model ->
         OverlayDialog(
             show = true,
-            title = "删除模型",
-            summary = "删除「${model.displayName}」后将不可恢复。",
+            title = stringResource(R.string.ui_delete_model_cf24da),
+            summary = stringResource(R.string.provider_model_delete_summary, model.displayName),
             onDismissRequest = { if (!isMutatingModel) modelPendingDelete = null },
         ) {
             MiuixDialogActions(
-                confirmText = if (isMutatingModel) "删除中..." else "删除",
+                confirmText = if (isMutatingModel) context.getString(R.string.page_deleting_6f941d) else context.getString(R.string.page_delete_3755f5),
                 cancelEnabled = !isMutatingModel,
                 confirmEnabled = !isMutatingModel,
                 destructive = true,
@@ -429,12 +457,15 @@ internal fun ProviderModelsTab(
                         try {
                             ModelRepository.deleteModel(provider.id, model.id)
                             RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
-                            message = "已删除：${model.displayName}"
+                            message = context.getString(R.string.provider_model_deleted, model.displayName)
                             modelPendingDelete = null
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (throwable: Throwable) {
-                            message = "失败：${throwable.message ?: "删除失败"}"
+                            message = context.getString(
+                                R.string.provider_error,
+                                throwable.message ?: context.getString(R.string.provider_delete_failed),
+                            )
                             modelPendingDelete = null
                         } finally {
                             isMutatingModel = false
@@ -448,12 +479,16 @@ internal fun ProviderModelsTab(
     if (showBatchDeleteDialog) {
         OverlayDialog(
             show = true,
-            title = "删除模型",
-            summary = "删除选中的 ${selectedModelIds.size} 个模型后将不可恢复。",
+            title = stringResource(R.string.ui_delete_model_cf24da),
+            summary = pluralStringResource(
+                R.plurals.provider_selected_delete_summary,
+                selectedModelIds.size,
+                selectedModelIds.size,
+            ),
             onDismissRequest = { if (!isMutatingModel) showBatchDeleteDialog = false },
         ) {
             MiuixDialogActions(
-                confirmText = if (isMutatingModel) "删除中..." else "删除",
+                confirmText = if (isMutatingModel) context.getString(R.string.page_deleting_6f941d) else context.getString(R.string.page_delete_3755f5),
                 cancelEnabled = !isMutatingModel,
                 confirmEnabled = !isMutatingModel,
                 destructive = true,
@@ -465,14 +500,21 @@ internal fun ProviderModelsTab(
                         try {
                             ModelRepository.deleteModels(provider.id, selectedModelIds)
                             RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
-                            message = "已删除 $deletedCount 个模型"
+                            message = context.resources.getQuantityString(
+                                R.plurals.provider_models_deleted,
+                                deletedCount,
+                                deletedCount,
+                            )
                             showBatchDeleteDialog = false
                             selectionMode = false
                             selectedModelIds = emptySet()
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (throwable: Throwable) {
-                            message = "失败：${throwable.message ?: "删除失败"}"
+                            message = context.getString(
+                                R.string.provider_error,
+                                throwable.message ?: context.getString(R.string.provider_delete_failed),
+                            )
                             showBatchDeleteDialog = false
                         } finally {
                             isMutatingModel = false
@@ -530,6 +572,7 @@ private fun ModelSelectionBar(
     onDelete: () -> Unit,
     onExit: () -> Unit,
 ) {
+    val context = LocalContext.current
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -547,22 +590,26 @@ private fun ModelSelectionBar(
             IconButton(onClick = onExit, enabled = enabled) {
                 Icon(
                     painter = painterResource(LucideR.drawable.lucide_ic_x),
-                    contentDescription = "退出多选",
+                    contentDescription = stringResource(R.string.ui_exit_multiple_selection_c194fd),
                     tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                 )
             }
             Text(
-                text = "已选 $selectedCount 个",
+                text = pluralStringResource(
+                    R.plurals.provider_models_selected,
+                    selectedCount,
+                    selectedCount,
+                ),
                 style = MiuixTheme.textStyles.body2,
                 modifier = Modifier.weight(1f),
             )
             TextButton(
-                text = if (selectedCount == totalCount) "全不选" else "全选",
+                text = if (selectedCount == totalCount) context.getString(R.string.page_select_none_ba20eb) else context.getString(R.string.page_select_all_3e44b2),
                 enabled = enabled,
                 onClick = onToggleAll,
             )
             TextButton(
-                text = "删除",
+                text = stringResource(R.string.ui_delete_3755f5),
                 enabled = selectedCount > 0 && enabled,
                 colors = ButtonDefaults.textButtonColorsPrimary(
                     color = MiuixTheme.colorScheme.error,
@@ -588,6 +635,7 @@ private fun ModelListItem(
     onSetCurrent: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -624,7 +672,7 @@ private fun ModelListItem(
                     TagChip(text = tag)
                 }
                 if (isSelected) {
-                    TagChip(text = "当前", tone = TagChipTone.Emphasized)
+                    TagChip(text = stringResource(R.string.ui_current_25e74d), tone = TagChipTone.Emphasized)
                 }
             }
         }
@@ -639,7 +687,7 @@ private fun ModelListItem(
                 IconButton(onClick = onEdit, enabled = enabled) {
                     Icon(
                         painter = painterResource(LucideR.drawable.lucide_ic_sliders_horizontal),
-                        contentDescription = "编辑模型参数",
+                        contentDescription = stringResource(R.string.ui_edit_model_parameters_ba4864),
                         tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                     )
                 }
@@ -649,7 +697,7 @@ private fun ModelListItem(
                             if (isSelected) LucideR.drawable.lucide_ic_check
                             else LucideR.drawable.lucide_ic_circle
                         ),
-                        contentDescription = if (isSelected) "当前模型" else "设为当前模型",
+                        contentDescription = if (isSelected) context.getString(R.string.page_current_model_a0af8f) else context.getString(R.string.page_set_as_current_model_183d7d),
                         tint = if (isSelected) {
                             MiuixTheme.colorScheme.primary
                         } else {
@@ -672,6 +720,7 @@ private fun ModelEditDialog(
     onSubmit: (Model) -> Unit,
     onDelete: (() -> Unit)?,
 ) {
+    val context = LocalContext.current
     var displayName by remember(model.id, isNew) { mutableStateOf(model.displayName) }
     var modelId by remember(model.id, isNew) { mutableStateOf(model.modelId) }
     var contextWindowOverrideText by remember(model.id, isNew) {
@@ -693,7 +742,10 @@ private fun ModelEditDialog(
                 .orEmpty() + ReasoningEffort.DEFAULT
         )
     }
-    val contextError = contextWindowInputError(contextWindowOverrideText)
+    val contextError = contextWindowInputError(
+        contextWindowOverrideText,
+        context.getString(R.string.page_the_context_length_must_be_a_positive_integer_06ca7a),
+    )
 
     fun resetAutomaticReasoning() {
         reasoningOverrideActive = false
@@ -731,7 +783,7 @@ private fun ModelEditDialog(
 
     OverlayDialog(
         show = true,
-        title = if (isNew) "添加模型" else "编辑模型",
+        title = if (isNew) context.getString(R.string.page_add_model_532a64) else context.getString(R.string.page_edit_model_29e31e),
         onDismissRequest = { if (!isSaving) onDismiss() },
     ) {
         Column {
@@ -744,7 +796,7 @@ private fun ModelEditDialog(
                 TextField(
                     value = displayName,
                     onValueChange = { displayName = it },
-                    label = "展示名称",
+                    label = stringResource(R.string.ui_display_name_ed16be),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     modifier = Modifier.fillMaxWidth(),
@@ -765,7 +817,7 @@ private fun ModelEditDialog(
                 TextField(
                     value = contextWindowOverrideText,
                     onValueChange = { contextWindowOverrideText = it },
-                    label = "上下文长度（tokens）",
+                    label = stringResource(R.string.ui_context_length_tokens_227860),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
@@ -779,10 +831,13 @@ private fun ModelEditDialog(
                 ) {
                     Text(
                         text = when {
-                            contextWindowOverrideText.isNotBlank() -> "已覆盖，将优先于远端元数据"
+                            contextWindowOverrideText.isNotBlank() -> context.getString(R.string.page_overwritten_will_take_precedence_over_remote_metadat_59934d)
                             model.contextWindow != null ->
-                                "自动：${formatCompactTokenCount(model.contextWindow)} tokens"
-                            else -> "自动：远端未提供上下文上限"
+                                stringResource(
+                                    R.string.provider_auto_context,
+                                    formatCompactTokenCount(model.contextWindow),
+                                )
+                            else -> context.getString(R.string.page_automatic_no_context_cap_was_provided_by_the_remote__db027f)
                         },
                         style = MiuixTheme.textStyles.footnote2,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -790,7 +845,7 @@ private fun ModelEditDialog(
                     )
                     if (contextWindowOverrideText.isNotBlank()) {
                         TextButton(
-                            text = "恢复自动",
+                            text = stringResource(R.string.ui_restore_automatic_8d4e1e),
                             enabled = !isSaving,
                             onClick = { contextWindowOverrideText = "" },
                         )
@@ -804,7 +859,7 @@ private fun ModelEditDialog(
                     )
                 }
                 Text(
-                    text = "该值用于会话裁剪和上下文预算。留空时使用远端或官方目录值。",
+                    text = stringResource(R.string.ui_this_value_is_used_for_session_clipping_and_context__c3f9e7),
                     style = MiuixTheme.textStyles.footnote2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
@@ -816,11 +871,17 @@ private fun ModelEditDialog(
                             reasoningOverrideActive = true
                             reasoningEnabled = enabled
                         },
-                        title = "支持思考",
+                        title = stringResource(R.string.ui_support_thinking_5b9e4c),
                         summary = if (reasoningOverrideActive) {
-                            "已覆盖模型自动能力"
+                            context.getString(R.string.page_covered_model_automatic_capabilities_3fa7d4)
                         } else {
-                            "自动：${if (model.reasoning == true) "支持" else "不支持或未知"}"
+                            stringResource(
+                                if (model.reasoning == true) {
+                                    R.string.provider_auto_reasoning_supported
+                                } else {
+                                    R.string.provider_auto_reasoning_unknown
+                                },
+                            )
                         },
                         enabled = !isSaving,
                     )
@@ -828,7 +889,7 @@ private fun ModelEditDialog(
                         HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
                         CheckboxPreference(
                             title = ReasoningEffort.DEFAULT.displayName,
-                            summary = "由模型或 Provider 决定",
+                            summary = stringResource(R.string.ui_determined_by_model_or_provider_06c326),
                             checked = true,
                             onCheckedChange = null,
                             checkboxLocation = CheckboxLocation.End,
@@ -839,7 +900,7 @@ private fun ModelEditDialog(
                             CheckboxPreference(
                                 title = effort.displayName,
                                 summary = if (effort == ReasoningEffort.OFF) {
-                                    "允许在对话中关闭思考"
+                                    context.getString(R.string.page_allow_thinking_to_be_turned_off_during_conversations_5a32a9)
                                 } else {
                                     null
                                 },
@@ -859,7 +920,7 @@ private fun ModelEditDialog(
                     }
                 }
                 Text(
-                    text = "仅勾选模型或网关实际支持的档位；不支持的组合会在请求前明确报错。",
+                    text = stringResource(R.string.ui_only_check_the_ranges_actually_supported_by_the_mode_2c343d),
                     style = MiuixTheme.textStyles.footnote2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(top = 8.dp),
@@ -880,7 +941,7 @@ private fun ModelEditDialog(
                     ) {
                         if (reasoningOverrideActive) {
                             Text(
-                                text = "恢复自动",
+                                text = stringResource(R.string.ui_restore_automatic_8d4e1e),
                                 style = MiuixTheme.textStyles.body2,
                                 color = MiuixTheme.colorScheme.primary,
                                 modifier = Modifier
@@ -893,7 +954,7 @@ private fun ModelEditDialog(
                         }
                         onDelete?.let { delete ->
                             Text(
-                                text = "删除模型",
+                                text = stringResource(R.string.ui_delete_model_cf24da),
                                 style = MiuixTheme.textStyles.body2,
                                 color = MiuixTheme.colorScheme.error,
                                 modifier = Modifier
@@ -906,7 +967,7 @@ private fun ModelEditDialog(
             }
         }
         MiuixDialogActions(
-            confirmText = if (isSaving) "保存中..." else "保存",
+            confirmText = if (isSaving) context.getString(R.string.page_saving_d70d42) else context.getString(R.string.page_save_fadf24),
             confirmEnabled = !isSaving &&
                 displayName.isNotBlank() &&
                 modelId.isNotBlank() &&
@@ -919,11 +980,18 @@ private fun ModelEditDialog(
     }
 }
 
-private fun capabilityTags(model: Model): List<String> = buildList {
+@Composable
+private fun capabilityTags(model: Model): List<String> {
+    val context = LocalContext.current
+    return buildList {
     add(
         model.effectiveContextWindow?.let { contextWindow ->
-            "${formatCompactTokenCount(contextWindow)} 上下文"
-        } ?: "上下文未知"
+            stringResource(
+                R.string.provider_context_tag,
+                formatCompactTokenCount(contextWindow),
+            )
+        } ?: context.getString(R.string.page_context_unknown_b6ae7b)
     )
-    if (model.supportsReasoning) add("支持思考")
+    if (model.supportsReasoning) add(context.getString(R.string.page_support_thinking_5b9e4c))
+    }
 }

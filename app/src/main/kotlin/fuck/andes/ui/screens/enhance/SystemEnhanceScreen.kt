@@ -1,4 +1,6 @@
 package fuck.andes.ui.screens.enhance
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,7 +26,7 @@ fun SystemEnhanceScreen(
     modifier: Modifier = Modifier,
 ) {
     MiuixScaffoldPage(
-        title = "系统增强",
+        title = stringResource(R.string.ui_system_enhancement_dcd4ad),
         onBack = { onAction(AgentSystemEnhanceAction.NavigateBack) },
         modifier = modifier,
     ) {
@@ -63,9 +65,9 @@ private fun SystemEnhanceItemRow(
         endActions = {
             Text(
                 text = when (item.status) {
-                    SystemEnhanceStatusUi.Active -> "已启用"
-                    SystemEnhanceStatusUi.Inactive -> "未启用"
-                    SystemEnhanceStatusUi.Unsupported -> "不支持"
+                    SystemEnhanceStatusUi.Active -> stringResource(R.string.status_enabled)
+                    SystemEnhanceStatusUi.Inactive -> stringResource(R.string.permission_status_disabled)
+                    SystemEnhanceStatusUi.Unsupported -> stringResource(R.string.status_unsupported)
                 },
                 style = MiuixTheme.textStyles.body2,
                 color = MiuixTheme.colorScheme.onSurfaceVariantActions,

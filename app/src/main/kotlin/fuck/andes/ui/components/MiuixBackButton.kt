@@ -3,7 +3,9 @@ package fuck.andes.ui.components
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import com.composables.icons.lucide.R as LucideR
+import fuck.andes.R
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 
@@ -19,7 +21,7 @@ fun MiuixBackButton(
     IconButton(onClick = onClick, modifier = modifier) {
         Icon(
             painter = painterResource(LucideR.drawable.lucide_ic_chevron_left),
-            contentDescription = "返回",
+            contentDescription = stringResource(R.string.action_back),
         )
     }
 }

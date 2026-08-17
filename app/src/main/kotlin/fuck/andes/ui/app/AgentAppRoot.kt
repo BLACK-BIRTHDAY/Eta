@@ -23,11 +23,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation3.runtime.NavKey
 import fuck.andes.FuckAndesApp
+import fuck.andes.R
 import fuck.andes.agent.device.DeviceLocationProvider
 import fuck.andes.data.repository.RuntimeConfigRepository
 import androidx.navigation3.runtime.entryProvider
@@ -485,19 +488,19 @@ fun AgentAppRoot(
         var renameInput by remember(conversation.id) { mutableStateOf(conversation.title) }
         WindowDialog(
             show = true,
-            title = "重命名对话",
+            title = stringResource(R.string.conversation_rename_title),
             onDismissRequest = { conversationRenameTarget = null },
         ) {
             Column {
                 TextField(
                     value = renameInput,
                     onValueChange = { renameInput = it },
-                    label = "对话名称",
+                    label = stringResource(R.string.conversation_rename_hint),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 MiuixDialogActions(
-                    confirmText = "确定",
+                    confirmText = stringResource(R.string.action_save),
                     confirmEnabled = renameInput.isNotBlank(),
                     onCancel = { conversationRenameTarget = null },
                     onConfirm = {
@@ -513,12 +516,12 @@ fun AgentAppRoot(
     conversationDeleteTarget?.let { conversation ->
         WindowDialog(
             show = true,
-            title = "删除对话",
-            summary = "删除后，该对话将不可恢复",
+            title = stringResource(R.string.conversation_delete_title),
+            summary = stringResource(R.string.conversation_delete_message),
             onDismissRequest = { conversationDeleteTarget = null },
         ) {
             MiuixDialogActions(
-                confirmText = "删除",
+                confirmText = stringResource(R.string.action_delete),
                 destructive = true,
                 onCancel = { conversationDeleteTarget = null },
                 onConfirm = {
@@ -532,12 +535,20 @@ fun AgentAppRoot(
     messageDeleteTarget?.let { target ->
         WindowDialog(
             show = true,
-            title = "删除这轮对话",
-            summary = target.destructiveSummary("删除"),
+            title = stringResource(R.string.conversation_delete_message_title),
+            summary = if (target.laterTurnCount == 0) {
+                stringResource(R.string.conversation_delete_message_body)
+            } else {
+                pluralStringResource(
+                    R.plurals.conversation_delete_later_turns,
+                    target.laterTurnCount,
+                    target.laterTurnCount,
+                )
+            },
             onDismissRequest = { messageDeleteTarget = null },
         ) {
             MiuixDialogActions(
-                confirmText = "删除",
+                confirmText = stringResource(R.string.action_delete),
                 destructive = true,
                 onCancel = { messageDeleteTarget = null },
                 onConfirm = {
@@ -551,12 +562,20 @@ fun AgentAppRoot(
     messageRegenerateTarget?.let { target ->
         WindowDialog(
             show = true,
-            title = "重新生成回复",
-            summary = target.destructiveSummary("重新生成"),
+            title = stringResource(R.string.conversation_regenerate_title),
+            summary = if (target.laterTurnCount == 0) {
+                stringResource(R.string.conversation_regenerate_current_turn)
+            } else {
+                pluralStringResource(
+                    R.plurals.conversation_regenerate_later_turns,
+                    target.laterTurnCount,
+                    target.laterTurnCount,
+                )
+            },
             onDismissRequest = { messageRegenerateTarget = null },
         ) {
             MiuixDialogActions(
-                confirmText = "重新生成",
+                confirmText = stringResource(R.string.action_regenerate),
                 destructive = true,
                 onCancel = { messageRegenerateTarget = null },
                 onConfirm = {
@@ -571,11 +590,4 @@ fun AgentAppRoot(
 private data class MessageMutationTarget(
     val messageId: String,
     val laterTurnCount: Int,
-) {
-    fun destructiveSummary(action: String): String =
-        if (laterTurnCount == 0) {
-            "$action 后，当前轮次将不可恢复"
-        } else {
-            "$action 后，当前轮次及之后的 $laterTurnCount 轮对话将不可恢复"
-        }
-}
+)

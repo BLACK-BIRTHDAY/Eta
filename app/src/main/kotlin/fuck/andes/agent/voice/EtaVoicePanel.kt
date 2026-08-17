@@ -70,6 +70,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,6 +78,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.composables.icons.lucide.R as LucideR
+import fuck.andes.R
 import fuck.andes.ui.components.AgentConversationMessages
 import fuck.andes.ui.components.rememberDataUrlBitmap
 import fuck.andes.ui.model.AgentChatMessageUi
@@ -107,9 +109,18 @@ internal enum class EtaVoicePhase {
 internal data class EtaVoiceUiState(
     val messages: List<AgentChatMessageUi> = emptyList(),
     val phase: EtaVoicePhase = EtaVoicePhase.READY,
-    val status: String = "输入请求",
+    val status: EtaVoiceStatus = EtaVoiceStatus.InputRequest,
     val screenContext: EtaScreenContextUiState = EtaScreenContextUiState(),
 )
+
+internal sealed interface EtaVoiceStatus {
+    data object InputRequest : EtaVoiceStatus
+    data object Reasoning : EtaVoiceStatus
+    data object Completed : EtaVoiceStatus
+    data class RunningTool(val name: String) : EtaVoiceStatus
+    data class Failed(val detail: String?) : EtaVoiceStatus
+    data object Stopped : EtaVoiceStatus
+}
 
 internal enum class EtaScreenContextPhase {
     CAPTURING,
@@ -677,9 +688,9 @@ private fun ScreenContextAttachment(
                     Spacer(Modifier.size(7.dp))
                     Text(
                         text = when (screenContext.phase) {
-                            EtaScreenContextPhase.CAPTURING -> "正在准备当前屏幕"
-                            EtaScreenContextPhase.AVAILABLE -> "添加当前屏幕"
-                            EtaScreenContextPhase.UNAVAILABLE -> "当前屏幕不可用"
+                            EtaScreenContextPhase.CAPTURING -> stringResource(R.string.voice_screen_preparing)
+                            EtaScreenContextPhase.AVAILABLE -> stringResource(R.string.voice_screen_add)
+                            EtaScreenContextPhase.UNAVAILABLE -> stringResource(R.string.voice_screen_unavailable)
                             EtaScreenContextPhase.CONSUMED -> ""
                         },
                         color = if (available) colors.inputPrimary else colors.inputSecondary,
@@ -710,7 +721,7 @@ private fun SelectedScreenContext(
         previewBitmap?.let { bitmap ->
             Image(
                 bitmap = bitmap,
-                contentDescription = "当前屏幕截图预览",
+                contentDescription = stringResource(R.string.voice_screen_preview),
                 modifier = Modifier
                     .size(50.dp)
                     .squircleClip(11.dp),
@@ -721,13 +732,13 @@ private fun SelectedScreenContext(
             modifier = Modifier.padding(start = 10.dp, end = 6.dp),
         ) {
             Text(
-                text = "当前屏幕",
+                text = stringResource(R.string.voice_screen_title),
                 color = colors.inputPrimary,
                 fontSize = 13.sp,
                 maxLines = 1,
             )
             Text(
-                text = "将作为下一条消息的上下文",
+                text = stringResource(R.string.voice_screen_context_summary),
                 color = colors.inputSecondary,
                 fontSize = 11.sp,
                 maxLines = 1,
@@ -742,7 +753,7 @@ private fun SelectedScreenContext(
         ) {
             Icon(
                 painter = painterResource(LucideR.drawable.lucide_ic_x),
-                contentDescription = "移除当前屏幕截图",
+                contentDescription = stringResource(R.string.voice_screen_remove),
                 modifier = Modifier.size(14.dp),
                 tint = if (enabled) colors.inputSecondary else colors.inputTertiary,
             )
@@ -813,7 +824,7 @@ private fun AssistantInputBar(
                 Box(contentAlignment = Alignment.CenterStart) {
                     if (input.isEmpty()) {
                         Text(
-                            text = "发消息问 Eta…",
+                            text = stringResource(R.string.voice_input_hint),
                             color = colors.inputTertiary,
                             fontSize = 14.sp,
                             maxLines = 1,
@@ -834,7 +845,7 @@ private fun AssistantInputBar(
             ) {
                 Icon(
                     painter = painterResource(LucideR.drawable.lucide_ic_square),
-                    contentDescription = "停止",
+                    contentDescription = stringResource(R.string.action_stop),
                     modifier = Modifier.size(15.dp),
                     tint = Color.White,
                 )
@@ -854,7 +865,7 @@ private fun AssistantInputBar(
             ) {
                 Icon(
                     painter = painterResource(LucideR.drawable.lucide_ic_arrow_right),
-                    contentDescription = "发送",
+                    contentDescription = stringResource(R.string.voice_send),
                     modifier = Modifier.size(17.dp),
                     tint = if (canSubmit) Color.White else colors.inputSecondary,
                 )

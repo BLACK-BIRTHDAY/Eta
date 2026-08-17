@@ -230,7 +230,7 @@ internal class AgentRunMessageProjector(
             if (message is ToolActivityMessageUi && message.id == targetId) {
                 message.copy(
                     status = if (event.success) ToolActivityStatusUi.Success else ToolActivityStatusUi.Failed,
-                    resultSummary = if (event.success) "搜索完成" else "搜索失败",
+                    resultSummary = null,
                 )
             } else {
                 message

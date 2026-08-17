@@ -15,17 +15,16 @@ data class ConversationSummaryUi(
     val title: String,
     val preview: String,
     val timeLabel: String,
+    val updatedAtMillis: Long = 0L,
     val mode: ConversationModeUi,
     val isPinned: Boolean = false,
     val isActiveRun: Boolean = false,
 )
 
 @Immutable
-enum class ConversationModeUi(
-    val label: String,
-) {
-    Chat("聊天"),
-    PhoneAgent("手机"),
-    Terminal("终端"),
-    Automation("自动化"),
+enum class ConversationModeUi {
+    Chat,
+    PhoneAgent,
+    Terminal,
+    Automation,
 }

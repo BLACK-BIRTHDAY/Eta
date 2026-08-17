@@ -17,6 +17,8 @@ And when photos, notifications, calendars, notes, recordings, location, and heal
 > [!NOTE]
 > The Eta app targets rooted Android devices and is not limited to OPPO or Xiaomi hardware. ColorOS and HyperOS describe only the current system-assistant entry-point integrations: Eta can be selected as the default digital assistant on ColorOS, while Breeno and Super XiaoAI remain compatible entry points backed by the same Agent Runtime and BYOK model configuration. Complete system integration requires Root and LSPosed.
 
+The UI supports English, Simplified Chinese, and Traditional Chinese, always follows the system language, and falls back to English for other locales.
+
 ## See it in action
 
 |                         GUI agent                          |                   Breeno BYOK from the power button                    |

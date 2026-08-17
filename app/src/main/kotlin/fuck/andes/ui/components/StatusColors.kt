@@ -24,6 +24,8 @@ import androidx.compose.ui.res.painterResource
 import com.composables.icons.lucide.R as LucideR
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import fuck.andes.R
 
 // 语义状态色
 val StatusSuccess = Color(0xFF00BD13)
@@ -49,12 +51,13 @@ fun RunStatusUi.color(): Color = when (this) {
     RunStatusUi.Cancelled -> StatusIdle
 }
 
-fun RunStatusUi.label(): String = when (this) {
-    RunStatusUi.Running -> "运行中"
-    RunStatusUi.Success -> "已完成"
-    RunStatusUi.Failed -> "失败"
-    RunStatusUi.Cancelled -> "已取消"
-}
+@Composable
+fun RunStatusUi.label(): String = stringResource(when (this) {
+    RunStatusUi.Running -> R.string.tool_status_running
+    RunStatusUi.Success -> R.string.tool_status_success
+    RunStatusUi.Failed -> R.string.tool_status_failed
+    RunStatusUi.Cancelled -> R.string.status_cancelled
+})
 
 // ── PermissionStatusUi 映射 ───────────────────────────────────────────
 
@@ -66,12 +69,13 @@ fun PermissionStatusUi.color(): Color = when (this) {
     PermissionStatusUi.Disabled -> StatusIdle
 }
 
-fun PermissionStatusUi.label(): String = when (this) {
-    PermissionStatusUi.Available -> "已就绪"
-    PermissionStatusUi.Warning -> "需注意"
-    PermissionStatusUi.Missing -> "未授权"
-    PermissionStatusUi.Disabled -> "已禁用"
-}
+@Composable
+fun PermissionStatusUi.label(): String = stringResource(when (this) {
+    PermissionStatusUi.Available -> R.string.status_ready
+    PermissionStatusUi.Warning -> R.string.status_needs_attention
+    PermissionStatusUi.Missing -> R.string.status_unauthorized
+    PermissionStatusUi.Disabled -> R.string.status_disabled
+})
 
 // ── 共享 UI 组件 ──────────────────────────────────────────────────────
 

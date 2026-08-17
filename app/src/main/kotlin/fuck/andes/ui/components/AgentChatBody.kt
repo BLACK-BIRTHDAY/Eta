@@ -1,4 +1,6 @@
 package fuck.andes.ui.components
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
@@ -642,7 +644,7 @@ internal fun AgentConversationMessages(
             ) {
                 Icon(
                     painter = painterResource(LucideR.drawable.lucide_ic_arrow_down),
-                    contentDescription = "回到底部",
+                    contentDescription = stringResource(R.string.ui_back_to_bottom_32282e),
                     modifier = Modifier.size(17.dp),
                     tint = MiuixTheme.colorScheme.onSurface,
                 )
@@ -917,28 +919,28 @@ private fun EmptyChatState(
 ) {
     val suggestions = listOf(
         SuggestionItem(
-            title = "分析当前屏幕",
+            title = stringResource(R.string.ui_analyze_current_screen_ebf08f),
             iconRes = LucideR.drawable.lucide_ic_scan_text,
             iconTint = AccentBlue,
-            prompt = "截图并描述当前屏幕",
+            prompt = stringResource(R.string.suggestion_analyze_screen_prompt),
         ),
         SuggestionItem(
-            title = "打开微信",
+            title = stringResource(R.string.ui_open_wechat_6b2c28),
             iconRes = LucideR.drawable.lucide_ic_rocket,
             iconTint = AccentGreen,
-            prompt = "帮我打开微信",
+            prompt = stringResource(R.string.suggestion_open_wechat_prompt),
         ),
         SuggestionItem(
-            title = "浏览网页",
+            title = stringResource(R.string.ui_browse_the_web_da7afb),
             iconRes = LucideR.drawable.lucide_ic_globe,
             iconTint = AccentRed,
-            prompt = "打开 Agent 浏览器，搜索并总结今天的科技新闻要点",
+            prompt = stringResource(R.string.suggestion_browse_web_prompt),
         ),
         SuggestionItem(
-            title = "查看内存压力",
+            title = stringResource(R.string.ui_check_memory_pressure_2d9600),
             iconRes = LucideR.drawable.lucide_ic_square_terminal,
             iconTint = AccentYellow,
-            prompt = "读取 /proc/meminfo 和 /proc/pressure/，重点分析 PSI（Pressure Stall Information）指标，总结当前内存压力和系统状态",
+            prompt = stringResource(R.string.suggestion_memory_pressure_prompt),
         ),
     )
 
@@ -950,7 +952,7 @@ private fun EmptyChatState(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                text = "有什么可以帮你？",
+                text = stringResource(R.string.ui_how_can_i_help_you_e75391),
                 style = MiuixTheme.textStyles.headline1,
                 color = MiuixTheme.colorScheme.onSurface,
             )

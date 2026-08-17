@@ -13,11 +13,11 @@ internal enum class AgentOverlayPhase { RUNNING, PAUSED, FINISHED, FAILED }
 internal data class AgentOverlayState(
     val phase: AgentOverlayPhase = AgentOverlayPhase.RUNNING,
     val round: Int = 0,
-    val statusText: String = "准备中…",
+    val status: AgentOverlayStatus = AgentOverlayStatus.Preparing,
     val detailText: String = "",
 ) {
     companion object {
-        val Initial = AgentOverlayState(statusText = "收到指令，准备调用模型")
+        val Initial = AgentOverlayState(status = AgentOverlayStatus.Received)
     }
 }
 
@@ -30,26 +30,26 @@ internal data class AgentOverlayState(
 internal fun AgentOverlayState.applyEvent(event: AgentEvent): AgentOverlayState = when (event) {
     is AgentEvent.RunStarted -> copy(
         phase = AgentOverlayPhase.RUNNING,
-        statusText = "准备工具：${event.toolCount} 个",
+        status = AgentOverlayStatus.PreparingTools(event.toolCount),
         detailText = "",
     )
 
     is AgentEvent.RoundStarted -> copy(
         phase = AgentOverlayPhase.RUNNING,
         round = event.round,
-        statusText = "第 ${event.round} 轮思考",
+        status = AgentOverlayStatus.ReasoningRound(event.round),
     )
 
     is AgentEvent.ProviderRequestStarted -> copy(
         phase = AgentOverlayPhase.RUNNING,
         round = event.round,
-        statusText = "正在请求模型",
+        status = AgentOverlayStatus.RequestingModel,
     )
 
     is AgentEvent.ProviderResponseStarted -> copy(
         phase = AgentOverlayPhase.RUNNING,
         round = event.round,
-        statusText = "模型已响应",
+        status = AgentOverlayStatus.ModelResponded,
     )
 
     is AgentEvent.AssistantBlockStart -> when (event.kind) {
@@ -59,7 +59,7 @@ internal fun AgentOverlayState.applyEvent(event: AgentEvent): AgentOverlayState 
         AgentEvent.AssistantBlockKind.TOOL_CALL -> copy(
             phase = AgentOverlayPhase.RUNNING,
             round = event.round,
-            statusText = "正在生成工具参数",
+            status = AgentOverlayStatus.GeneratingToolArguments,
         )
     }
 
@@ -68,13 +68,13 @@ internal fun AgentOverlayState.applyEvent(event: AgentEvent): AgentOverlayState 
         AgentEvent.AssistantBlockKind.THINKING -> copy(
             phase = AgentOverlayPhase.RUNNING,
             round = event.round,
-            statusText = "正在思考",
+            status = AgentOverlayStatus.Reasoning,
         )
 
         AgentEvent.AssistantBlockKind.TOOL_CALL -> copy(
             phase = AgentOverlayPhase.RUNNING,
             round = event.round,
-            statusText = "正在生成工具参数",
+            status = AgentOverlayStatus.GeneratingToolArguments,
         )
     }
 
@@ -83,97 +83,59 @@ internal fun AgentOverlayState.applyEvent(event: AgentEvent): AgentOverlayState 
     is AgentEvent.AssistantReceived -> copy(
         phase = AgentOverlayPhase.RUNNING,
         round = event.round,
-        statusText = if (event.toolNames.isEmpty()) {
-            "正在整理回答"
-        } else {
-            "计划执行：${event.toolNames.joinToString("、") { it.toToolLabel() }}"
-        },
+        status = if (event.toolNames.isEmpty()) AgentOverlayStatus.PreparingAnswer
+        else AgentOverlayStatus.PlanningTools(event.toolNames),
     )
 
     is AgentEvent.UsageReceived -> this
 
     is AgentEvent.UserSupplementReceived -> copy(
         phase = AgentOverlayPhase.RUNNING,
-        statusText = "已接收补充，继续执行",
+        status = AgentOverlayStatus.SupplementReceived,
         detailText = "",
     )
 
     is AgentEvent.ToolStarted -> copy(
         phase = AgentOverlayPhase.RUNNING,
         round = event.round,
-        statusText = "执行工具：${event.name.toToolLabel()}",
+        status = AgentOverlayStatus.RunningTool(event.name),
     )
 
     is AgentEvent.ToolFinished -> copy(
         phase = AgentOverlayPhase.RUNNING,
         round = event.round,
-        statusText = "工具完成：${event.name.toToolLabel()}",
+        status = AgentOverlayStatus.ToolCompleted(event.name),
     )
 
     is AgentEvent.HostedToolStarted -> copy(
         phase = AgentOverlayPhase.RUNNING,
         round = event.round,
-        statusText = "正在${event.name}",
+        status = AgentOverlayStatus.HostedToolRunning(event.name),
     )
 
     is AgentEvent.HostedToolFinished -> copy(
         phase = AgentOverlayPhase.RUNNING,
         round = event.round,
-        statusText = if (event.success) "${event.name}完成" else "${event.name}失败",
+        status = AgentOverlayStatus.HostedToolFinished(event.name, event.success),
     )
 
     is AgentEvent.ToolImagesAttached -> copy(
         phase = AgentOverlayPhase.RUNNING,
         round = event.round,
-        statusText = "已读取图片：${event.imageCount} 张",
+        status = AgentOverlayStatus.ImagesRead(event.imageCount),
     )
 
     is AgentEvent.RunFinished -> copy(
         phase = AgentOverlayPhase.FINISHED,
         round = event.round,
-        statusText = "已返回结果",
+        status = AgentOverlayStatus.ResultReady,
     )
 
     is AgentEvent.RunFailed -> copy(
         phase = AgentOverlayPhase.FAILED,
-        statusText = "调用失败",
+        status = AgentOverlayStatus.RunFailed,
         detailText = event.reason,
     )
-}
-
-/**
- * 工具原始名 -> 中文标签，供渲染层共用。
- */
-private fun String.toToolLabel(): String = when (this) {
-    "observe_screen" -> "观察屏幕"
-    "tap" -> "点击"
-    "tap_element" -> "点击元素"
-    "long_press" -> "长按"
-    "long_press_element" -> "长按元素"
-    "swipe" -> "滑动"
-    "scroll" -> "滚动"
-    "scroll_element" -> "滚动元素"
-    "input_text" -> "输入文字"
-    "replace_text" -> "替换文字"
-    "clear_text" -> "清空文字"
-    "set_clipboard" -> "写剪贴板"
-    "get_clipboard" -> "读剪贴板"
-    "paste_text" -> "粘贴文字"
-    "press_key" -> "按键"
-    "wait" -> "等待"
-    "wait_for_text" -> "等待文本"
-    "wait_for_package" -> "等待应用"
-    "open_system_panel" -> "系统面板"
-    "search_apps" -> "搜索应用"
-    "launch_app" -> "打开应用"
-    "open_uri" -> "用应用打开"
-    "browser_use" -> "浏览网页"
-    "terminal" -> "终端"
-    "run_command" -> "执行命令"
-    "read_file" -> "读取文件"
-    "write_file" -> "写入文件"
-    "list_directory" -> "列出目录"
-    else -> this
 }
 
 private const val MaxStreamingPreviewChars = 320
@@ -185,18 +147,7 @@ private fun AgentOverlayState.appendStreamingText(event: AgentEvent.AssistantBlo
     return copy(
         phase = AgentOverlayPhase.RUNNING,
         round = event.round,
-        statusText = "正在生成回答",
+        status = AgentOverlayStatus.GeneratingAnswer,
         detailText = nextPreview,
     )
 }
-
-/**
- * 面向用户的副状态文案，由阶段派生，供底部任务卡片展示。
- */
-internal val AgentOverlayState.subStatusText: String
-    get() = when (phase) {
-        AgentOverlayPhase.RUNNING -> "智能执行中"
-        AgentOverlayPhase.PAUSED -> "已暂停，可点击继续"
-        AgentOverlayPhase.FINISHED -> "已完成"
-        AgentOverlayPhase.FAILED -> "执行失败"
-    }

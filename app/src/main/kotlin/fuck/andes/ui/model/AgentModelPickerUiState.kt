@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import fuck.andes.data.model.Model
 import fuck.andes.data.model.ProviderSetting
 import fuck.andes.data.provider.ProviderSourceRegistry
+import java.text.NumberFormat
 import java.util.Locale
 
 @Immutable
@@ -125,28 +126,39 @@ internal fun contextUsageProgress(contextTokens: Int?, contextWindow: Int?): Flo
     return (contextTokens.toFloat() / contextWindow.toFloat()).coerceIn(0f, 1f)
 }
 
-internal fun formatContextUsage(usage: AgentContextUsageUi): String = when {
-    usage.contextTokens == null -> "暂无上轮用量"
+internal fun formatContextUsage(
+    usage: AgentContextUsageUi,
+    noUsageText: String = "No usage data from the previous response",
+    noLimitText: String = "The current model does not provide a context limit",
+    locale: Locale = Locale.getDefault(),
+): String = when {
+    usage.contextTokens == null -> noUsageText
     usage.contextWindow == null || usage.contextWindow <= 0 ->
-        "${formatCompactTokenCount(usage.contextTokens)} tokens\n当前模型未提供上下文上限"
+        "${formatCompactTokenCount(usage.contextTokens, locale)} tokens\n$noLimitText"
     else -> {
         val percent = usage.contextTokens.toDouble() / usage.contextWindow.toDouble() * 100.0
-        "${formatCompactTokenCount(usage.contextTokens)} / " +
-            "${formatCompactTokenCount(usage.contextWindow)} tokens · " +
-            String.format(Locale.US, "%.1f%%", percent)
+        val percentFormat = NumberFormat.getNumberInstance(locale).apply {
+            minimumFractionDigits = 1
+            maximumFractionDigits = 1
+        }
+        "${formatCompactTokenCount(usage.contextTokens, locale)} / " +
+            "${formatCompactTokenCount(usage.contextWindow, locale)} tokens · " +
+            "${percentFormat.format(percent)}%"
     }
 }
 
-internal fun formatCompactTokenCount(value: Int): String {
+internal fun formatCompactTokenCount(value: Int, locale: Locale = Locale.getDefault()): String {
     val absolute = kotlin.math.abs(value.toLong())
     val divisor = when {
         absolute >= 1_000_000 -> 1_000_000.0
         absolute >= 1_000 -> 1_000.0
-        else -> return value.toString()
+        else -> return NumberFormat.getIntegerInstance(locale).format(value)
     }
     val suffix = if (divisor == 1_000_000.0) "M" else "K"
-    val formatted = String.format(Locale.US, "%.2f", value / divisor)
-        .trimEnd('0')
-        .trimEnd('.')
+    val formatted = NumberFormat.getNumberInstance(locale).apply {
+        minimumFractionDigits = 0
+        maximumFractionDigits = 2
+        isGroupingUsed = false
+    }.format(value / divisor)
     return "$formatted$suffix"
 }

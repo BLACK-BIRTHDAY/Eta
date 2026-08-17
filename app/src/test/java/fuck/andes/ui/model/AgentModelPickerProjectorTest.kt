@@ -120,12 +120,23 @@ class AgentModelPickerProjectorTest {
         assertEquals(1f, contextUsageProgress(120_000, 100_000) ?: -1f, 0f)
         assertEquals("1.05M", formatCompactTokenCount(1_050_000))
         assertEquals(
-            "暂无上轮用量",
+            "No usage data from the previous response",
             formatContextUsage(AgentContextUsageUi(contextTokens = null, contextWindow = 100_000)),
         )
         assertEquals(
-            "12K tokens\n当前模型未提供上下文上限",
+            "12K tokens\nThe current model does not provide a context limit",
             formatContextUsage(AgentContextUsageUi(contextTokens = 12_000, contextWindow = null)),
+        )
+    }
+
+    @Test
+    fun contextUsageFormattingUsesTheRequestedLocale() {
+        assertEquals(
+            "82K / 100K tokens · 82,0%",
+            formatContextUsage(
+                usage = AgentContextUsageUi(contextTokens = 82_000, contextWindow = 100_000),
+                locale = java.util.Locale.GERMANY,
+            ),
         )
     }
 

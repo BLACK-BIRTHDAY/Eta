@@ -7,11 +7,13 @@ import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import android.text.format.DateFormat
 import android.widget.Toast
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import fuck.andes.FuckAndesApp
+import fuck.andes.R
 import fuck.andes.agent.accessibility.AgentAccessibilityService
 import fuck.andes.agent.device.AgentFileReferenceGateway
 import fuck.andes.agent.device.DeviceLocationProvider
@@ -63,6 +65,8 @@ import fuck.andes.ui.model.canDeleteUserSkill
 import fuck.andes.ui.model.SystemEnhanceItemUi
 import fuck.andes.ui.model.SystemEnhanceSectionUi
 import fuck.andes.ui.model.SystemEnhanceStatusUi
+import fuck.andes.ui.model.SystemNoticeCode
+import fuck.andes.ui.model.SystemNoticeMessageUi
 import fuck.andes.ui.model.ThinkingMessageUi
 import fuck.andes.ui.model.TokenUsageUi
 import fuck.andes.ui.model.ToolActivityMessageUi
@@ -128,7 +132,7 @@ internal class AgentAppState(
     )
         private set
 
-    var toolsState by mutableStateOf(buildToolsState())
+    var toolsState by mutableStateOf(buildToolsState(appContext))
         private set
 
     var skillsState by mutableStateOf(AgentSkillsUiState(isLoading = true))
@@ -137,7 +141,7 @@ internal class AgentAppState(
     var permissionHealthState by mutableStateOf(buildPermissionHealthState(appContext))
         private set
 
-    var systemEnhanceState by mutableStateOf(buildSystemEnhanceState())
+    var systemEnhanceState by mutableStateOf(buildSystemEnhanceState(appContext))
         private set
 
     var memoryState by mutableStateOf(AgentMemoryUiState())
@@ -243,7 +247,7 @@ internal class AgentAppState(
                     withContext(Dispatchers.Main) {
                         memoryState = memoryState.copy(
                             isLoading = false,
-                            notice = "读取记忆失败，请稍后重试",
+                            notice = appContext.getString(R.string.state_ui_failed_to_read_memory_please_try_again_later_caeaa6),
                         )
                     }
                 },
@@ -273,7 +277,7 @@ internal class AgentAppState(
                             "Agent memory setting update failed: type=${throwable.safeLogType()}"
                         }
                         withContext(Dispatchers.Main) {
-                            memoryState = memoryState.copy(notice = "记忆开关保存失败")
+                            memoryState = memoryState.copy(notice = appContext.getString(R.string.state_ui_memory_switch_failed_to_save_83b5d6))
                         }
                     },
                 )
@@ -298,7 +302,7 @@ internal class AgentAppState(
                                     memoryState.draft
                                 },
                                 draftBytes = memoryState.draft.toByteArray(Charsets.UTF_8).size,
-                                notice = "记忆已保存",
+                                notice = appContext.getString(R.string.state_ui_memory_saved_a2c61c),
                             )
                         }
                     },
@@ -309,7 +313,7 @@ internal class AgentAppState(
                         withContext(Dispatchers.Main) {
                             memoryState = memoryState.copy(
                                 isSaving = false,
-                                notice = throwable.message ?: "记忆保存失败",
+                                notice = throwable.message ?: appContext.getString(R.string.state_ui_memory_save_failed_1f501e),
                             )
                         }
                     },
@@ -330,7 +334,7 @@ internal class AgentAppState(
                                 draft = "",
                                 savedContent = "",
                                 draftBytes = 0,
-                                notice = "记忆已清空",
+                                notice = appContext.getString(R.string.state_ui_memory_cleared_b415bb),
                             )
                         }
                     },
@@ -341,7 +345,7 @@ internal class AgentAppState(
                         withContext(Dispatchers.Main) {
                             memoryState = memoryState.copy(
                                 isSaving = false,
-                                notice = throwable.message ?: "记忆清空失败",
+                                notice = throwable.message ?: appContext.getString(R.string.state_ui_memory_clearing_failed_7f0aba),
                             )
                         }
                     },
@@ -458,8 +462,8 @@ internal class AgentAppState(
             }
         if (alreadyImported) return runId
 
-        if (conversationTitles[conversationId].isNullOrBlank() || conversationTitles[conversationId] == "新对话") {
-            conversationTitles = conversationTitles + (conversationId to payload.title.ifBlank { "外部记录" })
+        if (conversationTitles[conversationId].isNullOrBlank()) {
+            conversationTitles = conversationTitles + (conversationId to payload.title)
         }
         runConversationIds[runId] = conversationId
         updateConversation(
@@ -522,7 +526,7 @@ internal class AgentAppState(
                 throw cancelled
             } catch (_: Throwable) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(appContext, "模型切换失败，请稍后重试", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(appContext, appContext.getString(R.string.state_ui_model_switching_failed_please_try_again_later_4af439), Toast.LENGTH_SHORT).show()
                 }
             } finally {
                 withContext(Dispatchers.Main) {
@@ -616,7 +620,7 @@ internal class AgentAppState(
         ) {
             Toast.makeText(
                 appContext,
-                "文件路径引用需要先开启终端与文件工具",
+                appContext.getString(R.string.state_ui_file_path_reference_requires_opening_the_termina_deca4c),
                 Toast.LENGTH_SHORT,
             ).show()
             return
@@ -666,11 +670,11 @@ internal class AgentAppState(
         val nextAutoTitle = defaultConversationTitle(prompt, fileReferences)
         val title = if (
             editBoundary?.userMessageIndex == 0 &&
-            (currentTitle == oldAutoTitle || currentTitle == "新对话")
+            (currentTitle == oldAutoTitle || currentTitle.isNullOrBlank())
         ) {
             nextAutoTitle
         } else {
-            currentTitle?.takeUnless { it == "新对话" } ?: nextAutoTitle
+            currentTitle?.takeIf(String::isNotBlank) ?: nextAutoTitle
         }
 
         conversationTitles = conversationTitles + (conversationId to title)
@@ -850,7 +854,7 @@ internal class AgentAppState(
                             runId = runId,
                             ok = false,
                             content = "",
-                            error = "请先配置模型提供商和模型",
+                            error = appContext.getString(R.string.state_ui_please_configure_the_model_provider_and_model_fi_a36e15),
                         )
                     )
                 }
@@ -903,7 +907,7 @@ internal class AgentAppState(
             ?: "image/jpeg"
 
     private fun String.defaultConversationTitle(): String =
-        lineSequence().firstOrNull().orEmpty().trim().take(MAX_TITLE_CHARS).ifBlank { "新对话" }
+        lineSequence().firstOrNull().orEmpty().trim().take(MAX_TITLE_CHARS)
 
     private fun defaultConversationTitle(
         request: String,
@@ -920,7 +924,7 @@ internal class AgentAppState(
     private fun showCompactedRevisionNotice() {
         Toast.makeText(
             appContext,
-            "较早上下文已压缩，将从此消息重新开始",
+            appContext.getString(R.string.state_ui_the_earlier_context_has_been_compressed_and_will_cf6c86),
             Toast.LENGTH_LONG,
         ).show()
     }
@@ -937,7 +941,7 @@ internal class AgentAppState(
                     withContext(Dispatchers.Main) {
                         Toast.makeText(
                             appContext,
-                            "无法读取这张图片，请重试或改用其他图片",
+                            appContext.getString(R.string.state_ui_unable_to_read_this_image_please_try_again_or_us_d94978),
                             Toast.LENGTH_SHORT,
                         ).show()
                     }
@@ -1025,7 +1029,7 @@ internal class AgentAppState(
             }
             withContext(Dispatchers.Main) {
                 if (ownerVersion != fileAttachmentOwnerVersion) {
-                    Toast.makeText(appContext, "对话已切换，未添加所选路径", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(appContext, appContext.getString(R.string.state_ui_conversation_switched_selected_path_not_added_5bf91e), Toast.LENGTH_SHORT).show()
                     return@withContext
                 }
                 val existingPaths = homeState.pendingFileReferences
@@ -1048,8 +1052,13 @@ internal class AgentAppState(
                 }
                 val message = when {
                     failures.size == 1 && references.isEmpty() -> failures.single().userMessage
-                    failures.isNotEmpty() -> "已添加 ${additions.size} 项，${failures.size} 项无法引用"
-                    additions.isEmpty() -> "所选路径已经添加"
+                    failures.isNotEmpty() -> appContext.resources.getQuantityString(
+                        R.plurals.file_references_added_with_failures,
+                        failures.size,
+                        additions.size,
+                        failures.size,
+                    )
+                    additions.isEmpty() -> appContext.getString(R.string.state_ui_the_selected_path_has_been_added_42b432)
                     else -> null
                 }
                 if (message != null) {
@@ -1062,15 +1071,15 @@ internal class AgentAppState(
     private val AgentFileReferenceGateway.Error.userMessage: String
         get() = when (this) {
             AgentFileReferenceGateway.Error.UnsupportedDocumentProvider ->
-                "无法取得真实路径，请从“内部存储”选择或手动输入路径"
-            AgentFileReferenceGateway.Error.InvalidPath -> "请输入有效的绝对路径"
+                appContext.getString(R.string.state_ui_unable_to_obtain_the_real_path_please_select_fro_32f367)
+            AgentFileReferenceGateway.Error.InvalidPath -> appContext.getString(R.string.state_ui_please_enter_a_valid_absolute_path_6afeb4)
             AgentFileReferenceGateway.Error.OutsideAllowedRoots ->
-                "仅支持内部存储和 /data/local/tmp 下的路径"
-            AgentFileReferenceGateway.Error.PathNotFound -> "路径不存在或已不可访问"
-            AgentFileReferenceGateway.Error.UnsupportedFileType -> "仅支持普通文件和文件夹"
-            AgentFileReferenceGateway.Error.TypeMismatch -> "选择的项目类型不匹配"
-            AgentFileReferenceGateway.Error.RootUnavailable -> "Root 不可用，无法校验路径"
-            AgentFileReferenceGateway.Error.ValidationTimedOut -> "路径校验超时，请重试"
+                appContext.getString(R.string.state_ui_only_supports_internal_storage_and_paths_under_d_df42c4)
+            AgentFileReferenceGateway.Error.PathNotFound -> appContext.getString(R.string.state_ui_the_path_does_not_exist_or_is_no_longer_accessib_a9776e)
+            AgentFileReferenceGateway.Error.UnsupportedFileType -> appContext.getString(R.string.state_ui_only_supports_normal_files_and_folders_4adea0)
+            AgentFileReferenceGateway.Error.TypeMismatch -> appContext.getString(R.string.state_ui_the_selected_project_type_does_not_match_3a5c49)
+            AgentFileReferenceGateway.Error.RootUnavailable -> appContext.getString(R.string.state_ui_root_is_not_available_and_the_path_cannot_be_ver_fc4c81)
+            AgentFileReferenceGateway.Error.ValidationTimedOut -> appContext.getString(R.string.state_ui_path_verification_timed_out_please_try_again_703687)
         }
 
     fun stopCurrentRun() {
@@ -1085,9 +1094,9 @@ internal class AgentAppState(
         updateRunTrace(runId) { messages ->
             val finalizedThinking = runMessageProjector.finalizeThinking(runId, messages)
             val finalizedText = runMessageProjector.finalizeText(runId, finalizedThinking)
-            runMessageProjector.failRunningTools("已停止", finalizedText)
+            runMessageProjector.failRunningTools(SYNTHETIC_STATUS_STOPPED, finalizedText)
         }
-        replaceLatestAssistantMessage(runId, content = "已停止", isStreaming = false, renderMarkdown = false)
+        replaceLatestAssistantWithNotice(runId, SystemNoticeCode.Stopped)
         setConversationStreaming(runId, false)
         runMessageProjector.clearRun(runId)
         runConversationIds.remove(runId)
@@ -1109,8 +1118,8 @@ internal class AgentAppState(
                     skillsState = skillsState.copy(
                         isLoading = false,
                         notice = skillsState.notice ?: newSkillNotice(
-                            title = "无法读取技能",
-                            message = "技能列表暂时不可用，请稍后重试。",
+                            title = appContext.getString(R.string.state_unable_to_read_skills_599082),
+                            message = appContext.getString(R.string.state_the_skill_list_is_temporarily_unavailable_please_try_29b0be),
                             isError = true,
                         ),
                     )
@@ -1154,8 +1163,8 @@ internal class AgentAppState(
                         skillsState.notice
                     } else {
                         newSkillNotice(
-                            title = "无法更新技能",
-                            message = "技能开关未发生变化，请稍后重试。",
+                            title = appContext.getString(R.string.state_unable_to_update_skills_04e56c),
+                            message = appContext.getString(R.string.state_the_skill_switch_has_not_changed_please_try_again_la_fa262f),
                             isError = true,
                         )
                     },
@@ -1181,14 +1190,14 @@ internal class AgentAppState(
                     busySkillId = null,
                     notice = if (succeeded) {
                         newSkillNotice(
-                            title = "技能已删除",
-                            message = "「$skillName」已从 Eta 删除。",
+                            title = appContext.getString(R.string.state_skill_has_been_deleted_34c29b),
+                            message = appContext.getString(R.string.skill_deleted_message, skillName),
                             isError = false,
                         )
                     } else {
                         newSkillNotice(
-                            title = "无法删除技能",
-                            message = "删除未完成。Eta 会在刷新技能列表时尝试恢复，请确认状态后再重试。",
+                            title = appContext.getString(R.string.state_unable_to_delete_skill_1583c9),
+                            message = appContext.getString(R.string.state_deletion_is_not_complete_eta_will_try_to_recover_whe_c4297e),
                             isError = true,
                         )
                     },
@@ -1205,8 +1214,8 @@ internal class AgentAppState(
         if (uri == null) {
             skillsState = skillsState.copy(
                 notice = newSkillNotice(
-                    title = "无法读取技能包",
-                    message = "请选择由系统文件选择器提供的 ZIP 文件。",
+                    title = appContext.getString(R.string.state_unable_to_read_skill_pack_a53563),
+                    message = appContext.getString(R.string.state_please_select_the_zip_file_provided_by_the_system_fi_fea145),
                     isError = true,
                 ),
             )
@@ -1230,8 +1239,8 @@ internal class AgentAppState(
             skillsState = skillsState.copy(
                 replacement = null,
                 notice = newSkillNotice(
-                    title = "无法继续安装",
-                    message = "技能包已不可用，请重新选择 ZIP 文件。",
+                    title = appContext.getString(R.string.state_unable_to_continue_installation_136d7c),
+                    message = appContext.getString(R.string.state_skill_pack_is_no_longer_available_please_select_the__7cdfb4),
                     isError = true,
                 ),
             )
@@ -1245,8 +1254,8 @@ internal class AgentAppState(
             skillsState = skillsState.copy(
                 replacement = null,
                 notice = newSkillNotice(
-                    title = "无法继续安装",
-                    message = "替换确认已失效，请重新选择 ZIP 文件。",
+                    title = appContext.getString(R.string.state_unable_to_continue_installation_136d7c),
+                    message = appContext.getString(R.string.state_replacement_confirmation_has_expired_please_select_t_fce9f2),
                     isError = true,
                 ),
             )
@@ -1283,7 +1292,7 @@ internal class AgentAppState(
                 skillZipImportGateway.installLocalZip(
                     openStream = {
                         appContext.contentResolver.openInputStream(uri)
-                            ?: error("无法打开所选内容")
+                            ?: error(appContext.getString(R.string.state_ui_unable_to_open_selection_9f0004))
                     },
                     replaceUserSkill = replaceUserSkill,
                     expectedReplacementId = expectedReplacementId,
@@ -1342,8 +1351,11 @@ internal class AgentAppState(
                         skillZipFailureNotice(SkillZipImportOutcome.FailureCode.MULTIPLE_SKILLS)
                     } else {
                         newSkillNotice(
-                            title = "技能已安装",
-                            message = "「${installed.name.safeSkillDisplayName()}」已启用，将从下一轮对话开始可用。",
+                            title = appContext.getString(R.string.state_skill_installed_b07e54),
+                            message = appContext.getString(
+                                R.string.skill_enabled_message,
+                                installed.name.safeSkillDisplayName(),
+                            ),
                             isError = false,
                         )
                     },
@@ -1412,23 +1424,23 @@ internal class AgentAppState(
 
     private fun skillZipFailureNotice(code: SkillZipImportOutcome.FailureCode): SkillNoticeUi {
         val message = when (code) {
-            SkillZipImportOutcome.FailureCode.INVALID_ARCHIVE -> "所选文件不是有效的 ZIP 技能包。"
-            SkillZipImportOutcome.FailureCode.ARCHIVE_LIMIT_EXCEEDED -> "技能包超过安全大小或文件数量限制。"
-            SkillZipImportOutcome.FailureCode.UNSAFE_ARCHIVE -> "技能包包含不安全的文件路径，未进行安装。"
-            SkillZipImportOutcome.FailureCode.NO_SKILL -> "ZIP 中没有找到 SKILL.md。"
-            SkillZipImportOutcome.FailureCode.MULTIPLE_SKILLS -> "本地 ZIP 必须只包含一个技能。"
-            SkillZipImportOutcome.FailureCode.INVALID_SKILL -> "SKILL.md 缺少必要信息或格式无效。"
-            SkillZipImportOutcome.FailureCode.PACKAGE_CHANGED -> "ZIP 内容已变化，请重新选择并确认要替换的技能。"
-            SkillZipImportOutcome.FailureCode.BUILTIN_CONFLICT -> "同名内置技能受保护，不能由 ZIP 替换。"
+            SkillZipImportOutcome.FailureCode.INVALID_ARCHIVE -> appContext.getString(R.string.state_ui_the_selected_file_is_not_a_valid_zip_package_bff052)
+            SkillZipImportOutcome.FailureCode.ARCHIVE_LIMIT_EXCEEDED -> appContext.getString(R.string.state_ui_the_skill_pack_exceeds_the_safe_size_or_file_num_42e151)
+            SkillZipImportOutcome.FailureCode.UNSAFE_ARCHIVE -> appContext.getString(R.string.state_ui_the_skill_pack_contains_an_unsafe_file_path_and__d8cfc0)
+            SkillZipImportOutcome.FailureCode.NO_SKILL -> appContext.getString(R.string.state_ui_skill_md_not_found_in_zip_a57975)
+            SkillZipImportOutcome.FailureCode.MULTIPLE_SKILLS -> appContext.getString(R.string.state_ui_the_local_zip_must_contain_only_one_skill_b89daf)
+            SkillZipImportOutcome.FailureCode.INVALID_SKILL -> appContext.getString(R.string.state_ui_skill_md_is_missing_required_information_or_is_i_debe6e)
+            SkillZipImportOutcome.FailureCode.PACKAGE_CHANGED -> appContext.getString(R.string.state_ui_the_zip_content_has_changed_please_reselect_and__ab8b12)
+            SkillZipImportOutcome.FailureCode.BUILTIN_CONFLICT -> appContext.getString(R.string.state_ui_built_in_skills_with_the_same_name_are_protected_446ad3)
             SkillZipImportOutcome.FailureCode.TARGET_NOT_REPLACEABLE ->
-                "同名目标不是可安全替换的用户技能，现有文件未被覆盖。"
-            SkillZipImportOutcome.FailureCode.READ_FAILED -> "无法读取所选文件，请重新选择。"
-            SkillZipImportOutcome.FailureCode.STORAGE_FAILED -> "无法保存技能，原有技能已自动恢复。"
+                appContext.getString(R.string.state_ui_the_target_with_the_same_name_is_not_a_user_skil_00474b)
+            SkillZipImportOutcome.FailureCode.READ_FAILED -> appContext.getString(R.string.state_ui_the_selected_file_cannot_be_read_please_select_a_7265b9)
+            SkillZipImportOutcome.FailureCode.STORAGE_FAILED -> appContext.getString(R.string.state_ui_unable_to_save_skills_original_skills_have_been__9d4748)
             SkillZipImportOutcome.FailureCode.RECOVERY_REQUIRED ->
-                "安装失败且自动恢复未完整完成。Eta 已在应用私有目录保留恢复备份，请先检查技能列表并停止继续安装。"
+                appContext.getString(R.string.state_ui_the_installation_failed_and_automatic_recovery_d_0d9e01)
         }
         return newSkillNotice(
-            title = "无法安装技能",
+            title = appContext.getString(R.string.state_unable_to_install_skill_0ec70b),
             message = message,
             isError = true,
         )
@@ -1448,8 +1460,8 @@ internal class AgentAppState(
                         skillsState.notice
                     } else {
                         newSkillNotice(
-                            title = "无法恢复技能",
-                            message = "内置技能未发生变化，请稍后重试。",
+                            title = appContext.getString(R.string.state_unable_to_restore_skills_6b3d23),
+                            message = appContext.getString(R.string.state_the_built_in_skills_have_not_changed_please_try_agai_34e5e3),
                             isError = true,
                         )
                     },
@@ -1475,7 +1487,7 @@ internal class AgentAppState(
     )
 
     private fun String.safeSkillDisplayName(): String =
-        lineSequence().firstOrNull().orEmpty().trim().ifBlank { "未命名技能" }.take(80)
+        lineSequence().firstOrNull().orEmpty().trim().ifBlank { appContext.getString(R.string.state_ui_unnamed_skill_a58008) }.take(80)
 
     private fun applyRunEvent(runId: String, event: AgentEvent) {
         when (event) {
@@ -1598,14 +1610,23 @@ internal class AgentAppState(
             currentRunId = null
             currentRunJob = null
         }
-        val content = if (result.ok) {
-            result.content.ifBlank { "已完成。" }
-        } else {
-            result.error ?: "Agent Runtime 调用失败"
-        }
-
         applyConversationHistoryResult(runId, result.transcript)
-        replaceLatestAssistantMessage(runId, content, isStreaming = false, renderMarkdown = result.ok)
+        when {
+            result.ok && result.content.isNotBlank() -> replaceLatestAssistantMessage(
+                runId,
+                result.content,
+                isStreaming = false,
+                renderMarkdown = true,
+            )
+            result.ok -> replaceLatestAssistantWithNotice(runId, SystemNoticeCode.EmptyResult)
+            result.error == LEGACY_STOPPED_ERROR || result.error == SYNTHETIC_STATUS_STOPPED ->
+                replaceLatestAssistantWithNotice(runId, SystemNoticeCode.Stopped)
+            else -> replaceLatestAssistantWithNotice(
+                runId,
+                SystemNoticeCode.RuntimeFailed,
+                result.error,
+            )
+        }
         setConversationStreaming(runId, false)
         runMessageProjector.clearRun(runId)
         runConversationIds.remove(runId)
@@ -1718,6 +1739,27 @@ internal class AgentAppState(
         )
     }
 
+    private fun replaceLatestAssistantWithNotice(
+        runId: String,
+        code: SystemNoticeCode,
+        detail: String? = null,
+    ) {
+        val targetId = latestAssistantRound(runId)?.let { assistantMessageId(runId, it) }
+            ?: assistantMessageId(runId, 1)
+        updateMessages(runId) { messages ->
+            var replaced = false
+            val updated = messages.map { message ->
+                if (message is AgentMessageUi && message.id == targetId) {
+                    replaced = true
+                    SystemNoticeMessageUi(targetId, code, detail)
+                } else {
+                    message
+                }
+            }
+            if (replaced) updated else updated + SystemNoticeMessageUi(targetId, code, detail)
+        }
+    }
+
     private fun latestAssistantRound(runId: String): Int? =
         conversationStateForRun(runId).messages
             .filterIsInstance<AgentMessageUi>()
@@ -1818,7 +1860,9 @@ internal class AgentAppState(
                 val lastMessage = state.messages.lastOrNull()
                 ConversationSummaryUi(
                     id = id,
-                    title = conversationTitles[id] ?: "新对话",
+                    title = conversationTitles[id].orEmpty().ifBlank {
+                        appContext.getString(R.string.conversation_unnamed)
+                    },
                     preview = when (lastMessage) {
                         is UserMessageUi -> AgentFileReferencePromptCodec
                             .parse(lastMessage.content)
@@ -1828,16 +1872,37 @@ internal class AgentAppState(
                                     references = parsed.references,
                                 )
                             }
-                        is AgentMessageUi -> lastMessage.content.ifBlank { "Agent 正在思考" }
-                        is ThinkingMessageUi -> "Agent 正在思考"
-                        is ToolActivityMessageUi -> "调用工具：${lastMessage.toolName}"
-                        else -> "直接输入问题，必要时 Agent 会操作手机"
+                        is AgentMessageUi -> lastMessage.content.ifBlank {
+                            appContext.getString(R.string.conversation_preview_reasoning)
+                        }
+                        is SystemNoticeMessageUi -> appContext.getString(
+                            when (lastMessage.code) {
+                                SystemNoticeCode.Stopped -> R.string.system_notice_stopped
+                                SystemNoticeCode.EmptyResult -> R.string.system_notice_empty_result
+                                SystemNoticeCode.RuntimeFailed -> R.string.system_notice_runtime_failed
+                            },
+                        )
+                        is ThinkingMessageUi -> appContext.getString(R.string.conversation_preview_reasoning)
+                        is ToolActivityMessageUi -> appContext.getString(
+                            R.string.conversation_preview_tool_call,
+                            lastMessage.toolName,
+                        )
+                        else -> appContext.getString(R.string.conversation_preview_empty)
                     }.take(MAX_PREVIEW_CHARS),
                     timeLabel = if (state.isStreaming) {
-                        "现在"
+                        appContext.getString(R.string.time_now)
                     } else {
-                        conversationUpdatedAt[id]?.let(ConversationTimeLabels::label) ?: "最近"
+                        conversationUpdatedAt[id]?.let { timestamp ->
+                            ConversationTimeLabels.label(
+                                timestampMillis = timestamp,
+                                locale = appContext.resources.configuration.locales[0],
+                                use24HourClock = DateFormat.is24HourFormat(appContext),
+                                yesterdayLabel = appContext.getString(R.string.time_yesterday),
+                                recentLabel = appContext.getString(R.string.time_recent),
+                            )
+                        } ?: appContext.getString(R.string.time_recent)
                     },
+                    updatedAtMillis = conversationUpdatedAt[id] ?: 0L,
                     mode = ConversationModeUi.Chat,
                     isActiveRun = state.isStreaming,
                 )
@@ -1889,6 +1954,8 @@ internal class AgentAppState(
         const val HANDOFF_SOURCE = "agent_ui"
         const val MAX_TITLE_CHARS = 24
         const val MAX_PREVIEW_CHARS = 48
+        const val LEGACY_STOPPED_ERROR = "已停止"
+        const val SYNTHETIC_STATUS_STOPPED = "eta_status:stopped"
         // 数据状态以较粗粒度发布，文字显现由独立的帧时钟连续推进。
         // 这与 Kimi 将流式数据和视觉动画分层的做法一致。
         const val STREAM_UI_UPDATE_INTERVAL_MS = 80L
@@ -1932,138 +1999,138 @@ private fun stableArchiveId(value: String): String =
         .take(12)
         .joinToString(separator = "") { byte -> "%02x".format(byte) }
 
-private fun buildToolsState(): AgentToolsUiState =
+private fun buildToolsState(context: Context): AgentToolsUiState =
     AgentToolsUiState(
         groups = listOf(
             ToolGroupUi(
                 id = "screen",
-                title = "屏幕与控件",
+                title = context.getString(R.string.state_screens_and_controls_3f095b),
                 tools = listOf(
-                    ToolItemUi("observe_screen", "观察屏幕", "读取当前节点，必要时附原图"),
-                    ToolItemUi("tap_element", "点击元素", "按最近一次观察到的节点点击"),
-                    ToolItemUi("tap_area", "点击区域", "按坐标区域点击"),
-                    ToolItemUi("long_press", "长按", "长按坐标或元素"),
-                    ToolItemUi("swipe", "滑动", "执行上下左右滑动手势"),
-                    ToolItemUi("scroll", "滚动", "滚动页面或指定节点"),
+                    ToolItemUi("observe_screen", context.getString(R.string.tool_ui_watch_the_screen_e70f2a), context.getString(R.string.tool_ui_read_the_current_node_and_attach_the_original_im_df1fec)),
+                    ToolItemUi("tap_element", context.getString(R.string.tool_ui_click_element_7a3d91), context.getString(R.string.tool_ui_click_on_the_most_recently_observed_node_b4cf5a)),
+                    ToolItemUi("tap_area", context.getString(R.string.tool_ui_click_area_cbaa08), context.getString(R.string.tool_ui_click_by_coordinate_area_2ad961)),
+                    ToolItemUi("long_press", context.getString(R.string.tool_ui_long_press_f7a417), context.getString(R.string.tool_ui_long_press_on_coordinates_or_elements_796384)),
+                    ToolItemUi("swipe", context.getString(R.string.tool_ui_slide_3723aa), context.getString(R.string.tool_ui_perform_up_down_left_and_right_swipe_gestures_3ef0de)),
+                    ToolItemUi("scroll", context.getString(R.string.tool_ui_scroll_220e68), context.getString(R.string.tool_ui_scroll_the_page_or_specify_a_node_83ab24)),
                 ),
             ),
             ToolGroupUi(
                 id = "text",
-                title = "文本与剪贴板",
+                title = context.getString(R.string.state_text_and_clipboard_3a7340),
                 tools = listOf(
-                    ToolItemUi("input_text", "输入文字", "向当前焦点追加或粘贴文本"),
-                    ToolItemUi("replace_text", "替换文本", "替换焦点或节点中的文本"),
-                    ToolItemUi("clear_text", "清空文本", "清空焦点或节点文本"),
-                    ToolItemUi("paste_text", "粘贴文本", "用剪贴板可靠输入长文本"),
-                    ToolItemUi("wait_for_text", "等待文本", "等待指定文本出现在屏幕上"),
+                    ToolItemUi("input_text", context.getString(R.string.tool_ui_enter_text_ae47ab), context.getString(R.string.tool_ui_append_or_paste_text_to_the_current_focus_1efdcc)),
+                    ToolItemUi("replace_text", context.getString(R.string.tool_ui_replacement_text_1a5c8d), context.getString(R.string.tool_ui_replace_text_in_focus_or_node_30d332)),
+                    ToolItemUi("clear_text", context.getString(R.string.tool_ui_clear_text_d4cb57), context.getString(R.string.tool_ui_clear_focus_or_node_text_3e754a)),
+                    ToolItemUi("paste_text", context.getString(R.string.tool_ui_paste_text_791b85), context.getString(R.string.tool_ui_reliably_enter_long_text_with_the_clipboard_b6041e)),
+                    ToolItemUi("wait_for_text", context.getString(R.string.tool_ui_wait_for_text_9e9a54), context.getString(R.string.tool_ui_wait_for_the_specified_text_to_appear_on_the_scr_43f9b0)),
                 ),
             ),
             ToolGroupUi(
                 id = "web",
-                title = "网页浏览",
+                title = context.getString(R.string.state_web_browsing_e56105),
                 tools = listOf(
-                    ToolItemUi("browser_use", "Agent 浏览器", "离屏打开网页，并保持可接管的浏览会话"),
-                    ToolItemUi("browser_read", "阅读网页", "提取渲染后的正文、列表与链接"),
-                    ToolItemUi("browser_interact", "网页交互", "查找、点击并输入页面元素"),
-                    ToolItemUi("browser_screenshot", "页面截图", "把当前网页视口交给视觉模型"),
+                    ToolItemUi("browser_use", context.getString(R.string.tool_ui_agent_browser_a66bd5), context.getString(R.string.tool_ui_open_web_pages_off_screen_and_keep_a_takeover_br_72972e)),
+                    ToolItemUi("browser_read", context.getString(R.string.tool_ui_read_web_pages_4f0bb9), context.getString(R.string.tool_ui_extract_rendered_text_lists_and_links_8bdcdd)),
+                    ToolItemUi("browser_interact", context.getString(R.string.tool_ui_web_page_interaction_331b3f), context.getString(R.string.tool_ui_find_click_and_enter_page_elements_8f102d)),
+                    ToolItemUi("browser_screenshot", context.getString(R.string.tool_ui_page_screenshot_c823a2), context.getString(R.string.tool_ui_give_the_current_web_page_viewport_to_the_visual_f62274)),
                 ),
             ),
             ToolGroupUi(
                 id = "app",
-                title = "应用与系统",
+                title = context.getString(R.string.state_applications_and_systems_9624e6),
                 tools = listOf(
-                    ToolItemUi("search_apps", "搜索应用", "按名称或包名查询已安装应用"),
-                    ToolItemUi("get_current_context", "时间与位置", "读取系统时间与最近位置"),
-                    ToolItemUi("launch_app", "打开 App", "启动指定包名或应用名"),
-                    ToolItemUi("open_uri", "用应用打开", "把链接或 deep link 显式交给外部应用"),
-                    ToolItemUi("press_key", "按键", "返回、主页、最近任务等系统按键"),
-                    ToolItemUi("open_system_panel", "系统面板", "打开通知栏、快捷设置等面板"),
+                    ToolItemUi("search_apps", context.getString(R.string.tool_ui_search_apps_897fdf), context.getString(R.string.tool_ui_query_installed_applications_by_name_or_package__32b004)),
+                    ToolItemUi("get_current_context", context.getString(R.string.tool_ui_time_and_location_693893), context.getString(R.string.tool_ui_read_system_time_and_recent_location_b9f4ae)),
+                    ToolItemUi("launch_app", context.getString(R.string.tool_ui_open_app_7c65e7), context.getString(R.string.tool_ui_start_the_specified_package_name_or_application__beabff)),
+                    ToolItemUi("open_uri", context.getString(R.string.tool_ui_open_with_app_32c24e), context.getString(R.string.tool_ui_explicitly_hand_over_links_or_deep_links_to_exte_35ff26)),
+                    ToolItemUi("press_key", context.getString(R.string.tool_ui_button_02eafa), context.getString(R.string.tool_ui_system_buttons_such_as_return_homepage_recent_ta_1b4cf0)),
+                    ToolItemUi("open_system_panel", context.getString(R.string.tool_ui_system_panel_b0f7a3), context.getString(R.string.tool_ui_open_the_notification_bar_quick_settings_and_oth_5e51cf)),
                 ),
             ),
             ToolGroupUi(
                 id = "device_direct",
-                title = "设备直达",
+                title = context.getString(R.string.state_direct_access_to_equipment_eda92c),
                 tools = listOf(
-                    ToolItemUi("set_alarm", "设置闹钟", "直接创建系统闹钟，失败时打开时钟确认"),
-                    ToolItemUi("set_timer", "设置计时器", "直接创建最长 24 小时的系统计时器"),
-                    ToolItemUi("device_status", "设备状态", "读取电量、内存、存储与系统版本"),
-                    ToolItemUi("network_info", "网络状态", "读取联网方式和当前 Wi‑Fi 状态"),
-                    ToolItemUi("media_control", "媒体控制", "播放、暂停、切歌，不操作界面"),
-                    ToolItemUi("set_volume", "设置音量", "按媒体、闹钟、铃声等通道设置"),
-                    ToolItemUi("top_memory_apps", "内存排行", "查看当前占用最高的进程"),
-                    ToolItemUi("top_storage_apps", "存储排行", "查看应用、数据与缓存占用"),
+                    ToolItemUi("set_alarm", context.getString(R.string.tool_ui_set_alarm_25ca3c), context.getString(R.string.tool_ui_create_a_system_alarm_directly_and_open_the_cloc_9aa214)),
+                    ToolItemUi("set_timer", context.getString(R.string.tool_ui_set_timer_aee60c), context.getString(R.string.tool_ui_directly_create_system_timers_up_to_24_hours_87c476)),
+                    ToolItemUi("device_status", context.getString(R.string.tool_ui_device_status_567a4c), context.getString(R.string.tool_ui_read_power_memory_storage_and_system_version_c501d5)),
+                    ToolItemUi("network_info", context.getString(R.string.tool_ui_network_status_6bd556), context.getString(R.string.tool_ui_read_networking_method_and_current_wi_fi_status_68016a)),
+                    ToolItemUi("media_control", context.getString(R.string.tool_ui_media_control_585edc), context.getString(R.string.tool_ui_play_pause_and_switch_songs_without_operating_th_311cb8)),
+                    ToolItemUi("set_volume", context.getString(R.string.tool_ui_set_volume_85a691), context.getString(R.string.tool_ui_set_by_media_alarm_clock_ringtone_and_other_chan_3fcc3e)),
+                    ToolItemUi("top_memory_apps", context.getString(R.string.tool_ui_memory_ranking_408ca1), context.getString(R.string.tool_ui_view_the_currently_most_occupied_processes_8646c4)),
+                    ToolItemUi("top_storage_apps", context.getString(R.string.tool_ui_storage_ranking_86a16c), context.getString(R.string.tool_ui_check_application_data_and_cache_usage_837e9f)),
                 ),
             ),
             ToolGroupUi(
                 id = "device_sensitive",
-                title = "敏感设备能力",
+                title = context.getString(R.string.state_sensitive_equipment_capabilities_fbdc4b),
                 tools = listOf(
-                    ToolItemUi("read_sms_code", "读取验证码", "只提取最近短信中的验证码"),
-                    ToolItemUi("recent_notifications", "读取通知", "读取当前通知标题与正文"),
-                    ToolItemUi("search_notification_history", "通知历史", "检索授权后本机保存的最近 7 天通知"),
-                    ToolItemUi("recent_app_activity", "最近应用", "查看最近打开过的应用和时间"),
-                    ToolItemUi("app_usage_summary", "应用使用统计", "按前台时长汇总近期应用使用"),
-                    ToolItemUi("get_current_location", "当前位置", "读取系统已有的最近位置"),
-                    ToolItemUi("get_device_environment", "设备环境", "读取锁屏、勿扰、音频输出和外接屏状态"),
-                    ToolItemUi("list_alarms", "闹钟计划", "读取时钟中已创建的闹钟"),
-                    ToolItemUi("list_active_timers", "活动计时器", "读取正在运行或暂停的计时器"),
-                    ToolItemUi("search_clipboard_history", "剪贴板历史", "检索系统输入法保存的剪贴板内容"),
-                    ToolItemUi("get_health_summary", "健康摘要", "汇总步数、睡眠、运动和身体指标"),
-                    ToolItemUi("wifi_credentials", "Wi‑Fi 密码", "读取手机保存的网络凭据"),
-                    ToolItemUi("get_setting", "读取系统设置", "读取指定 Settings 键"),
-                    ToolItemUi("set_setting", "修改系统设置", "修改非安全关键 Settings 键"),
-                    ToolItemUi("set_device_state", "网络开关", "直接控制 Wi‑Fi 或蓝牙"),
-                    ToolItemUi("app_state_control", "应用状态", "停止、冻结或解冻应用"),
-                    ToolItemUi("get_logcat", "系统日志", "有界读取并过滤最近日志"),
+                    ToolItemUi("read_sms_code", context.getString(R.string.tool_ui_read_verification_code_7d1121), context.getString(R.string.tool_ui_only_extract_verification_codes_from_recent_sms__0fb8c1)),
+                    ToolItemUi("recent_notifications", context.getString(R.string.tool_ui_read_notification_7fdc09), context.getString(R.string.tool_ui_read_the_current_notification_title_and_text_0faee7)),
+                    ToolItemUi("search_notification_history", context.getString(R.string.tool_ui_notification_history_95d015), context.getString(R.string.tool_ui_retrieve_the_last_7_days_of_notifications_saved__643e43)),
+                    ToolItemUi("recent_app_activity", context.getString(R.string.tool_ui_recently_applied_08f74c), context.getString(R.string.tool_ui_view_recently_opened_apps_and_times_bf9d50)),
+                    ToolItemUi("app_usage_summary", context.getString(R.string.tool_ui_app_usage_statistics_ee20d3), context.getString(R.string.tool_ui_summarize_recent_app_usage_by_foreground_duratio_b346c8)),
+                    ToolItemUi("get_current_location", context.getString(R.string.tool_ui_current_location_b458ea), context.getString(R.string.tool_ui_read_the_closest_location_the_system_already_has_255a6c)),
+                    ToolItemUi("get_device_environment", context.getString(R.string.tool_ui_equipment_environment_1026ec), context.getString(R.string.tool_ui_read_lock_screen_do_not_disturb_audio_output_and_9260b8)),
+                    ToolItemUi("list_alarms", context.getString(R.string.tool_ui_alarm_clock_schedule_acae32), context.getString(R.string.tool_ui_read_the_alarm_clock_that_has_been_created_in_th_2320d6)),
+                    ToolItemUi("list_active_timers", context.getString(R.string.tool_ui_activity_timer_36f107), context.getString(R.string.tool_ui_read_running_or_paused_timers_3437c8)),
+                    ToolItemUi("search_clipboard_history", context.getString(R.string.tool_ui_clipboard_history_b377bb), context.getString(R.string.tool_ui_retrieve_clipboard_contents_saved_by_system_inpu_1dc9db)),
+                    ToolItemUi("get_health_summary", context.getString(R.string.tool_ui_health_summary_951c0b), context.getString(R.string.tool_ui_summarize_steps_sleep_exercise_and_body_metrics_6ff66f)),
+                    ToolItemUi("wifi_credentials", context.getString(R.string.tool_ui_wi_fi_password_80e9a4), context.getString(R.string.tool_ui_read_the_network_credentials_saved_by_the_phone_96d43a)),
+                    ToolItemUi("get_setting", context.getString(R.string.tool_ui_read_system_settings_d455ce), context.getString(R.string.tool_ui_read_the_specified_settings_key_496975)),
+                    ToolItemUi("set_setting", context.getString(R.string.tool_ui_modify_system_settings_ae1f4c), context.getString(R.string.tool_ui_modify_non_security_critical_settings_keys_91a37e)),
+                    ToolItemUi("set_device_state", context.getString(R.string.tool_ui_network_switch_834347), context.getString(R.string.tool_ui_directly_control_wi_fi_or_bluetooth_4fa0b9)),
+                    ToolItemUi("app_state_control", context.getString(R.string.tool_ui_application_status_930ff0), context.getString(R.string.tool_ui_stop_freeze_or_unfreeze_apps_a27438)),
+                    ToolItemUi("get_logcat", context.getString(R.string.tool_ui_system_log_096733), context.getString(R.string.tool_ui_bounded_reading_and_filtering_of_recent_logs_0a268a)),
                 ),
             ),
             ToolGroupUi(
                 id = "personal_data",
-                title = "个人数据直达",
+                title = context.getString(R.string.state_direct_access_to_personal_data_387d7b),
                 tools = listOf(
-                    ToolItemUi("search_media", "相册图片", "按文件名或相册路径检索图片"),
-                    ToolItemUi("search_audio", "音频文件", "按标题、文件名或作者检索音频"),
-                    ToolItemUi("search_recordings", "系统录音", "从系统媒体库检索录音文件"),
-                    ToolItemUi("search_files", "共享文件", "检索文档和共享存储中的文件"),
-                    ToolItemUi("search_calendar_events", "日历事件", "按标题、地点或说明检索日程"),
-                    ToolItemUi("search_contacts", "通讯录", "检索联系人姓名与打开地址"),
-                    ToolItemUi("search_call_history", "通话记录", "按号码或联系人名称检索通话"),
-                    ToolItemUi("search_messages", "短信", "按发送方或正文关键词检索短信"),
-                    ToolItemUi("search_downloads", "下载记录", "检索系统下载任务和文件"),
-                    ToolItemUi("search_coloros_notes", "ColorOS 便签", "检索便签、待办及正文内容"),
-                    ToolItemUi("search_coloros_recordings", "ColorOS 录音", "检索普通录音与通话录音"),
-                    ToolItemUi("search_recording_summaries", "录音摘要", "检索录音关联的转写摘要和便签"),
-                    ToolItemUi("search_coloros_memories", "ColorOS 系统记忆", "检索已收集的信息及其结构化关联内容"),
-                    ToolItemUi("search_saved_places", "保存地点", "检索系统记忆中的地点信息"),
-                    ToolItemUi("search_personal_orders", "个人订单", "检索外卖、购物、快递、票券和出行订单"),
-                    ToolItemUi("search_qq_chat_images", "QQ 聊天图片", "检索 QQ 聊天图片缓存中的最近图片"),
-                    ToolItemUi("search_wechat_chat_images", "微信聊天图片", "检索微信聊天图片缓存中的最近图片"),
+                    ToolItemUi("search_media", context.getString(R.string.tool_ui_album_pictures_23bcc2), context.getString(R.string.tool_ui_retrieve_pictures_by_file_name_or_album_path_c08236)),
+                    ToolItemUi("search_audio", context.getString(R.string.tool_ui_audio_file_1ccf2e), context.getString(R.string.tool_ui_search_audio_by_title_filename_or_author_82e20d)),
+                    ToolItemUi("search_recordings", context.getString(R.string.tool_ui_system_recording_15eb19), context.getString(R.string.tool_ui_retrieve_recording_files_from_system_media_libra_314c4d)),
+                    ToolItemUi("search_files", context.getString(R.string.tool_ui_share_files_a3b376), context.getString(R.string.tool_ui_retrieve_documents_and_files_from_shared_storage_7d6193)),
+                    ToolItemUi("search_calendar_events", context.getString(R.string.tool_ui_calendar_events_970349), context.getString(R.string.tool_ui_search_events_by_title_location_or_description_1afd77)),
+                    ToolItemUi("search_contacts", context.getString(R.string.tool_ui_address_book_9070cb), context.getString(R.string.tool_ui_retrieve_contact_name_and_open_address_6dacc5)),
+                    ToolItemUi("search_call_history", context.getString(R.string.tool_ui_call_history_88e57b), context.getString(R.string.tool_ui_retrieve_calls_by_number_or_contact_name_2ce431)),
+                    ToolItemUi("search_messages", context.getString(R.string.tool_ui_short_message_17e1a4), context.getString(R.string.tool_ui_search_text_messages_by_sender_or_text_keywords_e14363)),
+                    ToolItemUi("search_downloads", context.getString(R.string.tool_ui_download_history_8494d7), context.getString(R.string.tool_ui_retrieve_system_download_tasks_and_files_3301b9)),
+                    ToolItemUi("search_coloros_notes", context.getString(R.string.tool_ui_coloros_notes_6c324c), context.getString(R.string.tool_ui_retrieve_notes_to_dos_and_text_content_e806d7)),
+                    ToolItemUi("search_coloros_recordings", context.getString(R.string.tool_ui_coloros_recording_a4e425), context.getString(R.string.tool_ui_retrieve_normal_recordings_and_call_recordings_55c192)),
+                    ToolItemUi("search_recording_summaries", context.getString(R.string.tool_ui_recording_summary_2fe550), context.getString(R.string.tool_ui_retrieve_transcribed_summaries_and_notes_associa_9cb00f)),
+                    ToolItemUi("search_coloros_memories", context.getString(R.string.tool_ui_coloros_system_memory_eff961), context.getString(R.string.tool_ui_retrieve_collected_information_and_its_structure_9c1c71)),
+                    ToolItemUi("search_saved_places", context.getString(R.string.tool_ui_save_location_c29782), context.getString(R.string.tool_ui_retrieve_location_information_from_system_memory_52ea48)),
+                    ToolItemUi("search_personal_orders", context.getString(R.string.tool_ui_personal_order_25e4c9), context.getString(R.string.tool_ui_retrieve_takeout_shopping_express_delivery_ticke_f8d002)),
+                    ToolItemUi("search_qq_chat_images", context.getString(R.string.tool_ui_qq_chat_pictures_e21bf9), context.getString(R.string.tool_ui_retrieve_recent_pictures_in_qq_chat_picture_cach_b8f009)),
+                    ToolItemUi("search_wechat_chat_images", context.getString(R.string.tool_ui_wechat_chat_pictures_72b268), context.getString(R.string.tool_ui_retrieve_recent_pictures_in_wechat_chat_picture__ab66f7)),
                 ),
             ),
             ToolGroupUi(
                 id = "file_vision",
-                title = "文件视觉",
+                title = context.getString(R.string.state_document_vision_6a65a7),
                 tools = listOf(
-                    ToolItemUi("read_image", "读取图片", "读取已知路径的图片并交给视觉模型解读"),
+                    ToolItemUi("read_image", context.getString(R.string.tool_ui_read_pictures_ae993b), context.getString(R.string.tool_ui_read_pictures_of_known_paths_and_hand_them_over__7f9569)),
                 ),
             ),
             ToolGroupUi(
                 id = "memory",
-                title = "记忆",
+                title = context.getString(R.string.state_memory_b55ff5),
                 tools = listOf(
-                    ToolItemUi("memory_get", "读取记忆", "分页读取或检索 MEMORY.md 中的长期记忆"),
-                    ToolItemUi("memory_write", "整理记忆", "局部更新、追加或清空长期记忆"),
+                    ToolItemUi("memory_get", context.getString(R.string.tool_ui_read_memory_979135), context.getString(R.string.tool_ui_paged_to_read_or_retrieve_long_term_memory_in_me_88afc4)),
+                    ToolItemUi("memory_write", context.getString(R.string.tool_ui_organize_memory_2b08eb), context.getString(R.string.tool_ui_partially_update_append_or_clear_long_term_memor_c1bab6)),
                 ),
             ),
             ToolGroupUi(
                 id = "terminal",
-                title = "终端与文件",
+                title = context.getString(R.string.state_terminal_and_files_ae7c54),
                 tools = listOf(
-                    ToolItemUi("terminal", "会话终端", "user/root shell，会话式执行与异步读取"),
-                    ToolItemUi("run_command", "执行命令", "直接执行单条 shell 命令"),
-                    ToolItemUi("read_file", "读取文件", "读取手机文件内容"),
-                    ToolItemUi("write_file", "写入文件", "写入或覆盖手机文件"),
-                    ToolItemUi("list_directory", "列目录", "列出目录内容"),
+                    ToolItemUi("terminal", context.getString(R.string.tool_ui_session_terminal_09c6e6), context.getString(R.string.tool_ui_user_root_shell_conversational_execution_and_asy_13c2ab)),
+                    ToolItemUi("run_command", context.getString(R.string.tool_ui_execute_command_bf1627), context.getString(R.string.tool_ui_directly_execute_a_single_shell_command_c40cef)),
+                    ToolItemUi("read_file", context.getString(R.string.tool_ui_read_file_dc995c), context.getString(R.string.tool_ui_read_the_contents_of_mobile_phone_files_bf3066)),
+                    ToolItemUi("write_file", context.getString(R.string.tool_ui_write_file_e620fd), context.getString(R.string.tool_ui_write_or_overwrite_mobile_files_29fae4)),
+                    ToolItemUi("list_directory", context.getString(R.string.tool_ui_list_directory_96e765), context.getString(R.string.tool_ui_list_directory_contents_feff30)),
                 ),
             ),
         )
@@ -2083,33 +2150,33 @@ private fun buildPermissionHealthState(context: Context): PermissionHealthUiStat
         items = listOf(
             PermissionHealthItemUi(
                 id = "background",
-                title = "后台运行权限",
+                title = context.getString(R.string.state_background_running_permission_dde21b),
                 summary = "",
                 status = if (backgroundRunningEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (backgroundRunningEnabled) null else "去开启",
+                primaryActionLabel = if (backgroundRunningEnabled) null else context.getString(R.string.state_ui_to_open_13ec17),
             ),
             PermissionHealthItemUi(
                 id = "overlay",
-                title = "悬浮窗权限",
+                title = context.getString(R.string.state_floating_window_permissions_076b77),
                 summary = "",
                 status = if (overlayEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (overlayEnabled) null else "去授权",
+                primaryActionLabel = if (overlayEnabled) null else context.getString(R.string.state_ui_to_authorize_762ec4),
             ),
             PermissionHealthItemUi(
                 id = "app_list",
-                title = "应用列表读取",
+                title = context.getString(R.string.state_application_list_reading_135f16),
                 summary = "",
                 status = if (appListEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (appListEnabled) null else "去开启",
+                primaryActionLabel = if (appListEnabled) null else context.getString(R.string.state_ui_to_open_13ec17),
             ),
             PermissionHealthItemUi(
                 id = "location",
-                title = "位置权限",
+                title = context.getString(R.string.state_location_permissions_b53f9c),
                 summary = when (locationAccess) {
-                    DeviceLocationProvider.AccessState.DENIED -> "用于按需理解手机所在位置"
-                    DeviceLocationProvider.AccessState.FOREGROUND_ONLY -> "小布入口需要设为“始终允许”"
-                    DeviceLocationProvider.AccessState.DISABLED -> "系统定位服务已关闭"
-                    DeviceLocationProvider.AccessState.AVAILABLE -> "仅在 Agent 调用工具时读取"
+                    DeviceLocationProvider.AccessState.DENIED -> context.getString(R.string.state_ui_used_to_understand_the_location_of_mobile_phones_af52e9)
+                    DeviceLocationProvider.AccessState.FOREGROUND_ONLY -> context.getString(R.string.state_ui_xiaobu_s_entrance_needs_to_be_set_to_always_allo_cc74cb)
+                    DeviceLocationProvider.AccessState.DISABLED -> context.getString(R.string.state_ui_system_location_service_is_turned_off_3902e7)
+                    DeviceLocationProvider.AccessState.AVAILABLE -> context.getString(R.string.state_ui_only_read_when_the_agent_calls_the_tool_8cf77b)
                 },
                 status = when (locationAccess) {
                     DeviceLocationProvider.AccessState.DENIED -> PermissionStatusUi.Missing
@@ -2118,43 +2185,43 @@ private fun buildPermissionHealthState(context: Context): PermissionHealthUiStat
                     DeviceLocationProvider.AccessState.AVAILABLE -> PermissionStatusUi.Available
                 },
                 primaryActionLabel = when (locationAccess) {
-                    DeviceLocationProvider.AccessState.DENIED -> "去授权"
-                    DeviceLocationProvider.AccessState.FOREGROUND_ONLY -> "去设置"
-                    DeviceLocationProvider.AccessState.DISABLED -> "去开启"
+                    DeviceLocationProvider.AccessState.DENIED -> context.getString(R.string.state_ui_to_authorize_762ec4)
+                    DeviceLocationProvider.AccessState.FOREGROUND_ONLY -> context.getString(R.string.state_ui_go_to_settings_1f2998)
+                    DeviceLocationProvider.AccessState.DISABLED -> context.getString(R.string.state_ui_to_open_13ec17)
                     DeviceLocationProvider.AccessState.AVAILABLE -> null
                 },
             ),
             PermissionHealthItemUi(
                 id = "notification_history",
-                title = "通知使用权",
+                title = context.getString(R.string.state_notice_of_use_rights_1ae29a),
                 summary = if (notificationHistoryEnabled) {
-                    "本机有界保存最近 7 天通知，仅在工具调用时读取"
+                    context.getString(R.string.state_ui_natively_bounded_storage_of_last_7_days_of_notif_ca7f01)
                 } else {
-                    "授权后开始记录可检索的通知历史"
+                    context.getString(R.string.state_ui_start_logging_searchable_notification_history_af_b36af6)
                 },
                 status = if (notificationHistoryEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (notificationHistoryEnabled) null else "去授权",
+                primaryActionLabel = if (notificationHistoryEnabled) null else context.getString(R.string.state_ui_to_authorize_762ec4),
             ),
             PermissionHealthItemUi(
                 id = "usage_access",
-                title = "使用情况访问",
-                summary = "用于读取最近打开的应用和前台使用时长",
+                title = context.getString(R.string.state_usage_access_20f1f8),
+                summary = context.getString(R.string.state_used_to_read_recently_opened_applications_and_foregr_73e796),
                 status = if (usageAccessEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (usageAccessEnabled) null else "去授权",
+                primaryActionLabel = if (usageAccessEnabled) null else context.getString(R.string.state_ui_to_authorize_762ec4),
             ),
             PermissionHealthItemUi(
                 id = "accessibility",
-                title = "无障碍辅助权限",
+                title = context.getString(R.string.state_accessibility_permissions_f80103),
                 summary = "",
                 status = if (accessibilityEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (accessibilityEnabled) null else "去开启",
+                primaryActionLabel = if (accessibilityEnabled) null else context.getString(R.string.state_ui_to_open_13ec17),
             ),
             PermissionHealthItemUi(
                 id = "root",
-                title = "Root 权限",
+                title = context.getString(R.string.state_root_permissions_958906),
                 summary = "",
                 status = if (rootEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (rootEnabled) null else "去开启",
+                primaryActionLabel = if (rootEnabled) null else context.getString(R.string.state_ui_to_open_13ec17),
             ),
         )
     )
@@ -2173,7 +2240,7 @@ private fun AgentTokenUsage.toUi(): TokenUsageUi =
         cachedTokens = cachedTokens,
     )
 
-private fun buildSystemEnhanceState(): AgentSystemEnhanceUiState =
+private fun buildSystemEnhanceState(context: Context): AgentSystemEnhanceUiState =
     AgentSystemEnhanceUiState(
         sections = listOf(
             SystemEnhanceSectionUi(
@@ -2182,32 +2249,32 @@ private fun buildSystemEnhanceState(): AgentSystemEnhanceUiState =
                 items = listOf(
                     SystemEnhanceItemUi(
                         id = "streaming",
-                        title = "流式事件",
-                        summary = "模型增量、工具调用和最终结果会同步到当前对话",
+                        title = context.getString(R.string.state_streaming_events_360e09),
+                        summary = context.getString(R.string.state_model_increments_tool_calls_and_final_results_are_sy_3f2321),
                         status = SystemEnhanceStatusUi.Active,
                     ),
                     SystemEnhanceItemUi(
                         id = "memory",
-                        title = "记忆系统",
-                        summary = "核心记忆自动注入，详细内容由模型按需检索",
+                        title = context.getString(R.string.state_memory_system_4903eb),
+                        summary = context.getString(R.string.state_core_memory_is_automatically_injected_and_detailed_c_07232b),
                         status = SystemEnhanceStatusUi.Active,
                     ),
                     SystemEnhanceItemUi(
                         id = "overlay",
-                        title = "运行浮窗",
-                        summary = "Runtime 服务运行时显示状态浮窗",
+                        title = context.getString(R.string.state_run_floating_window_48af02),
+                        summary = context.getString(R.string.state_runtime_displays_a_status_pop_up_window_when_the_ser_54f285),
                         status = SystemEnhanceStatusUi.Active,
                     ),
                 ),
             ),
             SystemEnhanceSectionUi(
                 id = "future",
-                title = "后续能力",
+                title = context.getString(R.string.state_follow_up_ability_589688),
                 items = listOf(
                     SystemEnhanceItemUi(
                         id = "hook",
-                        title = "Hook 二级能力",
-                        summary = "系统增强能力保留为后续二级功能",
+                        title = context.getString(R.string.state_hook_secondary_ability_95afe3),
+                        summary = context.getString(R.string.state_system_enhancement_capabilities_are_reserved_for_sub_0a8b21),
                         status = SystemEnhanceStatusUi.Inactive,
                     ),
                 ),

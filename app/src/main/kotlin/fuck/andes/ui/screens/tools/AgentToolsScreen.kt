@@ -1,4 +1,6 @@
 package fuck.andes.ui.screens.tools
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -57,7 +59,7 @@ fun AgentToolsScreen(
     modifier: Modifier = Modifier,
 ) {
     MiuixScaffoldPage(
-        title = "工具能力",
+        title = stringResource(R.string.ui_tool_ability_9f0f80),
         onBack = { onAction(AgentToolsAction.NavigateBack) },
         modifier = modifier,
     ) {

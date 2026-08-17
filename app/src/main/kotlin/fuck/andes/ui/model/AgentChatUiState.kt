@@ -42,6 +42,26 @@ data class AgentMessageUi(
     val usage: TokenUsageUi? = null,
 ) : AgentChatMessageUi
 
+enum class SystemNoticeCode(val wireValue: String) {
+    Stopped("stopped"),
+    EmptyResult("empty_result"),
+    RuntimeFailed("runtime_failed");
+
+    companion object {
+        fun fromWireValue(value: String): SystemNoticeCode? = entries.firstOrNull {
+            it.wireValue == value
+        }
+    }
+}
+
+/** Eta 自己生成的消息只保存稳定状态码，展示时再按当前语言解析。 */
+@Immutable
+data class SystemNoticeMessageUi(
+    override val id: String,
+    val code: SystemNoticeCode,
+    val detail: String? = null,
+) : AgentChatMessageUi
+
 @Immutable
 data class TokenUsageUi(
     val contextTokens: Int? = null,

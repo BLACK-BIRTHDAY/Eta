@@ -10,6 +10,8 @@ import fuck.andes.data.db.FuckAndesDatabase
 import fuck.andes.data.model.ReasoningEffort
 import fuck.andes.ui.model.AgentChatHomeUiState
 import fuck.andes.ui.model.AgentMessageUi
+import fuck.andes.ui.model.SystemNoticeCode
+import fuck.andes.ui.model.SystemNoticeMessageUi
 import fuck.andes.ui.model.ThinkingMessageUi
 import fuck.andes.ui.model.TokenUsageUi
 import fuck.andes.ui.model.ToolActivityMessageUi
@@ -31,7 +33,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [36], qualifiers = "en-rUS")
 class AgentConversationStoreTest {
     private lateinit var context: Context
 
@@ -130,6 +132,38 @@ class AgentConversationStoreTest {
         assertEquals(ReasoningEffort.HIGH, restored.reasoningEffort)
         assertEquals(conversation.messages, restored.messages)
         assertEquals(conversation.history, restored.history)
+    }
+
+    @Test
+    fun saveAndLoadPreservesSemanticSystemNoticesWithoutTranslatedContent() {
+        val notice = SystemNoticeMessageUi(
+            id = "assistant-run-1-1",
+            code = SystemNoticeCode.RuntimeFailed,
+            detail = "upstream timeout",
+        )
+        runBlocking {
+            AgentConversationStore.save(
+                context = context,
+                selectedConversationId = "conv-notice",
+                conversationsById = mapOf(
+                    "conv-notice" to AgentChatHomeUiState(
+                        messages = listOf(notice),
+                        input = "",
+                        isStreaming = false,
+                        thinkingEnabled = false,
+                    ),
+                ),
+                titles = mapOf("conv-notice" to ""),
+                updatedAt = mapOf("conv-notice" to 1L),
+            )
+        }
+
+        val snapshot = AgentConversationStore.load(context)
+        assertEquals("", snapshot.titles.getValue("conv-notice"))
+        assertEquals(
+            notice,
+            snapshot.conversationsById.getValue("conv-notice").messages.single(),
+        )
     }
 
     @Test

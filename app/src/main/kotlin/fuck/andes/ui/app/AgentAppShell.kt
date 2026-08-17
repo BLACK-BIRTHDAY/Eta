@@ -11,7 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import com.composables.icons.lucide.R as LucideR
+import fuck.andes.R
 import fuck.andes.ui.components.ConversationSidePaneScaffold
 import fuck.andes.ui.navigation.AppRoute
 import fuck.andes.ui.model.ConversationPaneUiState
@@ -115,14 +117,14 @@ private fun AgentTopBar(
                 IconButton(onClick = onOpenConversationPane) {
                     Icon(
                         painter = painterResource(LucideR.drawable.lucide_ic_menu),
-                        contentDescription = "会话历史",
+                        contentDescription = stringResource(R.string.action_conversation_history),
                     )
                 }
             } else {
                 IconButton(onClick = onBack) {
                     Icon(
                         painter = painterResource(LucideR.drawable.lucide_ic_chevron_left),
-                        contentDescription = "返回",
+                        contentDescription = stringResource(R.string.action_back),
                     )
                 }
             }
@@ -132,7 +134,7 @@ private fun AgentTopBar(
                 IconButton(onClick = onNewConversation) {
                     Icon(
                         painter = painterResource(LucideR.drawable.lucide_ic_message_circle_plus),
-                        contentDescription = "新建对话",
+                        contentDescription = stringResource(R.string.action_new_conversation),
                     )
                 }
             }
@@ -143,17 +145,17 @@ private fun AgentTopBar(
 @Composable
 private fun titleForRoute(route: AppRoute?): String = when (route) {
     is AppRoute.Home -> ""
-    is AppRoute.Chat -> "对话"
-    is AppRoute.Browser -> "Agent 浏览器"
-    is AppRoute.Tools -> "工具能力"
-    is AppRoute.Skills -> "技能"
-    is AppRoute.Permissions -> "权限健康"
-    is AppRoute.SystemEnhance -> "系统增强"
-    is AppRoute.Settings -> "设置"
-    is AppRoute.Memory -> "记忆"
-    is AppRoute.LinuxEnvironment -> "Linux 工具环境"
-    is AppRoute.ModelProviders -> "模型提供商"
-    is AppRoute.ModelProviderDetail -> route.providerId.let { "Provider 详情" }
-    is AppRoute.ModelProviderNew -> "新建提供商"
-    null -> "Eta"
+    is AppRoute.Chat -> stringResource(R.string.route_chat)
+    is AppRoute.Browser -> stringResource(R.string.route_browser)
+    is AppRoute.Tools -> stringResource(R.string.route_tools)
+    is AppRoute.Skills -> stringResource(R.string.route_skills)
+    is AppRoute.Permissions -> stringResource(R.string.route_permissions)
+    is AppRoute.SystemEnhance -> stringResource(R.string.route_system_enhancements)
+    is AppRoute.Settings -> stringResource(R.string.route_settings)
+    is AppRoute.Memory -> stringResource(R.string.route_memory)
+    is AppRoute.LinuxEnvironment -> stringResource(R.string.route_linux_environment)
+    is AppRoute.ModelProviders -> stringResource(R.string.route_model_providers)
+    is AppRoute.ModelProviderDetail -> stringResource(R.string.route_provider_details)
+    is AppRoute.ModelProviderNew -> stringResource(R.string.route_new_provider)
+    null -> stringResource(R.string.app_name)
 }

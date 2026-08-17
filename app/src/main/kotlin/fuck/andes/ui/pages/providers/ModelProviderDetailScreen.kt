@@ -1,4 +1,8 @@
+@file:android.annotation.SuppressLint("LocalContextGetResourceValueCall")
+
 package fuck.andes.ui.pages.providers
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -104,6 +109,7 @@ internal fun ModelProviderDetailScreen(
     newType: NewProviderType? = null,
     onBack: () -> Unit,
 ) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val providers by ProviderRepository.providersFlow().collectAsState(initial = emptyList())
     var createdId by remember { mutableStateOf<String?>(null) }
@@ -138,9 +144,9 @@ internal fun ModelProviderDetailScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("Provider 不存在")
+            Text(stringResource(R.string.ui_provider_does_not_exist_83cee6))
             Spacer(modifier = Modifier.height(12.dp))
-            TextButton(text = "返回", onClick = onBack)
+            TextButton(text = stringResource(R.string.ui_return_11d024), onClick = onBack)
         }
         return
     }
@@ -149,13 +155,13 @@ internal fun ModelProviderDetailScreen(
     val isNew = provider == null
     var currentTab by remember { mutableIntStateOf(0) }
     var configDraft by remember(initial.id) { mutableStateOf(ProviderConfigDraft.from(initial)) }
-    val title = if (isNew) "新建提供商" else initial.name
+    val title = if (isNew) context.getString(R.string.page_create_new_provider_36cab9) else initial.name
 
     MiuixScaffold(title = title, onBack = onBack) { paddingValues, scrollBehavior ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             if (!isNew) {
                 TabRow(
-                    tabs = listOf("配置", "模型"),
+                    tabs = listOf(context.getString(R.string.page_configuration_d7d7ce), context.getString(R.string.page_model_98fd0c)),
                     selectedTabIndex = currentTab,
                     onTabSelected = { currentTab = it },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -193,6 +199,7 @@ private fun ProviderConfigTab(
     onCreated: (String) -> Unit,
     onDeleted: () -> Unit,
 ) {
+    val context = LocalContext.current
     var apiKeyVisible by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
     var testStatus by remember { mutableStateOf<String?>(null) }
@@ -210,12 +217,12 @@ private fun ProviderConfigTab(
         overscrollEffect = null,
     ) {
         item(key = "connection") {
-            ProviderSection(title = "连接配置") {
+            ProviderSection(title = stringResource(R.string.ui_connection_configuration_7d057b)) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     TextField(
                         value = draft.name,
                         onValueChange = { onDraftChange(draft.copy(name = it)) },
-                        label = "名称",
+                        label = stringResource(R.string.ui_name_1be7ae),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -240,7 +247,7 @@ private fun ProviderConfigTab(
                                     painter = painterResource(
                                         if (apiKeyVisible) LucideR.drawable.lucide_ic_eye else LucideR.drawable.lucide_ic_eye_off,
                                     ),
-                                    contentDescription = if (apiKeyVisible) "隐藏" else "显示",
+                                    contentDescription = if (apiKeyVisible) context.getString(R.string.page_hide_bb0e7e) else context.getString(R.string.page_show_71b677),
                                 )
                             }
                         },
@@ -261,15 +268,15 @@ private fun ProviderConfigTab(
                     HorizontalDivider()
                     WindowSpinnerPreference(
                         items = listOf(
-                            DropdownItem(text = "Chat Completions"),
+                            DropdownItem(text = "Chat Completions API"),
                             DropdownItem(text = "Responses API"),
                         ),
                         selectedIndex = if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) 1 else 0,
-                        title = "Endpoint 模式",
+                        title = stringResource(R.string.ui_endpoint_mode_3c8546),
                         summary = if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) {
-                            "使用 typed Items 与语义化流式事件"
+                            context.getString(R.string.page_using_typed_items_with_semantic_streaming_events_f9c906)
                         } else {
-                            "使用标准 Chat Completions"
+                            context.getString(R.string.page_use_standard_chat_completions_ee4b1a)
                         },
                         onSelectedIndexChange = { selectedIndex ->
                             onDraftChange(
@@ -286,8 +293,8 @@ private fun ProviderConfigTab(
                     if (draft.endpointMode == OpenAiEndpointMode.RESPONSES) {
                         HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
                         SwitchPreference(
-                            title = "服务端网页搜索",
-                            summary = "允许模型调用 Provider 提供的网页搜索",
+                            title = stringResource(R.string.ui_server_side_web_search_ddb8e0),
+                            summary = stringResource(R.string.ui_allows_the_model_to_call_web_searches_provided_by_th_2f752f),
                             checked = draft.hostedWebSearchEnabled,
                             onCheckedChange = {
                                 onDraftChange(draft.copy(hostedWebSearchEnabled = it))
@@ -297,20 +304,21 @@ private fun ProviderConfigTab(
                 }
                 HorizontalDivider()
                 BasicComponent(
-                    title = "测试连接",
+                    title = stringResource(R.string.ui_test_connection_10b7d8),
                     summary = testStatus,
                     enabled = !isWorking,
                     onClick = {
-                        val validationError = validateProviderDraft(draft)
+                        val validationError = validateProviderDraft(context, draft)
                         if (validationError != null) {
-                            testStatus = "失败：$validationError"
+                            testStatus = context.getString(R.string.provider_error, validationError)
                             return@BasicComponent
                         }
                         scope.launch {
                             isWorking = true
-                            testStatus = "测试中..."
+                            testStatus = context.getString(R.string.page_testing_f43705)
                             try {
                                 testStatus = testConnection(
+                                    context,
                                     buildUpdatedProvider(
                                         source = provider,
                                         name = draft.name,
@@ -333,9 +341,9 @@ private fun ProviderConfigTab(
         }
 
         item(key = "preferences_and_prompt") {
-            ProviderSection(title = "偏好与策略") {
+            ProviderSection(title = stringResource(R.string.ui_preferences_and_strategies_2abd3c)) {
                 SwitchPreference(
-                    title = "启用此 Provider",
+                    title = stringResource(R.string.ui_enable_this_provider_683a76),
                     checked = draft.isEnabled,
                     onCheckedChange = { onDraftChange(draft.copy(isEnabled = it)) }
                 )
@@ -344,14 +352,14 @@ private fun ProviderConfigTab(
                     TextField(
                         value = draft.systemPrompt,
                         onValueChange = { onDraftChange(draft.copy(systemPrompt = it)) },
-                        label = "系统提示词",
+                        label = stringResource(R.string.ui_system_prompt_word_193981),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(120.dp),
                         singleLine = false,
                     )
                     Text(
-                        text = "留空使用默认手机 Agent 提示词",
+                        text = stringResource(R.string.ui_leave_blank_to_use_the_default_mobile_agent_prompt_w_21e7c8),
                         style = MiuixTheme.textStyles.footnote2,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         modifier = Modifier.padding(top = 8.dp),
@@ -371,18 +379,18 @@ private fun ProviderConfigTab(
             ) {
                 TextButton(
                     text = when {
-                        isWorking -> "保存中..."
-                        creationCommitted -> "已创建"
-                        isNew -> "创建"
-                        else -> "保存配置"
+                        isWorking -> context.getString(R.string.page_saving_d70d42)
+                        creationCommitted -> context.getString(R.string.page_created_62cfc5)
+                        isNew -> context.getString(R.string.page_create_fcbd09)
+                        else -> context.getString(R.string.page_save_configuration_817af1)
                     },
                     enabled = !isWorking && !creationCommitted,
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.textButtonColorsPrimary(),
                     onClick = {
-                        val validationError = validateProviderDraft(draft)
+                        val validationError = validateProviderDraft(context, draft)
                         if (validationError != null) {
-                            status = "失败：$validationError"
+                            status = context.getString(R.string.provider_error, validationError)
                             return@TextButton
                         }
                         scope.launch {
@@ -409,8 +417,8 @@ private fun ProviderConfigTab(
                                     val ok = RuntimeConfigRepository.syncToRemotePreferences(
                                         FuckAndesApp.serviceInstance
                                     )
-                                    status = if (ok) "已创建、设为当前并同步"
-                                    else "已创建并设为当前，LSPosed 服务未连接"
+                                    status = if (ok) context.getString(R.string.page_created_set_current_and_synced_a99010)
+                                    else context.getString(R.string.page_created_and_set_as_current_lsposed_service_is_not_co_baa03d)
                                     creationCommitted = true
                                     onCreated(added.id)
                                 } else {
@@ -422,15 +430,18 @@ private fun ProviderConfigTab(
                                         FuckAndesApp.serviceInstance
                                     )
                                     status = when {
-                                        !built.isEnabled -> "已保存，Provider 未启用"
-                                        ok -> "已保存、设为当前并同步"
-                                        else -> "已保存并设为当前，LSPosed 服务未连接"
+                                        !built.isEnabled -> context.getString(R.string.page_saved_provider_not_enabled_7afa54)
+                                        ok -> context.getString(R.string.page_saved_current_and_synced_95dac1)
+                                        else -> context.getString(R.string.page_saved_and_set_as_current_lsposed_service_not_connect_08da2c)
                                     }
                                 }
                             } catch (cancelled: CancellationException) {
                                 throw cancelled
                             } catch (throwable: Throwable) {
-                                status = "失败：${throwable.message ?: "保存失败"}"
+                                status = context.getString(
+                                    R.string.provider_error,
+                                    throwable.message ?: context.getString(R.string.provider_save_failed),
+                                )
                             } finally {
                                 isWorking = false
                             }
@@ -441,7 +452,7 @@ private fun ProviderConfigTab(
                     Text(
                         text = message,
                         style = MiuixTheme.textStyles.footnote2,
-                        color = if (message.startsWith("失败")) StatusError else StatusSuccess,
+                        color = if (message.startsWith(context.getString(R.string.page_fail_3e3c80))) StatusError else StatusSuccess,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 8.dp),
                     )
@@ -472,7 +483,7 @@ private fun ProviderConfigTab(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = if (provider.isBuiltIn) "重置内置配置" else "删除提供商",
+                            text = if (provider.isBuiltIn) context.getString(R.string.page_reset_built_in_configuration_35b6ec) else context.getString(R.string.page_remove_provider_9f848f),
                             fontSize = MiuixTheme.textStyles.headline1.fontSize,
                             fontWeight = FontWeight.Medium,
                             color = MiuixTheme.colorScheme.error,
@@ -490,12 +501,12 @@ private fun ProviderConfigTab(
     if (showDeleteDialog) {
         OverlayDialog(
             show = true,
-            title = "删除提供商",
-            summary = "删除「${provider.name}」后将不可恢复。",
+            title = stringResource(R.string.ui_remove_provider_9f848f),
+            summary = stringResource(R.string.provider_delete_summary, provider.name),
             onDismissRequest = { if (!isWorking) showDeleteDialog = false },
         ) {
             MiuixDialogActions(
-                confirmText = if (isWorking) "删除中..." else "删除",
+                confirmText = if (isWorking) context.getString(R.string.page_deleting_6f941d) else context.getString(R.string.page_delete_3755f5),
                 cancelEnabled = !isWorking,
                 confirmEnabled = !isWorking,
                 destructive = true,
@@ -511,7 +522,10 @@ private fun ProviderConfigTab(
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (throwable: Throwable) {
-                            status = "失败：${throwable.message ?: "删除失败"}"
+                            status = context.getString(
+                                R.string.provider_error,
+                                throwable.message ?: context.getString(R.string.provider_delete_failed),
+                            )
                             showDeleteDialog = false
                         } finally {
                             isWorking = false
@@ -525,12 +539,12 @@ private fun ProviderConfigTab(
     if (showResetDialog) {
         OverlayDialog(
             show = true,
-            title = "重置内置配置",
-            summary = "将恢复「${provider.name}」的默认配置和官方模型列表，API Key 会保留。",
+            title = stringResource(R.string.ui_reset_built_in_configuration_35b6ec),
+            summary = stringResource(R.string.provider_reset_summary, provider.name),
             onDismissRequest = { if (!isWorking) showResetDialog = false },
         ) {
             MiuixDialogActions(
-                confirmText = if (isWorking) "重置中..." else "重置",
+                confirmText = if (isWorking) context.getString(R.string.page_resetting_616090) else context.getString(R.string.page_reset_3d8134),
                 cancelEnabled = !isWorking,
                 confirmEnabled = !isWorking,
                 onCancel = { showResetDialog = false },
@@ -540,12 +554,15 @@ private fun ProviderConfigTab(
                         try {
                             ProviderRepository.resetBuiltIn(provider.id)
                             RuntimeConfigRepository.syncToRemotePreferences(FuckAndesApp.serviceInstance)
-                            status = "已重置"
+                            status = context.getString(R.string.page_reset_a0cc65)
                             showResetDialog = false
                         } catch (cancelled: CancellationException) {
                             throw cancelled
                         } catch (throwable: Throwable) {
-                            status = "失败：${throwable.message ?: "重置失败"}"
+                            status = context.getString(
+                                R.string.provider_error,
+                                throwable.message ?: context.getString(R.string.provider_reset_failed),
+                            )
                             showResetDialog = false
                         } finally {
                             isWorking = false
@@ -599,16 +616,24 @@ private fun buildUpdatedProvider(
     }
 }
 
-private fun validateProviderDraft(draft: ProviderConfigDraft): String? {
-    if (draft.name.isBlank()) return "名称不能为空"
+private fun validateProviderDraft(context: android.content.Context, draft: ProviderConfigDraft): String? {
+    if (draft.name.isBlank()) return context.getString(R.string.page_name_cannot_be_empty_ca8984)
     val uri = runCatching { java.net.URI(draft.baseUrl.trim()) }.getOrNull()
     if (uri == null || uri.scheme !in setOf("http", "https") || uri.host.isNullOrBlank()) {
-        return "Base URL 必须是有效的 HTTP(S) 地址"
+        return context.getString(R.string.page_base_url_must_be_a_valid_http_s_address_0e7d58)
     }
     return null
 }
 
-private suspend fun testConnection(provider: ProviderSetting): String =
+private suspend fun testConnection(
+    context: android.content.Context,
+    provider: ProviderSetting,
+): String =
     RemoteModelFetcher.fetch(provider)
-        .map { "成功，拉取到 ${it.size} 个模型" }
-        .getOrElse { throwable -> "失败：${throwable.message ?: throwable.javaClass.simpleName}" }
+        .map { context.resources.getQuantityString(R.plurals.provider_models_fetched, it.size, it.size) }
+        .getOrElse { throwable ->
+            context.getString(
+                R.string.provider_error,
+                throwable.message ?: throwable.javaClass.simpleName,
+            )
+        }

@@ -48,6 +48,7 @@ android {
     buildTypes {
         debug {
             isMinifyEnabled = false
+            isPseudoLocalesEnabled = true
         }
         release {
             signingConfig = signingConfigs.findByName("release")
@@ -70,6 +71,10 @@ android {
         compose = true
     }
 
+    androidResources {
+        localeFilters += listOf("en", "b+zh+Hans", "b+zh+Hant")
+    }
+
     packaging {
         resources {
             // 合并 Xposed 模块声明，避免 release 裁剪后模块入口失效
@@ -84,6 +89,10 @@ android {
     lint {
         abortOnError = true
         checkReleaseBuilds = false
+    }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
     }
 }
 

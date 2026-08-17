@@ -1,4 +1,6 @@
 package fuck.andes.ui.pages.providers
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
@@ -20,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.R as LucideR
@@ -67,7 +70,7 @@ internal fun ModelProviderListScreen(
         }
     }
 
-    MiuixScaffoldPage(title = "模型提供商", onBack = onBack) {
+    MiuixScaffoldPage(title = stringResource(R.string.ui_model_provider_e8c7f5), onBack = onBack) {
         item(key = "search") {
             InputField(
                 query = searchQuery,
@@ -75,7 +78,7 @@ internal fun ModelProviderListScreen(
                 onSearch = {},
                 expanded = false,
                 onExpandedChange = {},
-                label = "搜索提供商",
+                label = stringResource(R.string.ui_search_provider_74e049),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp)
@@ -84,10 +87,10 @@ internal fun ModelProviderListScreen(
         }
 
         item(key = "create_section") {
-            ProviderSection(title = "新增提供商") {
+            ProviderSection(title = stringResource(R.string.ui_add_new_provider_74df54)) {
                 ArrowPreference(
-                    title = "新增 OpenAI-compatible",
-                    summary = "支持 ChatGPT, DeepSeek, Kimi, GLM, Qwen等",
+                    title = stringResource(R.string.ui_added_openai_compatible_6bd471),
+                    summary = stringResource(R.string.ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02),
                     startAction = {
                         ProviderBrandIcon(ProviderSourceTypes.OPENAI)
                     },
@@ -95,8 +98,8 @@ internal fun ModelProviderListScreen(
                 )
                 ProviderDivider()
                 ArrowPreference(
-                    title = "新增 Anthropic",
-                    summary = "支持 Anthropic Claude 官方或兼容 API",
+                    title = stringResource(R.string.ui_new_anthropic_db6098),
+                    summary = stringResource(R.string.ui_support_anthropic_claude_official_or_compatible_api_de3f80),
                     startAction = {
                         ProviderBrandIcon(ProviderSourceTypes.ANTHROPIC)
                     },
@@ -106,14 +109,18 @@ internal fun ModelProviderListScreen(
         }
 
         item(key = "list_section") {
-            ProviderSection(title = "已配置提供商 (共 ${filteredProviders.size} 个)") {
+            ProviderSection(title = pluralStringResource(R.plurals.provider_configured_count, filteredProviders.size, filteredProviders.size)) {
                 if (filteredProviders.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = if (searchQuery.isBlank()) "暂无模型提供商，请新增" else "未找到匹配的提供商",
+                            text = if (searchQuery.isBlank()) {
+                                stringResource(R.string.provider_empty)
+                            } else {
+                                stringResource(R.string.provider_no_matches)
+                            },
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         )
@@ -148,12 +155,12 @@ internal fun ModelProviderListScreen(
     if (providerToDelete != null) {
         OverlayDialog(
             show = true,
-            title = "删除提供商",
-            summary = "删除「${providerToDelete?.name}」后将不可恢复。",
+            title = stringResource(R.string.ui_remove_provider_9f848f),
+            summary = stringResource(R.string.provider_delete_summary, providerToDelete?.name.orEmpty()),
             onDismissRequest = { providerToDelete = null },
         ) {
             MiuixDialogActions(
-                confirmText = "删除",
+                confirmText = stringResource(R.string.ui_delete_3755f5),
                 destructive = true,
                 onCancel = { providerToDelete = null },
                 onConfirm = {
@@ -213,15 +220,15 @@ private fun ProviderListItem(
                 modifier = Modifier.padding(top = 6.dp),
             ) {
                 TagChip(text = provider.typeLabel)
-                TagChip(text = "${provider.models.size} 个模型")
+                TagChip(text = pluralStringResource(R.plurals.provider_models_count, provider.models.size, provider.models.size))
                 if (provider.isBuiltIn) {
-                    TagChip(text = "内置")
+                    TagChip(text = stringResource(R.string.ui_built_in_09ceea))
                 }
                 if (!provider.isEnabled) {
-                    TagChip(text = "已禁用", tone = TagChipTone.Warning)
+                    TagChip(text = stringResource(R.string.ui_disabled_0fe5a9), tone = TagChipTone.Warning)
                 }
                 if (isSelected) {
-                    TagChip(text = "当前", tone = TagChipTone.Emphasized)
+                    TagChip(text = stringResource(R.string.ui_current_25e74d), tone = TagChipTone.Emphasized)
                 }
             }
         }
@@ -230,7 +237,11 @@ private fun ProviderListItem(
                 painter = painterResource(
                     if (isSelected) LucideR.drawable.lucide_ic_check else LucideR.drawable.lucide_ic_circle,
                 ),
-                contentDescription = if (isSelected) "已选中" else "设为当前",
+                contentDescription = if (isSelected) {
+                    stringResource(R.string.provider_selected)
+                } else {
+                    stringResource(R.string.provider_set_current)
+                },
                 tint = if (isSelected) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.onSurfaceVariantActions,
             )
         }

@@ -1,4 +1,7 @@
 package fuck.andes.ui.components
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -41,13 +44,17 @@ fun PermissionHealthCard(
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "权限健康",
+                    text = stringResource(R.string.ui_permission_health_3048bb),
                     modifier = Modifier.weight(1f),
                     style = MiuixTheme.textStyles.headline1,
                     color = MiuixTheme.colorScheme.onSurfaceContainer,
                 )
                 Text(
-                    text = if (issueCount == 0) "正常" else "${issueCount} 项需关注",
+                    text = if (issueCount == 0) {
+                        stringResource(R.string.permission_health_ok)
+                    } else {
+                        pluralStringResource(R.plurals.permission_health_issues, issueCount, issueCount)
+                    },
                     style = MiuixTheme.textStyles.body2,
                     color = if (issueCount == 0) {
                         MiuixTheme.colorScheme.onSurfaceVariantActions
@@ -114,9 +121,10 @@ private fun PermissionStatusIcon(status: PermissionStatusUi) {
     }
 }
 
-private fun statusLabel(status: PermissionStatusUi): String = when (status) {
-    PermissionStatusUi.Available -> "正常"
-    PermissionStatusUi.Missing -> "缺失"
-    PermissionStatusUi.Warning -> "异常"
-    PermissionStatusUi.Disabled -> "未启用"
-}
+@Composable
+private fun statusLabel(status: PermissionStatusUi): String = stringResource(when (status) {
+    PermissionStatusUi.Available -> R.string.permission_status_ok
+    PermissionStatusUi.Missing -> R.string.permission_status_missing
+    PermissionStatusUi.Warning -> R.string.permission_status_warning
+    PermissionStatusUi.Disabled -> R.string.permission_status_disabled
+})

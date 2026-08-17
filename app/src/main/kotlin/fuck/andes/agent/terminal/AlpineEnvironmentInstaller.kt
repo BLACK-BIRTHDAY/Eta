@@ -35,12 +35,12 @@ internal data class AlpineEnvironmentHealth(
     val availableBytes: Long,
 )
 
-internal enum class AlpineInstallStage(val displayName: String) {
-    CHECKING("检查 Root 与 BusyBox"),
-    DOWNLOADING("下载 Alpine 基础环境"),
-    EXTRACTING("解压基础环境"),
-    INSTALLING_TOOLS("安装常用工具"),
-    COMPLETE("环境已就绪"),
+internal enum class AlpineInstallStage {
+    CHECKING,
+    DOWNLOADING,
+    EXTRACTING,
+    INSTALLING_TOOLS,
+    COMPLETE,
 }
 
 internal data class AlpineInstallProgress(

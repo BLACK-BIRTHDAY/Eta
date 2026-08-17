@@ -1,45 +1,47 @@
 package fuck.andes.ui.app
 
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.text.DateFormat
+import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 
 internal object ConversationTimeLabels {
-    private const val DAY_MS = 24L * 60L * 60L * 1000L
-    private val weekdayLabels = arrayOf("周日", "周一", "周二", "周三", "周四", "周五", "周六")
-
     fun label(
         timestampMillis: Long,
         nowMillis: Long = System.currentTimeMillis(),
         locale: Locale = Locale.getDefault(),
         timeZone: TimeZone = TimeZone.getDefault(),
+        use24HourClock: Boolean = true,
+        yesterdayLabel: String = "Yesterday",
+        recentLabel: String = "Recent",
     ): String {
-        if (timestampMillis <= 0L) return "最近"
+        if (timestampMillis <= 0L) return recentLabel
 
-        val nowStart = startOfDay(nowMillis, locale, timeZone)
-        val targetStart = startOfDay(timestampMillis, locale, timeZone)
-        val dayDelta = ((nowStart - targetStart) / DAY_MS).toInt()
+        val zoneId = timeZone.toZoneId()
+        val nowDate = Instant.ofEpochMilli(nowMillis).atZone(zoneId).toLocalDate()
+        val targetDate = Instant.ofEpochMilli(timestampMillis).atZone(zoneId).toLocalDate()
+        val dayDelta = ChronoUnit.DAYS.between(targetDate, nowDate).toInt()
 
         return when {
-            dayDelta <= 0 -> format("HH:mm", timestampMillis, locale, timeZone)
-            dayDelta == 1 -> "昨天"
-            dayDelta in 2..6 -> weekdayLabel(timestampMillis, locale, timeZone)
+            dayDelta <= 0 -> formatPattern(
+                if (use24HourClock) "HH:mm" else "h:mm a",
+                timestampMillis,
+                locale,
+                timeZone,
+            )
+            dayDelta == 1 -> yesterdayLabel
+            dayDelta in 2..6 -> formatPattern("EEE", timestampMillis, locale, timeZone)
             sameYear(timestampMillis, nowMillis, locale, timeZone) ->
-                format("M-d", timestampMillis, locale, timeZone)
-            else -> format("yyyy-M-d", timestampMillis, locale, timeZone)
+                formatPattern(sameYearPattern(locale), timestampMillis, locale, timeZone)
+            else -> DateFormat.getDateInstance(DateFormat.MEDIUM, locale)
+                .also { it.timeZone = timeZone }
+                .format(Date(timestampMillis))
         }
     }
-
-    private fun startOfDay(millis: Long, locale: Locale, timeZone: TimeZone): Long =
-        Calendar.getInstance(timeZone, locale).apply {
-            timeInMillis = millis
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
 
     private fun sameYear(
         timestampMillis: Long,
@@ -52,16 +54,18 @@ internal object ConversationTimeLabels {
         return now.get(Calendar.YEAR) == target.get(Calendar.YEAR)
     }
 
-    private fun weekdayLabel(millis: Long, locale: Locale, timeZone: TimeZone): String {
-        val calendar = Calendar.getInstance(timeZone, locale).apply { timeInMillis = millis }
-        return weekdayLabels[calendar.get(Calendar.DAY_OF_WEEK) - 1]
-    }
-
-    private fun format(
+    private fun formatPattern(
         pattern: String,
         millis: Long,
         locale: Locale,
         timeZone: TimeZone,
     ): String =
         SimpleDateFormat(pattern, locale).also { it.timeZone = timeZone }.format(Date(millis))
+
+    private fun sameYearPattern(locale: Locale): String = when (locale.language) {
+        Locale.CHINESE.language -> "M月d日"
+        Locale.JAPANESE.language -> "M月d日"
+        Locale.KOREAN.language -> "M월 d일"
+        else -> "MMM d"
+    }
 }

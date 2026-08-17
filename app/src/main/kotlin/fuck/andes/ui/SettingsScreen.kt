@@ -1,4 +1,6 @@
 package fuck.andes.ui
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import android.content.ComponentName
 import android.content.Context
@@ -29,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -123,7 +126,7 @@ internal fun SettingsScreen(
             context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
         }.isFailure
         if (failed) {
-            Toast.makeText(context, "无法打开默认助理设置", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.settings_open_assistant_failed), Toast.LENGTH_SHORT).show()
         }
     }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -154,8 +157,8 @@ internal fun SettingsScreen(
         selectedProvider?.models?.find { it.id == selectedModelId }
     }
     val providerSummary = selectedProvider?.let { provider ->
-        "${provider.name} / ${selectedModel?.displayName ?: "未选择模型"}"
-    } ?: "未配置"
+        "${provider.name} / ${selectedModel?.displayName ?: stringResource(R.string.settings_model_not_selected)}"
+    } ?: stringResource(R.string.settings_not_configured)
 
     // prefs 绑定到 XposedService：service 到达时切换到 RemotePreferences（跨进程提交到
     // LSPosed 数据库）；未就绪时保持 null，UI 禁止修改。
@@ -194,8 +197,8 @@ internal fun SettingsScreen(
         topBar = {
             TopBarBackdrop(backdrop) {
                 TopAppBar(
-                    title = "设置",
-                    largeTitle = "设置",
+                    title = stringResource(R.string.ui_set_up_7debf9),
+                    largeTitle = stringResource(R.string.ui_set_up_7debf9),
                     color = topBarColor,
                     navigationIcon = { MiuixBackButton(onClick = onBack) },
                     scrollBehavior = scrollBehavior,
@@ -218,8 +221,8 @@ internal fun SettingsScreen(
                 item(key = "service_warning") {
                     Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                         BasicComponent(
-                            title = "LSPosed 服务未连接",
-                            summary = "Agent 与本地工具仍可使用，系统助手接管、Gemini 和一圈即搜设置暂不可修改",
+                            title = stringResource(R.string.ui_lsposed_service_is_not_connected_44734d),
+                            summary = stringResource(R.string.ui_agent_and_local_tools_can_still_be_used_but_the_syst_b14479),
                         )
                     }
                 }
@@ -230,7 +233,7 @@ internal fun SettingsScreen(
                 SmallTitle("Agent")
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                     ArrowPreference(
-                        title = "模型提供商",
+                        title = stringResource(R.string.ui_model_provider_e8c7f5),
                         summary = providerSummary,
                         startAction = {
                             TintedIcon(
@@ -244,14 +247,14 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
-                        title = "默认启用深度思考",
+                        title = stringResource(R.string.ui_deep_thinking_enabled_by_default_c032d6),
                         key = Prefs.Keys.AGENT_THINKING_ENABLED,
                         icon = LucideR.drawable.lucide_ic_brain_circuit,
                         iconTint = ColorOSRoyalBlue,
                     )
                     PrefDivider()
                     ArrowPreference(
-                        title = "记忆",
+                        title = stringResource(R.string.ui_memory_b55ff5),
                         startAction = {
                             TintedIcon(
                                 icon = LucideR.drawable.lucide_ic_notebook_tabs,
@@ -265,12 +268,12 @@ internal fun SettingsScreen(
 
             // ── 工具 ───────────────────────────────────────────────────
             item(key = "section_tools") {
-                SmallTitle("工具")
+                SmallTitle(stringResource(R.string.ui_tool_a72ef1))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
-                        title = "启用网页浏览工具",
+                        title = stringResource(R.string.ui_enable_web_browsing_tools_8b6b03),
                         key = Prefs.Keys.AGENT_BROWSER_TOOLS,
                         icon = LucideR.drawable.lucide_ic_globe,
                         iconTint = ColorOSVividGreen,
@@ -279,7 +282,7 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
-                        title = "启用设备直达工具",
+                        title = stringResource(R.string.ui_enable_device_direct_tools_e2d595),
                         key = Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS,
                         icon = LucideR.drawable.lucide_ic_smartphone,
                         iconTint = ColorOSVividGreen,
@@ -288,7 +291,7 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
-                        title = "允许读取敏感设备信息",
+                        title = stringResource(R.string.ui_allow_reading_of_sensitive_device_information_feaec0),
                         key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS,
                         icon = LucideR.drawable.lucide_ic_eye,
                         iconTint = ColorOSAmberYellow,
@@ -297,7 +300,7 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
-                        title = "允许敏感设备操作",
+                        title = stringResource(R.string.ui_allow_sensitive_device_operation_3d42ea),
                         key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
                         icon = LucideR.drawable.lucide_ic_shield_alert,
                         iconTint = ColorOSAmberYellow,
@@ -306,14 +309,14 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
-                        title = "启用终端/文件工具",
+                        title = stringResource(R.string.ui_enable_terminal_file_tools_18bb43),
                         key = Prefs.Keys.AGENT_TERMINAL_TOOLS,
                         icon = LucideR.drawable.lucide_ic_file_terminal,
                         iconTint = ColorOSAmberYellow,
                     )
                     PrefDivider()
                     ArrowPreference(
-                        title = "Linux 工具环境",
+                        title = stringResource(R.string.ui_linux_tool_environment_314d22),
                         startAction = {
                             TintedIcon(
                                 icon = LucideR.drawable.lucide_ic_container,
@@ -327,15 +330,17 @@ internal fun SettingsScreen(
 
             // ── 系统助手接管 ──────────────────────────────────────────────
             item(key = "section_assistant_takeover") {
-                SmallTitle("系统助手接管")
+                SmallTitle(stringResource(R.string.ui_system_assistant_takes_over_f46043))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                     ArrowPreference(
-                        title = "Eta 系统助手",
-                        summary = if (etaAssistantActive) {
-                            "已设为默认数字助理"
-                        } else {
-                            "选择 Eta 作为默认数字助理"
-                        },
+                        title = stringResource(R.string.ui_eta_system_assistant_003e9b),
+                        summary = stringResource(
+                            if (etaAssistantActive) {
+                                R.string.settings_default_assistant_active
+                            } else {
+                                R.string.settings_select_default_assistant
+                            },
+                        ),
                         startAction = {
                             TintedIcon(
                                 icon = LucideR.drawable.lucide_ic_bot,
@@ -346,8 +351,8 @@ internal fun SettingsScreen(
                     )
                     PrefDivider()
                     ArrowPreference(
-                        title = "电源键长按",
-                        summary = powerAssistantTarget.displayName,
+                        title = stringResource(R.string.ui_long_press_the_power_button_1958d0),
+                        summary = powerAssistantTarget.displayName(context),
                         startAction = {
                             TintedIcon(
                                 icon = LucideR.drawable.lucide_ic_power,
@@ -364,8 +369,8 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = prefs,
-                        title = "自动设置默认助理",
-                        summary = "仅对 Gemini 和 Eta 生效",
+                        title = stringResource(R.string.ui_automatically_set_default_assistant_f86963),
+                        summary = stringResource(R.string.ui_valid_only_for_gemini_and_eta_d5b63d),
                         key = Prefs.Keys.ASSISTANT_AUTO_CONFIG,
                         icon = LucideR.drawable.lucide_ic_settings_2,
                         iconTint = ColorOSVividGreen,
@@ -375,12 +380,12 @@ internal fun SettingsScreen(
 
             // ── 厂商助手兼容入口 ──────────────────────────────────────────
             item(key = "section_oem_assistant_compatibility") {
-                SmallTitle("小布/小爱兼容入口")
+                SmallTitle(stringResource(R.string.ui_xiaobu_xiaoai_compatible_entrance_ae918a))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                     SwitchPref(
                         context = context,
                         prefs = prefs,
-                        title = "启用厂商助手自定义模型",
+                        title = stringResource(R.string.ui_enable_vendor_assistant_custom_models_c8e465),
                         key = Prefs.Keys.AGENT_CUSTOM_MODEL,
                         icon = LucideR.drawable.lucide_ic_cpu,
                         iconTint = ColorOSOrangeRed,
@@ -389,7 +394,7 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = prefs,
-                        title = "仅以 /agent 前缀接管",
+                        title = stringResource(R.string.ui_only_take_over_with_agent_prefix_d17556),
                         key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
                         icon = LucideR.drawable.lucide_ic_message_square_code,
                         iconTint = ColorOSAmberYellow,
@@ -404,7 +409,7 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = prefs,
-                        title = "息屏后维持 Hey Google 检测",
+                        title = stringResource(R.string.ui_maintain_hey_google_detection_after_screen_rest_9d6877),
                         key = Prefs.Keys.HOTWORD_SELF_HEAL,
                         icon = LucideR.drawable.lucide_ic_ear,
                         iconTint = ColorOSAmberYellow,
@@ -413,7 +418,7 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = prefs,
-                        title = "锁屏唤起自动语音输入",
+                        title = stringResource(R.string.ui_lock_screen_evokes_automatic_voice_input_1cde18),
                         key = Prefs.Keys.LOCKSCREEN_VOICE_COMMAND,
                         icon = LucideR.drawable.lucide_ic_lock,
                         iconTint = ColorOSRed,
@@ -422,14 +427,14 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = prefs,
-                        title = "亮屏唤起自动语音输入",
+                        title = stringResource(R.string.ui_bright_screen_evokes_automatic_voice_input_4358fe),
                         key = Prefs.Keys.SCREEN_ON_VOICE_COMMAND,
                         icon = LucideR.drawable.lucide_ic_mic,
                         iconTint = ColorOSLightBlue,
                     )
                     PrefDivider()
                     ArrowPreference(
-                        title = "将 Google App 转为系统应用",
+                        title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
                         startAction = {
                             TintedIcon(
                                 icon = LucideR.drawable.lucide_ic_package_check,
@@ -449,12 +454,12 @@ internal fun SettingsScreen(
 
             // ── 一圈即搜 ────────────────────────────────────────────────
             item(key = "section_circle_to_search") {
-                SmallTitle("一圈即搜")
+                SmallTitle(stringResource(R.string.ui_search_in_one_turn_179584))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                     SwitchPref(
                         context = context,
                         prefs = prefs,
-                        title = "手势条长按触发一圈即搜",
+                        title = stringResource(R.string.ui_long_press_on_the_gesture_bar_triggers_a_circle_to_s_b80117),
                         key = Prefs.Keys.GESTURE_BAR_CIRCLE_TO_SEARCH,
                         icon = LucideR.drawable.lucide_ic_panel_bottom,
                         iconTint = ColorOSRoyalBlue,
@@ -463,7 +468,7 @@ internal fun SettingsScreen(
                     SwitchPref(
                         context = context,
                         prefs = prefs,
-                        title = "双指长按触发一圈即搜",
+                        title = stringResource(R.string.ui_long_press_with_two_fingers_to_trigger_a_circle_sear_ab597a),
                         key = Prefs.Keys.DOUBLE_FINGER_CIRCLE_TO_SEARCH,
                         icon = LucideR.drawable.lucide_ic_hand,
                         iconTint = ColorOSLightBlue,
@@ -473,10 +478,10 @@ internal fun SettingsScreen(
 
             // ── 权限 ────────────────────────────────────────────────────
             item(key = "section_permissions") {
-                SmallTitle("权限")
+                SmallTitle(stringResource(R.string.ui_permissions_560165))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                     ArrowPreference(
-                        title = "悬浮窗权限",
+                        title = stringResource(R.string.ui_floating_window_permissions_076b77),
                         startAction = {
                             TintedIcon(
                                 icon = LucideR.drawable.lucide_ic_layers,
@@ -485,7 +490,9 @@ internal fun SettingsScreen(
                         },
                         endActions = {
                             Text(
-                                text = if (overlayGranted) "已授权" else "未授权",
+                                text = stringResource(
+                                    if (overlayGranted) R.string.status_authorized else R.string.status_unauthorized,
+                                ),
                                 fontSize = MiuixTheme.textStyles.body2.fontSize,
                                 color = if (overlayGranted) {
                                     MiuixTheme.colorScheme.onSurfaceVariantActions
@@ -509,7 +516,7 @@ internal fun SettingsScreen(
                     )
                     PrefDivider()
                     ArrowPreference(
-                        title = "无障碍增强工具",
+                        title = stringResource(R.string.ui_accessibility_enhancement_tools_8fd257),
                         startAction = {
                             TintedIcon(
                                 icon = LucideR.drawable.lucide_ic_accessibility,
@@ -519,7 +526,9 @@ internal fun SettingsScreen(
                         endActions = {
                             val enabled = accessibilityGranted || AgentAccessibilityService.isAvailable()
                             Text(
-                                text = if (enabled) "已启用" else "未启用",
+                                text = stringResource(
+                                    if (enabled) R.string.status_enabled else R.string.status_disabled,
+                                ),
                                 fontSize = MiuixTheme.textStyles.body2.fontSize,
                                 color = if (enabled) {
                                     MiuixTheme.colorScheme.onSurfaceVariantActions
@@ -538,7 +547,7 @@ internal fun SettingsScreen(
                     )
                     PrefDivider()
                     SwitchPreference(
-                        title = "强制保持无障碍",
+                        title = stringResource(R.string.ui_enforce_accessibility_55e838),
                         checked = accessibilityProtectionEnabled,
                         onCheckedChange = { enabled ->
                             if (accessibilityProtectionPending) {
@@ -555,9 +564,9 @@ internal fun SettingsScreen(
                                 val failureMessage = when (result.status) {
                                     AccessibilityProtectionClient.ControlStatus.APPLIED -> null
                                     AccessibilityProtectionClient.ControlStatus.UNAVAILABLE ->
-                                        "无障碍保护后端不可用，请确认 system 作用域已启用并重启"
+                                        context.getString(R.string.accessibility_protection_unavailable)
                                     AccessibilityProtectionClient.ControlStatus.REJECTED ->
-                                        "无障碍保护请求被系统拒绝"
+                                        context.getString(R.string.accessibility_protection_rejected)
                                 }
                                 if (failureMessage != null) {
                                     Toast.makeText(
@@ -581,10 +590,10 @@ internal fun SettingsScreen(
 
             // ── 关于 ────────────────────────────────────────────────────
             item(key = "section_about") {
-                SmallTitle("关于")
+                SmallTitle(stringResource(R.string.ui_about_bed172))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                     ArrowPreference(
-                        title = "源代码",
+                        title = stringResource(R.string.ui_source_code_740296),
                         startAction = {
                             TintedIcon(
                                 icon = LucideR.drawable.lucide_ic_github,
@@ -629,7 +638,7 @@ internal fun SettingsScreen(
                     installingSystemizer = false
                     Toast.makeText(
                         context.applicationContext,
-                        result.toToastMessage(),
+                        result.toToastMessage(context),
                         Toast.LENGTH_LONG,
                     ).show()
                 }
@@ -659,7 +668,7 @@ internal fun SettingsScreen(
                     powerAssistantTarget = previousTarget
                     Toast.makeText(
                         context.applicationContext,
-                        "配置写入失败",
+                        context.getString(R.string.settings_write_failed),
                         Toast.LENGTH_SHORT,
                     ).show()
                 }
@@ -715,12 +724,16 @@ private fun SystemizerConfirmDialog(
 ) {
     OverlayDialog(
         show = show,
-        title = "将 Google App 转为系统应用",
-        summary = "系统应用享有语音唤醒权限、更少的自启限制，体验接近原生。将通过 Magisk / KernelSU 模块安装，重启后生效。",
+        title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
+        summary = stringResource(R.string.ui_system_applications_have_voice_wake_up_permissions_f_0190f2),
         onDismissRequest = onDismissRequest,
     ) {
         MiuixDialogActions(
-            confirmText = if (installing) "处理中..." else "确定",
+            confirmText = if (installing) {
+                stringResource(R.string.status_processing)
+            } else {
+                stringResource(R.string.action_confirm)
+            },
             cancelEnabled = !installing,
             confirmEnabled = !installing,
             onCancel = onDismissRequest,
@@ -739,13 +752,13 @@ private fun PowerAssistantTargetDialog(
 ) {
     OverlayDialog(
         show = show,
-        title = "电源键长按",
+        title = stringResource(R.string.ui_long_press_the_power_button_1958d0),
         onDismissRequest = onDismissRequest,
     ) {
         Card {
             PowerAssistantTarget.entries.forEach { target ->
                 RadioButtonPreference(
-                    title = target.displayName,
+                    title = target.displayName(LocalContext.current),
                     selected = selected == target,
                     onClick = { onSelect(target) },
                     radioButtonLocation = RadioButtonLocation.End,
@@ -803,7 +816,11 @@ private fun SwitchPref(
                     Prefs.reconcileAgentPreferences(FuckAndesApp.serviceInstance)
                 }
             } else {
-                Toast.makeText(context.applicationContext, "配置写入失败", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context.applicationContext,
+                    context.getString(R.string.settings_write_failed),
+                    Toast.LENGTH_SHORT,
+                ).show()
             }
         },
         startAction = {
@@ -832,9 +849,9 @@ private fun putStringSync(
 ): Boolean =
     runCatching { prefs.edit().putString(key, value).commit() }.getOrDefault(false)
 
-private val PowerAssistantTarget.displayName: String
-    get() = when (this) {
-        PowerAssistantTarget.OEM -> "系统默认助手"
+private fun PowerAssistantTarget.displayName(context: Context): String =
+    when (this) {
+        PowerAssistantTarget.OEM -> context.getString(R.string.power_assistant_system_default)
         PowerAssistantTarget.GEMINI -> "Gemini"
         PowerAssistantTarget.ETA -> "Eta"
     }
@@ -857,18 +874,18 @@ private fun isEtaAssistantActive(context: Context): Boolean =
         ComponentName(context, EtaVoiceInteractionService::class.java),
     )
 
-private fun SystemizerInstallResult.toToastMessage(): String =
+private fun SystemizerInstallResult.toToastMessage(context: Context): String =
     when (this) {
-        SystemizerInstallResult.AlreadySystemized -> "Google App 已是系统 priv-app"
-        SystemizerInstallResult.GoogleAppMissing -> "未安装 Google App"
-        SystemizerInstallResult.UnsupportedRootManager -> "未检测到 Magisk 或 KernelSU"
-        SystemizerInstallResult.KernelSuMetamoduleMissing -> "KernelSU 需先启用 metamodule 支持"
+        SystemizerInstallResult.AlreadySystemized -> context.getString(R.string.systemizer_already_system)
+        SystemizerInstallResult.GoogleAppMissing -> context.getString(R.string.systemizer_google_missing)
+        SystemizerInstallResult.UnsupportedRootManager -> context.getString(R.string.systemizer_root_manager_missing)
+        SystemizerInstallResult.KernelSuMetamoduleMissing -> context.getString(R.string.systemizer_metamodule_missing)
         is SystemizerInstallResult.RootPermissionUnavailable -> when (rootManager) {
-            RootManager.KERNEL_SU -> "请在 KernelSU 中授予 Eta root 权限"
-            RootManager.MAGISK -> "请在 Magisk 中授予 Eta root 权限"
-            RootManager.UNSUPPORTED -> "未获得 root 权限"
+            RootManager.KERNEL_SU -> context.getString(R.string.systemizer_grant_kernelsu)
+            RootManager.MAGISK -> context.getString(R.string.systemizer_grant_magisk)
+            RootManager.UNSUPPORTED -> context.getString(R.string.systemizer_root_denied)
         }
-        is SystemizerInstallResult.InstalledRebootRequired -> "安装完成，重启后生效"
+        is SystemizerInstallResult.InstalledRebootRequired -> context.getString(R.string.systemizer_installed)
         is SystemizerInstallResult.Failed -> commandOutput
             .lineSequence()
             .map { it.trim() }

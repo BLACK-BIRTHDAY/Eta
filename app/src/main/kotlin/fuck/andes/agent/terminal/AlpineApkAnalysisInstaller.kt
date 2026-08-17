@@ -12,14 +12,14 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 
-internal enum class ApkAnalysisInstallStage(val displayName: String) {
-    CHECKING("检查 Linux 基础环境"),
-    DOWNLOADING("下载 APK 分析工具"),
-    PREPARING("准备工具文件"),
-    INSTALLING_JAVA("安装 OpenJDK 17"),
-    ACTIVATING("启用 APK 分析工具"),
-    VERIFYING("验证分析命令"),
-    COMPLETE("APK 分析工具已就绪"),
+internal enum class ApkAnalysisInstallStage {
+    CHECKING,
+    DOWNLOADING,
+    PREPARING,
+    INSTALLING_JAVA,
+    ACTIVATING,
+    VERIFYING,
+    COMPLETE,
 }
 
 internal data class ApkAnalysisInstallProgress(

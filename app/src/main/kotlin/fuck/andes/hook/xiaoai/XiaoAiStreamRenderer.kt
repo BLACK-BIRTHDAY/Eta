@@ -1,11 +1,14 @@
 package fuck.andes.hook.xiaoai
 
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import fuck.andes.agent.runtime.AgentEvent
+import fuck.andes.R
 import fuck.andes.core.HookSupport
 import fuck.andes.core.ModuleLogger
 import fuck.andes.core.safeLogType
+import fuck.andes.hook.EtaInjectedStrings
 import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.util.concurrent.atomic.AtomicBoolean
@@ -13,6 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 internal class XiaoAiStreamRenderer(
+    private val context: Context,
     private val logger: ModuleLogger,
     private val classLoader: ClassLoader,
     private val dialogId: String,
@@ -30,7 +34,9 @@ internal class XiaoAiStreamRenderer(
         when (event) {
             is AgentEvent.RunStarted,
             is AgentEvent.ProviderRequestStarted,
-            is AgentEvent.ProviderResponseStarted -> render("Eta 正在思考…")
+            is AgentEvent.ProviderResponseStarted -> render(
+                text(R.string.injected_reasoning, "Eta is reasoning…"),
+            )
 
             is AgentEvent.AssistantBlockStart -> {
                 if (event.kind == AgentEvent.AssistantBlockKind.TEXT) {
@@ -49,7 +55,7 @@ internal class XiaoAiStreamRenderer(
 
             is AgentEvent.ToolStarted -> {
                 if (synchronized(streamedText) { streamedText.isEmpty() }) {
-                    render("Eta 正在执行任务…")
+                    render(text(R.string.injected_executing, "Eta is working…"))
                 }
             }
 
@@ -59,7 +65,9 @@ internal class XiaoAiStreamRenderer(
 
     fun complete(content: String) {
         if (cancelled.get()) return
-        val finalText = content.trim().ifBlank { "Eta 已完成本轮任务" }
+        val finalText = content.trim().ifBlank {
+            text(R.string.injected_completed, "Eta completed this task")
+        }
         render(finalText, immediate = true)
         mainHandler.post {
             if (!cancelled.get()) speak(finalText)
@@ -68,7 +76,13 @@ internal class XiaoAiStreamRenderer(
 
     fun fail() {
         if (cancelled.get()) return
-        render("Eta 处理失败，请稍后重试", immediate = true)
+        render(
+            text(
+                R.string.injected_failed,
+                "Eta could not complete the task. Try again later",
+            ),
+            immediate = true,
+        )
     }
 
     fun cancel(loader: ClassLoader = classLoader) {
@@ -93,6 +107,9 @@ internal class XiaoAiStreamRenderer(
             mainHandler.postDelayed(::flush, STREAM_FLUSH_DELAY_MILLIS)
         }
     }
+
+    private fun text(resourceId: Int, englishFallback: String): String =
+        EtaInjectedStrings.get(context, resourceId, englishFallback)
 
     private fun flush() {
         flushPosted.set(false)

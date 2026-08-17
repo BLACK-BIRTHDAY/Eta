@@ -17,6 +17,8 @@ Eta 更想做的，是让手机原本藏在界面背后的能力真正向模型�
 > [!NOTE]
 > Eta App 本体面向已 Root 的 Android 设备，不限于 OPPO 或小米设备。ColorOS 与 HyperOS 只是当前系统助手入口的适配范围：ColorOS 上可将 Eta 选为默认数字助理，小布与超级小爱则作为兼容入口，共用同一套 Agent Runtime 和 BYOK 模型配置。完整的系统集成能力需要 Root 和 LSPosed。
 
+界面支持英文、简体中文和繁体中文，并始终跟随系统语言；其他系统语言回退到英文。
+
 ## 界面预览
 
 |                         GUI Agent                         |                         小布助手 BYOK：电源键启动                         |

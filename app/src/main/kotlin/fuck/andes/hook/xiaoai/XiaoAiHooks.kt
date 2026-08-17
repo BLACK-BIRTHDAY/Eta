@@ -501,6 +501,7 @@ internal object XiaoAiHooks {
         )
         val context = AgentAppContext.resolve() ?: return false
         val renderer = XiaoAiStreamRenderer(
+            context = context,
             logger = logger,
             classLoader = classLoader,
             dialogId = dialogId,
@@ -656,6 +657,7 @@ internal object XiaoAiHooks {
                     dialogId == currentDialogId(classLoader)
                 ) {
                     val renderer = XiaoAiStreamRenderer(
+                        context = context,
                         logger = logger,
                         classLoader = classLoader,
                         dialogId = dialogId,

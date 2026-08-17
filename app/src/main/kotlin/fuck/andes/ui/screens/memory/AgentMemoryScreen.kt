@@ -1,4 +1,6 @@
 package fuck.andes.ui.screens.memory
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import top.yukonga.miuix.kmp.window.WindowDialog
+import java.text.NumberFormat
 
 @Composable
 internal fun AgentMemoryScreen(
@@ -46,7 +49,7 @@ internal fun AgentMemoryScreen(
     var showClearDialog by remember { mutableStateOf(false) }
 
     MiuixScaffold(
-        title = "记忆",
+        title = stringResource(R.string.ui_memory_b55ff5),
         onBack = { onAction(AgentMemoryAction.NavigateBack) },
     ) { paddingValues, scrollBehavior ->
         Column(
@@ -64,7 +67,7 @@ internal fun AgentMemoryScreen(
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
                 overscrollEffect = null,
             ) {
-                item(key = "status-title") { SmallTitle("记忆") }
+                item(key = "status-title") { SmallTitle(stringResource(R.string.ui_memory_b55ff5)) }
                 item(key = "status-card") {
                     Card(
                         modifier = Modifier
@@ -72,15 +75,15 @@ internal fun AgentMemoryScreen(
                             .padding(bottom = 12.dp),
                     ) {
                         SwitchPreference(
-                            title = "启用记忆",
-                            summary = "关闭后不注入记忆，也不允许模型读写；已有内容会保留",
+                            title = stringResource(R.string.ui_enable_memory_4b69b7),
+                            summary = stringResource(R.string.ui_after_closing_no_memory_will_be_injected_and_the_mod_db3d23),
                             checked = state.enabled,
                             enabled = !state.isLoading,
                             onCheckedChange = { onAction(AgentMemoryAction.ToggleEnabled(it)) },
                         )
                         BasicComponent(
-                            title = "核心记忆注入预算",
-                            summary = "每轮最多注入 ${formatNumber(state.coreBudgetChars)} 字符，详细内容由模型按需读取",
+                            title = stringResource(R.string.ui_core_memory_injection_budget_48b5d5),
+                            summary = stringResource(R.string.memory_budget_summary, formatNumber(state.coreBudgetChars)),
                         )
                     }
                 }
@@ -101,7 +104,7 @@ internal fun AgentMemoryScreen(
                         TextField(
                             value = state.draft,
                             onValueChange = { onAction(AgentMemoryAction.DraftChanged(it)) },
-                            label = "# 核心记忆\n- 用户名字：\n- 长期偏好：",
+                            label = stringResource(R.string.ui_core_memory_user_name_long_term_preferences_aa6ff9),
                             useLabelAsPlaceholder = true,
                             enabled = !state.isLoading && !state.isSaving,
                             minLines = 6,
@@ -118,8 +121,8 @@ internal fun AgentMemoryScreen(
                             val overLimit = state.draftBytes > state.maxBytes
                             Text(
                                 text = when {
-                                    overLimit -> "已超过 1 MiB 上限，请删减"
-                                    state.hasUnsavedChanges -> "未保存的更改"
+                                    overLimit -> stringResource(R.string.memory_over_limit)
+                                    state.hasUnsavedChanges -> stringResource(R.string.memory_unsaved_changes)
                                     else -> ""
                                 },
                                 color = if (overLimit) {
@@ -145,13 +148,13 @@ internal fun AgentMemoryScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             TextButton(
-                                text = "清空",
+                                text = stringResource(R.string.ui_clear_84fcd7),
                                 enabled = !state.isLoading && !state.isSaving && state.draft.isNotEmpty(),
                                 onClick = { showClearDialog = true },
                                 modifier = Modifier.weight(1f),
                             )
                             TextButton(
-                                text = if (state.isSaving) "保存中" else "保存",
+                                text = if (state.isSaving) stringResource(R.string.memory_saving) else stringResource(R.string.memory_save),
                                 enabled = state.canSave,
                                 onClick = { onAction(AgentMemoryAction.Save) },
                                 modifier = Modifier.weight(1f),
@@ -167,12 +170,12 @@ internal fun AgentMemoryScreen(
     if (showClearDialog) {
         WindowDialog(
             show = true,
-            title = "清空全部记忆？",
-            summary = "MEMORY.md 的全部内容将被删除，记忆开关保持当前状态。",
+            title = stringResource(R.string.ui_clear_all_memory_a43bd3),
+            summary = stringResource(R.string.ui_the_entire_contents_of_memory_md_will_be_deleted_and_83a8ac),
             onDismissRequest = { showClearDialog = false },
         ) {
             MiuixDialogActions(
-                confirmText = "清空",
+                confirmText = stringResource(R.string.memory_clear),
                 destructive = true,
                 confirmEnabled = !state.isSaving,
                 onCancel = { showClearDialog = false },
@@ -187,12 +190,12 @@ internal fun AgentMemoryScreen(
     state.notice?.let { notice ->
         WindowDialog(
             show = true,
-            title = "记忆",
+            title = stringResource(R.string.ui_memory_b55ff5),
             summary = notice,
             onDismissRequest = { onAction(AgentMemoryAction.DismissNotice) },
         ) {
             TextButton(
-                text = "知道了",
+                text = stringResource(R.string.ui_knew_cb63c6),
                 onClick = { onAction(AgentMemoryAction.DismissNotice) },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -206,4 +209,4 @@ private fun formatBytes(bytes: Int): String = when {
     else -> "%.2f MiB".format(bytes / (1_024.0 * 1_024.0))
 }
 
-private fun formatNumber(value: Int): String = "%,d".format(value)
+private fun formatNumber(value: Int): String = NumberFormat.getIntegerInstance().format(value)

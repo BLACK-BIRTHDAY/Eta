@@ -66,6 +66,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
@@ -109,10 +111,14 @@ import com.mikepenz.markdown.model.rememberMarkdownState
 import com.mikepenz.markdown.model.State
 import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import fuck.andes.agent.model.AgentFileReferencePromptCodec
+import fuck.andes.agent.overlay.toolDisplayName
+import fuck.andes.R
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
 import fuck.andes.ui.model.RunTraceMessageUi
 import fuck.andes.ui.model.SuggestionChipsMessageUi
+import fuck.andes.ui.model.SystemNoticeCode
+import fuck.andes.ui.model.SystemNoticeMessageUi
 import fuck.andes.ui.model.ThinkingMessageUi
 import fuck.andes.ui.model.ToolActivityMessageUi
 import fuck.andes.ui.model.ToolActivityStatusUi
@@ -253,6 +259,34 @@ internal fun ChatMessageItem(
             onRegenerate = { onRegenerateMessage(message.id) },
             modifier = modifier,
         )
+        is SystemNoticeMessageUi -> AgentMessageBlock(
+            message = AgentMessageUi(
+                id = message.id,
+                content = buildString {
+                    append(
+                        stringResource(
+                            when (message.code) {
+                                SystemNoticeCode.Stopped -> R.string.system_notice_stopped
+                                SystemNoticeCode.EmptyResult -> R.string.system_notice_empty_result
+                                SystemNoticeCode.RuntimeFailed -> R.string.system_notice_runtime_failed
+                            },
+                        ),
+                    )
+                    message.detail?.takeIf(String::isNotBlank)?.let { detail ->
+                        append("\n\n")
+                        append(detail)
+                    }
+                },
+                renderMarkdown = false,
+            ),
+            retainedStreamingState = null,
+            showCopyAction = showCopyAction,
+            showMessageActions = showMessageActions,
+            messageActionsEnabled = messageActionsEnabled,
+            onDelete = { onDeleteMessage(message.id) },
+            onRegenerate = { onRegenerateMessage(message.id) },
+            modifier = modifier,
+        )
         is ThinkingMessageUi -> ThinkingRow(
             message = message,
             retainedStreamingState = retainedStreamingState,
@@ -337,10 +371,18 @@ internal fun AgentWorkProcess(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = when {
-                    running && toolCount > 0 -> "正在处理 · 第 $toolCount 步"
-                    running -> "正在分析任务"
-                    toolCount > 0 -> "已完成 $toolCount 个步骤"
-                    else -> "已完成分析"
+                    running && toolCount > 0 -> pluralStringResource(
+                        R.plurals.work_processing_step,
+                        toolCount,
+                        toolCount,
+                    )
+                    running -> stringResource(R.string.work_analyzing)
+                    toolCount > 0 -> pluralStringResource(
+                        R.plurals.work_completed_steps,
+                        toolCount,
+                        toolCount,
+                    )
+                    else -> stringResource(R.string.work_completed)
                 },
                 style = MiuixTheme.textStyles.body2,
                 color = if (running) {
@@ -355,7 +397,9 @@ internal fun AgentWorkProcess(
                     if (expanded) LucideR.drawable.lucide_ic_chevron_down
                     else LucideR.drawable.lucide_ic_chevron_right
                 ),
-                contentDescription = if (expanded) "收起工作过程" else "展开工作过程",
+                contentDescription = stringResource(
+                    if (expanded) R.string.work_collapse else R.string.work_expand,
+                ),
                 modifier = Modifier.size(14.dp),
                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
             )
@@ -438,7 +482,7 @@ private fun UserMessageBubble(
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                         MessageTooltipAction(
                             icon = LucideR.drawable.lucide_ic_copy,
-                            label = "复制",
+                            label = stringResource(R.string.ui_copy_4edd1d),
                             onClick = {
                                 @Suppress("DEPRECATION")
                                 clipboardManager.setText(AnnotatedString(message.content))
@@ -447,7 +491,7 @@ private fun UserMessageBubble(
                         )
                         MessageTooltipAction(
                             icon = LucideR.drawable.lucide_ic_pencil,
-                            label = "编辑",
+                            label = stringResource(R.string.ui_edit_a7f814),
                             onClick = {
                                 tooltipState.dismiss()
                                 onEdit()
@@ -455,7 +499,7 @@ private fun UserMessageBubble(
                         )
                         MessageTooltipAction(
                             icon = LucideR.drawable.lucide_ic_trash_2,
-                            label = "删除",
+                            label = stringResource(R.string.ui_delete_3755f5),
                             onClick = {
                                 tooltipState.dismiss()
                                 onDelete()
@@ -530,7 +574,7 @@ private fun UserMessageBubble(
                 }
                 if (message.isEdited) {
                     Text(
-                        text = "已编辑",
+                        text = stringResource(R.string.ui_edited_c36776),
                         style = MiuixTheme.textStyles.body2,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         modifier = Modifier.padding(top = 4.dp),
@@ -667,7 +711,9 @@ private fun AgentMessageBlock(
                             if (copied) LucideR.drawable.lucide_ic_check
                             else LucideR.drawable.lucide_ic_copy
                         ),
-                        contentDescription = if (copied) "已复制" else "复制回答",
+                        contentDescription = stringResource(
+                            if (copied) R.string.copy_copied else R.string.copy_answer,
+                        ),
                         modifier = Modifier.size(15.dp),
                         tint = if (copied) {
                             MiuixTheme.colorScheme.primary
@@ -677,7 +723,7 @@ private fun AgentMessageBlock(
                     )
                 }
                 if (showMessageActions) {
-                    TooltipBox(text = "重新生成", enabled = messageActionsEnabled) {
+                    TooltipBox(text = stringResource(R.string.ui_regenerate_2e1905), enabled = messageActionsEnabled) {
                         IconButton(
                             onClick = onRegenerate,
                             enabled = messageActionsEnabled,
@@ -686,13 +732,13 @@ private fun AgentMessageBlock(
                         ) {
                             Icon(
                                 painter = painterResource(LucideR.drawable.lucide_ic_refresh_cw),
-                                contentDescription = "重新生成回复",
+                                contentDescription = stringResource(R.string.ui_regenerate_reply_84a7d9),
                                 modifier = Modifier.size(15.dp),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
                             )
                         }
                     }
-                    TooltipBox(text = "删除", enabled = messageActionsEnabled) {
+                    TooltipBox(text = stringResource(R.string.ui_delete_3755f5), enabled = messageActionsEnabled) {
                         IconButton(
                             onClick = onDelete,
                             enabled = messageActionsEnabled,
@@ -701,7 +747,7 @@ private fun AgentMessageBlock(
                         ) {
                             Icon(
                                 painter = painterResource(LucideR.drawable.lucide_ic_trash_2),
-                                contentDescription = "删除这轮对话",
+                                contentDescription = stringResource(R.string.ui_delete_this_conversation_3f351b),
                                 modifier = Modifier.size(15.dp),
                                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.75f),
                             )
@@ -1501,7 +1547,9 @@ private fun ChatCodeBlock(
                         if (copied) LucideR.drawable.lucide_ic_check
                         else LucideR.drawable.lucide_ic_copy
                     ),
-                    contentDescription = if (copied) "已复制" else "复制代码",
+                    contentDescription = stringResource(
+                        if (copied) R.string.copy_copied else R.string.copy_code,
+                    ),
                     modifier = Modifier.size(13.dp),
                     tint = if (copied) {
                         MiuixTheme.colorScheme.primary
@@ -1855,9 +1903,15 @@ private fun ThinkingRow(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = if (message.isStreaming) {
-                    "正在思考…"
+                    stringResource(R.string.reasoning_in_progress)
                 } else {
-                    "思考已完成${message.elapsedSeconds?.let { " · 用时 ${it} 秒" }.orEmpty()}"
+                    message.elapsedSeconds?.let { seconds ->
+                        pluralStringResource(
+                            R.plurals.reasoning_completed_seconds,
+                            seconds,
+                            seconds,
+                        )
+                    } ?: stringResource(R.string.reasoning_completed)
                 },
                 style = MiuixTheme.textStyles.body2,
                 color = if (message.isStreaming) {
@@ -1872,7 +1926,9 @@ private fun ThinkingRow(
                     if (expanded) LucideR.drawable.lucide_ic_chevron_down
                     else LucideR.drawable.lucide_ic_chevron_right
                 ),
-                contentDescription = if (expanded) "收起思考过程" else "展开思考过程",
+                contentDescription = stringResource(
+                    if (expanded) R.string.reasoning_collapse else R.string.reasoning_expand,
+                ),
                 modifier = Modifier.size(14.dp),
                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
             )
@@ -1961,7 +2017,7 @@ private fun ToolActivityInline(
 
             // Tool label
             Text(
-                text = message.toolName.toToolLabel(),
+                text = toolDisplayName(message.toolName),
                 style = MiuixTheme.textStyles.body2,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 maxLines = 1,
@@ -2036,7 +2092,7 @@ private fun ToolActivityInline(
                     )
                 } else if (message.argumentsSummary.isNotBlank()) {
                     Text(
-                        text = "操作",
+                        text = stringResource(R.string.ui_operate_f3ea6d),
                         style = MiuixTheme.textStyles.footnote1,
                         color = MiuixTheme.colorScheme.primary,
                         modifier = Modifier.padding(bottom = 2.dp)
@@ -2050,7 +2106,7 @@ private fun ToolActivityInline(
                 }
                 if (message.resultSummary != null && message.resultSummary.isNotBlank()) {
                     Text(
-                        text = "结果",
+                        text = stringResource(R.string.ui_result_0a2c91),
                         style = MiuixTheme.textStyles.footnote1,
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         modifier = Modifier.padding(bottom = 2.dp)
@@ -2069,7 +2125,7 @@ private fun ToolActivityInline(
                         horizontalArrangement = Arrangement.End,
                     ) {
                         TextButton(
-                            text = "打开当前浏览器",
+                            text = stringResource(R.string.ui_open_current_browser_58358e),
                             onClick = onOpenBrowser,
                             colors = ButtonDefaults.textButtonColorsPrimary(),
                             minHeight = 36.dp,
@@ -2118,7 +2174,7 @@ private fun ToolCommandBlock(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = context.ifBlank { "Shell 命令" },
+                text = context.ifBlank { stringResource(R.string.shell_command) },
                 style = MiuixTheme.textStyles.footnote2,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 maxLines = 1,
@@ -2139,7 +2195,9 @@ private fun ToolCommandBlock(
                         if (copied) LucideR.drawable.lucide_ic_check
                         else LucideR.drawable.lucide_ic_copy
                     ),
-                    contentDescription = if (copied) "命令已复制" else "复制命令",
+                    contentDescription = stringResource(
+                        if (copied) R.string.copy_copied else R.string.copy_command,
+                    ),
                     modifier = Modifier.size(13.dp),
                     tint = if (copied) {
                         MiuixTheme.colorScheme.primary
@@ -2201,7 +2259,7 @@ private fun RunTraceRow(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "可用能力",
+            text = stringResource(R.string.ui_available_capacity_743337),
             style = MiuixTheme.textStyles.body2,
             color = MiuixTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
@@ -2252,7 +2310,7 @@ private fun ToolSummaryInline(
                 )
                 Spacer(modifier = Modifier.width(5.dp))
                 Text(
-                    text = tool.toToolLabel(),
+                    text = toolDisplayName(tool),
                     style = MiuixTheme.textStyles.footnote2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary
                 )
@@ -2317,10 +2375,11 @@ private fun ToolActivityStatusUi.statusColor() = when (this) {
     ToolActivityStatusUi.Failed -> StatusError
 }
 
+@Composable
 private fun ToolActivityStatusUi.statusLabel(): String = when (this) {
-    ToolActivityStatusUi.Running -> "执行中"
-    ToolActivityStatusUi.Success -> "已完成"
-    ToolActivityStatusUi.Failed -> "失败"
+    ToolActivityStatusUi.Running -> stringResource(R.string.tool_status_running)
+    ToolActivityStatusUi.Success -> stringResource(R.string.tool_status_success)
+    ToolActivityStatusUi.Failed -> stringResource(R.string.tool_status_failed)
 }
 
 @Composable
@@ -2359,50 +2418,4 @@ private fun String.toToolIcon(): Int = when (this) {
     "write_file" -> LucideR.drawable.lucide_ic_file_pen
     "list_directory" -> LucideR.drawable.lucide_ic_folder_open
     else -> LucideR.drawable.lucide_ic_settings
-}
-
-private fun String.toToolLabel(): String = when (this) {
-    "observe_screen" -> "查看屏幕"
-    "tap_element" -> "点击元素"
-    "tap_area" -> "点击区域"
-    "long_press" -> "长按"
-    "swipe" -> "滑动"
-    "scroll" -> "滚动"
-    "input_text" -> "输入文字"
-    "replace_text" -> "替换文字"
-    "clear_text" -> "清空文字"
-    "paste_text" -> "粘贴文字"
-    "wait_for_text" -> "等待文本"
-    "wait_for_package" -> "等待应用"
-    "search_apps" -> "搜索应用"
-    "get_current_context" -> "时间与位置"
-    "launch_app" -> "打开应用"
-    "open_uri" -> "打开链接"
-    "browser_use" -> "浏览网页"
-    "memory_get" -> "读取记忆"
-    "memory_write" -> "整理记忆"
-    "press_key" -> "按键"
-    "open_system_panel" -> "系统面板"
-    "set_alarm" -> "设置闹钟"
-    "set_timer" -> "设置计时器"
-    "device_status" -> "设备状态"
-    "network_info" -> "网络状态"
-    "media_control" -> "媒体控制"
-    "set_volume" -> "设置音量"
-    "top_memory_apps" -> "内存排行"
-    "top_storage_apps" -> "存储排行"
-    "read_sms_code" -> "读取验证码"
-    "recent_notifications" -> "读取通知"
-    "wifi_credentials" -> "读取 Wi‑Fi 密码"
-    "get_setting" -> "读取系统设置"
-    "set_setting" -> "修改系统设置"
-    "set_device_state" -> "设备开关"
-    "app_state_control" -> "应用状态"
-    "get_logcat" -> "读取系统日志"
-    "terminal" -> "终端"
-    "run_command" -> "执行命令"
-    "read_file" -> "读取文件"
-    "write_file" -> "写入文件"
-    "list_directory" -> "列目录"
-    else -> this
 }

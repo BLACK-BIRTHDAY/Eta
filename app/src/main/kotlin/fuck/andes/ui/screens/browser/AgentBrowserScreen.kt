@@ -1,4 +1,6 @@
 package fuck.andes.ui.screens.browser
+import fuck.andes.R
+import androidx.compose.ui.res.stringResource
 
 import android.content.Intent
 import android.view.ViewGroup
@@ -98,6 +100,7 @@ internal fun AgentBrowserScreen(
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
+    val noExternalAppMessage = stringResource(R.string.browser_no_external_app)
     val snapshot by AgentBrowserSession.snapshots.collectAsState()
     var address by remember { mutableStateOf("") }
     var addressFocused by remember { mutableStateOf(false) }
@@ -157,7 +160,7 @@ internal fun AgentBrowserScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .onFocusChanged { state -> addressFocused = state.isFocused },
-            label = "网址或域名",
+            label = stringResource(R.string.ui_url_or_domain_name_3ee97a),
             useLabelAsPlaceholder = true,
             singleLine = true,
             keyboardOptions = KeyboardOptions(
@@ -189,7 +192,7 @@ internal fun AgentBrowserScreen(
                 ) {
                     Icon(
                         painter = painterResource(LucideR.drawable.lucide_ic_arrow_right),
-                        contentDescription = "访问",
+                        contentDescription = stringResource(R.string.ui_access_7f5641),
                         modifier = Modifier.size(19.dp),
                         tint = MiuixTheme.colorScheme.onSurface,
                     )
@@ -222,7 +225,7 @@ internal fun AgentBrowserScreen(
                     runCatching {
                         context.startActivity(Intent(Intent.ACTION_VIEW, currentUrl.toUri()))
                     }.onFailure {
-                        Toast.makeText(context, "没有应用可以打开当前网页", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, noExternalAppMessage, Toast.LENGTH_SHORT).show()
                     }
                 }
             },
@@ -236,12 +239,12 @@ internal fun AgentBrowserScreen(
     if (showResetDialog) {
         WindowDialog(
             show = true,
-            title = "重置浏览器会话",
-            summary = "将关闭当前页面并清除 Eta 浏览器的 Cookie 与站点数据。外部浏览器不会受到影响。",
+            title = stringResource(R.string.ui_reset_browser_session_791b36),
+            summary = stringResource(R.string.ui_this_will_close_the_current_page_and_clear_eta_brows_1cd331),
             onDismissRequest = { showResetDialog = false },
         ) {
             MiuixDialogActions(
-                confirmText = "重置",
+                confirmText = stringResource(R.string.browser_reset),
                 confirmEnabled = !actionPending,
                 onCancel = { showResetDialog = false },
                 onConfirm = {
@@ -335,13 +338,13 @@ private fun BrowserToolbar(
     ) {
         BrowserControlButton(
             icon = LucideR.drawable.lucide_ic_arrow_left,
-            description = "后退",
+            description = stringResource(R.string.browser_back),
             enabled = snapshot.canGoBack && !actionPending,
             onClick = onBack,
         )
         BrowserControlButton(
             icon = LucideR.drawable.lucide_ic_arrow_right,
-            description = "前进",
+            description = stringResource(R.string.browser_forward),
             enabled = snapshot.canGoForward && !actionPending,
             onClick = onForward,
         )
@@ -351,7 +354,7 @@ private fun BrowserToolbar(
             } else {
                 LucideR.drawable.lucide_ic_refresh_cw
             },
-            description = if (snapshot.isLoading) "停止加载" else "刷新",
+            description = if (snapshot.isLoading) stringResource(R.string.browser_stop_loading) else stringResource(R.string.browser_refresh),
             enabled = snapshot.available && (snapshot.isLoading || !actionPending),
             onClick = onRefresh,
         )
@@ -362,7 +365,7 @@ private fun BrowserToolbar(
                 .padding(horizontal = 8.dp),
         ) {
             Text(
-                text = snapshot.title.ifBlank { "Agent 浏览器" },
+                text = snapshot.title.ifBlank { stringResource(R.string.browser_title) },
                 style = MiuixTheme.textStyles.body2,
                 fontWeight = FontWeight.Medium,
                 color = MiuixTheme.colorScheme.onSurface,
@@ -380,13 +383,13 @@ private fun BrowserToolbar(
 
         BrowserControlButton(
             icon = LucideR.drawable.lucide_ic_external_link,
-            description = "用外部应用打开",
+            description = stringResource(R.string.browser_open_external),
             enabled = snapshot.available,
             onClick = onOpenExternal,
         )
         BrowserControlButton(
             icon = LucideR.drawable.lucide_ic_trash_2,
-            description = "重置会话",
+            description = stringResource(R.string.browser_reset_session),
             enabled = snapshot.available && !actionPending,
             onClick = onReset,
         )
@@ -489,7 +492,7 @@ private fun ColumnScope.BrowserStatusBanner(snapshot: BrowserSessionSnapshot) {
     val message = when {
         snapshot.error != null -> snapshot.error
         snapshot.isUserControlling && snapshot.available ->
-            "你正在接管当前会话，Agent 的网页操作已停止；返回后可让 Agent 继续。"
+            stringResource(R.string.browser_user_controlling)
         else -> null
     }
     val color = when {
@@ -589,14 +592,14 @@ private fun BrowserEmptyState(modifier: Modifier = Modifier) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "浏览器尚未打开网页",
+            text = stringResource(R.string.ui_the_browser_has_not_opened_the_web_page_yet_31e095),
             style = MiuixTheme.textStyles.body1,
             fontWeight = FontWeight.Medium,
             color = MiuixTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.height(6.dp))
         Text(
-            text = "在地址栏输入网址，或让 Agent 帮你查阅网页。会话只在 Eta 内使用。",
+            text = stringResource(R.string.ui_enter_the_url_in_the_address_bar_or_let_the_agent_br_e2ae90),
             style = MiuixTheme.textStyles.body2,
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             textAlign = TextAlign.Center,
@@ -623,7 +626,7 @@ private fun BrowserLoadingState(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = if (host.isBlank()) "正在打开网页" else "正在打开 $host",
+            text = if (host.isBlank()) stringResource(R.string.browser_opening) else stringResource(R.string.browser_opening_host, host),
             style = MiuixTheme.textStyles.body2,
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             maxLines = 1,
@@ -651,7 +654,7 @@ private fun BrowserFailedState(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "网页未能打开",
+            text = stringResource(R.string.ui_the_webpage_cannot_be_opened_3db06d),
             style = MiuixTheme.textStyles.body1,
             fontWeight = FontWeight.Medium,
             color = MiuixTheme.colorScheme.onSurface,
@@ -667,7 +670,7 @@ private fun BrowserFailedState(
         }
         Spacer(modifier = Modifier.height(14.dp))
         TextButton(
-            text = "重新加载",
+            text = stringResource(R.string.ui_reload_5982c4),
             onClick = onRetry,
             colors = ButtonDefaults.textButtonColorsPrimary(),
         )

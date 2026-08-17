@@ -1,5 +1,6 @@
 package fuck.andes.hook.breeno
 
+import fuck.andes.R
 import fuck.andes.agent.model.AgentModelClient
 import fuck.andes.agent.runtime.AgentEvent
 import fuck.andes.agent.runtime.AgentAppContext
@@ -12,9 +13,12 @@ import fuck.andes.core.HookSupport
 import fuck.andes.core.ModuleLogger
 import fuck.andes.core.safeLogType
 import fuck.andes.core.toSafeLogToken
+import fuck.andes.hook.EtaInjectedStrings
 
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import androidx.annotation.StringRes
 import fuck.andes.config.Prefs
 import fuck.andes.data.model.ReasoningEffort
 import io.github.libxposed.api.XposedModule
@@ -39,6 +43,19 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal object BreenoHooks {
+    private fun injected(
+        context: Context?,
+        @StringRes resourceId: Int,
+        englishFallback: String,
+        vararg formatArgs: Any,
+    ): String = EtaInjectedStrings.get(context, resourceId, englishFallback, *formatArgs)
+
+    private fun breenoReasoningState(): String = injected(
+        AgentAppContext.resolve(),
+        R.string.injected_reasoning_label,
+        "Reasoning",
+    )
+
     private const val MESSAGE_QUEUE_MANAGER_CLASS =
         "com.heytap.speech.engine.connect.core.manager.MessageQueueManager"
     private const val MESSAGE_CLASS = "com.heytap.speech.engine.protocol.event.Message"
@@ -80,7 +97,6 @@ internal object BreenoHooks {
     private const val NATIVE_DIRECTIVE_SUPPRESS_TTL_MS = 120_000L
     private const val RECORD_TYPE_QUERY = "Q"
     private const val RECORD_TYPE_ANSWER = "A"
-    private const val BREENO_REASONING_STATE = "深度思考"
     private const val BREENO_STREAM_FLUSH_DELAY_MS = 80L
     private const val BREENO_STREAM_FLUSH_CHARS = 48
     private const val BREENO_ARCHIVE_TITLE_CHARS = 20
@@ -614,11 +630,19 @@ internal object BreenoHooks {
                             )
                         }
                         ?: baseConfig
-                    if (!Prefs.isEnabled(Prefs.Keys.AGENT_CUSTOM_MODEL)) {
-                        error("请先在 Eta 设置中启用“小布自定义模型”")
-                    }
                     val context = AgentAppContext.resolve()
-                        ?: error("无法获取小布进程 Context")
+                    if (!Prefs.isEnabled(Prefs.Keys.AGENT_CUSTOM_MODEL)) {
+                        error(injected(
+                            context,
+                            R.string.injected_breeno_custom_model_disabled,
+                            "Enable Breeno custom models in Eta settings first",
+                        ))
+                    }
+                    context ?: error(injected(
+                        null,
+                        R.string.injected_breeno_context_unavailable,
+                        "Breeno context is unavailable",
+                    ))
                     val images = when (
                         val resolution = BreenoRequestImages.resolve(context, request.imageSnapshot)
                     ) {
@@ -629,7 +653,7 @@ internal object BreenoHooks {
                                     "estimated=${resolution.estimatedBytes}, " +
                                     "limit=${resolution.maxBytes}"
                             }
-                            error(resolution.message)
+                            error(localizedImageFailure(context, resolution))
                         }
                     }
                     val result = AgentRuntimeClient(context, logger).run(
@@ -648,16 +672,23 @@ internal object BreenoHooks {
                     }
                     ackRunId = result.runId.ifBlank { null }
                     if (!result.ok) {
-                        error(result.error ?: "Agent Runtime 调用失败")
+                        error(result.error ?: injected(
+                            context,
+                            R.string.injected_runtime_failed,
+                            "Agent Runtime failed",
+                        ))
                     }
                     AgentModelClient.ModelResponse.Text(
                         content = result.content,
                         reasoningContent = result.reasoningContent
                     )
                 }.getOrElse { throwable ->
-                    AgentModelClient.ModelResponse.Text(
-                        "小布自定义模型调用失败：${throwable.message ?: throwable.javaClass.simpleName}"
-                    )
+                    AgentModelClient.ModelResponse.Text(injected(
+                        AgentAppContext.resolve(),
+                        R.string.injected_breeno_failed,
+                        "Breeno custom model failed: %1\$s",
+                        throwable.message ?: throwable.javaClass.simpleName,
+                    ))
                 }
                 Handler(Looper.getMainLooper()).post {
                     if (activeAgentRun.get() !== runState) {
@@ -752,6 +783,38 @@ internal object BreenoHooks {
         }
     }
 
+    private fun localizedImageFailure(
+        context: Context,
+        failure: BreenoRequestImages.Resolution.Failure,
+    ): String = when (failure.code) {
+        BreenoRequestImages.FailureCode.IMAGE_DATA_LIMIT_EXCEEDED -> injected(
+            context,
+            R.string.injected_image_data_limit,
+            "Image data exceeds the safe limit. Resize the image and try again",
+        )
+        BreenoRequestImages.FailureCode.IMAGE_COUNT_LIMIT_EXCEEDED -> injected(
+            context,
+            R.string.injected_image_count_limit,
+            "You can attach up to %1\$d images at a time. Remove some images and try again",
+            4,
+        )
+        BreenoRequestImages.FailureCode.IMAGE_INPUT_LIMIT_EXCEEDED -> injected(
+            context,
+            R.string.injected_image_input_limit,
+            "The image input is too complex. Remove some images or simplify the image data",
+        )
+        BreenoRequestImages.FailureCode.IMAGE_REFERENCE_CACHE_LIMIT_EXCEEDED -> injected(
+            context,
+            R.string.injected_image_cache_limit,
+            "Image reference data is too large to cache safely. Choose the images again or use remote image links",
+        )
+        BreenoRequestImages.FailureCode.IMAGE_REFERENCE_UNREADABLE -> injected(
+            context,
+            R.string.injected_image_unreadable,
+            "Some images could not be read. Choose the images again and retry",
+        )
+    }
+
     private fun injectModelResponse(
         classLoader: ClassLoader,
         request: TextRequest,
@@ -836,7 +899,16 @@ internal object BreenoHooks {
         val content = if (result.ok) {
             result.content
         } else {
-            "小布自定义模型调用失败：${result.error ?: "Agent Runtime 调用失败"}"
+            injected(
+                AgentAppContext.resolve(),
+                R.string.injected_breeno_failed,
+                "Breeno custom model failed: %1\$s",
+                result.error ?: injected(
+                    AgentAppContext.resolve(),
+                    R.string.injected_runtime_failed,
+                    "Agent Runtime failed",
+                ),
+            )
         }
         val response = AgentModelClient.ModelResponse.Text(
             content = content,
@@ -1304,20 +1376,25 @@ internal object BreenoHooks {
                 is AgentEvent.AssistantBlockDelta ->
                     if (event.kind == AgentEvent.AssistantBlockKind.THINKING) {
                         if (event.delta.isBlank()) return
-                        reasoningState = BREENO_REASONING_STATE
+                        reasoningState = breenoReasoningState()
                         pendingReasoning.append(event.delta)
                         scheduleFlush(force = pendingReasoning.length >= BREENO_STREAM_FLUSH_CHARS)
                     }
 
                 is AgentEvent.ToolStarted -> {
                     if (!created && pendingReasoning.isEmpty()) return
-                    reasoningState = "正在使用${event.name.toBreenoToolLabel()}"
+                    reasoningState = injected(
+                        AgentAppContext.resolve(),
+                        R.string.injected_using_tool,
+                        "Using %1\$s",
+                        event.name.toBreenoToolLabel(),
+                    )
                     scheduleFlush(force = true)
                 }
 
                 is AgentEvent.ToolFinished -> {
                     if (!created && pendingReasoning.isEmpty()) return
-                    reasoningState = BREENO_REASONING_STATE
+                    reasoningState = breenoReasoningState()
                     scheduleFlush(force = true)
                 }
 
@@ -1338,7 +1415,7 @@ internal object BreenoHooks {
             val finalRequest = fallbackRequest.copy(text = request.text)
             val missingReasoning = response.reasoningContent.drop(streamedReasoningChars)
             val finalState = if (response.reasoningContent.isNotBlank()) {
-                BREENO_REASONING_STATE
+                breenoReasoningState()
             } else {
                 reasoningState
             }
@@ -1430,10 +1507,10 @@ internal object BreenoHooks {
         private fun String.toBreenoToolLabel(): String =
             when (this) {
                 "terminal",
-                "run_command" -> "系统工具"
-                "open_app" -> "应用工具"
-                "screenshot" -> "屏幕工具"
-                else -> "工具"
+                "run_command" -> injected(AgentAppContext.resolve(), R.string.injected_system_tool, "system tool")
+                "open_app" -> injected(AgentAppContext.resolve(), R.string.injected_app_tool, "app tool")
+                "screenshot" -> injected(AgentAppContext.resolve(), R.string.injected_screen_tool, "screen tool")
+                else -> injected(AgentAppContext.resolve(), R.string.injected_tool, "tool")
             }
     }
 
@@ -1442,7 +1519,7 @@ internal object BreenoHooks {
         request: TextRequest,
         content: String,
         reasoningContent: String,
-        reasoningState: String? = if (reasoningContent.isNotBlank()) BREENO_REASONING_STATE else null,
+        reasoningState: String? = if (reasoningContent.isNotBlank()) breenoReasoningState() else null,
         isFinal: Boolean = true,
         type: Int = 2,
         uniqueId: String = System.currentTimeMillis().toString()
@@ -1715,7 +1792,7 @@ internal object BreenoHooks {
                         content = response.content,
                         reasoningContent = response.reasoningContent,
                         reasoningState = if (response.reasoningContent.isNotBlank()) {
-                            BREENO_REASONING_STATE
+                            breenoReasoningState()
                         } else {
                             null
                         },

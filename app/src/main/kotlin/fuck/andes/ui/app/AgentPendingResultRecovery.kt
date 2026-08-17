@@ -6,6 +6,8 @@ import fuck.andes.agent.runtime.AgentUiHandoffPayload
 import fuck.andes.ui.model.AgentChatHomeUiState
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
+import fuck.andes.ui.model.SystemNoticeCode
+import fuck.andes.ui.model.SystemNoticeMessageUi
 import fuck.andes.ui.model.UserMessageUi
 
 /** 将 Runtime outbox 的结果幂等折叠回 App 会话。 */
@@ -22,11 +24,7 @@ internal object AgentPendingResultRecovery {
         promptSupplement: AgentUiHandoffPayload.Supplement? = null,
         supplements: List<AgentUiHandoffPayload.Supplement>,
     ): Outcome {
-        val content = if (result.ok) {
-            result.content.ifBlank { "已完成。" }
-        } else {
-            result.error ?: "Agent Runtime 调用失败"
-        }
+        val content = result.content.takeIf { result.ok && it.isNotBlank() }
         val history = AgentRuntimeHistoryReducer.apply(
             state = state,
             runId = runId,
@@ -43,18 +41,25 @@ internal object AgentPendingResultRecovery {
 
         val messagesWithResult = state.messages.toMutableList().also { messages ->
             val assistantIndex = messages.indexOfLast { it.isAssistantForRun(runId) }
-            val completedMessage = AgentMessageUi(
-                id = "assistant-$runId-1",
-                content = content,
-                isStreaming = false,
-                renderMarkdown = result.ok,
-            )
-            if (assistantIndex >= 0) {
-                messages[assistantIndex] = (messages[assistantIndex] as AgentMessageUi).copy(
+            val completedMessage: AgentChatMessageUi = when {
+                content != null -> AgentMessageUi(
+                    id = "assistant-$runId-1",
                     content = content,
                     isStreaming = false,
-                    renderMarkdown = result.ok,
+                    renderMarkdown = true,
                 )
+                result.ok -> SystemNoticeMessageUi(
+                    id = "assistant-$runId-1",
+                    code = SystemNoticeCode.EmptyResult,
+                )
+                else -> SystemNoticeMessageUi(
+                    id = "assistant-$runId-1",
+                    code = SystemNoticeCode.RuntimeFailed,
+                    detail = result.error,
+                )
+            }
+            if (assistantIndex >= 0) {
+                messages[assistantIndex] = completedMessage.copyWithId(messages[assistantIndex].id)
             } else {
                 messages += completedMessage
             }
@@ -73,6 +78,12 @@ internal object AgentPendingResultRecovery {
             ),
             alreadyApplied = false,
         )
+    }
+
+    private fun AgentChatMessageUi.copyWithId(id: String): AgentChatMessageUi = when (this) {
+        is AgentMessageUi -> copy(id = id)
+        is SystemNoticeMessageUi -> copy(id = id)
+        else -> this
     }
 
     fun mergeSupplements(

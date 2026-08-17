@@ -14,6 +14,8 @@ import fuck.andes.ui.model.AgentChatHomeUiState
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
 import fuck.andes.ui.model.ThinkingMessageUi
+import fuck.andes.ui.model.SystemNoticeCode
+import fuck.andes.ui.model.SystemNoticeMessageUi
 import fuck.andes.ui.model.TokenUsageUi
 import fuck.andes.ui.model.ToolActivityMessageUi
 import fuck.andes.ui.model.ToolActivityStatusUi
@@ -69,7 +71,7 @@ internal object AgentConversationStore {
                 val conversations = sorted.map { (id, state) ->
                     ConversationEntity(
                         id = id,
-                        title = titles[id] ?: "新对话",
+                        title = titles[id].orEmpty(),
                         thinkingEnabled = state.reasoningEffort.enablesReasoning,
                         reasoningEffort = state.reasoningEffort.wireValue,
                         appliedRuntimeRunIdsJson = json.encodeToString(state.appliedRuntimeRunIds),
@@ -153,7 +155,7 @@ internal object AgentConversationStore {
                 thinkingEnabled = conversation.reasoningEffortValue.enablesReasoning,
                 reasoningEffort = conversation.reasoningEffortValue,
             )
-            titles[conversation.id] = conversation.title.ifBlank { "新对话" }
+            titles[conversation.id] = conversation.title.takeUnless { it == LEGACY_UNNAMED_TITLE }.orEmpty()
             updatedAt[conversation.id] = conversation.updatedAt
         }
 
@@ -206,6 +208,16 @@ internal object AgentConversationStore {
                     )
                 }
             }
+
+            is SystemNoticeMessageUi -> ConversationMessageEntity(
+                id = id,
+                conversationId = conversationId,
+                sortIndex = sortIndex,
+                type = TYPE_SYSTEM_NOTICE,
+                content = code.wireValue,
+                resultSummary = detail,
+                renderMarkdown = false,
+            )
 
             is ThinkingMessageUi -> ConversationMessageEntity(
                 id = id,
@@ -263,6 +275,14 @@ internal object AgentConversationStore {
                     cachedTokens = cachedTokens,
                 ).takeUnless { it.isEmpty },
             )
+
+            TYPE_SYSTEM_NOTICE -> SystemNoticeCode.fromWireValue(content)?.let { code ->
+                SystemNoticeMessageUi(
+                    id = id,
+                    code = code,
+                    detail = resultSummary,
+                )
+            }
 
             TYPE_THINKING -> ThinkingMessageUi(
                 id = id,
@@ -331,8 +351,10 @@ internal object AgentConversationStore {
 
     private const val TYPE_USER = "user"
     private const val TYPE_ASSISTANT = "assistant"
+    private const val TYPE_SYSTEM_NOTICE = "system_notice"
     private const val TYPE_THINKING = "thinking"
     private const val TYPE_TOOL = "tool"
     private const val TYPE_TOOL_SUMMARY = "tool_summary"
     private const val MESSAGE_LOAD_PAGE_SIZE = 128
+    private const val LEGACY_UNNAMED_TITLE = "新对话"
 }
