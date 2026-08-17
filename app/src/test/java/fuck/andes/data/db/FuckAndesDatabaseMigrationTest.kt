@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class FuckAndesDatabaseMigrationTest {
     @Test
-    fun migration6To14PreservesDataAndMovesBoundedConversationContext() {
+    fun migration6To15PreservesDataAndMovesBoundedConversationContext() {
         val context = RuntimeEnvironment.getApplication() as Context
         val databaseName = "migration-${UUID.randomUUID()}.db"
         createVersion6Database(context, databaseName)
@@ -35,6 +35,7 @@ class FuckAndesDatabaseMigrationTest {
                 FuckAndesDatabase.MIGRATION_11_12,
                 FuckAndesDatabase.MIGRATION_12_13,
                 FuckAndesDatabase.MIGRATION_13_14,
+                FuckAndesDatabase.MIGRATION_14_15,
             )
             .build()
         try {
@@ -88,6 +89,9 @@ class FuckAndesDatabaseMigrationTest {
             assertEquals(listOf("built-in", "manual"), provider.models.map { it.modelId })
             assertEquals(false, provider.hostedWebSearchEnabled)
             assertEquals(false, migratedMessage.isEdited)
+            assertEquals(null, provider.models.first().contextWindowOverride)
+            assertEquals(null, provider.models.first().reasoningOverride)
+            assertEquals(null, provider.models.first().reasoningCapabilitiesOverride)
             assertEquals(
                 listOf(ModelSource.CATALOG, ModelSource.MANUAL),
                 provider.models.map { it.source },

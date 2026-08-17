@@ -12,7 +12,7 @@ class ReasoningCapabilityResolverTest {
     @Test
     fun userFacingEffortLabelsAreStableEnglishValues() {
         assertEquals(
-            listOf("Off", "Default", "Low", "Medium", "High", "XHigh", "Max"),
+            listOf("Off", "Default", "Minimal", "Low", "Medium", "High", "XHigh", "Max"),
             ReasoningEffort.entries.map(ReasoningEffort::displayName),
         )
     }
@@ -100,6 +100,31 @@ class ReasoningCapabilityResolverTest {
             listOf(ReasoningEffort.DEFAULT, ReasoningEffort.MEDIUM),
             resolved?.selectableEfforts,
         )
+    }
+
+    @Test
+    fun userOverrideWinsOverRemoteMetadata() {
+        val overridden = ModelReasoningCapabilities(
+            supportedEfforts = listOf(ReasoningEffort.MINIMAL),
+            canDisable = true,
+        )
+
+        val resolved = ReasoningCapabilityResolver.resolve(
+            sourceType = ProviderSourceTypes.DEEPSEEK,
+            model = Model(
+                id = "id",
+                modelId = "deepseek-v4-flash",
+                displayName = "DeepSeek",
+                reasoning = true,
+                reasoningCapabilities = ModelReasoningCapabilities(
+                    supportedEfforts = listOf(ReasoningEffort.HIGH),
+                ),
+                reasoningOverride = true,
+                reasoningCapabilitiesOverride = overridden,
+            ),
+        )
+
+        assertEquals(overridden, resolved)
     }
 
     @Test

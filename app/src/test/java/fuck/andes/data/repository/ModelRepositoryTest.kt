@@ -5,7 +5,9 @@ import fuck.andes.data.datastore.SettingsDataStore
 import fuck.andes.data.db.FuckAndesDatabase
 import fuck.andes.data.model.CustomProviderSetting
 import fuck.andes.data.model.Model
+import fuck.andes.data.model.ModelReasoningCapabilities
 import fuck.andes.data.model.ModelSource
+import fuck.andes.data.model.ReasoningEffort
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -84,6 +86,17 @@ class ModelRepositoryTest {
                         id = "manual-id",
                         modelId = "manual-model",
                         displayName = "Manual",
+                        contextWindow = 128_000,
+                        contextWindowOverride = 256_000,
+                        reasoning = true,
+                        reasoningCapabilities = ModelReasoningCapabilities(
+                            supportedEfforts = listOf(ReasoningEffort.HIGH),
+                        ),
+                        reasoningOverride = true,
+                        reasoningCapabilitiesOverride = ModelReasoningCapabilities(
+                            supportedEfforts = listOf(ReasoningEffort.MINIMAL),
+                            canDisable = true,
+                        ),
                         source = ModelSource.MANUAL,
                     ),
                     Model(
@@ -110,6 +123,7 @@ class ModelRepositoryTest {
                     id = "remote-manual-match",
                     modelId = "manual-model",
                     displayName = "Manual From Remote",
+                    contextWindow = 1_000_000,
                     toolCall = true,
                     source = ModelSource.REMOTE,
                 ),
@@ -129,6 +143,12 @@ class ModelRepositoryTest {
         assertEquals(setOf("manual-model", "catalog-model", "remote-new"), restored.keys)
         assertEquals(ModelSource.MANUAL, restored.getValue("manual-model").source)
         assertTrue(restored.getValue("manual-model").supportsTools)
+        assertEquals(1_000_000, restored.getValue("manual-model").contextWindow)
+        assertEquals(256_000, restored.getValue("manual-model").effectiveContextWindow)
+        assertEquals(
+            listOf(ReasoningEffort.OFF, ReasoningEffort.DEFAULT, ReasoningEffort.MINIMAL),
+            restored.getValue("manual-model").effectiveReasoningCapabilities?.selectableEfforts,
+        )
         assertEquals(ModelSource.CATALOG, restored.getValue("catalog-model").source)
         assertEquals(ModelSource.REMOTE, restored.getValue("remote-new").source)
 

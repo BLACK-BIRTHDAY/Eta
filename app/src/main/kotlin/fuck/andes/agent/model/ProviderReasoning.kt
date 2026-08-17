@@ -30,11 +30,11 @@ internal object ProviderReasoning {
             ProviderSourceTypes.SILICONFLOW -> applySiliconFlow(request, config, effort)
             ProviderSourceTypes.DEEPSEEK -> applyDeepSeek(request, effort)
             ProviderSourceTypes.MOONSHOT -> applyMoonshot(request, config, effort)
-            ProviderSourceTypes.MIMO -> applyThinkingToggle(request, effort)
-            ProviderSourceTypes.MINIMAX -> Unit
+            ProviderSourceTypes.MIMO -> applyToggleOnlyProvider(request, "MiMo", effort)
+            ProviderSourceTypes.MINIMAX -> unsupportedEffort("MiniMax", effort)
             ProviderSourceTypes.OPENROUTER -> applyOpenRouter(request, effort)
-            ProviderSourceTypes.OPENAI,
-            ProviderSourceTypes.STEPFUN,
+            ProviderSourceTypes.STEPFUN -> applyStepFun(request, effort)
+            ProviderSourceTypes.OPENAI -> applyOpenAi(request, effort)
             ProviderSourceTypes.CUSTOM -> applyNamedReasoningEffort(request, effort)
         }
     }
@@ -45,6 +45,9 @@ internal object ProviderReasoning {
     ) {
         if (config.reasoningCapabilities == null) return
         val effort = validatedEffort(config)
+        if (sourceType(config) == ProviderSourceTypes.OPENAI && effort == ReasoningEffort.MAX) {
+            unsupportedEffort("OpenAI", effort)
+        }
         request.put(
             "reasoning",
             JSONObject().apply {
@@ -85,12 +88,15 @@ internal object ProviderReasoning {
         val effort = validatedEffort(config)
         if (effort == ReasoningEffort.DEFAULT) return
         if (effort == ReasoningEffort.OFF) {
-            request.remove("thinking")
+            request.put("thinking", JSONObject().put("type", "disabled"))
             request.optJSONObject("output_config")?.let { outputConfig ->
                 outputConfig.remove("effort")
                 if (outputConfig.length() == 0) request.remove("output_config")
             }
             return
+        }
+        require(effort != ReasoningEffort.MINIMAL) {
+            "Anthropic 不支持 Minimal thinking effort"
         }
         request.put(
             "thinking",
@@ -118,7 +124,12 @@ internal object ProviderReasoning {
             "deepseek" in model || model.startsWith("kimi-k3") ->
                 applyNamedReasoningEffort(request, effort)
             model.startsWith("kimi-k2.6") || model.startsWith("kimi-k2.5") ->
-                applyThinkingToggle(request, effort, keepAll = model.startsWith("kimi-k2.6"))
+                applyToggleOnlyProvider(
+                    request = request,
+                    providerName = "百炼 Kimi",
+                    effort = effort,
+                    keepAll = model.startsWith("kimi-k2.6"),
+                )
             else -> applyNamedReasoningEffort(request, effort)
         }
     }
@@ -134,6 +145,7 @@ internal object ProviderReasoning {
             return
         }
         val requestedBudget = when (effort) {
+            ReasoningEffort.MINIMAL -> unsupportedEffort("百炼 Qwen", effort)
             ReasoningEffort.LOW -> 4_096
             ReasoningEffort.MEDIUM -> 16_384
             ReasoningEffort.HIGH -> 32_768
@@ -167,6 +179,7 @@ internal object ProviderReasoning {
             return
         }
         val budget = when (effort) {
+            ReasoningEffort.MINIMAL -> 128
             ReasoningEffort.LOW -> 1_024
             ReasoningEffort.MEDIUM -> 4_096
             ReasoningEffort.HIGH -> 8_192
@@ -184,7 +197,17 @@ internal object ProviderReasoning {
     private fun applyDeepSeek(request: JSONObject, effort: ReasoningEffort) {
         applyThinkingToggle(request, effort)
         if (effort != ReasoningEffort.OFF) {
-            request.put("reasoning_effort", effort.wireValue)
+            val providerEffort = when (effort) {
+                ReasoningEffort.MINIMAL -> unsupportedEffort("DeepSeek", effort)
+                ReasoningEffort.LOW,
+                ReasoningEffort.MEDIUM,
+                ReasoningEffort.HIGH -> ReasoningEffort.HIGH
+                ReasoningEffort.XHIGH,
+                ReasoningEffort.MAX -> ReasoningEffort.MAX
+                ReasoningEffort.DEFAULT,
+                ReasoningEffort.OFF -> return
+            }
+            request.put("reasoning_effort", providerEffort.wireValue)
         } else {
             request.remove("reasoning_effort")
         }
@@ -197,14 +220,39 @@ internal object ProviderReasoning {
     ) {
         val model = config.model.trim().lowercase()
         when {
-            model.startsWith("kimi-k3") -> applyNamedReasoningEffort(request, effort)
-            model.startsWith("kimi-k2.7-code") -> Unit
-            else -> applyThinkingToggle(
-                request,
-                effort,
-                keepAll = model.startsWith("kimi-k2.6"),
-            )
+            model.startsWith("kimi-k3") -> {
+                require(effort in setOf(ReasoningEffort.LOW, ReasoningEffort.HIGH, ReasoningEffort.MAX)) {
+                    "Kimi K3 不支持 ${effort.displayName} thinking effort"
+                }
+                applyNamedReasoningEffort(request, effort)
+            }
+            model.startsWith("kimi-k2.7-code") -> unsupportedEffort("Kimi K2.7 Code", effort)
+            model.startsWith("kimi-k2.6") || model.startsWith("kimi-k2.5") ->
+                applyToggleOnlyProvider(
+                    request = request,
+                    providerName = "Kimi",
+                    effort = effort,
+                    keepAll = model.startsWith("kimi-k2.6"),
+                )
+            else -> applyNamedReasoningEffort(request, effort)
         }
+    }
+
+    private fun applyToggleOnlyProvider(
+        request: JSONObject,
+        providerName: String,
+        effort: ReasoningEffort,
+        keepAll: Boolean = false,
+    ) {
+        if (effort != ReasoningEffort.OFF) unsupportedEffort(providerName, effort)
+        applyThinkingToggle(request, effort, keepAll)
+    }
+
+    private fun applyStepFun(request: JSONObject, effort: ReasoningEffort) {
+        require(effort == ReasoningEffort.LOW || effort == ReasoningEffort.HIGH) {
+            "StepFun 不支持 ${effort.displayName} thinking effort"
+        }
+        applyNamedReasoningEffort(request, effort)
     }
 
     private fun applyThinkingToggle(
@@ -224,9 +272,17 @@ internal object ProviderReasoning {
         request.put("reasoning", reasoning)
     }
 
+    private fun applyOpenAi(request: JSONObject, effort: ReasoningEffort) {
+        if (effort == ReasoningEffort.MAX) unsupportedEffort("OpenAI", effort)
+        applyNamedReasoningEffort(request, effort)
+    }
+
     private fun applyNamedReasoningEffort(request: JSONObject, effort: ReasoningEffort) {
         request.put("reasoning_effort", if (effort == ReasoningEffort.OFF) "none" else effort.wireValue)
     }
+
+    private fun unsupportedEffort(providerName: String, effort: ReasoningEffort): Nothing =
+        throw IllegalArgumentException("$providerName 不支持 ${effort.displayName} thinking effort")
 
     private fun validatedEffort(config: AgentModelClient.ModelConfig): ReasoningEffort {
         val effort = config.effectiveReasoningEffort

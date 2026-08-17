@@ -13,15 +13,22 @@ internal object ReasoningCapabilityResolver {
         ReasoningEffort.XHIGH,
         ReasoningEffort.MAX,
     )
+    private val openAiEfforts = listOf(
+        ReasoningEffort.MINIMAL,
+        ReasoningEffort.LOW,
+        ReasoningEffort.MEDIUM,
+        ReasoningEffort.HIGH,
+        ReasoningEffort.XHIGH,
+    )
 
     fun resolve(
         sourceType: String,
         model: Model,
         inferExactCatalogModel: Boolean = false,
     ): ModelReasoningCapabilities? {
-        if (model.reasoning == false) return null
-        model.reasoningCapabilities?.let { return it }
-        if (model.reasoning != true) {
+        if (model.effectiveReasoning == false) return null
+        model.effectiveReasoningCapabilities?.let { return it }
+        if (model.effectiveReasoning != true) {
             return if (inferExactCatalogModel) catalogCapabilities(sourceType, model.modelId) else null
         }
         return catalogCapabilities(sourceType, model.modelId)
@@ -41,7 +48,7 @@ internal object ReasoningCapabilityResolver {
             ProviderSourceTypes.OPENAI -> when {
                 model == "gpt-5.5" || model.startsWith("gpt-5.6-") ->
                     capabilities(
-                        lowToMax,
+                        openAiEfforts,
                         canDisable = true,
                         defaultEffort = ReasoningEffort.MEDIUM,
                     )

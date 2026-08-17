@@ -56,11 +56,11 @@ class ProviderRepositoryTest {
             listOf(
                 ReasoningEffort.OFF,
                 ReasoningEffort.DEFAULT,
+                ReasoningEffort.MINIMAL,
                 ReasoningEffort.LOW,
                 ReasoningEffort.MEDIUM,
                 ReasoningEffort.HIGH,
                 ReasoningEffort.XHIGH,
-                ReasoningEffort.MAX,
             ),
             providers.getValue(BuiltinProviders.OPENAI_ID)
                 .models

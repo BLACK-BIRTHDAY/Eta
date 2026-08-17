@@ -119,7 +119,7 @@ internal object RuntimeConfigRepository {
             apiKey = provider.apiKey.trim(),
             model = model.modelId.trim(),
             modelDisplayName = model.displayName.trim(),
-            contextWindow = model.contextWindow,
+            contextWindow = model.effectiveContextWindow,
             systemPrompt = systemPrompt,
             anthropicVersion = (provider as? AnthropicProviderSetting)?.anthropicVersion
                 ?: AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION,

@@ -57,7 +57,7 @@ internal object RemoteModelFetcher {
             ?.jsonArrayOrNull()
             ?: return emptyList()
         return data.mapNotNull { element ->
-            element.jsonObjectOrNull()?.toModel(defaultOwnedBy = "anthropic")
+            element.jsonObjectOrNull()?.toAnthropicModel()
         }
     }
 
@@ -154,7 +154,7 @@ internal object RemoteModelFetcher {
                 ?: modelId,
             source = ModelSource.REMOTE,
             ownedBy = string("owned_by", "ownedBy")?.trim().takeUnless { it.isNullOrBlank() } ?: defaultOwnedBy,
-            contextWindow = int(
+            contextWindow = positiveInt(
                 "context_window",
                 "contextWindow",
                 "context_length",
@@ -162,6 +162,8 @@ internal object RemoteModelFetcher {
                 "context_limit",
                 "contextLimit",
                 "max_context_tokens",
+                "max_input_tokens",
+                "maxInputTokens",
             ),
             inputModalities = inputModalities(architecture),
             outputModalities = stringList("output_modalities", "outputModalities")
@@ -187,6 +189,44 @@ internal object RemoteModelFetcher {
                 ?: supportedParameters.supportsAny("structured_outputs", "response_format"),
             supportsTemperature = boolean("supports_temperature", "supportsTemperature")
                 ?: supportedParameters.supportsAny("temperature"),
+        )
+    }
+
+    private fun JsonObject.toAnthropicModel(): Model? {
+        val base = toModel(defaultOwnedBy = "anthropic") ?: return null
+        val capabilities = this["capabilities"]?.jsonObjectOrNull()
+        val effort = capabilities?.get("effort")?.jsonObjectOrNull()
+        val thinking = capabilities?.get("thinking")?.jsonObjectOrNull()
+        val supportedEfforts = listOf(
+            "low" to ReasoningEffort.LOW,
+            "medium" to ReasoningEffort.MEDIUM,
+            "high" to ReasoningEffort.HIGH,
+            "xhigh" to ReasoningEffort.XHIGH,
+            "max" to ReasoningEffort.MAX,
+        ).mapNotNull { (field, value) ->
+            value.takeIf { effort?.capabilitySupported(field) == true }
+        }
+        val effortSupported = effort?.boolean("supported") == true || supportedEfforts.isNotEmpty()
+        val thinkingSupported = thinking?.boolean("supported") == true
+        val reasoningSupported = effortSupported || thinkingSupported
+        return base.copy(
+            contextWindow = positiveInt("max_input_tokens") ?: base.contextWindow,
+            attachment = capabilities?.capabilitySupported("image_input") ?: base.attachment,
+            reasoning = reasoningSupported.takeIf { capabilities != null } ?: base.reasoning,
+            reasoningCapabilities = if (reasoningSupported) {
+                ModelReasoningCapabilities(
+                    supportedEfforts = supportedEfforts,
+                    defaultEffort = ReasoningEffort.HIGH.takeIf {
+                        ReasoningEffort.HIGH in supportedEfforts
+                    },
+                    defaultEnabled = true,
+                    canDisable = thinkingSupported,
+                )
+            } else {
+                base.reasoningCapabilities
+            },
+            structuredOutput = capabilities?.capabilitySupported("structured_outputs")
+                ?: base.structuredOutput,
         )
     }
 
@@ -231,7 +271,7 @@ internal object RemoteModelFetcher {
                     supportedEfforts.contains(ReasoningEffort.OFF)
                 ),
             supportsBudget = supportsBudget,
-            maxBudgetTokens = metadata?.int(
+            maxBudgetTokens = metadata?.positiveInt(
                 "max_budget_tokens",
                 "maxBudgetTokens",
                 "max_reasoning_tokens",
@@ -246,6 +286,9 @@ internal object RemoteModelFetcher {
     private fun JsonObject.int(vararg names: String): Int? =
         names.firstNotNullOfOrNull { name -> (this[name] as? JsonPrimitive)?.intOrNull }
 
+    private fun JsonObject.positiveInt(vararg names: String): Int? =
+        int(*names)?.takeIf { it > 0 }
+
     private fun JsonObject.boolean(vararg names: String): Boolean? =
         names.firstNotNullOfOrNull { name -> (this[name] as? JsonPrimitive)?.booleanOrNull }
 
@@ -257,6 +300,11 @@ internal object RemoteModelFetcher {
                 ?.filter { it.isNotBlank() }
                 ?.takeIf { it.isNotEmpty() }
         }
+
+    private fun JsonObject.capabilitySupported(name: String): Boolean? =
+        this[name]
+            ?.jsonObjectOrNull()
+            ?.boolean("supported")
 
     private fun List<String>.supportsAny(vararg names: String): Boolean? =
         takeIf { supported -> names.any(supported::contains) }?.let { true }

@@ -207,7 +207,7 @@ class RemoteModelFetcherTest {
                   "reasoning":{
                     "mandatory":true,
                     "default_enabled":true,
-                    "supported_efforts":["high","medium","low"]
+                    "supported_efforts":["high","medium","low","minimal"]
                   },
                   "supported_parameters":[
                     "reasoning",
@@ -234,6 +234,7 @@ class RemoteModelFetcherTest {
         assertEquals(
             listOf(
                 ReasoningEffort.DEFAULT,
+                ReasoningEffort.MINIMAL,
                 ReasoningEffort.LOW,
                 ReasoningEffort.MEDIUM,
                 ReasoningEffort.HIGH,
@@ -261,8 +262,79 @@ class RemoteModelFetcherTest {
         ).single()
 
         assertTrue(model.supportsReasoning)
-        assertEquals(ReasoningEffort.entries, model.reasoningCapabilities?.selectableEfforts)
+        assertEquals(
+            listOf(
+                ReasoningEffort.OFF,
+                ReasoningEffort.DEFAULT,
+                ReasoningEffort.LOW,
+                ReasoningEffort.MEDIUM,
+                ReasoningEffort.HIGH,
+                ReasoningEffort.XHIGH,
+                ReasoningEffort.MAX,
+            ),
+            model.reasoningCapabilities?.selectableEfforts,
+        )
         assertTrue(model.reasoningCapabilities?.supportsBudget == true)
+    }
+
+    @Test
+    fun parsesAnthropicContextAndCapabilityMetadata() {
+        val model = RemoteModelFetcher.parseAnthropicModels(
+            """
+            {
+              "data":[
+                {
+                  "id":"claude-opus-4-8",
+                  "display_name":"Claude Opus 4.8",
+                  "max_input_tokens":1000000,
+                  "capabilities":{
+                    "image_input":{"supported":true},
+                    "structured_outputs":{"supported":true},
+                    "effort":{
+                      "supported":true,
+                      "low":{"supported":true},
+                      "medium":{"supported":true},
+                      "high":{"supported":true},
+                      "xhigh":{"supported":true},
+                      "max":{"supported":true}
+                    },
+                    "thinking":{"supported":true}
+                  }
+                }
+              ]
+            }
+            """.trimIndent()
+        ).single()
+
+        assertEquals(1_000_000, model.contextWindow)
+        assertTrue(model.supportsVision)
+        assertTrue(model.supportsReasoning)
+        assertEquals(true, model.structuredOutput)
+        assertEquals(
+            listOf(
+                ReasoningEffort.OFF,
+                ReasoningEffort.DEFAULT,
+                ReasoningEffort.LOW,
+                ReasoningEffort.MEDIUM,
+                ReasoningEffort.HIGH,
+                ReasoningEffort.XHIGH,
+                ReasoningEffort.MAX,
+            ),
+            model.reasoningCapabilities?.selectableEfforts,
+        )
+    }
+
+    @Test
+    fun ignoresNonPositiveContextMetadata() {
+        val models = RemoteModelFetcher.parseOpenAiModels(
+            """{"data":[{"id":"zero","context_length":0},{"id":"negative","context_window":-1}]}"""
+        )
+        val anthropic = RemoteModelFetcher.parseAnthropicModels(
+            """{"data":[{"id":"claude-test","max_input_tokens":0}]}"""
+        ).single()
+
+        assertTrue(models.all { it.contextWindow == null })
+        assertEquals(null, anthropic.contextWindow)
     }
 
     @Test

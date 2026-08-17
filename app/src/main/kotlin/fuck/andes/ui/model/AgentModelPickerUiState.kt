@@ -99,7 +99,7 @@ internal object AgentModelPickerProjector {
             providerSourceType = ProviderSourceRegistry.resolve(this),
             modelId = model.modelId,
             displayName = model.displayName.ifBlank { model.modelId },
-            contextWindow = model.contextWindow,
+            contextWindow = model.effectiveContextWindow,
         )
 }
 

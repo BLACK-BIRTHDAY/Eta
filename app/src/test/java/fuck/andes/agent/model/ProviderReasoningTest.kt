@@ -57,6 +57,28 @@ class ProviderReasoningTest {
     }
 
     @Test
+    fun openAiMinimalUsesDocumentedNamedValue() {
+        val request = JSONObject()
+
+        ProviderReasoning.applyOpenAiCompatibleRequest(
+            request,
+            config(source = ProviderSourceTypes.OPENAI, effort = ReasoningEffort.MINIMAL),
+        )
+
+        assertEquals("minimal", request.getString("reasoning_effort"))
+    }
+
+    @Test
+    fun openAiRejectsUnsupportedMaxEffort() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ProviderReasoning.applyOpenAiCompatibleRequest(
+                JSONObject(),
+                config(source = ProviderSourceTypes.OPENAI, effort = ReasoningEffort.MAX),
+            )
+        }
+    }
+
+    @Test
     fun openAiOffUsesDocumentedNoneValue() {
         val request = JSONObject()
 
@@ -86,7 +108,7 @@ class ProviderReasoningTest {
     }
 
     @Test
-    fun anthropicOffRemovesOnlyThinkingOverrides() {
+    fun anthropicOffUsesDisabledThinkingAndRemovesOnlyEffortOverride() {
         val request = JSONObject()
             .put("thinking", JSONObject().put("type", "adaptive"))
             .put("output_config", JSONObject().put("effort", "high").put("other", true))
@@ -96,9 +118,19 @@ class ProviderReasoningTest {
             config(source = ProviderSourceTypes.ANTHROPIC, effort = ReasoningEffort.OFF),
         )
 
-        assertFalse(request.has("thinking"))
+        assertEquals("disabled", request.getJSONObject("thinking").getString("type"))
         assertFalse(request.getJSONObject("output_config").has("effort"))
         assertTrue(request.getJSONObject("output_config").getBoolean("other"))
+    }
+
+    @Test
+    fun anthropicRejectsUnsupportedMinimalEffort() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ProviderReasoning.applyAnthropicRequest(
+                JSONObject(),
+                config(source = ProviderSourceTypes.ANTHROPIC, effort = ReasoningEffort.MINIMAL),
+            )
+        }
     }
 
     @Test
@@ -151,6 +183,7 @@ class ProviderReasoningTest {
     @Test
     fun siliconFlowMapsEveryNamedLevelToBudget() {
         val budgets = mapOf(
+            ReasoningEffort.MINIMAL to 128,
             ReasoningEffort.LOW to 1_024,
             ReasoningEffort.MEDIUM to 4_096,
             ReasoningEffort.HIGH to 8_192,

@@ -12,12 +12,15 @@ data class Model(
     val isBuiltIn: Boolean = false,
     val sortOrder: Int = 0,
     val contextWindow: Int? = null,
+    val contextWindowOverride: Int? = null,
     val inputModalities: List<String> = listOf(TEXT_MODALITY),
     val outputModalities: List<String> = listOf(TEXT_MODALITY),
     val attachment: Boolean? = null,
     val toolCall: Boolean? = null,
     val reasoning: Boolean? = null,
     val reasoningCapabilities: ModelReasoningCapabilities? = null,
+    val reasoningOverride: Boolean? = null,
+    val reasoningCapabilitiesOverride: ModelReasoningCapabilities? = null,
     val structuredOutput: Boolean? = null,
     val supportsTemperature: Boolean? = null,
     val customHeaders: List<CustomHeader> = emptyList(),
@@ -25,6 +28,19 @@ data class Model(
     val source: ModelSource = ModelSource.MANUAL,
     val createdAt: Long = System.currentTimeMillis()
 ) {
+    val effectiveContextWindow: Int?
+        get() = contextWindowOverride ?: contextWindow
+
+    val effectiveReasoning: Boolean?
+        get() = reasoningOverride ?: reasoning
+
+    val effectiveReasoningCapabilities: ModelReasoningCapabilities?
+        get() = when (reasoningOverride) {
+            false -> null
+            true -> reasoningCapabilitiesOverride ?: ModelReasoningCapabilities()
+            null -> reasoningCapabilities
+        }
+
     val supportsVision: Boolean
         get() = attachment == true || inputModalities.any { it.equals(IMAGE_MODALITY, ignoreCase = true) }
 
@@ -32,7 +48,7 @@ data class Model(
         get() = toolCall == true
 
     val supportsReasoning: Boolean
-        get() = reasoning == true
+        get() = effectiveReasoning == true
 
     companion object {
         const val TEXT_MODALITY = "text"

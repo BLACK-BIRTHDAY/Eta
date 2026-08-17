@@ -36,6 +36,9 @@ internal object ModelRepository {
         val displayName = draft.displayName.trim()
         require(modelId.isNotEmpty()) { "Model ID 不能为空" }
         require(displayName.isNotEmpty()) { "展示名称不能为空" }
+        require(draft.contextWindowOverride == null || draft.contextWindowOverride > 0) {
+            "上下文长度必须是正整数"
+        }
         require(
             models.none { existing ->
                 existing.id != draft.id && existing.modelId.trim().equals(modelId, ignoreCase = true)
@@ -118,6 +121,9 @@ internal object ModelRepository {
                                     isBuiltIn = stored.isBuiltIn || remote.isBuiltIn,
                                     customHeaders = stored.customHeaders,
                                     customBody = stored.customBody,
+                                    contextWindowOverride = stored.contextWindowOverride,
+                                    reasoningOverride = stored.reasoningOverride,
+                                    reasoningCapabilitiesOverride = stored.reasoningCapabilitiesOverride,
                                     source = stored.source,
                                     createdAt = stored.createdAt,
                                 )

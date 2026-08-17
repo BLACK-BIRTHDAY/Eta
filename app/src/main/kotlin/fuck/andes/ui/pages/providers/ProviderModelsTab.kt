@@ -10,6 +10,8 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,13 +45,16 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.R as LucideR
 import fuck.andes.FuckAndesApp
 import fuck.andes.data.model.Model
+import fuck.andes.data.model.ModelReasoningCapabilities
 import fuck.andes.data.model.ProviderSetting
+import fuck.andes.data.model.ReasoningEffort
 import fuck.andes.data.repository.ModelRepository
 import fuck.andes.data.repository.RemoteModelFetcher
 import fuck.andes.data.repository.RuntimeConfigRepository
 import fuck.andes.ui.components.MiuixDialogActions
 import fuck.andes.ui.components.StatusError
 import fuck.andes.ui.components.StatusSuccess
+import fuck.andes.ui.model.formatCompactTokenCount
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -67,6 +73,9 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.CheckboxLocation
+import top.yukonga.miuix.kmp.preference.CheckboxPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.LocalContentColor
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -74,6 +83,25 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 private val modelSearchSeparators = Regex("""[^\p{L}\p{N}]+""")
+private val editableReasoningEfforts = listOf(
+    ReasoningEffort.OFF,
+    ReasoningEffort.MINIMAL,
+    ReasoningEffort.LOW,
+    ReasoningEffort.MEDIUM,
+    ReasoningEffort.HIGH,
+    ReasoningEffort.XHIGH,
+    ReasoningEffort.MAX,
+)
+
+internal fun contextWindowInputError(value: String): String? {
+    val normalized = value.trim()
+    if (normalized.isEmpty()) return null
+    return if (normalized.toIntOrNull()?.let { it > 0 } == true) {
+        null
+    } else {
+        "上下文长度必须是正整数"
+    }
+}
 
 internal fun filterProviderModels(models: List<Model>, query: String): List<Model> {
     val queryTokens = query.lowercase().split(modelSearchSeparators).filter(String::isNotBlank)
@@ -565,7 +593,7 @@ private fun ModelListItem(
             .fillMaxWidth()
             .combinedClickable(
                 enabled = enabled,
-                onClick = if (selectionMode) onToggleChecked else onEdit,
+                onClick = if (selectionMode) onToggleChecked else onSetCurrent,
                 onLongClick = {
                     if (selectionMode) onToggleChecked() else onEnterSelection()
                 },
@@ -607,19 +635,28 @@ private fun ModelListItem(
                 enabled = enabled,
             )
         } else {
-            IconButton(onClick = onSetCurrent, enabled = enabled) {
-                Icon(
-                    painter = painterResource(
-                        if (isSelected) LucideR.drawable.lucide_ic_check
-                        else LucideR.drawable.lucide_ic_circle
-                    ),
-                    contentDescription = if (isSelected) "当前模型" else "设为当前",
-                    tint = if (isSelected) {
-                        MiuixTheme.colorScheme.primary
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantActions
-                    },
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onEdit, enabled = enabled) {
+                    Icon(
+                        painter = painterResource(LucideR.drawable.lucide_ic_sliders_horizontal),
+                        contentDescription = "编辑模型参数",
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                    )
+                }
+                IconButton(onClick = onSetCurrent, enabled = enabled) {
+                    Icon(
+                        painter = painterResource(
+                            if (isSelected) LucideR.drawable.lucide_ic_check
+                            else LucideR.drawable.lucide_ic_circle
+                        ),
+                        contentDescription = if (isSelected) "当前模型" else "设为当前模型",
+                        tint = if (isSelected) {
+                            MiuixTheme.colorScheme.primary
+                        } else {
+                            MiuixTheme.colorScheme.onSurfaceVariantActions
+                        },
+                    )
+                }
             }
         }
     }
@@ -637,10 +674,59 @@ private fun ModelEditDialog(
 ) {
     var displayName by remember(model.id, isNew) { mutableStateOf(model.displayName) }
     var modelId by remember(model.id, isNew) { mutableStateOf(model.modelId) }
+    var contextWindowOverrideText by remember(model.id, isNew) {
+        mutableStateOf(model.contextWindowOverride?.toString().orEmpty())
+    }
+    var reasoningOverrideActive by remember(model.id, isNew) {
+        mutableStateOf(
+            model.reasoningOverride != null || model.reasoningCapabilitiesOverride != null
+        )
+    }
+    var reasoningEnabled by remember(model.id, isNew) {
+        mutableStateOf(model.supportsReasoning)
+    }
+    var selectedReasoningEfforts by remember(model.id, isNew) {
+        mutableStateOf(
+            model.effectiveReasoningCapabilities
+                ?.selectableEfforts
+                ?.toSet()
+                .orEmpty() + ReasoningEffort.DEFAULT
+        )
+    }
+    val contextError = contextWindowInputError(contextWindowOverrideText)
+
+    fun resetAutomaticReasoning() {
+        reasoningOverrideActive = false
+        reasoningEnabled = model.reasoning == true
+        selectedReasoningEfforts = model.reasoningCapabilities
+            ?.selectableEfforts
+            ?.toSet()
+            .orEmpty() + ReasoningEffort.DEFAULT
+    }
 
     fun updated(): Model = model.copy(
         displayName = displayName.trim(),
         modelId = modelId.trim(),
+        contextWindowOverride = contextWindowOverrideText.trim()
+            .takeIf(String::isNotEmpty)
+            ?.toInt(),
+        reasoningOverride = reasoningEnabled.takeIf { reasoningOverrideActive },
+        reasoningCapabilitiesOverride = if (reasoningOverrideActive && reasoningEnabled) {
+            val canDisable = ReasoningEffort.OFF in selectedReasoningEfforts
+            (model.effectiveReasoningCapabilities ?: ModelReasoningCapabilities()).copy(
+                supportedEfforts = editableReasoningEfforts.filter { effort ->
+                    effort != ReasoningEffort.OFF && effort in selectedReasoningEfforts
+                },
+                defaultEffort = model.effectiveReasoningCapabilities
+                    ?.defaultEffort
+                    ?.takeIf { it in selectedReasoningEfforts },
+                defaultEnabled = true,
+                mandatory = !canDisable,
+                canDisable = canDisable,
+            )
+        } else {
+            null
+        },
     )
 
     OverlayDialog(
@@ -649,58 +735,182 @@ private fun ModelEditDialog(
         onDismissRequest = { if (!isSaving) onDismiss() },
     ) {
         Column {
-            TextField(
-                value = displayName,
-                onValueChange = { displayName = it },
-                label = "展示名称",
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            TextField(
-                value = modelId,
-                onValueChange = { modelId = it },
-                label = "Model ID",
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Ascii,
-                    imeAction = ImeAction.Done,
-                ),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            // 能力标签与列表项展示保持一致，来源细节不暴露给用户
-            Row(
-                modifier = Modifier.padding(top = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 520.dp)
+                    .verticalScroll(rememberScrollState()),
             ) {
-                capabilityTags(model).forEach { tag ->
-                    TagChip(text = tag)
+                TextField(
+                    value = displayName,
+                    onValueChange = { displayName = it },
+                    label = "展示名称",
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                TextField(
+                    value = modelId,
+                    onValueChange = { modelId = it },
+                    label = "Model ID",
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Ascii,
+                        imeAction = ImeAction.Next,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                TextField(
+                    value = contextWindowOverrideText,
+                    onValueChange = { contextWindowOverrideText = it },
+                    label = "上下文长度（tokens）",
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = when {
+                            contextWindowOverrideText.isNotBlank() -> "已覆盖，将优先于远端元数据"
+                            model.contextWindow != null ->
+                                "自动：${formatCompactTokenCount(model.contextWindow)} tokens"
+                            else -> "自动：远端未提供上下文上限"
+                        },
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (contextWindowOverrideText.isNotBlank()) {
+                        TextButton(
+                            text = "恢复自动",
+                            enabled = !isSaving,
+                            onClick = { contextWindowOverrideText = "" },
+                        )
+                    }
                 }
-            }
-            error?.let { message ->
+                contextError?.let { validationError ->
+                    Text(
+                        text = validationError,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = StatusError,
+                    )
+                }
                 Text(
-                    text = message,
+                    text = "该值用于会话裁剪和上下文预算。留空时使用远端或官方目录值。",
                     style = MiuixTheme.textStyles.footnote2,
-                    color = StatusError,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+                )
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    SwitchPreference(
+                        checked = reasoningEnabled,
+                        onCheckedChange = { enabled ->
+                            reasoningOverrideActive = true
+                            reasoningEnabled = enabled
+                        },
+                        title = "支持思考",
+                        summary = if (reasoningOverrideActive) {
+                            "已覆盖模型自动能力"
+                        } else {
+                            "自动：${if (model.reasoning == true) "支持" else "不支持或未知"}"
+                        },
+                        enabled = !isSaving,
+                    )
+                    if (reasoningEnabled) {
+                        HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+                        CheckboxPreference(
+                            title = ReasoningEffort.DEFAULT.displayName,
+                            summary = "由模型或 Provider 决定",
+                            checked = true,
+                            onCheckedChange = null,
+                            checkboxLocation = CheckboxLocation.End,
+                            enabled = false,
+                        )
+                        editableReasoningEfforts.forEach { effort ->
+                            HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+                            CheckboxPreference(
+                                title = effort.displayName,
+                                summary = if (effort == ReasoningEffort.OFF) {
+                                    "允许在对话中关闭思考"
+                                } else {
+                                    null
+                                },
+                                checked = effort in selectedReasoningEfforts,
+                                onCheckedChange = { checked ->
+                                    reasoningOverrideActive = true
+                                    selectedReasoningEfforts = if (checked) {
+                                        selectedReasoningEfforts + effort
+                                    } else {
+                                        selectedReasoningEfforts - effort
+                                    }
+                                },
+                                checkboxLocation = CheckboxLocation.End,
+                                enabled = !isSaving,
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = "仅勾选模型或网关实际支持的档位；不支持的组合会在请求前明确报错。",
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-            }
-            onDelete?.let { delete ->
-                Text(
-                    text = "删除模型",
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.error,
-                    modifier = Modifier
-                        .padding(top = 12.dp)
-                        .clickable(enabled = !isSaving, onClick = delete)
-                        .padding(vertical = 4.dp),
-                )
+                error?.let { message ->
+                    Text(
+                        text = message,
+                        style = MiuixTheme.textStyles.footnote2,
+                        color = StatusError,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                if (reasoningOverrideActive || onDelete != null) {
+                    Row(
+                        modifier = Modifier.padding(top = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (reasoningOverrideActive) {
+                            Text(
+                                text = "恢复自动",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .clickable(
+                                        enabled = !isSaving,
+                                        onClick = ::resetAutomaticReasoning,
+                                    )
+                                    .padding(vertical = 4.dp),
+                            )
+                        }
+                        onDelete?.let { delete ->
+                            Text(
+                                text = "删除模型",
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.error,
+                                modifier = Modifier
+                                    .clickable(enabled = !isSaving, onClick = delete)
+                                    .padding(vertical = 4.dp),
+                            )
+                        }
+                    }
+                }
             }
         }
         MiuixDialogActions(
             confirmText = if (isSaving) "保存中..." else "保存",
-            confirmEnabled = !isSaving && displayName.isNotBlank() && modelId.isNotBlank(),
+            confirmEnabled = !isSaving &&
+                displayName.isNotBlank() &&
+                modelId.isNotBlank() &&
+                contextError == null,
             cancelEnabled = !isSaving,
             onCancel = onDismiss,
             onConfirm = { onSubmit(updated()) },
@@ -710,14 +920,10 @@ private fun ModelEditDialog(
 }
 
 private fun capabilityTags(model: Model): List<String> = buildList {
-    if (model.supportsReasoning) add("Reasoning")
-    model.contextWindow?.let { contextWindow ->
-        add(
-            if (contextWindow >= 1_000_000) {
-                "1M context"
-            } else {
-                "${contextWindow / 1000}K context"
-            }
-        )
-    }
-}.ifEmpty { listOf("基础文本") }
+    add(
+        model.effectiveContextWindow?.let { contextWindow ->
+            "${formatCompactTokenCount(contextWindow)} 上下文"
+        } ?: "上下文未知"
+    )
+    if (model.supportsReasoning) add("支持思考")
+}

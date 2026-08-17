@@ -3,6 +3,7 @@ package fuck.andes.data.repository
 import fuck.andes.agent.model.AgentModelClient
 import fuck.andes.data.model.CustomHeader
 import fuck.andes.data.model.Model
+import fuck.andes.data.model.ModelReasoningCapabilities
 import fuck.andes.data.model.OpenAiCompatibleProviderSetting
 import fuck.andes.data.model.ProviderTypes
 import fuck.andes.data.model.ProviderSourceTypes
@@ -29,7 +30,13 @@ class RuntimeConfigRepositoryTest {
             modelId = "gpt-5.5",
             displayName = "GPT-5.5",
             contextWindow = 1_000_000,
+            contextWindowOverride = 256_000,
             reasoning = true,
+            reasoningOverride = true,
+            reasoningCapabilitiesOverride = ModelReasoningCapabilities(
+                supportedEfforts = listOf(ReasoningEffort.MINIMAL),
+                canDisable = true,
+            ),
             customHeaders = listOf(CustomHeader("x-model", "2"))
         )
 
@@ -39,12 +46,16 @@ class RuntimeConfigRepositoryTest {
 
         assertEquals(ProviderTypes.OPENAI_COMPATIBLE, root.getValue("providerType").jsonPrimitive.content)
         assertEquals("gpt-5.5", root.getValue("model").jsonPrimitive.content)
-        assertEquals(1_000_000, config.contextWindow)
+        assertEquals(256_000, config.contextWindow)
         assertEquals(listOf("x-provider", "x-model"), config.customHeaders.map { it.name })
         assertEquals(ReasoningEffort.DEFAULT, config.reasoningEffort)
         assertEquals(true, config.thinkingEnabled)
         assertEquals(
-            ReasoningEffort.entries,
+            listOf(
+                ReasoningEffort.OFF,
+                ReasoningEffort.DEFAULT,
+                ReasoningEffort.MINIMAL,
+            ),
             config.reasoningCapabilities?.selectableEfforts,
         )
         assertEquals(config, Json.decodeFromString<AgentModelClient.ModelConfig>(raw))

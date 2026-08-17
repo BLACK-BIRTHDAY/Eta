@@ -21,20 +21,23 @@ enum class ReasoningEffort(
     @SerialName("default")
     DEFAULT("default", "Default", 1),
 
+    @SerialName("minimal")
+    MINIMAL("minimal", "Minimal", 2),
+
     @SerialName("low")
-    LOW("low", "Low", 2),
+    LOW("low", "Low", 3),
 
     @SerialName("medium")
-    MEDIUM("medium", "Medium", 3),
+    MEDIUM("medium", "Medium", 4),
 
     @SerialName("high")
-    HIGH("high", "High", 4),
+    HIGH("high", "High", 5),
 
     @SerialName("xhigh")
-    XHIGH("xhigh", "XHigh", 5),
+    XHIGH("xhigh", "XHigh", 6),
 
     @SerialName("max")
-    MAX("max", "Max", 6),
+    MAX("max", "Max", 7),
     ;
 
     val enablesReasoning: Boolean
@@ -45,6 +48,7 @@ enum class ReasoningEffort(
             val normalized = value?.trim()?.lowercase().orEmpty()
             return entries.firstOrNull { it.wireValue == normalized }
                 ?: when (normalized) {
+                    "none" -> OFF
                     "x-high", "extra_high", "extra-high" -> XHIGH
                     else -> null
                 }

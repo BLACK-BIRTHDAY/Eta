@@ -68,6 +68,7 @@ internal data class ProviderModelEntity(
     @ColumnInfo(name = "sort_order") val sortOrder: Int,
     @ColumnInfo(name = "owned_by") val ownedBy: String?,
     @ColumnInfo(name = "context_window") val contextWindow: Int?,
+    @ColumnInfo(name = "context_window_override") val contextWindowOverride: Int?,
     @ColumnInfo(name = "input_modalities_json") val inputModalitiesJson: String,
     @ColumnInfo(name = "output_modalities_json") val outputModalitiesJson: String,
     @ColumnInfo(name = "attachment") val attachment: Boolean?,
@@ -75,6 +76,9 @@ internal data class ProviderModelEntity(
     @ColumnInfo(name = "reasoning") val reasoning: Boolean?,
     @ColumnInfo(name = "reasoning_capabilities_json", defaultValue = "'null'")
     val reasoningCapabilitiesJson: String = "null",
+    @ColumnInfo(name = "reasoning_override") val reasoningOverride: Boolean?,
+    @ColumnInfo(name = "reasoning_capabilities_override_json", defaultValue = "'null'")
+    val reasoningCapabilitiesOverrideJson: String = "null",
     @ColumnInfo(name = "structured_output") val structuredOutput: Boolean?,
     @ColumnInfo(name = "supports_temperature") val supportsTemperature: Boolean?,
     @ColumnInfo(name = "custom_headers_json") val customHeadersJson: String,
@@ -206,12 +210,17 @@ private fun Model.toEntity(providerId: String): ProviderModelEntity =
         sortOrder = sortOrder,
         ownedBy = ownedBy,
         contextWindow = contextWindow,
+        contextWindowOverride = contextWindowOverride,
         inputModalitiesJson = ProviderJson.encodeStrings(inputModalities),
         outputModalitiesJson = ProviderJson.encodeStrings(outputModalities),
         attachment = attachment,
         toolCall = toolCall,
         reasoning = reasoning,
         reasoningCapabilitiesJson = ProviderJson.encodeReasoningCapabilities(reasoningCapabilities),
+        reasoningOverride = reasoningOverride,
+        reasoningCapabilitiesOverrideJson = ProviderJson.encodeReasoningCapabilities(
+            reasoningCapabilitiesOverride
+        ),
         structuredOutput = structuredOutput,
         supportsTemperature = supportsTemperature,
         customHeadersJson = ProviderJson.encodeHeaders(customHeaders),
@@ -230,6 +239,7 @@ private fun ProviderModelEntity.toDomain(): Model =
         isBuiltIn = isBuiltIn,
         sortOrder = sortOrder,
         contextWindow = contextWindow,
+        contextWindowOverride = contextWindowOverride,
         inputModalities = ProviderJson.decodeStrings(inputModalitiesJson).ifEmpty {
             listOf(Model.TEXT_MODALITY)
         },
@@ -240,6 +250,10 @@ private fun ProviderModelEntity.toDomain(): Model =
         toolCall = toolCall,
         reasoning = reasoning,
         reasoningCapabilities = ProviderJson.decodeReasoningCapabilities(reasoningCapabilitiesJson),
+        reasoningOverride = reasoningOverride,
+        reasoningCapabilitiesOverride = ProviderJson.decodeReasoningCapabilities(
+            reasoningCapabilitiesOverrideJson
+        ),
         structuredOutput = structuredOutput,
         supportsTemperature = supportsTemperature,
         customHeaders = ProviderJson.decodeHeaders(customHeadersJson),
