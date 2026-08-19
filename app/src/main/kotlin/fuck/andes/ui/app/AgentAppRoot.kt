@@ -4,9 +4,11 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,7 +33,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import fuck.andes.FuckAndesApp
 import fuck.andes.R
+import fuck.andes.agent.device.BoundedRootCommandExecutor
 import fuck.andes.agent.device.DeviceLocationProvider
+import fuck.andes.core.AndroidAgentLogger
 import fuck.andes.data.repository.RuntimeConfigRepository
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -351,8 +355,20 @@ fun AgentAppRoot(
                                         }
                                     }
                                     "background" -> {
-                                        runCatching {
-                                            context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                                        if (Build.MANUFACTURER.lowercase() in setOf("oppo", "realme", "oneplus")) {
+                                            coroutineScope.launch(Dispatchers.IO) {
+                                                BoundedRootCommandExecutor(AndroidAgentLogger).use {
+                                                    it.execute(
+                                                        "am start --user current -n " +
+                                                            "com.oplus.battery/com.oplus.powermanager.fuelgaue.PowerControlActivity " +
+                                                            "--es title Eta --es pkgName fuck.andes --es drainType APP",
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            runCatching {
+                                                context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                                            }
                                         }
                                     }
                                     "app_list" -> {
