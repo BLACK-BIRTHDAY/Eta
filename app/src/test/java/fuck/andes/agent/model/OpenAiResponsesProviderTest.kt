@@ -94,6 +94,28 @@ class OpenAiResponsesProviderTest {
     }
 
     @Test
+    fun requestUsesMergedInstructionsAndTypedDurableHistoryMessages() {
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "system").put("content", "基础约束"))
+            .put(JSONObject().put("role", "user").put("content", "旧问题"))
+            .put(JSONObject().put("role", "system").put("content", "压缩上下文"))
+            .put(JSONObject().put("role", "assistant").put("content", "旧回答"))
+            .put(JSONObject().put("role", "user").put("content", "当前问题"))
+
+        val request = OpenAiResponsesProvider.buildRequestJson(
+            config = config("https://example.com/v1"),
+            messages = messages,
+            tools = JSONArray(),
+        )
+
+        assertEquals("基础约束\n\n压缩上下文", request.getString("instructions"))
+        val input = request.getJSONArray("input")
+        assertEquals(listOf("user", "assistant", "user"), input.roles())
+        assertEquals(listOf("message", "message", "message"), input.types())
+        assertEquals("旧回答", input.getJSONObject(1).getString("content"))
+    }
+
+    @Test
     fun completeUsesTerminalOutputAsAuthorityAndEmitsSemanticEvents() {
         val terminalOutput = JSONArray()
             .put(
@@ -354,4 +376,10 @@ class OpenAiResponsesProviderTest {
             executor.shutdownNow()
         }
     }
+
+    private fun JSONArray.roles(): List<String> =
+        (0 until length()).map { index -> getJSONObject(index).getString("role") }
+
+    private fun JSONArray.types(): List<String> =
+        (0 until length()).map { index -> getJSONObject(index).getString("type") }
 }

@@ -91,7 +91,7 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
         for (index in 0 until messages.length()) {
             val message = messages.optJSONObject(index) ?: continue
             when (message.optString("role")) {
-                "system" -> extractText(message.opt("content"))
+                "system" -> providerMessageText(message.opt("content"))
                     .takeIf { it.isNotBlank() }
                     ?.let(systemParts::add)
                 "user" -> anthropicMessages.put(
@@ -148,12 +148,12 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
                 }
                 if (out.length() == 0) out.put(JSONObject().put("type", "text").put("text", ""))
             }
-            else -> JSONArray().put(JSONObject().put("type", "text").put("text", extractText(content)))
+            else -> JSONArray().put(JSONObject().put("type", "text").put("text", providerMessageText(content)))
         }
 
     private fun convertAssistantContent(message: JSONObject): JSONArray {
         val content = JSONArray()
-        extractText(message.opt("content"))
+        providerMessageText(message.opt("content"))
             .takeIf { it.isNotBlank() && it != "null" }
             ?.let { content.put(JSONObject().put("type", "text").put("text", it)) }
         val toolCalls = message.optJSONArray("tool_calls")
@@ -458,22 +458,6 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
             cachedTokens = usage.firstInt("cache_read_input_tokens")
         ).takeUnless { it.isEmpty }
     }
-
-    private fun extractText(content: Any?): String =
-        when (content) {
-            null, JSONObject.NULL -> ""
-            is String -> content
-            is JSONArray -> buildString {
-                for (index in 0 until content.length()) {
-                    val item = content.optJSONObject(index) ?: continue
-                    if (item.optString("type") == "text") {
-                        if (isNotEmpty()) append('\n')
-                        append(item.optString("text"))
-                    }
-                }
-            }
-            else -> content.toString()
-        }
 
     private fun parseJsonObject(raw: String): JSONObject =
         runCatching { JSONObject(raw.ifBlank { "{}" }) }.getOrDefault(JSONObject())

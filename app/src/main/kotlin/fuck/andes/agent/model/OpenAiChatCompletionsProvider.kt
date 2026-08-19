@@ -105,7 +105,7 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
         return JSONObject()
             .put("model", config.model)
             .put("stream", true)
-            .put("messages", messages)
+            .put("messages", OpenAiRequestMessages.forChatCompletions(messages))
             .put("tools", tools)
             .put("tool_choice", "auto")
             .also { request ->

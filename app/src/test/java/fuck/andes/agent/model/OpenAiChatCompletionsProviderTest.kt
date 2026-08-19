@@ -120,6 +120,32 @@ class OpenAiChatCompletionsProviderTest {
     }
 
     @Test
+    fun requestMergesSystemMessagesAtTheBeginningForStrictChatTemplates() {
+        val requestBody = AtomicReference<String>()
+        val body = buildString {
+            append(sseChunk(JSONObject().put("content", "ok"), finishReason = "stop"))
+            append("data: [DONE]\n\n")
+        }
+
+        withSseServer(body, onRequest = requestBody::set) { baseUrl ->
+            val request = providerRequest(baseUrl).copy(
+                messages = JSONArray()
+                    .put(JSONObject().put("role", "system").put("content", "基础约束"))
+                    .put(JSONObject().put("role", "user").put("content", "旧问题"))
+                    .put(JSONObject().put("role", "system").put("content", "动态上下文"))
+                    .put(JSONObject().put("role", "assistant").put("content", "旧回答"))
+                    .put(JSONObject().put("role", "user").put("content", "当前问题")),
+            )
+
+            OpenAiChatCompletionsProvider.complete(request, AgentRunController())
+        }
+
+        val sent = JSONObject(requestBody.get()).getJSONArray("messages")
+        assertEquals(listOf("system", "user", "assistant", "user"), sent.roles())
+        assertEquals("基础约束\n\n动态上下文", sent.getJSONObject(0).getString("content"))
+    }
+
+    @Test
     fun completeAccumulatesChunkedToolCalls() {
         val body = buildString {
             append(sseChunk(JSONObject().put("reasoning_content", "需要调用工具。")))
@@ -385,4 +411,7 @@ class OpenAiChatCompletionsProviderTest {
             executor.shutdownNow()
         }
     }
+
+    private fun JSONArray.roles(): List<String> =
+        (0 until length()).map { index -> getJSONObject(index).getString("role") }
 }

@@ -11,13 +11,15 @@ internal object ResponsesRequestBuilder {
     ): JSONObject {
         val input = buildInput(messages)
         val responseTools = buildTools(tools, config.hostedWebSearchEnabled)
+        val instructions = OpenAiRequestMessages.responsesInstructions(messages)
+            .ifBlank { config.systemPrompt }
         val request = JSONObject()
         mergeExtraBody(request, config.extraBodyJson)
         RequestBodyMerge.mergeCustomBody(request, config.customBody)
 
         // 这些字段决定协议正确性、隐私边界和 Eta 本轮行为，必须由运行时最终写入。
         request.put("model", config.model)
-        request.put("instructions", config.systemPrompt)
+        request.put("instructions", instructions)
         request.put("input", input)
         request.put("stream", true)
         request.put("store", false)
@@ -52,6 +54,7 @@ internal object ResponsesRequestBuilder {
                 "system", "developer" -> Unit
                 else -> input.put(
                     JSONObject()
+                        .put("type", "message")
                         .put("role", "user")
                         .put("content", convertUserContent(message.opt("content"))),
                 )
@@ -62,7 +65,12 @@ internal object ResponsesRequestBuilder {
     private fun appendAssistantInput(input: JSONArray, message: JSONObject) {
         val content = message.optString("content")
         if (content.isNotBlank() && content != "null") {
-            input.put(JSONObject().put("role", "assistant").put("content", content))
+            input.put(
+                JSONObject()
+                    .put("type", "message")
+                    .put("role", "assistant")
+                    .put("content", content),
+            )
         }
         val calls = message.optJSONArray("tool_calls") ?: return
         for (index in 0 until calls.length()) {
