@@ -168,35 +168,6 @@ class AccessibilityServiceEnforcerTest {
     }
 
     @Test
-    fun `signer pin accepts history but requires exact multi signer identity`() {
-        assertEquals("a,b", signerIdentity(listOf(" B ", "a", "b")))
-        assertTrue(
-            isPinnedSignerAccepted(
-                pinnedSigner = "old",
-                currentDigests = listOf("new"),
-                historyDigests = listOf("new", "old"),
-                hasMultipleSigners = false,
-            ),
-        )
-        assertTrue(
-            isPinnedSignerAccepted(
-                pinnedSigner = "a,b",
-                currentDigests = listOf("b", "a"),
-                historyDigests = listOf("a", "b"),
-                hasMultipleSigners = true,
-            ),
-        )
-        assertFalse(
-            isPinnedSignerAccepted(
-                pinnedSigner = "a",
-                currentDigests = listOf("a", "b"),
-                historyDigests = listOf("a", "b"),
-                hasMultipleSigners = true,
-            ),
-        )
-    }
-
-    @Test
     fun `protection defaults to off`() {
         assertFalse(AccessibilityProtectionProtocol.DEFAULT_ENABLED)
     }

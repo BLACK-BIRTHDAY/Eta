@@ -6,7 +6,7 @@ import android.os.Bundle
 /**
  * Eta App 与 system_server 无障碍保护后端之间的最小协议。
  *
- * 控制广播由 signature 权限、发送者 UID 和 APK signer 共同校验；健康检查 Provider
+ * 控制广播由 signature 权限、协议版本和发送者 UID 共同校验；健康检查 Provider
  * 只接受 system UID。协议不授予 App 写 Secure Settings 的能力。
  */
 internal object AccessibilityProtectionProtocol {
@@ -28,7 +28,6 @@ internal object AccessibilityProtectionProtocol {
     const val RESULT_REJECTED = 2
 
     const val SETTING_NAME = "eta_accessibility_protection_enabled"
-    const val SIGNER_SETTING_NAME = "eta_app_signer_sha256"
     const val DEFAULT_ENABLED = false
 
     const val HEALTH_AUTHORITY = "fuck.andes.accessibility.health"

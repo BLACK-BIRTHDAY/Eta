@@ -93,7 +93,7 @@ internal object AccessibilityProtectionHooks {
 
     /**
      * Android 37 源码中的 com.android.internal.os.BackgroundThread 是每进程共享线程；
-     * 复用它可以让签名校验和 Settings I/O 离开 system_server 主线程，同时不创建模块线程。
+     * 复用它可以让组件校验和 Settings I/O 离开 system_server 主线程，同时不创建模块线程。
      */
     private fun resolveSystemBackgroundHandler(classLoader: ClassLoader): Handler? =
         runCatching {

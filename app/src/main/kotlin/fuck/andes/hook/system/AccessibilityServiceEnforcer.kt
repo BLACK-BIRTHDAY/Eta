@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.content.pm.Signature
 import android.database.ContentObserver
 import android.net.Uri
 import android.os.Bundle
@@ -19,9 +18,6 @@ import android.provider.Settings
 import fuck.andes.agent.accessibility.AccessibilityProtectionProtocol
 import fuck.andes.core.ModuleLogger
 import fuck.andes.core.safeLogType
-import java.security.GeneralSecurityException
-import java.security.MessageDigest
-import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -172,15 +168,7 @@ internal class AccessibilityServiceEnforcer(
             }
 
             override fun onChange(selfChange: Boolean, uri: Uri?) {
-                schedule(
-                    context = context,
-                    reason = if (uri == APP_SIGNER_URI) {
-                        "signer_setting_changed"
-                    } else {
-                        "accessibility_settings_changed"
-                    },
-                    delayMs = if (uri == APP_SIGNER_URI) 0L else null,
-                )
+                schedule(context, "accessibility_settings_changed")
             }
         }.also { activeSettingsObserver = it }
 
@@ -351,7 +339,7 @@ internal class AccessibilityServiceEnforcer(
             if (!isEnforcementEnabled(context)) {
                 return AccessibilityProtectionProtocol.RESULT_UNAVAILABLE
             }
-            if (!isExpectedServiceTrusted(context)) {
+            if (!isExpectedServiceValid(context)) {
                 return AccessibilityProtectionProtocol.RESULT_REJECTED
             }
             return if (scheduleRuntimeRecovery(context)) {
@@ -361,7 +349,7 @@ internal class AccessibilityServiceEnforcer(
             }
         }
 
-        if (requestedEnabled && !isExpectedServiceTrusted(context)) {
+        if (requestedEnabled && !isExpectedServiceValid(context)) {
             return AccessibilityProtectionProtocol.RESULT_REJECTED
         }
         val stored = Settings.Global.putInt(
@@ -465,7 +453,7 @@ internal class AccessibilityServiceEnforcer(
             !isEnforcementEnabled(context) ||
             repairInProgress.get() ||
             !isOwnerUnlocked(context) ||
-            !isExpectedServiceTrusted(context)
+            !isExpectedServiceValid(context)
         ) {
             return
         }
@@ -476,7 +464,7 @@ internal class AccessibilityServiceEnforcer(
         if (!containsAccessibilityService(currentServices, SERVICE_COMPONENT.flattenToString())) {
             if (restoreMissingImmediately) {
                 // GUI 工具已经在等待本次恢复，不能被此前排队的 30 秒设置退避拖到超时。
-                // 这里只响应经过 UID 与 signer 校验的显式请求；常规设置争抢仍遵守退避。
+                // 这里只响应经过协议版本与 UID 校验的显式请求；常规设置争抢仍遵守退避。
                 enforce(context, "runtime_recovery_missing_service")
                 if (isExpectedServiceConfigured(context)) {
                     scheduleHealthCheck(
@@ -571,7 +559,7 @@ internal class AccessibilityServiceEnforcer(
         attempt: AccessibilityRepairAttempt,
     ) {
         try {
-            if (isEnforcementEnabled(context) && isExpectedServiceTrusted(context)) {
+            if (isEnforcementEnabled(context) && isExpectedServiceValid(context)) {
                 enforce(context, "repair_${attempt.number}")
             }
         } catch (failure: RuntimeException) {
@@ -615,7 +603,7 @@ internal class AccessibilityServiceEnforcer(
     }
 
     private fun enforce(context: Context, reason: String) {
-        if (!isEnforcementEnabled(context) || !isExpectedServiceTrusted(context)) return
+        if (!isEnforcementEnabled(context) || !isExpectedServiceValid(context)) return
         val resolver = context.contentResolver
         val mergedServices = mergeLatestAccessibilitySetting(resolver)
         var restoredServices = false
@@ -741,7 +729,7 @@ internal class AccessibilityServiceEnforcer(
         )
     }
 
-    private fun isExpectedServiceTrusted(context: Context): Boolean {
+    private fun isExpectedServiceValid(context: Context): Boolean {
         val directBootFlags = directBootFlags()
         val serviceInfo = try {
             context.packageManager.getServiceInfo(
@@ -760,7 +748,7 @@ internal class AccessibilityServiceEnforcer(
                 applicationInfo.enabled &&
                 serviceInfo.exported &&
                 serviceInfo.permission == Manifest.permission.BIND_ACCESSIBILITY_SERVICE
-        return validComponent && hasTrustedSigningIdentity(context, directBootFlags)
+        return validComponent
     }
 
     private fun isControlCallerTrusted(
@@ -787,100 +775,12 @@ internal class AccessibilityServiceEnforcer(
                 protocolVersion = protocolVersion,
                 senderUid = senderUid,
                 appUid = applicationInfo.uid,
-            ) &&
-            hasTrustedSigningIdentity(context, directBootFlags)
+            )
     }
 
     private fun directBootFlags(): Int =
         PackageManager.MATCH_DIRECT_BOOT_AWARE or
             PackageManager.MATCH_DIRECT_BOOT_UNAWARE
-
-    /**
-     * 首次启用时把当前 signer 钉在仅 shell/system 可写的 Global 设置中。
-     */
-    private fun hasTrustedSigningIdentity(
-        context: Context,
-        directBootFlags: Int,
-    ): Boolean {
-        val packageInfo = try {
-            context.packageManager.getPackageInfo(
-                APP_PACKAGE,
-                PackageManager.PackageInfoFlags.of(
-                    (directBootFlags or PackageManager.GET_SIGNING_CERTIFICATES).toLong(),
-                ),
-            )
-        } catch (_: PackageManager.NameNotFoundException) {
-            return false
-        } catch (failure: RuntimeException) {
-            logFailure("无法读取 Eta APK signer", failure)
-            return false
-        }
-        val signingInfo = packageInfo.signingInfo ?: return false
-        val currentDigests = signerDigests(signingInfo.apkContentsSigners)
-        if (currentDigests.isEmpty()) return false
-        val historyDigests = if (signingInfo.hasMultipleSigners()) {
-            currentDigests
-        } else {
-            signerDigests(signingInfo.signingCertificateHistory).ifEmpty {
-                currentDigests
-            }
-        }
-
-        val resolver = context.contentResolver
-        val pinnedSigner = Settings.Global.getString(
-            resolver,
-            AccessibilityProtectionProtocol.SIGNER_SETTING_NAME,
-        )
-        if (pinnedSigner.isNullOrBlank()) {
-            val identity = signerIdentity(currentDigests) ?: return false
-            if (
-                !Settings.Global.putString(
-                    resolver,
-                    AccessibilityProtectionProtocol.SIGNER_SETTING_NAME,
-                    identity,
-                )
-            ) {
-                logFailure("无法钉扎 Eta APK signer")
-                return false
-            }
-            logger.info("已钉扎 Eta APK signer")
-            return true
-        }
-        val accepted = isPinnedSignerAccepted(
-            pinnedSigner = pinnedSigner,
-            currentDigests = currentDigests,
-            historyDigests = historyDigests,
-            hasMultipleSigners = signingInfo.hasMultipleSigners(),
-        )
-        if (!accepted) {
-            logFailure("拒绝为 signer 不匹配的 Eta APK 恢复无障碍权限")
-        }
-        return accepted
-    }
-
-    private fun signerDigests(signatures: Array<Signature>?): List<String> {
-        if (signatures.isNullOrEmpty()) return emptyList()
-        return try {
-            val digest = MessageDigest.getInstance("SHA-256")
-            signatures.map { signature ->
-                digest.digest(signature.toByteArray()).toLowerHex()
-            }
-        } catch (failure: GeneralSecurityException) {
-            logFailure("无法计算 Eta APK signer", failure)
-            emptyList()
-        }
-    }
-
-    private fun ByteArray.toLowerHex(): String {
-        val digits = "0123456789abcdef"
-        return buildString(size * 2) {
-            this@toLowerHex.forEach { byte ->
-                val value = byte.toInt() and 0xff
-                append(digits[value ushr 4])
-                append(digits[value and 0x0f])
-            }
-        }
-    }
 
     private fun post(delayMs: Long = 0L, block: () -> Unit): Boolean =
         try {
@@ -928,12 +828,9 @@ internal class AccessibilityServiceEnforcer(
         val SERVICE_COMPONENT = ComponentName(APP_PACKAGE, SERVICE_CLASS)
         val CONTROL_SETTING_URI =
             Settings.Global.getUriFor(AccessibilityProtectionProtocol.SETTING_NAME)
-        val APP_SIGNER_URI =
-            Settings.Global.getUriFor(AccessibilityProtectionProtocol.SIGNER_SETTING_NAME)
         val ACTIVE_SETTING_URIS = listOf(
             Settings.Secure.getUriFor(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES),
             Settings.Secure.getUriFor(Settings.Secure.ACCESSIBILITY_ENABLED),
-            APP_SIGNER_URI,
         )
         val CONTROL_ACTIONS = setOf(
             AccessibilityProtectionProtocol.ACTION_SET,
@@ -1073,30 +970,6 @@ internal fun shouldScheduleAccessibilityHealthCheck(
     ownerUnlocked: Boolean,
     serviceConfigured: Boolean,
 ): Boolean = ownerUnlocked && serviceConfigured
-
-internal fun signerIdentity(digests: List<String>): String? {
-    val normalized = digests
-        .map { it.trim().lowercase(Locale.ROOT) }
-        .filter { it.isNotEmpty() }
-        .distinct()
-        .sorted()
-    return normalized.takeIf { it.isNotEmpty() }?.joinToString(",")
-}
-
-internal fun isPinnedSignerAccepted(
-    pinnedSigner: String,
-    currentDigests: List<String>,
-    historyDigests: List<String>,
-    hasMultipleSigners: Boolean,
-): Boolean {
-    val pinned = pinnedSigner.trim().lowercase(Locale.ROOT)
-    if (pinned.isEmpty()) return false
-    return if (hasMultipleSigners) {
-        signerIdentity(currentDigests) == pinned
-    } else {
-        historyDigests.any { it.trim().lowercase(Locale.ROOT) == pinned }
-    }
-}
 
 internal fun appendAccessibilityServiceIfMissing(
     currentValue: String?,
