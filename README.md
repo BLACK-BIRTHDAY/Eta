@@ -199,12 +199,10 @@ Eta 作为第三方项目，正在验证这条路线中可以在现有 Android�
 
 ## 参考与致谢
 
-Eta 的开发过程中参考或关注过以下开源项目：
-
 - [Pi Coding Agent](https://github.com/earendil-works/pi)：Eta Agent Runtime 的核心参考，包括 Agent Loop、工具调用、steering 与 transcript 状态管理
 - [OmniBot](https://github.com/omnimind-ai/OmniBot)：Android 端 AI Agent 方向的参考项目
-
-Eta 结合自身的 Xposed 系统入口、Android Runtime、IPC 与模型协议边界进行了独立实现。
+- [libxposed API](https://github.com/libxposed/api)：现代 Xposed API
+- [Miuix](https://github.com/compose-miuix-ui/miuix)：UI 组件库
 
 ## 许可证
 

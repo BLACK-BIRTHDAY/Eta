@@ -104,6 +104,8 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /**
  * 聊天主体：消息流 + 底部输入框。
@@ -548,11 +550,13 @@ internal fun AgentConversationMessages(
             verticalArrangement = Arrangement.Top,
             modifier = Modifier
                 .fillMaxSize()
-                .clipToBounds(),
+                .scrollEndHaptic()
+                .overScrollVertical(),
             contentPadding = PaddingValues(
                 top = 14.dp,
                 bottom = bottomInset + 14.dp,
             ),
+            overscrollEffect = null,
         ) {
             items(
                 items = timelineEntries,

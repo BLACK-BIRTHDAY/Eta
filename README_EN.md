@@ -199,8 +199,8 @@ Eta is exploring the part of this direction that can be built today within Andro
 
 - [Pi Coding Agent](https://github.com/earendil-works/pi), the main reference for Eta's agent loop, tool calling, steering, and transcript state model.
 - [OmniBot](https://github.com/omnimind-ai/OmniBot), a reference project for Android-based AI agents.
-
-Eta implements these ideas independently around its own Xposed entry points, Android Runtime, IPC, and provider protocol boundaries.
+- [libxposed API](https://github.com/libxposed/api) — modern Xposed API.
+- [Miuix](https://github.com/compose-miuix-ui/miuix) — UI component library.
 
 ## License
 

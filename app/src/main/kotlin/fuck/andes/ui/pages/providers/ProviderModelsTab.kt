@@ -4,7 +4,6 @@ package fuck.andes.ui.pages.providers
 import fuck.andes.R
 import androidx.compose.ui.res.stringResource
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -19,6 +18,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -47,7 +47,11 @@ import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 import com.composables.icons.lucide.R as LucideR
 import fuck.andes.FuckAndesApp
 import fuck.andes.data.model.Model
@@ -146,6 +150,7 @@ internal fun ProviderModelsTab(
     provider: ProviderSetting,
     scope: CoroutineScope,
     scrollBehavior: ScrollBehavior,
+    contentSidePadding: Dp,
 ) {
     val context = LocalContext.current
     val selectedModelId by RuntimeConfigRepository.selectedModelIdFlow().collectAsState(initial = null)
@@ -165,18 +170,27 @@ internal fun ProviderModelsTab(
         filterProviderModels(provider.models, modelSearchQuery)
     }
 
-    BackHandler(enabled = selectionMode) {
-        selectionMode = false
-        selectedModelIds = emptySet()
-    }
+    val selectionBackState = rememberNavigationEventState(NavigationEventInfo.None)
+    NavigationBackHandler(
+        state = selectionBackState,
+        isBackEnabled = selectionMode,
+        onBackCompleted = {
+            selectionMode = false
+            selectedModelIds = emptySet()
+        },
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .overScrollVertical()
                 .scrollEndHaptic()
+                .overScrollVertical()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
+            contentPadding = PaddingValues(
+                start = contentSidePadding,
+                end = contentSidePadding,
+            ),
             overscrollEffect = null,
         ) {
             item(key = "actions", contentType = "section") {
@@ -369,8 +383,8 @@ internal fun ProviderModelsTab(
                 // 多选操作栏悬浮在底部时，预留高度避免遮挡最后一个列表项；其余情况与大圆角屏幕下沿保持间距
                 Spacer(
                     modifier = Modifier
-                        .navigationBarsPadding()
-                        .height(if (selectionMode) 88.dp else 24.dp),
+                        .height(if (selectionMode) 88.dp else 24.dp)
+                        .navigationBarsPadding(),
                 )
             }
         }
@@ -791,6 +805,7 @@ private fun ModelEditDialog(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 520.dp)
+                    .scrollEndHaptic()
                     .verticalScroll(rememberScrollState()),
             ) {
                 TextField(

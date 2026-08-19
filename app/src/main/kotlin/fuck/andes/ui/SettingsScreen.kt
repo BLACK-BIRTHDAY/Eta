@@ -11,11 +11,8 @@ import android.service.voice.VoiceInteractionService
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -30,8 +27,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -45,12 +40,8 @@ import fuck.andes.config.Prefs
 import fuck.andes.data.repository.ProviderRepository
 import fuck.andes.data.repository.RuntimeConfigRepository
 import fuck.andes.systemizer.GoogleAppSystemizerInstaller
-import fuck.andes.ui.components.MiuixBackButton
 import fuck.andes.ui.components.MiuixDialogActions
-import fuck.andes.ui.components.TopBarBackdrop
-import fuck.andes.ui.components.captureForTopBar
-import fuck.andes.ui.components.rememberTopBarBackdrop
-import fuck.andes.ui.components.topBarContainerColor
+import fuck.andes.ui.components.MiuixScaffoldPage
 import fuck.andes.ui.navigation.AppRoute
 import fuck.andes.systemizer.RootManager
 import fuck.andes.systemizer.SystemizerInstallResult
@@ -59,22 +50,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
-import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextField
-import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.RadioButtonLocation
-import top.yukonga.miuix.kmp.preference.RadioButtonPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.preference.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.utils.overScrollVertical
-import top.yukonga.miuix.kmp.utils.scrollEndHaptic
+import top.yukonga.miuix.kmp.window.WindowDialog
 
 // ── ColorOS / COUI 主色（ColorOS 16.1 Settings.apk: coui_color_*） ────────────────
 // 约定：设置页圆形图标/按钮底色只使用 ColorOS 设置主色。
@@ -101,12 +86,8 @@ internal fun SettingsScreen(
     onNavigate: (AppRoute) -> Unit,
     onBack: () -> Unit,
 ) {
-    val scrollBehavior = MiuixScrollBehavior()
-    val backdrop = rememberTopBarBackdrop()
-    val topBarColor = topBarContainerColor(backdrop)
     val coroutineScope = rememberCoroutineScope()
     var showSystemizerDialog by remember { mutableStateOf(false) }
-    var showPowerAssistantTargetDialog by remember { mutableStateOf(false) }
     var installingSystemizer by remember { mutableStateOf(false) }
 
     // 悬浮窗权限状态：授权后从系统设置返回时（ON_RESUME）刷新。
@@ -192,30 +173,15 @@ internal fun SettingsScreen(
         FuckAndesApp.addServiceStateListener(listener, notifyImmediately = true)
         onDispose { FuckAndesApp.removeServiceStateListener(listener) }
     }
+    val powerAssistantTargets = PowerAssistantTarget.entries
+    val powerAssistantItems = powerAssistantTargets.map { target ->
+        DropdownItem(text = target.displayName(context))
+    }
 
-    Scaffold(
-        topBar = {
-            TopBarBackdrop(backdrop) {
-                TopAppBar(
-                    title = stringResource(R.string.ui_set_up_7debf9),
-                    largeTitle = stringResource(R.string.ui_set_up_7debf9),
-                    color = topBarColor,
-                    navigationIcon = { MiuixBackButton(onClick = onBack) },
-                    scrollBehavior = scrollBehavior,
-                )
-            }
-        },
-    ) { innerPadding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .captureForTopBar(backdrop)
-                .overScrollVertical()
-                .scrollEndHaptic()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = innerPadding,
-            overscrollEffect = null,
-        ) {
+    MiuixScaffoldPage(
+        title = stringResource(R.string.ui_set_up_7debf9),
+        onBack = onBack,
+    ) {
             // ── LSPosed 未连接提示 ──────────────────────────────────────
             if (prefs == null) {
                 item(key = "service_warning") {
@@ -350,9 +316,31 @@ internal fun SettingsScreen(
                         onClick = openAssistantSettings,
                     )
                     PrefDivider()
-                    ArrowPreference(
+                    WindowSpinnerPreference(
                         title = stringResource(R.string.ui_long_press_the_power_button_1958d0),
                         summary = powerAssistantTarget.displayName(context),
+                        items = powerAssistantItems,
+                        selectedIndex = powerAssistantTargets.indexOf(powerAssistantTarget),
+                        onSelectedIndexChange = { index ->
+                            val target = powerAssistantTargets.getOrNull(index)
+                                ?: return@WindowSpinnerPreference
+                            val targetPrefs = prefs ?: return@WindowSpinnerPreference
+                            if (putStringSync(
+                                    prefs = targetPrefs,
+                                    key = Prefs.Keys.POWER_KEY_ASSISTANT_TARGET,
+                                    value = target.persistedValue,
+                                )
+                            ) {
+                                powerAssistantTarget = target
+                            } else {
+                                Toast.makeText(
+                                    context.applicationContext,
+                                    context.getString(R.string.settings_write_failed),
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                        dialogButtonString = stringResource(R.string.action_cancel),
                         startAction = {
                             TintedIcon(
                                 icon = LucideR.drawable.lucide_ic_power,
@@ -360,10 +348,6 @@ internal fun SettingsScreen(
                             )
                         },
                         enabled = prefs != null,
-                        holdDownState = showPowerAssistantTargetDialog,
-                        onClick = {
-                            if (prefs != null) showPowerAssistantTargetDialog = true
-                        },
                     )
                     PrefDivider()
                     SwitchPref(
@@ -644,37 +628,6 @@ internal fun SettingsScreen(
                 }
             },
         )
-        PowerAssistantTargetDialog(
-            show = showPowerAssistantTargetDialog,
-            selected = powerAssistantTarget,
-            enabled = prefs != null,
-            onDismissRequest = { showPowerAssistantTargetDialog = false },
-            onSelect = { target ->
-                val previousTarget = powerAssistantTarget
-                val targetPrefs = prefs
-                if (targetPrefs == null) {
-                    showPowerAssistantTargetDialog = false
-                    return@PowerAssistantTargetDialog
-                }
-                if (putStringSync(
-                        prefs = targetPrefs,
-                        key = Prefs.Keys.POWER_KEY_ASSISTANT_TARGET,
-                        value = target.persistedValue,
-                    )
-                ) {
-                    powerAssistantTarget = target
-                    showPowerAssistantTargetDialog = false
-                } else {
-                    powerAssistantTarget = previousTarget
-                    Toast.makeText(
-                        context.applicationContext,
-                        context.getString(R.string.settings_write_failed),
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                }
-            },
-        )
-    }
 }
 
 // ── 带色彩的圆形图标（ColorOS 风格：圆形背景 + 纯白图标） ────────────────────────────────
@@ -722,7 +675,7 @@ private fun SystemizerConfirmDialog(
     onDismissRequest: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    OverlayDialog(
+    WindowDialog(
         show = show,
         title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
         summary = stringResource(R.string.ui_system_applications_have_voice_wake_up_permissions_f_0190f2),
@@ -739,33 +692,6 @@ private fun SystemizerConfirmDialog(
             onCancel = onDismissRequest,
             onConfirm = onConfirm,
         )
-    }
-}
-
-@Composable
-private fun PowerAssistantTargetDialog(
-    show: Boolean,
-    selected: PowerAssistantTarget,
-    enabled: Boolean,
-    onDismissRequest: () -> Unit,
-    onSelect: (PowerAssistantTarget) -> Unit,
-) {
-    OverlayDialog(
-        show = show,
-        title = stringResource(R.string.ui_long_press_the_power_button_1958d0),
-        onDismissRequest = onDismissRequest,
-    ) {
-        Card {
-            PowerAssistantTarget.entries.forEach { target ->
-                RadioButtonPreference(
-                    title = target.displayName(LocalContext.current),
-                    selected = selected == target,
-                    onClick = { onSelect(target) },
-                    radioButtonLocation = RadioButtonLocation.End,
-                    enabled = enabled,
-                )
-            }
-        }
     }
 }
 

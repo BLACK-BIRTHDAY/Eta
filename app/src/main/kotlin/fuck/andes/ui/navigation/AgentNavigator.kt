@@ -1,15 +1,26 @@
 package fuck.andes.ui.navigation
 
-import androidx.navigation3.runtime.NavKey
+import top.yukonga.miuix.kmp.nav.core.NavBackStack
+import top.yukonga.miuix.kmp.nav.core.NavKey
 
 class AgentNavigator(
-    val backStack: MutableList<NavKey>,
+    val backStack: NavBackStack,
 ) {
     fun push(route: AppRoute) {
-        backStack.add(route)
+        if (route !in backStack) {
+            backStack.add(route)
+        }
     }
 
     fun replace(route: AppRoute) {
+        val existingIndex = backStack.indexOf(route)
+        if (existingIndex >= 0) {
+            while (backStack.lastIndex > existingIndex) {
+                backStack.removeLastOrNull()
+            }
+            return
+        }
+
         if (backStack.isNotEmpty()) {
             backStack[backStack.lastIndex] = route
         } else {

@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurDefaults
+import top.yukonga.miuix.kmp.blur.BlurColors
 import top.yukonga.miuix.kmp.blur.LayerBackdrop
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -39,13 +39,11 @@ internal fun TopBarBackdrop(
                 backdrop = backdrop,
                 shape = RectangleShape,
                 blurRadius = TopBarBlurRadius,
-                colors =
-                    BlurDefaults.blurColors(
-                        blendColors =
-                            listOf(
-                                BlendColorEntry(surfaceColor.copy(alpha = TopBarSurfaceAlpha)),
-                            ),
+                colors = BlurColors(
+                    blendColors = listOf(
+                        BlendColorEntry(surfaceColor.copy(alpha = TopBarSurfaceAlpha)),
                     ),
+                ),
             )
         }
     Box(modifier = modifier) { content() }

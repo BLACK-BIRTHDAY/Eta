@@ -75,6 +75,8 @@ import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.overScrollVertical
+import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import top.yukonga.miuix.kmp.window.WindowListPopup
 
 private object DrawerMetrics {
@@ -148,7 +150,7 @@ fun ConversationSidePaneScaffold(
             0f
         }
 
-        // NavDisplay 的退出 Scene 在转场期间仍会保留组合；仅允许已稳定显示的首页
+        // NavDisplay 的退出条目在转场期间仍会保留组合；仅允许已稳定显示的首页
         // 处理侧栏返回，避免它抢先消费二级页面的第一次返回事件。
         NavigationBackHandler(
             state = navigationEventState,
@@ -282,9 +284,13 @@ private fun ConversationPanePanel(
             )
             Spacer(modifier = Modifier.height(DrawerMetrics.AfterActionBar))
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .scrollEndHaptic()
+                    .overScrollVertical(),
                 contentPadding = PaddingValues(bottom = DrawerMetrics.ListBottomPadding),
                 verticalArrangement = Arrangement.spacedBy(DrawerMetrics.RowGap),
+                overscrollEffect = null,
             ) {
                 if (visibleConversations.isEmpty()) {
                     item {

@@ -1,5 +1,9 @@
 # 第三方声明
 
+## Miuix
+
+Eta 的应用界面使用 [Miuix](https://github.com/compose-miuix-ui/miuix)，其采用 [Apache License 2.0](https://github.com/compose-miuix-ui/miuix/blob/main/LICENSE)。
+
 ## Lobe Icons
 
 模型与提供商品牌图标来自

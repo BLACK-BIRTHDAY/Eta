@@ -122,9 +122,9 @@ Google App 作为普通用户应用时，缺乏语音唤醒所需的系统权限
 
 ## 配置与实时生效
 
-模块 UI 基于 Miuix 0.9.3。配置链路如下：
+模块 UI 以 `gradle/libs.versions.toml` 声明的 Miuix 组件集为唯一版本事实源。配置链路如下：
 
-设置页与标准二级页面的顶栏使用 Miuix `LayerBackdrop` 捕获滚动内容并生成背景模糊；设备不支持 RuntimeShader 时回退为主题 `surface` 纯色。标准设置列表统一启用 Miuix 越界滚动和滚动末端触感反馈。
+根导航使用 Miuix `NavDisplay` 与可保存路由栈，由组件处理预测性返回、横向滑动返回和系统圆角转场。设置页与标准二级页面共用自适应 Scaffold：手机显示可折叠大标题，宽屏改用小标题并将内容限制在居中的最大宽度内。顶栏使用 Miuix `LayerBackdrop` 捕获滚动内容并生成背景模糊；设备不支持 RuntimeShader 时回退为主题 `surface` 纯色。页面滚动统一使用 Miuix 越界回弹和边界触感反馈，横屏安全区由 display cutout 与导航栏 Insets 共同约束。
 
 - **Eta Runtime 配置**：默认思考、网页浏览、设备直达、敏感信息读取、敏感设备操作和终端/文件工具保存在 App 私有配置中，不依赖 LSPosed。Runtime 在请求开始和每次工具执行前读取当前值；升级时会兼容迁移已有 RemotePreferences 值。
 - **Hook 配置**：`FuckAndesApp` 在 `Application.onCreate` 注册 `XposedServiceHelper`，框架通过 `XposedProvider` 推送 binder 后拿到 `XposedService`。系统助手接管、Gemini 和一圈即搜等 Hook 开关通过 `XposedService.getRemotePreferences()` 写入 LSPosed 数据库；服务未连接时这些开关保持不可修改。

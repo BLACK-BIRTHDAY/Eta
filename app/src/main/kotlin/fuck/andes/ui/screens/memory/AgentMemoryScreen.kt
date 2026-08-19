@@ -4,6 +4,7 @@ import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import fuck.andes.ui.components.MiuixDialogActions
 import fuck.andes.ui.components.MiuixScaffold
+import fuck.andes.ui.layout.horizontalCutoutPadding
 import fuck.andes.ui.model.AgentMemoryAction
 import fuck.andes.ui.model.AgentMemoryUiState
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -51,20 +53,25 @@ internal fun AgentMemoryScreen(
     MiuixScaffold(
         title = stringResource(R.string.ui_memory_b55ff5),
         onBack = { onAction(AgentMemoryAction.NavigateBack) },
-    ) { paddingValues, scrollBehavior ->
+    ) { paddingValues, scrollBehavior, sidePadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
+                .horizontalCutoutPadding()
+                .padding(top = paddingValues.calculateTopPadding()),
         ) {
             // 状态区与编辑器滚动分离。weight fill=false：内容少时只占自身高度，避免中部空档；
             // 空间不足（键盘弹出、横屏）时压缩为可滚动区域，编辑器保持完整可见
             LazyColumn(
                 modifier = Modifier
                     .weight(1f, fill = false)
-                    .overScrollVertical()
                     .scrollEndHaptic()
+                    .overScrollVertical()
                     .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(
+                    start = sidePadding,
+                    end = sidePadding,
+                ),
                 overscrollEffect = null,
             ) {
                 item(key = "status-title") { SmallTitle(stringResource(R.string.ui_memory_b55ff5)) }
@@ -91,6 +98,7 @@ internal fun AgentMemoryScreen(
 
             Column(
                 modifier = Modifier
+                    .padding(horizontal = sidePadding)
                     .imePadding()
                     .navigationBarsPadding(),
             ) {

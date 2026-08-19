@@ -15,33 +15,35 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.navigation3.runtime.NavKey
 import fuck.andes.FuckAndesApp
 import fuck.andes.R
 import fuck.andes.agent.device.DeviceLocationProvider
 import fuck.andes.data.repository.RuntimeConfigRepository
-import androidx.navigation3.runtime.entryProvider
-import androidx.navigation3.runtime.rememberDecoratedNavEntries
-import androidx.navigation3.ui.NavDisplay
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.unit.dp
 import fuck.andes.ui.components.MiuixDialogActions
 import fuck.andes.ui.model.ConversationSummaryUi
 import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.nav.core.NavDisplay
+import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
+import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
+import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
+import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import top.yukonga.miuix.kmp.window.WindowDialog
 import fuck.andes.ui.SettingsScreen
 import fuck.andes.ui.pages.providers.ModelProviderDetailScreen
@@ -75,8 +77,8 @@ fun AgentAppRoot(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
-    val backStack = remember { mutableStateListOf<NavKey>(AppRoute.Home) }
-    val navigator = remember { AgentNavigator(backStack) }
+    val backStack = rememberNavBackStack<AppRoute>(AppRoute.Home)
+    val navigator = remember(backStack) { AgentNavigator(backStack) }
     val agentState = remember(context.applicationContext) {
         AgentAppState(
             context = context.applicationContext,
@@ -184,9 +186,19 @@ fun AgentAppRoot(
         }
     }
 
-    val entryProvider = remember(backStack) {
-        entryProvider<NavKey> {
-            entry<AppRoute.Home> {
+    val swipeDismiss = if (LocalLayoutDirection.current == LayoutDirection.Rtl) {
+        NavSwipeDirection.RightToLeft
+    } else {
+        NavSwipeDirection.LeftToRight
+    }
+    NavDisplay(
+        backStack = backStack,
+        onBack = { popRoute() },
+        effects = NavDisplayEffects(
+            cornerClipRadius = rememberNavSystemCornerRadius(),
+        ),
+    ) {
+            entry<AppRoute.Home>(swipeDismiss = swipeDismiss) {
                 RoutedShell(route = AppRoute.Home) {
                     AgentHomeScreen(
                         state = agentState.homeState,
@@ -234,7 +246,7 @@ fun AgentAppRoot(
                     )
                 }
             }
-            entry<AppRoute.Chat> {
+            entry<AppRoute.Chat>(swipeDismiss = swipeDismiss) {
                 RoutedShell(route = AppRoute.Chat) {
                     AgentChatScreen(
                         state = agentState.homeState,
@@ -276,12 +288,12 @@ fun AgentAppRoot(
                     )
                 }
             }
-            entry<AppRoute.Browser> {
+            entry<AppRoute.Browser>(swipeDismiss = swipeDismiss) {
                 RoutedShell(route = AppRoute.Browser) {
                     AgentBrowserScreen()
                 }
             }
-            entry<AppRoute.Tools> {
+            entry<AppRoute.Tools>(swipeDismiss = swipeDismiss) {
                 AgentToolsScreen(
                     state = agentState.toolsState,
                     onAction = { action ->
@@ -292,7 +304,7 @@ fun AgentAppRoot(
                     },
                 )
             }
-            entry<AppRoute.Skills> {
+            entry<AppRoute.Skills>(swipeDismiss = swipeDismiss) {
                 LaunchedEffect(Unit) {
                     agentState.refreshSkills()
                 }
@@ -312,7 +324,7 @@ fun AgentAppRoot(
                     },
                 )
             }
-            entry<AppRoute.Permissions> {
+            entry<AppRoute.Permissions>(swipeDismiss = swipeDismiss) {
                 LaunchedEffect(Unit) {
                     agentState.refreshPermissionHealth()
                 }
@@ -412,7 +424,7 @@ fun AgentAppRoot(
                     },
                 )
             }
-            entry<AppRoute.SystemEnhance> {
+            entry<AppRoute.SystemEnhance>(swipeDismiss = swipeDismiss) {
                 SystemEnhanceScreen(
                     state = agentState.systemEnhanceState,
                     onAction = { action ->
@@ -423,14 +435,14 @@ fun AgentAppRoot(
                     },
                 )
             }
-            entry<AppRoute.Settings> {
+            entry<AppRoute.Settings>(swipeDismiss = swipeDismiss) {
                 SettingsScreen(
                     context = context,
                     onNavigate = { route -> pushRoute(route) },
                     onBack = ::popRoute
                 )
             }
-            entry<AppRoute.Memory> {
+            entry<AppRoute.Memory>(swipeDismiss = swipeDismiss) {
                 LaunchedEffect(Unit) {
                     agentState.refreshMemory()
                 }
@@ -448,41 +460,31 @@ fun AgentAppRoot(
                     },
                 )
             }
-            entry<AppRoute.LinuxEnvironment> {
+            entry<AppRoute.LinuxEnvironment>(swipeDismiss = swipeDismiss) {
                 LinuxEnvironmentScreen(
                     context = context,
                     onBack = ::popRoute,
                 )
             }
-            entry<AppRoute.ModelProviders> {
+            entry<AppRoute.ModelProviders>(swipeDismiss = swipeDismiss) {
                 ModelProviderListScreen(
                     onNavigate = { route -> pushRoute(route) },
                     onBack = ::popRoute
                 )
             }
-            entry<AppRoute.ModelProviderDetail> { route ->
+            entry<AppRoute.ModelProviderDetail>(swipeDismiss = swipeDismiss) { route ->
                 ModelProviderDetailScreen(
                     providerId = route.providerId,
                     onBack = ::popRoute
                 )
             }
-            entry<AppRoute.ModelProviderNew> { route ->
+            entry<AppRoute.ModelProviderNew>(swipeDismiss = swipeDismiss) { route ->
                 ModelProviderDetailScreen(
                     newType = route.type,
                     onBack = ::popRoute
                 )
             }
-        }
     }
-    val entries = rememberDecoratedNavEntries(
-        backStack = backStack,
-        entryProvider = entryProvider,
-    )
-
-    NavDisplay(
-        entries = entries,
-        onBack = { popRoute() },
-    )
 
     conversationRenameTarget?.let { conversation ->
         var renameInput by remember(conversation.id) { mutableStateOf(conversation.title) }

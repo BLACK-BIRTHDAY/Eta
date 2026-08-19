@@ -8,11 +8,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.R as LucideR
 import fuck.andes.FuckAndesApp
@@ -48,9 +49,12 @@ import fuck.andes.data.repository.ProviderRepository
 import fuck.andes.data.repository.RemoteModelFetcher
 import fuck.andes.data.repository.RuntimeConfigRepository
 import fuck.andes.ui.components.MiuixDialogActions
+import fuck.andes.ui.components.MiuixPageBottomSpacer
 import fuck.andes.ui.components.MiuixScaffold
+import fuck.andes.ui.components.MiuixScaffoldPage
 import fuck.andes.ui.components.StatusError
 import fuck.andes.ui.components.StatusSuccess
+import fuck.andes.ui.layout.horizontalCutoutPadding
 import fuck.andes.ui.navigation.NewProviderType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -139,14 +143,21 @@ internal fun ModelProviderDetailScreen(
     }
 
     if (provider == null && draft == null) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
+        MiuixScaffoldPage(
+            title = stringResource(R.string.route_provider_details),
+            onBack = onBack,
         ) {
-            Text(stringResource(R.string.ui_provider_does_not_exist_83cee6))
-            Spacer(modifier = Modifier.height(12.dp))
-            TextButton(text = stringResource(R.string.ui_return_11d024), onClick = onBack)
+            item(key = "missing_provider") {
+                Column(
+                    modifier = Modifier.fillParentMaxSize().padding(24.dp),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(stringResource(R.string.ui_provider_does_not_exist_83cee6))
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TextButton(text = stringResource(R.string.ui_return_11d024), onClick = onBack)
+                }
+            }
         }
         return
     }
@@ -157,14 +168,22 @@ internal fun ModelProviderDetailScreen(
     var configDraft by remember(initial.id) { mutableStateOf(ProviderConfigDraft.from(initial)) }
     val title = if (isNew) context.getString(R.string.page_create_new_provider_36cab9) else initial.name
 
-    MiuixScaffold(title = title, onBack = onBack) { paddingValues, scrollBehavior ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+    MiuixScaffold(title = title, onBack = onBack) { paddingValues, scrollBehavior, sidePadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .horizontalCutoutPadding()
+                .padding(top = paddingValues.calculateTopPadding()),
+        ) {
             if (!isNew) {
                 TabRow(
                     tabs = listOf(context.getString(R.string.page_configuration_d7d7ce), context.getString(R.string.page_model_98fd0c)),
                     selectedTabIndex = currentTab,
                     onTabSelected = { currentTab = it },
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(
+                        horizontal = sidePadding + 12.dp,
+                        vertical = 8.dp,
+                    ),
                 )
             }
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -176,11 +195,17 @@ internal fun ModelProviderDetailScreen(
                         scope = scope,
                         isNew = isNew,
                         scrollBehavior = scrollBehavior,
+                        contentSidePadding = sidePadding,
                         onCreated = { id -> createdId = id },
                         onDeleted = onBack,
                     )
                     1 -> if (!isNew) {
-                        ProviderModelsTab(provider = initial, scope = scope, scrollBehavior = scrollBehavior)
+                        ProviderModelsTab(
+                            provider = initial,
+                            scope = scope,
+                            scrollBehavior = scrollBehavior,
+                            contentSidePadding = sidePadding,
+                        )
                     }
                 }
             }
@@ -196,6 +221,7 @@ private fun ProviderConfigTab(
     scope: CoroutineScope,
     isNew: Boolean,
     scrollBehavior: ScrollBehavior,
+    contentSidePadding: Dp,
     onCreated: (String) -> Unit,
     onDeleted: () -> Unit,
 ) {
@@ -211,9 +237,13 @@ private fun ProviderConfigTab(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .overScrollVertical()
             .scrollEndHaptic()
+            .overScrollVertical()
             .nestedScroll(scrollBehavior.nestedScrollConnection),
+        contentPadding = PaddingValues(
+            start = contentSidePadding,
+            end = contentSidePadding,
+        ),
         overscrollEffect = null,
     ) {
         item(key = "connection") {
@@ -494,7 +524,7 @@ private fun ProviderConfigTab(
         }
 
         item(key = "bottom_spacer") {
-            Spacer(modifier = Modifier.navigationBarsPadding().height(24.dp))
+            MiuixPageBottomSpacer()
         }
     }
 

@@ -4,33 +4,27 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import fuck.andes.ui.layout.WidePageContent
+import fuck.andes.ui.layout.horizontalCutoutPadding
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
-import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /**
- * 二级页面标准骨架（高层）：Scaffold + 大标题折叠 TopAppBar + 返回按钮 + 内置 LazyColumn
- * （含 overScrollVertical / scrollEndHaptic / nestedScroll 联动 + 横向安全区 + 底部导航栏留白）。
- *
- * 适用于纯列表式页面（SmallTitle + Card）。调用方只需提供 [content] 的 item 内容。
- *
- * 作为 Eta 二级列表页的统一布局与滚动行为入口。
+ * Eta 二级列表页的统一骨架：手机折叠大标题、宽屏固定小标题、顶栏毛玻璃、横屏安全区、
+ * 宽屏内容居中、滚动边界触感与越界回弹均由此处统一提供。
  */
 @Composable
 fun MiuixScaffoldPage(
@@ -43,14 +37,13 @@ fun MiuixScaffoldPage(
     val scrollBehavior = MiuixScrollBehavior()
     val backdrop = rememberTopBarBackdrop()
     val topBarColor = topBarContainerColor(backdrop)
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopBarBackdrop(backdrop) {
-                TopAppBar(
+                AdaptiveTopAppBar(
                     title = title,
-                    largeTitle = title,
                     color = topBarColor,
                     navigationIcon = { MiuixBackButton(onClick = onBack) },
                     actions = actions,
@@ -58,31 +51,35 @@ fun MiuixScaffoldPage(
                 )
             }
         },
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .captureForTopBar(backdrop)
-                .overScrollVertical()
-                .scrollEndHaptic()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = paddingValues,
-            overscrollEffect = null,
-        ) {
-            content()
-            // 导航栏留白之外再加固定间距，避免列表末尾内容贴近大圆角屏幕下沿
-            item(key = "bottom_spacer") {
-                Spacer(modifier = Modifier.navigationBarsPadding().height(24.dp))
+    ) { innerPadding ->
+        WidePageContent { sidePadding ->
+            // 保留 MiuixTheme 注入的默认越界工厂，让短内容页也能回弹到顶栏采样区。
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .horizontalCutoutPadding()
+                    .captureForTopBar(backdrop)
+                    .scrollEndHaptic()
+                    .overScrollVertical()
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = PaddingValues(
+                    start = sidePadding,
+                    top = innerPadding.calculateTopPadding(),
+                    end = sidePadding,
+                ),
+            ) {
+                content()
+                item(key = "bottom_spacer") {
+                    MiuixPageBottomSpacer()
+                }
             }
         }
     }
 }
 
 /**
- * 二级页面骨架（底层）：只提供 Scaffold + 大标题折叠 TopAppBar + 返回按钮 + scrollBehavior，
- * content 由调用方自行决定容器（Column / LazyColumn）并负责挂 [.nestedScroll] 联动。
- *
- * 适用于非纯列表布局（如带 TabRow、网格的页面）。
+ * 自定义内容二级页的低层骨架。调用方负责把顶部 padding、横向安全区与 nested scroll
+ * 接入自己的内容；[sidePadding] 用于在宽屏限制实际内容宽度，滚动容器本身仍应保持全宽。
  */
 @Composable
 fun MiuixScaffold(
@@ -90,19 +87,22 @@ fun MiuixScaffold(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
-    content: @Composable (PaddingValues, ScrollBehavior) -> Unit,
+    content: @Composable (
+        paddingValues: PaddingValues,
+        scrollBehavior: ScrollBehavior,
+        sidePadding: Dp,
+    ) -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
     val backdrop = rememberTopBarBackdrop()
     val topBarColor = topBarContainerColor(backdrop)
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        contentWindowInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
         topBar = {
             TopBarBackdrop(backdrop) {
-                TopAppBar(
+                AdaptiveTopAppBar(
                     title = title,
-                    largeTitle = title,
                     color = topBarColor,
                     navigationIcon = { MiuixBackButton(onClick = onBack) },
                     actions = actions,
@@ -112,7 +112,18 @@ fun MiuixScaffold(
         },
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().captureForTopBar(backdrop)) {
-            content(paddingValues, scrollBehavior)
+            WidePageContent { sidePadding ->
+                content(paddingValues, scrollBehavior, sidePadding)
+            }
         }
     }
+}
+
+@Composable
+fun MiuixPageBottomSpacer(modifier: Modifier = Modifier) {
+    Spacer(
+        modifier = modifier
+            .height(24.dp)
+            .navigationBarsPadding(),
+    )
 }
