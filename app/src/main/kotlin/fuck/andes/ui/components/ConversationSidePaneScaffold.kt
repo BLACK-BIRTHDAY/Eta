@@ -1,13 +1,16 @@
 package fuck.andes.ui.components
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.AnchoredDraggableDefaults
+import androidx.compose.foundation.gestures.AnchoredDraggableState
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.animateTo
+import androidx.compose.foundation.gestures.anchoredDraggable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -27,22 +30,28 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.dropShadow
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.PointerInputChange
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -61,6 +70,7 @@ import com.composables.icons.lucide.R as LucideR
 import fuck.andes.R
 import fuck.andes.ui.model.ConversationPaneUiState
 import fuck.andes.ui.model.ConversationSummaryUi
+import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.DropdownImpl
@@ -74,6 +84,8 @@ import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.SearchBar
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
+import top.yukonga.miuix.kmp.squircle.absoluteSquircleClip
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
@@ -82,7 +94,13 @@ import top.yukonga.miuix.kmp.window.WindowListPopup
 private object DrawerMetrics {
     val PaneMaxWidth = 340.dp
     val PaneWidthFraction = 0.84f
-    val EdgeSwipeWidth = 36.dp
+    val ForegroundCornerRadiusFallback = 24.dp
+    val ForegroundShadowRadius = 12.dp
+    const val ForegroundShadowAlpha = 0.12f
+    const val SettleDampingRatio = 1f
+    const val SettleStiffness = 146f
+    const val SettleVisibilityThresholdPx = 0.5f
+    const val SettlePositionThresholdFraction = 0.5f
     val PaneHorizontalPadding = 16.dp
     val TopInset = 16.dp
     val AfterActionBar = 18.dp
@@ -103,6 +121,11 @@ private object DrawerMetrics {
     val ActiveDotGap = 10.dp
     val EmptyVerticalPadding = 28.dp
     val DockTopGap = 14.dp
+}
+
+private enum class ConversationPaneAnchor {
+    Closed,
+    Open,
 }
 
 @Composable
@@ -130,24 +153,64 @@ fun ConversationSidePaneScaffold(
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val density = LocalDensity.current
         val paneWidth = minOf(maxWidth * DrawerMetrics.PaneWidthFraction, DrawerMetrics.PaneMaxWidth)
-        val edgeSwipeWidthPx = with(density) { DrawerMetrics.EdgeSwipeWidth.toPx() }
         val paneWidthPx = with(density) { paneWidth.toPx() }
-        var dragging by remember { mutableStateOf(false) }
-        var dragOffsetPx by remember { mutableFloatStateOf(0f) }
-        var acceptsDrag by remember { mutableStateOf(false) }
-        val animatedOffsetPx by animateFloatAsState(
-            targetValue = if (visible) paneWidthPx else 0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioNoBouncy,
-                stiffness = Spring.StiffnessMediumLow,
-            ),
-            label = "ConversationPaneOffset",
+        val anchors = remember(paneWidthPx) {
+            DraggableAnchors {
+                ConversationPaneAnchor.Closed at 0f
+                ConversationPaneAnchor.Open at paneWidthPx
+            }
+        }
+        val paneDragState = remember {
+            AnchoredDraggableState(
+                initialValue = if (visible) ConversationPaneAnchor.Open else ConversationPaneAnchor.Closed,
+                anchors = anchors,
+            )
+        }
+        val settleAnimation = remember {
+            spring<Float>(
+                dampingRatio = DrawerMetrics.SettleDampingRatio,
+                stiffness = DrawerMetrics.SettleStiffness,
+                visibilityThreshold = DrawerMetrics.SettleVisibilityThresholdPx,
+            )
+        }
+        val flingBehavior = AnchoredDraggableDefaults.flingBehavior(
+            state = paneDragState,
+            positionalThreshold = { distance ->
+                distance * DrawerMetrics.SettlePositionThresholdFraction
+            },
+            animationSpec = settleAnimation,
         )
-        val offsetPx = if (dragging) dragOffsetPx else animatedOffsetPx
-        val progress = if (paneWidthPx > 0f) {
-            (offsetPx / paneWidthPx).coerceIn(0f, 1f)
-        } else {
-            0f
+        val currentVisible by rememberUpdatedState(visible)
+        val currentOnOpen by rememberUpdatedState(onOpen)
+        val currentOnDismiss by rememberUpdatedState(onDismiss)
+        val shouldClipForeground by remember(paneDragState) {
+            derivedStateOf {
+                val offset = paneDragState.offset
+                !offset.isNaN() && offset > 0.5f
+            }
+        }
+        val systemCornerRadius = rememberNavSystemCornerRadius()
+        val foregroundCornerRadius = systemCornerRadius.takeIf { it > 0.dp }
+            ?: DrawerMetrics.ForegroundCornerRadiusFallback
+
+        SideEffect {
+            paneDragState.updateAnchors(anchors)
+        }
+
+        LaunchedEffect(visible, paneWidthPx) {
+            val target = if (visible) ConversationPaneAnchor.Open else ConversationPaneAnchor.Closed
+            if (paneDragState.targetValue != target || paneDragState.settledValue != target) {
+                paneDragState.animateTo(target, settleAnimation)
+            }
+        }
+
+        LaunchedEffect(paneDragState) {
+            snapshotFlow { paneDragState.settledValue }.collectLatest { settledValue ->
+                val settledOpen = settledValue == ConversationPaneAnchor.Open
+                if (settledOpen != currentVisible) {
+                    if (settledOpen) currentOnOpen() else currentOnDismiss()
+                }
+            }
         }
 
         // NavDisplay 的退出条目在转场期间仍会保留组合；仅允许已稳定显示的首页
@@ -177,58 +240,70 @@ fun ConversationSidePaneScaffold(
 
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                .offset { IntOffset(offsetPx.roundToInt(), 0) }
-                .pointerInput(visible, paneWidthPx) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { offset ->
-                            // 打开时仅在主内容区（右侧）接受拖拽关闭，避免拦截会话列表的长按；
-                            // 关闭时仅从左缘拖拽打开。
-                            acceptsDrag = if (visible) {
-                                offset.x >= paneWidthPx - edgeSwipeWidthPx
-                            } else {
-                                offset.x <= edgeSwipeWidthPx
-                            }
-                            if (acceptsDrag) {
-                                dragging = true
-                                dragOffsetPx = animatedOffsetPx
-                            }
-                        },
-                        onHorizontalDrag = { change: PointerInputChange, dragAmount: Float ->
-                            if (acceptsDrag) {
-                                change.consume()
-                                dragOffsetPx = (dragOffsetPx + dragAmount).coerceIn(0f, paneWidthPx)
-                            }
-                        },
-                        onDragEnd = {
-                            if (acceptsDrag) {
-                                if (dragOffsetPx >= paneWidthPx * 0.44f) {
-                                    onOpen()
-                                } else {
-                                    onDismiss()
-                                }
-                            }
-                            dragging = false
-                            acceptsDrag = false
-                        },
-                        onDragCancel = {
-                            dragging = false
-                            acceptsDrag = false
-                        },
-                    )
+                .width(paneWidth)
+                .fillMaxHeight()
+                .graphicsLayer {
+                    val offset = paneDragState.offset.takeUnless(Float::isNaN) ?: 0f
+                    val progress = if (paneWidthPx > 0f) {
+                        (offset / paneWidthPx).coerceIn(0f, 1f)
+                    } else {
+                        0f
+                    }
+                    alpha = 1f - progress
                 }
+                .background(MiuixTheme.colorScheme.windowDimming)
+                .zIndex(0.5f),
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .offset {
+                    val offset = paneDragState.offset.takeUnless(Float::isNaN)
+                        ?: if (visible) paneWidthPx else 0f
+                    IntOffset(offset.roundToInt(), 0)
+                }
+                .then(
+                    if (shouldClipForeground) {
+                        Modifier
+                            .dropShadow(
+                                shape = AbsoluteRoundedCornerShape(
+                                    topLeft = foregroundCornerRadius,
+                                    topRight = 0.dp,
+                                    bottomRight = 0.dp,
+                                    bottomLeft = foregroundCornerRadius,
+                                ),
+                                shadow = Shadow(
+                                    radius = DrawerMetrics.ForegroundShadowRadius,
+                                    color = Color.Black,
+                                    alpha = DrawerMetrics.ForegroundShadowAlpha,
+                                ),
+                            )
+                            .absoluteSquircleClip(
+                                topLeft = foregroundCornerRadius,
+                                topRight = 0.dp,
+                                bottomRight = 0.dp,
+                                bottomLeft = foregroundCornerRadius,
+                            )
+                    } else {
+                        Modifier
+                    },
+                )
+                // 保持物理左右方向，不随 RTL 镜像：会话列表始终从屏幕左侧显露。
+                .anchoredDraggable(
+                    state = paneDragState,
+                    reverseDirection = false,
+                    orientation = Orientation.Horizontal,
+                    enabled = backHandlerEnabled,
+                    flingBehavior = flingBehavior,
+                )
                 .zIndex(1f),
         ) {
             content()
-            if (progress > 0f) {
+            if (visible) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            MiuixTheme.colorScheme.windowDimming.copy(
-                                alpha = MiuixTheme.colorScheme.windowDimming.alpha * progress,
-                            ),
-                        )
                         .clickable(onClick = onDismiss),
                 )
             }
