@@ -90,6 +90,9 @@ internal object AgentBrowserSession {
     private const val SCREENSHOT_MAX_WIDTH = 1_280
     private const val SCREENSHOT_MAX_HEIGHT = 2_400
     private const val SCREENSHOT_QUALITY = 75
+    private const val PREVIEW_MAX_WIDTH = 480
+    private const val PREVIEW_MAX_HEIGHT = 900
+    private const val PREVIEW_QUALITY = 60
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val operationLock = ReentrantLock()
@@ -285,6 +288,34 @@ internal object AgentBrowserSession {
                 publishSnapshotOnMain()
             }
         }
+    }
+
+    /**
+     * 聊天页工具卡片的实时预览截图。
+     *
+     * 只在主线程绘制当前视口，不占用串行操作锁、不中断 Agent 或用户操作；
+     * 页面不存在或绘制失败时返回 null，由调用方显示占位。
+     */
+    fun capturePreview(): BrowserImage? {
+        if (Looper.myLooper() == Looper.getMainLooper()) return null
+        val view = webView ?: return null
+        if (currentUrl.isBlank()) return null
+        return runCatching {
+            val captured = captureViewport(
+                view,
+                maxWidth = PREVIEW_MAX_WIDTH,
+                maxHeight = PREVIEW_MAX_HEIGHT,
+                quality = PREVIEW_QUALITY,
+            )
+            BrowserImage(
+                dataUrl = "data:image/jpeg;base64," +
+                    Base64.encodeToString(captured.bytes, Base64.NO_WRAP),
+                mimeType = "image/jpeg",
+                bytes = captured.bytes.size,
+                width = captured.width,
+                height = captured.height,
+            )
+        }.getOrNull()
     }
 
     private fun executeFromExistingContext(action: String, userInitiated: Boolean): BrowserToolResult {
@@ -798,14 +829,19 @@ internal object AgentBrowserSession {
         return JSONObject().put("value", value)
     }
 
-    private fun captureViewport(view: WebView): CapturedImage = callOnMain {
+    private fun captureViewport(
+        view: WebView,
+        maxWidth: Int = SCREENSHOT_MAX_WIDTH,
+        maxHeight: Int = SCREENSHOT_MAX_HEIGHT,
+        quality: Int = SCREENSHOT_QUALITY,
+    ): CapturedImage = callOnMain {
         layoutOffscreenOnMain(view)
         val sourceWidth = view.width.coerceAtLeast(1)
         val sourceHeight = view.height.coerceAtLeast(1)
         val scale = minOf(
             1f,
-            SCREENSHOT_MAX_WIDTH.toFloat() / sourceWidth,
-            SCREENSHOT_MAX_HEIGHT.toFloat() / sourceHeight,
+            maxWidth.toFloat() / sourceWidth,
+            maxHeight.toFloat() / sourceHeight,
         )
         val width = (sourceWidth * scale).roundToInt().coerceAtLeast(1)
         val height = (sourceHeight * scale).roundToInt().coerceAtLeast(1)
@@ -817,7 +853,7 @@ internal object AgentBrowserSession {
             view.draw(canvas)
         }
         val bytes = ByteArrayOutputStream().use { stream ->
-            bitmap.compress(Bitmap.CompressFormat.JPEG, SCREENSHOT_QUALITY, stream)
+            bitmap.compress(Bitmap.CompressFormat.JPEG, quality, stream)
             stream.toByteArray()
         }
         val captured = CapturedImage(bytes, bitmap.width, bitmap.height)

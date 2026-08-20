@@ -605,6 +605,7 @@ internal object AgentRuntimeWire {
                 putString("result_summary", event.resultSummary)
                 putInt("image_count", event.imageCount)
                 putInt("image_bytes", event.imageBytes)
+                event.success?.let { putBoolean("success", it) }
             }
 
             is AgentEvent.HostedToolStarted -> {
@@ -729,6 +730,8 @@ internal object AgentRuntimeWire {
             resultSummary = bundle.getString("result_summary").orEmpty(),
             imageCount = bundle.getInt("image_count"),
             imageBytes = bundle.getInt("image_bytes"),
+            // 旧版本 Runtime 不发送 success，缺省为 null 由消费端回退判断
+            success = if (bundle.containsKey("success")) bundle.getBoolean("success") else null,
         )
 
         "hosted_tool_started" -> AgentEvent.HostedToolStarted(

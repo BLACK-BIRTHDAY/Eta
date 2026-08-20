@@ -290,7 +290,6 @@
   <string name="ui_scale_on_demand_fdd11e">Scale on demand</string>
   <string name="ui_search_provider_74e049">Search provider</string>
   <string name="ui_search_model_df5586">Search model</string>
-  <string name="ui_operate_f3ea6d">operate</string>
   <string name="ui_support_anthropic_claude_official_or_compatible_api_de3f80">Support Anthropic Claude official or compatible API</string>
   <string name="ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02">Support ChatGPT, DeepSeek, Kimi, GLM, Qwen, etc.</string>
   <string name="ui_supports_files_and_folders_under_internal_storage_or_520786">Supports files and folders under internal storage or /data/local/tmp</string>
@@ -384,6 +383,8 @@
   <string name="tool_status_running">Running</string>
   <string name="tool_status_success">Completed</string>
   <string name="tool_status_failed">Failed</string>
+  <string name="tool_browser_loading">Loading · %1$d%%</string>
+  <string name="tool_browser_preview">Page preview</string>
   <plurals name="work_processing_step">
     <item quantity="one">Working · step %d</item>
     <item quantity="other">Working · step %d</item>

@@ -249,6 +249,7 @@ internal class AgentLoop(
                 resultSummary = traceFormatter.summarizeResult(toolCall.name, result),
                 imageCount = result.images.size,
                 imageBytes = result.images.sumOf { it.bytes },
+                success = traceFormatter.isSuccessResult(result),
             )
         )
     }

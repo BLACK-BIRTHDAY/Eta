@@ -185,10 +185,15 @@ internal class AgentRunMessageProjector(
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
         val targetId = toolActivityMessageId(runId, event.round, event.toolCallId)
-        val status = if (event.resultSummary.contains("ok=false", ignoreCase = true)) {
-            ToolActivityStatusUi.Failed
-        } else {
-            ToolActivityStatusUi.Success
+        // success 字段优先；旧版本 Runtime/归档事件缺省时回退到摘要文本判断
+        val status = when (event.success) {
+            true -> ToolActivityStatusUi.Success
+            false -> ToolActivityStatusUi.Failed
+            null -> if (event.resultSummary.contains("ok=false", ignoreCase = true)) {
+                ToolActivityStatusUi.Failed
+            } else {
+                ToolActivityStatusUi.Success
+            }
         }
         val targetIndex = messages.indexOfLast { it is ToolActivityMessageUi && it.id == targetId }
         if (targetIndex < 0) return messages

@@ -126,7 +126,9 @@ internal sealed interface AgentEvent {
         val name: String,
         val resultSummary: String,
         val imageCount: Int,
-        val imageBytes: Int
+        val imageBytes: Int,
+        /** 可选：旧版本 Runtime 不发送，消费端缺省时回退到摘要文本判断。 */
+        val success: Boolean? = null,
     ) : AgentEvent {
         override fun toLogLine(): String =
             "tool_finished round=$round, name=${name.toSafeLogToken()}, " +

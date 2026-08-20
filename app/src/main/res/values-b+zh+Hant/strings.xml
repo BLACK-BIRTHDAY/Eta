@@ -272,7 +272,6 @@
   <string name="ui_scale_on_demand_fdd11e">按需擴展</string>
   <string name="ui_search_provider_74e049">搜尋供應商</string>
   <string name="ui_search_model_df5586">搜尋模型</string>
-  <string name="ui_operate_f3ea6d">操作</string>
   <string name="ui_support_anthropic_claude_official_or_compatible_api_de3f80">支援 Anthropic Claude 官方或相容 API</string>
   <string name="ui_support_chatgpt_deepseek_kimi_glm_qwen_etc_b31d02">支援 ChatGPT、DeepSeek、Kimi、GLM、Qwen 等服務</string>
   <string name="ui_supports_files_and_folders_under_internal_storage_or_520786">支援內部儲存或 /data/local/tmp 下的檔案和資料夾</string>
@@ -366,6 +365,8 @@
   <string name="tool_status_running">執行中</string>
   <string name="tool_status_success">已完成</string>
   <string name="tool_status_failed">失敗</string>
+  <string name="tool_browser_loading">載入中 · %1$d%%</string>
+  <string name="tool_browser_preview">頁面預覽</string>
   <plurals name="work_processing_step">
     <item quantity="other">處理中 · 第 %d 步</item>
   </plurals>

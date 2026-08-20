@@ -336,17 +336,24 @@ class AgentRuntimeWireTest {
 
     @Test
     fun browserToolResultSummaryKeepsSafeMetadataAndFailureState() {
-        val summary = AgentModelClient.summarizeToolResult(
-            toolName = "browser_use",
-            result = AgentModelClient.ToolResult(
-                content = """{"ok":false,"action":"get_readable","url":"https://user:password@example.com/private?q=token#fragment","title":"Example","text":"secret body","elements":[{},{}],"truncated":true}"""
-            ),
-        )
+        val content = """{"ok":%s,"action":"get_readable","url":"https://user:password@example.com/private?q=token#fragment","title":"Example","text":"secret body","elements":[{},{}],"truncated":true}"""
 
-        assertEquals(
-            "ok=false, action=get_readable, host=example.com, title=Example, text_chars=11, elements=2, truncated=true",
-            summary,
+        val failure = AgentModelClient.summarizeToolResult(
+            toolName = "browser_use",
+            result = AgentModelClient.ToolResult(content = content.format("false")),
         )
+        assertEquals("失败", failure)
+
+        val success = AgentModelClient.summarizeToolResult(
+            toolName = "browser_use",
+            result = AgentModelClient.ToolResult(content = content.format("true")),
+        )
+        assertEquals("已提取正文 · example.com · 《Example》 · 约 11 字 · 2 个元素 · 已截断", success)
+
+        listOf("user:password", "secret body", "private", "token", "ok=").forEach { leaked ->
+            assertTrue("$leaked leaked: $success", !success.contains(leaked))
+            assertTrue("$leaked leaked: $failure", !failure.contains(leaked))
+        }
     }
 
     @Test
@@ -409,6 +416,16 @@ class AgentRuntimeWireTest {
                 resultSummary = "ok=true, chars=120",
                 imageCount = 1,
                 imageBytes = 2048,
+                success = true,
+            ),
+            // 旧版本 Runtime 不发送 success 字段，缺省事件也必须完整往返
+            AgentEvent.ToolFinished(
+                round = 2,
+                toolCallId = "call_legacy",
+                name = "tap",
+                resultSummary = "ok=false, chars=24",
+                imageCount = 0,
+                imageBytes = 0,
             ),
         )
 
