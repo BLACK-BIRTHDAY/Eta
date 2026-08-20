@@ -17,6 +17,7 @@ import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +43,8 @@ import fuck.andes.agent.runtime.AgentRuntimeWire
 import fuck.andes.core.AndroidAgentLogger
 import fuck.andes.ui.MainActivity
 import fuck.andes.ui.app.AgentAppTheme
+import fuck.andes.data.model.AppearanceSettings
+import fuck.andes.data.repository.AppearanceSettingsRepository
 import fuck.andes.ui.app.AgentRunMessageProjector
 import fuck.andes.ui.model.AgentChatMessageUi
 import fuck.andes.ui.model.AgentMessageUi
@@ -238,7 +241,12 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         if (windowView != null) return
         val wm = getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
         val view = createComposeView {
-            AgentAppTheme {
+            val appearance by AppearanceSettingsRepository.settingsFlow()
+                .collectAsState(initial = AppearanceSettings())
+            AgentAppTheme(
+                appearance = appearance,
+                applyInterfaceScale = false,
+            ) {
                 // ColorOS 在 Overlay 窗口切换期间可能短暂使用软件画布；RuntimeShader
                 // 无法在该画布绘制，因此浮窗统一使用 Miuix 的圆角回退路径。
                 CompositionLocalProvider(LocalSquircleEnabled provides false) {

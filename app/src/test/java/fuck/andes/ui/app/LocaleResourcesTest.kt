@@ -25,6 +25,10 @@ class LocaleResourcesTest {
         assertEquals("設定", localizedString("zh-HK", R.string.route_settings))
         assertEquals("昨日", localizedString("zh-TW", R.string.time_yesterday))
         assertEquals("Settings", localizedString("fr-FR", R.string.route_settings))
+        assertEquals("Appearance & Theme", localizedString("en-US", R.string.appearance_title))
+        assertEquals("外观与主题", localizedString("zh-CN", R.string.appearance_title))
+        assertEquals("外觀與主題", localizedString("zh-TW", R.string.appearance_title))
+        assertEquals("Appearance & Theme", localizedString("fr-FR", R.string.appearance_title))
         assertEquals("1 model", localizedQuantity("en-US", R.plurals.provider_models_count, 1))
         assertEquals("2 models", localizedQuantity("en-US", R.plurals.provider_models_count, 2))
     }

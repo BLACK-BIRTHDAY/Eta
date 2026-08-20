@@ -50,6 +50,7 @@ import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import top.yukonga.miuix.kmp.window.WindowDialog
 import fuck.andes.ui.SettingsScreen
+import fuck.andes.ui.AppearanceSettingsScreen
 import fuck.andes.ui.pages.providers.ModelProviderDetailScreen
 import fuck.andes.ui.pages.providers.ModelProviderListScreen
 import fuck.andes.ui.model.AgentChatAction
@@ -190,10 +191,13 @@ fun AgentAppRoot(
         }
     }
 
-    val swipeDismiss = if (LocalLayoutDirection.current == LayoutDirection.Rtl) {
+    val swipeBackDirection = if (LocalLayoutDirection.current == LayoutDirection.Rtl) {
         NavSwipeDirection.RightToLeft
     } else {
         NavSwipeDirection.LeftToRight
+    }
+    val swipeDismiss = swipeBackDirection.takeIf {
+        LocalAppearanceSettings.current.swipeDismissEnabled
     }
     NavDisplay(
         backStack = backStack,
@@ -457,6 +461,9 @@ fun AgentAppRoot(
                     onNavigate = { route -> pushRoute(route) },
                     onBack = ::popRoute
                 )
+            }
+            entry<AppRoute.AppearanceSettings>(swipeDismiss = swipeDismiss) {
+                AppearanceSettingsScreen(onBack = ::popRoute)
             }
             entry<AppRoute.Memory>(swipeDismiss = swipeDismiss) {
                 LaunchedEffect(Unit) {

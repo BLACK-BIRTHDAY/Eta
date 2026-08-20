@@ -15,6 +15,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import fuck.andes.ui.app.LocalPlatformDensity
 
 private val WideScreenMinWidth = 600.dp
 private val MaxPageContentWidth = 800.dp
@@ -22,10 +23,12 @@ private val MaxPageContentWidth = 800.dp
 @Composable
 fun rememberIsWideScreen(): Boolean {
     val containerSize = LocalWindowInfo.current.containerSize
-    return with(LocalDensity.current) {
-        containerSize.width.toDp() >= WideScreenMinWidth
-    }
+    val density = LocalPlatformDensity.current ?: LocalDensity.current
+    return isWideScreen(containerSize.width, density)
 }
+
+internal fun isWideScreen(containerWidthPx: Int, density: androidx.compose.ui.unit.Density): Boolean =
+    with(density) { containerWidthPx.toDp() >= WideScreenMinWidth }
 
 /**
  * 列表本身保持全宽，只把内容限制在居中的最大宽度内，避免宽屏两侧形成滚动死区。

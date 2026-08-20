@@ -7,8 +7,14 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import fuck.andes.data.model.AppearanceAccentColor
+import fuck.andes.data.model.AppearancePaletteStyle
+import fuck.andes.data.model.AppearanceSettings
+import fuck.andes.data.model.AppearanceThemeMode
+import fuck.andes.data.model.AppearanceTopBarBlurStyle
 import fuck.andes.data.model.Settings
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
@@ -22,6 +28,18 @@ internal object SettingsDataStore {
     private val SELECTED_PROVIDER_ID = stringPreferencesKey("selected_provider_id")
     private val SELECTED_MODEL_ID = stringPreferencesKey("selected_model_id")
     private val MEMORY_ENABLED = booleanPreferencesKey("memory_enabled")
+    private val APPEARANCE_THEME_MODE = stringPreferencesKey("appearance_theme_mode")
+    private val APPEARANCE_MONET_ENABLED = booleanPreferencesKey("appearance_monet_enabled")
+    private val APPEARANCE_PALETTE_STYLE = stringPreferencesKey("appearance_palette_style")
+    private val APPEARANCE_ACCENT_COLOR = stringPreferencesKey("appearance_accent_color")
+    private val APPEARANCE_PURE_BLACK_ENABLED = booleanPreferencesKey("appearance_pure_black_enabled")
+    private val APPEARANCE_BLUR_ENABLED = booleanPreferencesKey("appearance_blur_enabled")
+    private val APPEARANCE_TOP_BAR_BLUR_STYLE = stringPreferencesKey("appearance_top_bar_blur_style")
+    private val APPEARANCE_SWIPE_DISMISS_ENABLED =
+        booleanPreferencesKey("appearance_swipe_dismiss_enabled")
+    private val APPEARANCE_PREDICTIVE_BACK_ENABLED =
+        booleanPreferencesKey("appearance_predictive_back_enabled")
+    private val APPEARANCE_INTERFACE_SCALE = floatPreferencesKey("appearance_interface_scale")
     private const val SELECTED_MODEL_BY_PROVIDER_PREFIX = "selected_model_id_by_provider."
 
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = STORE_NAME)
@@ -45,13 +63,7 @@ internal object SettingsDataStore {
                     throw cause
                 }
             }
-            .map { prefs ->
-                Settings(
-                    selectedProviderId = prefs[SELECTED_PROVIDER_ID],
-                    selectedModelId = prefs[SELECTED_MODEL_ID],
-                    memoryEnabled = prefs[MEMORY_ENABLED] ?: true,
-                )
-            }
+            .map { preferences -> preferences.toSettings() }
     }
 
     suspend fun settings(): Settings = settingsFlow().first()
@@ -59,15 +71,12 @@ internal object SettingsDataStore {
     suspend fun updateSettings(transform: (Settings) -> Settings) {
         ensureInitialized()
         dataStore.edit { prefs ->
-            val current = Settings(
-                selectedProviderId = prefs[SELECTED_PROVIDER_ID],
-                selectedModelId = prefs[SELECTED_MODEL_ID],
-                memoryEnabled = prefs[MEMORY_ENABLED] ?: true,
-            )
+            val current = prefs.toSettings()
             val updated = transform(current)
             prefs.putOrRemove(SELECTED_PROVIDER_ID, updated.selectedProviderId)
             prefs.putOrRemove(SELECTED_MODEL_ID, updated.selectedModelId)
             prefs[MEMORY_ENABLED] = updated.memoryEnabled
+            prefs.putAppearance(updated.appearance.normalized())
         }
     }
 
@@ -93,6 +102,9 @@ internal object SettingsDataStore {
 
     fun memoryEnabledFlow(): Flow<Boolean> =
         settingsFlow().map { it.memoryEnabled }
+
+    fun appearanceSettingsFlow(): Flow<AppearanceSettings> =
+        settingsFlow().map { it.appearance }
 
     suspend fun setSelectedProviderId(id: String?) {
         updateSettings { it.copy(selectedProviderId = id) }
@@ -130,6 +142,16 @@ internal object SettingsDataStore {
         updateSettings { it.copy(memoryEnabled = enabled) }
     }
 
+    suspend fun setAppearanceSettings(settings: AppearanceSettings) {
+        updateSettings { it.copy(appearance = settings.normalized()) }
+    }
+
+    suspend fun updateAppearanceSettings(transform: (AppearanceSettings) -> AppearanceSettings) {
+        updateSettings { settings ->
+            settings.copy(appearance = transform(settings.appearance).normalized())
+        }
+    }
+
     private fun ensureInitialized() {
         check(::dataStore.isInitialized) {
             "SettingsDataStore.init(context) must be called in Application.onCreate()"
@@ -145,5 +167,38 @@ internal object SettingsDataStore {
         } else {
             this[key] = value
         }
+    }
+
+    private fun Preferences.toSettings(): Settings = Settings(
+        selectedProviderId = this[SELECTED_PROVIDER_ID],
+        selectedModelId = this[SELECTED_MODEL_ID],
+        memoryEnabled = this[MEMORY_ENABLED] ?: true,
+        appearance = AppearanceSettings(
+            themeMode = AppearanceThemeMode.fromPersistedValue(this[APPEARANCE_THEME_MODE]),
+            monetEnabled = this[APPEARANCE_MONET_ENABLED] ?: false,
+            paletteStyle = AppearancePaletteStyle.fromPersistedValue(this[APPEARANCE_PALETTE_STYLE]),
+            accentColor = AppearanceAccentColor.fromPersistedValue(this[APPEARANCE_ACCENT_COLOR]),
+            pureBlackEnabled = this[APPEARANCE_PURE_BLACK_ENABLED] ?: false,
+            blurEnabled = this[APPEARANCE_BLUR_ENABLED] ?: true,
+            topBarBlurStyle = AppearanceTopBarBlurStyle.fromPersistedValue(
+                this[APPEARANCE_TOP_BAR_BLUR_STYLE],
+            ),
+            swipeDismissEnabled = this[APPEARANCE_SWIPE_DISMISS_ENABLED] ?: true,
+            predictiveBackEnabled = this[APPEARANCE_PREDICTIVE_BACK_ENABLED] ?: true,
+            interfaceScale = this[APPEARANCE_INTERFACE_SCALE] ?: 1f,
+        ).normalized(),
+    )
+
+    private fun MutablePreferences.putAppearance(settings: AppearanceSettings) {
+        this[APPEARANCE_THEME_MODE] = settings.themeMode.persistedValue
+        this[APPEARANCE_MONET_ENABLED] = settings.monetEnabled
+        this[APPEARANCE_PALETTE_STYLE] = settings.paletteStyle.persistedValue
+        this[APPEARANCE_ACCENT_COLOR] = settings.accentColor.persistedValue
+        this[APPEARANCE_PURE_BLACK_ENABLED] = settings.pureBlackEnabled
+        this[APPEARANCE_BLUR_ENABLED] = settings.blurEnabled
+        this[APPEARANCE_TOP_BAR_BLUR_STYLE] = settings.topBarBlurStyle.persistedValue
+        this[APPEARANCE_SWIPE_DISMISS_ENABLED] = settings.swipeDismissEnabled
+        this[APPEARANCE_PREDICTIVE_BACK_ENABLED] = settings.predictiveBackEnabled
+        this[APPEARANCE_INTERFACE_SCALE] = settings.interfaceScale
     }
 }

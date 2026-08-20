@@ -30,6 +30,9 @@ sealed interface AppRoute : NavKey {
     data object Settings : AppRoute
 
     @Serializable
+    data object AppearanceSettings : AppRoute
+
+    @Serializable
     data object Memory : AppRoute
 
     @Serializable

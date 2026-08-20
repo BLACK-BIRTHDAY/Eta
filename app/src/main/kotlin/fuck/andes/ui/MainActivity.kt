@@ -3,33 +3,63 @@ package fuck.andes.ui
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.lifecycleScope
 import fuck.andes.agent.voice.EtaAssistantOverlayService
+import fuck.andes.data.repository.AppearanceSettingsRepository
 import fuck.andes.ui.app.AgentAppRoot
 import fuck.andes.ui.app.AgentAppTheme
+import fuck.andes.ui.app.PredictiveBackController
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private var assistantConversationKey by mutableStateOf<String?>(null)
+    private var appliedPredictiveBackEnabled = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         updateAssistantHandoff(intent)
-        setContent {
-            AgentAppTheme {
-                AgentAppRoot(
-                    assistantConversationKey = assistantConversationKey,
-                    onAssistantConversationOpened = { opened ->
-                        assistantConversationKey = null
-                        if (opened) {
-                            EtaAssistantOverlayService.notifyHandoffReady(this)
-                        }
-                    },
-                )
+        lifecycleScope.launch {
+            val initialAppearance = AppearanceSettingsRepository.settings()
+            appliedPredictiveBackEnabled = initialAppearance.predictiveBackEnabled
+            setContent {
+                val appearance by AppearanceSettingsRepository.settingsFlow()
+                    .collectAsState(initial = initialAppearance)
+
+                LaunchedEffect(appearance.predictiveBackEnabled) {
+                    val enabled = appearance.predictiveBackEnabled
+                    if (enabled != appliedPredictiveBackEnabled &&
+                        PredictiveBackController.apply(applicationInfo, enabled)
+                    ) {
+                        appliedPredictiveBackEnabled = enabled
+                        recreateWithoutTransition()
+                    }
+                }
+
+                AgentAppTheme(
+                    appearance = appearance,
+                    applyInterfaceScale = true,
+                    onResolvedDarkModeChange = ::updateSystemBars,
+                ) {
+                    AgentAppRoot(
+                        assistantConversationKey = assistantConversationKey,
+                        onAssistantConversationOpened = { opened ->
+                            assistantConversationKey = null
+                            if (opened) {
+                                EtaAssistantOverlayService.notifyHandoffReady(this@MainActivity)
+                            }
+                        },
+                    )
+                }
             }
         }
     }
@@ -45,5 +75,34 @@ class MainActivity : ComponentActivity() {
         assistantConversationKey = intent.getStringExtra(
             EtaAssistantOverlayService.EXTRA_CONVERSATION_KEY,
         )?.takeIf(String::isNotBlank)
+    }
+
+    private fun updateSystemBars(isDark: Boolean) {
+        val style = if (isDark) {
+            SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        } else {
+            SystemBarStyle.light(
+                scrim = android.graphics.Color.TRANSPARENT,
+                darkScrim = android.graphics.Color.TRANSPARENT,
+            )
+        }
+        enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !isDark
+            isAppearanceLightNavigationBars = !isDark
+        }
+        window.decorView.post {
+            WindowInsetsControllerCompat(window, window.decorView).apply {
+                isAppearanceLightStatusBars = !isDark
+                isAppearanceLightNavigationBars = !isDark
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun recreateWithoutTransition() {
+        overridePendingTransition(0, 0)
+        recreate()
+        overridePendingTransition(0, 0)
     }
 }

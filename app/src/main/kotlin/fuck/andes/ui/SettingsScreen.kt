@@ -460,6 +460,24 @@ internal fun SettingsScreen(
                 }
             }
 
+            // ── 通用 ────────────────────────────────────────────────────
+            item(key = "section_general") {
+                SmallTitle(stringResource(R.string.settings_general))
+                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+                    ArrowPreference(
+                        title = stringResource(R.string.appearance_title),
+                        summary = stringResource(R.string.appearance_summary),
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_palette,
+                                tint = ColorOSRoyalBlue,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.AppearanceSettings) },
+                    )
+                }
+            }
+
             // ── 权限 ────────────────────────────────────────────────────
             item(key = "section_permissions") {
                 SmallTitle(stringResource(R.string.ui_permissions_560165))
