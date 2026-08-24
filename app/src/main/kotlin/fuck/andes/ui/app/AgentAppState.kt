@@ -1667,10 +1667,8 @@ internal class AgentAppState(
     private fun applyRunEvent(runId: String, event: AgentEvent) {
         when (event) {
             is AgentEvent.AssistantBlockStart -> {
-                if (event.kind == AgentEvent.AssistantBlockKind.TOOL_CALL) {
-                    updateRunTrace(runId) { messages ->
-                        runMessageProjector.finalizeTextRound(runId, event.round, messages)
-                    }
+                updateRunTrace(runId) { messages ->
+                    runMessageProjector.startAssistantBlock(runId, event, messages)
                 }
             }
 
@@ -1678,10 +1676,22 @@ internal class AgentAppState(
                 updateMessages(runId, updateTimestamp = false) { messages ->
                     when (event.kind) {
                         AgentEvent.AssistantBlockKind.TEXT ->
-                            runMessageProjector.appendTextDelta(runId, event.round, event.delta, messages)
+                            runMessageProjector.appendTextDelta(
+                                runId,
+                                event.round,
+                                event.index,
+                                event.delta,
+                                messages,
+                            )
 
                         AgentEvent.AssistantBlockKind.THINKING ->
-                            runMessageProjector.appendReasoningDelta(runId, event.round, event.delta, messages)
+                            runMessageProjector.appendReasoningDelta(
+                                runId,
+                                event.round,
+                                event.index,
+                                event.delta,
+                                messages,
+                            )
 
                         AgentEvent.AssistantBlockKind.TOOL_CALL -> messages
                     }
@@ -1692,10 +1702,22 @@ internal class AgentAppState(
                 updateRunTrace(runId) { messages ->
                     when (event.kind) {
                         AgentEvent.AssistantBlockKind.TEXT ->
-                            runMessageProjector.finalizeTextRound(runId, event.round, messages)
+                            runMessageProjector.finalizeTextBlock(
+                                runId,
+                                event.round,
+                                event.index,
+                                event.replacementContent,
+                                messages,
+                            )
 
                         AgentEvent.AssistantBlockKind.THINKING ->
-                            runMessageProjector.finalizeThinkingRound(runId, event.round, messages)
+                            runMessageProjector.finalizeThinkingBlock(
+                                runId,
+                                event.round,
+                                event.index,
+                                event.replacementContent,
+                                messages,
+                            )
 
                         AgentEvent.AssistantBlockKind.TOOL_CALL -> messages
                     }
@@ -1712,7 +1734,8 @@ internal class AgentAppState(
 
             is AgentEvent.ToolStarted -> {
                 updateRunTrace(runId) { messages ->
-                    val finalizedThinking = runMessageProjector.finalizeThinking(runId, messages)
+                    val finalizedThinking =
+                        runMessageProjector.finalizeThinkingRound(runId, event.round, messages)
                     val finalizedText = runMessageProjector.finalizeTextRound(runId, event.round, finalizedThinking)
                     runMessageProjector.startTool(runId, event, finalizedText)
                 }
@@ -1726,7 +1749,8 @@ internal class AgentAppState(
 
             is AgentEvent.HostedToolStarted -> {
                 updateRunTrace(runId) { messages ->
-                    val finalizedThinking = runMessageProjector.finalizeThinking(runId, messages)
+                    val finalizedThinking =
+                        runMessageProjector.finalizeThinkingRound(runId, event.round, messages)
                     val finalizedText = runMessageProjector.finalizeTextRound(runId, event.round, finalizedThinking)
                     runMessageProjector.startHostedTool(runId, event, finalizedText)
                 }
@@ -1787,11 +1811,9 @@ internal class AgentAppState(
         }
         applyConversationHistoryResult(runId, result.transcript)
         when {
-            result.ok && result.content.isNotBlank() -> replaceLatestAssistantMessage(
+            result.ok && result.content.isNotBlank() -> completeLatestAssistantMessage(
                 runId,
-                result.content,
-                isStreaming = false,
-                renderMarkdown = true,
+                fallbackContent = result.content,
             )
             result.ok -> replaceLatestAssistantWithNotice(runId, SystemNoticeCode.EmptyResult)
             result.error == LEGACY_STOPPED_ERROR || result.error == SYNTHETIC_STATUS_STOPPED ->
@@ -1830,9 +1852,11 @@ internal class AgentAppState(
         // 只补充 token 用量。不能触碰 isStreaming：Usage 事件紧跟在文本块结束之后，
         // 若把 isStreaming 改回 true，流式渲染会在流式/静态两种视图间反复切换，整段重渲染。
         updateMessages(runId) { messages ->
-            val assistantId = assistantMessageId(runId, round)
-            messages.map { message ->
-                if (message is AgentMessageUi && message.id == assistantId) {
+            val targetIndex = messages.indexOfLast { message ->
+                message is AgentMessageUi && isAssistantMessageForRound(message.id, runId, round)
+            }
+            messages.mapIndexed { index, message ->
+                if (index == targetIndex && message is AgentMessageUi) {
                     message.copy(usage = usage)
                 } else {
                     message
@@ -1859,59 +1883,46 @@ internal class AgentAppState(
         persistConversations()
     }
 
-    private fun replaceAssistantMessage(
+    private fun completeLatestAssistantMessage(
         runId: String,
-        round: Int,
-        content: String,
-        isStreaming: Boolean,
-        renderMarkdown: Boolean? = null,
-        usage: TokenUsageUi? = null,
+        fallbackContent: String,
     ) {
         updateMessages(runId) { messages ->
-            val assistantId = assistantMessageId(runId, round)
-            var replaced = false
-            val updated = messages.map { message ->
-                if (message is AgentMessageUi && message.id == assistantId) {
-                    replaced = true
-                    message.copy(
-                        content = content,
-                        isStreaming = isStreaming,
-                        renderMarkdown = renderMarkdown ?: message.renderMarkdown,
-                        usage = usage ?: message.usage,
-                    )
-                } else {
-                    message
+            val targetIndex = messages.indexOfLast { message ->
+                message is AgentMessageUi && message.id.startsWith(assistantMessagePrefix(runId))
+            }
+            if (targetIndex < 0) {
+                messages + AgentMessageUi(
+                    id = assistantFallbackMessageId(runId),
+                    content = fallbackContent,
+                    isStreaming = false,
+                    renderMarkdown = true,
+                )
+            } else {
+                val targetRound = (messages[targetIndex] as AgentMessageUi).id
+                    .assistantRound(runId)
+                val sameRoundBlocks = targetRound?.let { round ->
+                    messages.count { message ->
+                        message is AgentMessageUi && message.id.assistantRound(runId) == round
+                    }
+                } ?: 0
+                messages.mapIndexed { index, message ->
+                    if (index == targetIndex && message is AgentMessageUi) {
+                        message.copy(
+                            content = if (sameRoundBlocks <= 1) {
+                                fallbackContent
+                            } else {
+                                message.content.ifBlank { fallbackContent }
+                            },
+                            isStreaming = false,
+                            renderMarkdown = true,
+                        )
+                    } else {
+                        message
+                    }
                 }
             }
-            if (replaced) {
-                updated
-            } else {
-                updated + AgentMessageUi(
-                    id = assistantId,
-                    content = content,
-                    isStreaming = isStreaming,
-                    renderMarkdown = renderMarkdown ?: false,
-                    usage = usage,
-                )
-            }
         }
-    }
-
-    private fun replaceLatestAssistantMessage(
-        runId: String,
-        content: String,
-        isStreaming: Boolean,
-        renderMarkdown: Boolean? = null,
-        usage: TokenUsageUi? = null,
-    ) {
-        replaceAssistantMessage(
-            runId = runId,
-            round = latestAssistantRound(runId) ?: 1,
-            content = content,
-            isStreaming = isStreaming,
-            renderMarkdown = renderMarkdown,
-            usage = usage,
-        )
     }
 
     private fun replaceLatestAssistantWithNotice(
@@ -1919,37 +1930,39 @@ internal class AgentAppState(
         code: SystemNoticeCode,
         detail: String? = null,
     ) {
-        val targetId = latestAssistantRound(runId)?.let { assistantMessageId(runId, it) }
-            ?: assistantMessageId(runId, 1)
         updateMessages(runId) { messages ->
-            var replaced = false
-            val updated = messages.map { message ->
-                if (message is AgentMessageUi && message.id == targetId) {
-                    replaced = true
-                    SystemNoticeMessageUi(targetId, code, detail)
-                } else {
-                    message
+            val targetIndex = messages.indexOfLast { message ->
+                message is AgentMessageUi && message.id.startsWith(assistantMessagePrefix(runId))
+            }
+            if (targetIndex < 0) {
+                messages + SystemNoticeMessageUi(assistantFallbackMessageId(runId), code, detail)
+            } else {
+                messages.mapIndexed { index, message ->
+                    if (index == targetIndex && message is AgentMessageUi) {
+                        SystemNoticeMessageUi(message.id, code, detail)
+                    } else {
+                        message
+                    }
                 }
             }
-            if (replaced) updated else updated + SystemNoticeMessageUi(targetId, code, detail)
         }
     }
-
-    private fun latestAssistantRound(runId: String): Int? =
-        conversationStateForRun(runId).messages
-            .filterIsInstance<AgentMessageUi>()
-            .mapNotNull { assistantRound(runId, it.id) }
-            .maxOrNull()
-
-    private fun assistantMessageId(runId: String, round: Int): String =
-        "${assistantMessagePrefix(runId)}$round"
 
     private fun assistantMessagePrefix(runId: String): String =
         "assistant-$runId-"
 
-    private fun assistantRound(runId: String, messageId: String): Int? =
-        messageId.removePrefix(assistantMessagePrefix(runId))
-            .takeIf { it != messageId }
+    private fun assistantFallbackMessageId(runId: String): String =
+        "${assistantMessagePrefix(runId)}1"
+
+    private fun isAssistantMessageForRound(messageId: String, runId: String, round: Int): Boolean {
+        val legacyId = "${assistantMessagePrefix(runId)}$round"
+        return messageId == legacyId || messageId.startsWith("$legacyId-")
+    }
+
+    private fun String.assistantRound(runId: String): Int? =
+        removePrefix(assistantMessagePrefix(runId))
+            .takeIf { it != this }
+            ?.substringBefore('-')
             ?.toIntOrNull()
 
     private fun updateMessages(

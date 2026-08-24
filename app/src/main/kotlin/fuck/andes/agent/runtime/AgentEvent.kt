@@ -74,6 +74,7 @@ internal sealed interface AgentEvent {
         val blockId: String? = null,
         val name: String? = null,
         val contentChars: Int,
+        val replacementContent: String? = null,
     ) : AgentEvent {
         override fun toLogLine(): String =
             "assistant_block_end round=$round, kind=$kind, index=$index, " +

@@ -253,6 +253,91 @@ class OpenAiResponsesProviderTest {
     }
 
     @Test
+    fun completePreservesInterleavedResponseItemOrderAndBlockIdentity() {
+        val terminalOutput = JSONArray()
+            .put(reasoningItem("rs_1", "先判断"))
+            .put(messageItem("msg_1", "我先查一下。"))
+            .put(JSONObject().put("id", "ws_1").put("type", "web_search_call").put("status", "completed"))
+            .put(reasoningItem("rs_2", "整理结果"))
+            .put(messageItem("msg_2", "这是最终答案。"))
+        val body = buildString {
+            append(responseTextEvent("response.reasoning_summary_text.delta", "rs_1", 0, "delta", "先判断"))
+            append(responseTextEvent("response.reasoning_summary_text.done", "rs_1", 0, "text", "先判断"))
+            append(responseTextEvent("response.output_text.delta", "msg_1", 1, "delta", "我先查一下。"))
+            append(responseTextEvent("response.output_text.done", "msg_1", 1, "text", "我先查一下。"))
+            append(
+                event(
+                    "response.output_item.added",
+                    JSONObject()
+                        .put("output_index", 2)
+                        .put("item", JSONObject().put("id", "ws_1").put("type", "web_search_call")),
+                ),
+            )
+            append(
+                event(
+                    "response.output_item.done",
+                    JSONObject()
+                        .put("output_index", 2)
+                        .put(
+                            "item",
+                            JSONObject()
+                                .put("id", "ws_1")
+                                .put("type", "web_search_call")
+                                .put("status", "completed"),
+                        ),
+                ),
+            )
+            append(responseTextEvent("response.reasoning_summary_text.delta", "rs_2", 3, "delta", "整理结果"))
+            append(responseTextEvent("response.reasoning_summary_text.done", "rs_2", 3, "text", "整理结果"))
+            append(responseTextEvent("response.output_text.delta", "msg_2", 4, "delta", "这是最终答案。"))
+            append(responseTextEvent("response.output_text.done", "msg_2", 4, "text", "这是最终答案。"))
+            append(
+                event(
+                    "response.completed",
+                    JSONObject().put(
+                        "response",
+                        JSONObject().put("status", "completed").put("output", terminalOutput),
+                    ),
+                ),
+            )
+        }
+
+        withSseServer(body) { baseUrl ->
+            val events = mutableListOf<ProviderEvent>()
+            val result = OpenAiResponsesProvider.complete(
+                ProviderRequest(
+                    config(baseUrl),
+                    JSONArray().put(JSONObject().put("role", "user").put("content", "搜索")),
+                    JSONArray(),
+                ),
+                AgentRunController(),
+                events::add,
+            )
+
+            assertEquals("我先查一下。这是最终答案。", result.assistantMessage.getString("content"))
+            assertEquals(
+                listOf(
+                    "start:THINKING:0",
+                    "delta:THINKING:0:先判断",
+                    "end:THINKING:0",
+                    "start:TEXT:1",
+                    "delta:TEXT:1:我先查一下。",
+                    "end:TEXT:1",
+                    "hosted-start:ws_1",
+                    "hosted-end:ws_1",
+                    "start:THINKING:2",
+                    "delta:THINKING:2:整理结果",
+                    "end:THINKING:2",
+                    "start:TEXT:3",
+                    "delta:TEXT:3:这是最终答案。",
+                    "end:TEXT:3",
+                ),
+                events.mapNotNull(::timelineLabel),
+            )
+        }
+    }
+
+    @Test
     fun completeUsesStreamedToolCallWhenCompletedOutputIsEmpty() {
         val body = buildString {
             append(
@@ -351,6 +436,41 @@ class OpenAiResponsesProviderTest {
     private fun event(type: String, fields: JSONObject): String {
         val event = JSONObject(fields.toString()).put("type", type)
         return "event: $type\ndata: $event\n\n"
+    }
+
+    private fun responseTextEvent(
+        type: String,
+        itemId: String,
+        outputIndex: Int,
+        valueKey: String,
+        value: String,
+    ): String = event(
+        type,
+        JSONObject()
+            .put("item_id", itemId)
+            .put("output_index", outputIndex)
+            .put("summary_index", 0)
+            .put("content_index", 0)
+            .put(valueKey, value),
+    )
+
+    private fun reasoningItem(id: String, text: String): JSONObject = JSONObject()
+        .put("id", id)
+        .put("type", "reasoning")
+        .put("summary", JSONArray().put(JSONObject().put("text", text)))
+
+    private fun messageItem(id: String, text: String): JSONObject = JSONObject()
+        .put("id", id)
+        .put("type", "message")
+        .put("content", JSONArray().put(JSONObject().put("type", "output_text").put("text", text)))
+
+    private fun timelineLabel(event: ProviderEvent): String? = when (event) {
+        is ProviderEvent.BlockStart -> "start:${event.kind}:${event.index}"
+        is ProviderEvent.BlockDelta -> "delta:${event.kind}:${event.index}:${event.delta}"
+        is ProviderEvent.BlockEnd -> "end:${event.kind}:${event.index}"
+        is ProviderEvent.HostedToolStarted -> "hosted-start:${event.id}"
+        is ProviderEvent.HostedToolFinished -> "hosted-end:${event.id}"
+        else -> null
     }
 
     private fun withSseServer(

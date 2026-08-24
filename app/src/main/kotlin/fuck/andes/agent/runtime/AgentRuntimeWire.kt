@@ -586,6 +586,7 @@ internal object AgentRuntimeWire {
                 putString("block_id", event.blockId)
                 putString("name", event.name)
                 putInt("content_chars", event.contentChars)
+                putString("replacement_content", event.replacementContent)
             }
 
             is AgentEvent.AssistantReceived -> {
@@ -716,6 +717,7 @@ internal object AgentRuntimeWire {
             blockId = bundle.getString("block_id"),
             name = bundle.getString("name"),
             contentChars = bundle.getInt("content_chars"),
+            replacementContent = bundle.getString("replacement_content"),
         )
 
         "assistant_received" -> AgentEvent.AssistantReceived(

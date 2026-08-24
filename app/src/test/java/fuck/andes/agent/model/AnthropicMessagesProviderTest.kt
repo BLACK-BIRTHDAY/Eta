@@ -96,6 +96,24 @@ class AnthropicMessagesProviderTest {
                     .filter { it.kind == AssistantBlockKind.TEXT }
                     .joinToString("") { it.delta }
             )
+            assertEquals(
+                listOf(
+                    "start:TEXT:0",
+                    "delta:TEXT:0:Hello",
+                    "end:TEXT:0",
+                    "start:TOOL_CALL:1",
+                    "delta:TOOL_CALL:1:{\"include_screenshot\":true}",
+                    "end:TOOL_CALL:1",
+                ),
+                events.mapNotNull { event ->
+                    when (event) {
+                        is ProviderEvent.BlockStart -> "start:${event.kind}:${event.index}"
+                        is ProviderEvent.BlockDelta -> "delta:${event.kind}:${event.index}:${event.delta}"
+                        is ProviderEvent.BlockEnd -> "end:${event.kind}:${event.index}"
+                        else -> null
+                    }
+                },
+            )
             assertEquals(1, events.filterIsInstance<ProviderEvent.Usage>().size)
         }
     }

@@ -112,6 +112,51 @@ class AgentPendingResultRecoveryTest {
     }
 
     @Test
+    fun recoveryDoesNotMergeEarlierTextBlockIntoSameRoundFinalBlock() {
+        val state = AgentChatUiState(
+            messages = listOf(
+                AgentMessageUi(
+                    id = "assistant-run-blocks-1-1",
+                    content = "我先搜索。",
+                    isStreaming = false,
+                    renderMarkdown = true,
+                ),
+                AgentMessageUi(
+                    id = "assistant-run-blocks-1-3",
+                    content = "这是最终答案。",
+                    isStreaming = false,
+                    renderMarkdown = true,
+                ),
+            ),
+            input = "",
+            isStreaming = true,
+            thinkingEnabled = false,
+        )
+
+        val recovered = AgentPendingResultRecovery.apply(
+            state = state,
+            runId = "run-blocks",
+            result = AgentRuntimeWire.RunResult(
+                runId = "run-blocks",
+                ok = true,
+                content = "我先搜索。这是最终答案。",
+                transcript = listOf(
+                    AgentModelClient.ConversationMessage(
+                        role = "assistant",
+                        content = "我先搜索。这是最终答案。",
+                    ),
+                ),
+            ),
+            supplements = emptyList(),
+        )
+
+        assertEquals(
+            listOf("我先搜索。", "这是最终答案。"),
+            recovered.state.messages.filterIsInstance<AgentMessageUi>().map { it.content },
+        )
+    }
+
+    @Test
     fun recoveryUsesSemanticNoticeForSuccessfulRunWithoutText() {
         val recovered = AgentPendingResultRecovery.apply(
             state = AgentChatUiState(

@@ -469,18 +469,28 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         var phase = state.phase
         when (event) {
             is AgentEvent.AssistantBlockStart -> {
-                if (event.kind == AgentEvent.AssistantBlockKind.TOOL_CALL) {
-                    messages = runMessageProjector.finalizeTextRound(runId, event.round, messages)
-                }
+                messages = runMessageProjector.startAssistantBlock(runId, event, messages)
             }
 
             is AgentEvent.AssistantBlockDelta -> {
                 messages = when (event.kind) {
                     AgentEvent.AssistantBlockKind.TEXT ->
-                        runMessageProjector.appendTextDelta(runId, event.round, event.delta, messages)
+                        runMessageProjector.appendTextDelta(
+                            runId,
+                            event.round,
+                            event.index,
+                            event.delta,
+                            messages,
+                        )
 
                     AgentEvent.AssistantBlockKind.THINKING ->
-                        runMessageProjector.appendReasoningDelta(runId, event.round, event.delta, messages)
+                        runMessageProjector.appendReasoningDelta(
+                            runId,
+                            event.round,
+                            event.index,
+                            event.delta,
+                            messages,
+                        )
 
                     AgentEvent.AssistantBlockKind.TOOL_CALL -> messages
                 }
@@ -489,17 +499,29 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             is AgentEvent.AssistantBlockEnd -> {
                 messages = when (event.kind) {
                     AgentEvent.AssistantBlockKind.TEXT ->
-                        runMessageProjector.finalizeTextRound(runId, event.round, messages)
+                        runMessageProjector.finalizeTextBlock(
+                            runId,
+                            event.round,
+                            event.index,
+                            event.replacementContent,
+                            messages,
+                        )
 
                     AgentEvent.AssistantBlockKind.THINKING ->
-                        runMessageProjector.finalizeThinkingRound(runId, event.round, messages)
+                        runMessageProjector.finalizeThinkingBlock(
+                            runId,
+                            event.round,
+                            event.index,
+                            event.replacementContent,
+                            messages,
+                        )
 
                     AgentEvent.AssistantBlockKind.TOOL_CALL -> messages
                 }
             }
 
             is AgentEvent.UsageReceived -> {
-                val assistantId = "assistant-$runId-${event.round}"
+                val assistantPrefix = "assistant-$runId-${event.round}"
                 val usage = TokenUsageUi(
                     contextTokens = event.usage.contextTokens,
                     inputTokens = event.usage.inputTokens,
@@ -507,8 +529,12 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                     reasoningTokens = event.usage.reasoningTokens,
                     cachedTokens = event.usage.cachedTokens,
                 )
-                messages = messages.map { message ->
-                    if (message is AgentMessageUi && message.id == assistantId) {
+                val targetIndex = messages.indexOfLast { message ->
+                    message is AgentMessageUi &&
+                        (message.id == assistantPrefix || message.id.startsWith("$assistantPrefix-"))
+                }
+                messages = messages.mapIndexed { index, message ->
+                    if (index == targetIndex && message is AgentMessageUi) {
                         message.copy(usage = usage)
                     } else {
                         message
@@ -531,7 +557,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                     runMessageProjector.finalizeTextRound(
                         runId,
                         event.round,
-                        runMessageProjector.finalizeThinking(runId, messages),
+                        runMessageProjector.finalizeThinkingRound(runId, event.round, messages),
                     ),
                 )
             }
@@ -548,7 +574,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                     runMessageProjector.finalizeTextRound(
                         runId,
                         event.round,
-                        runMessageProjector.finalizeThinking(runId, messages),
+                        runMessageProjector.finalizeThinkingRound(runId, event.round, messages),
                     ),
                 )
             }
@@ -621,11 +647,22 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             message is AgentMessageUi && message.id.startsWith("assistant-$runId-")
         }
         messages = if (lastAssistantIndex >= 0) {
+            val targetRound = (messages[lastAssistantIndex] as AgentMessageUi).id
+                .assistantRound(runId)
+            val sameRoundBlocks = targetRound?.let { round ->
+                messages.count { message ->
+                    message is AgentMessageUi && message.id.assistantRound(runId) == round
+                }
+            } ?: 0
             messages.mapIndexed { index, message ->
                 if (index == lastAssistantIndex && message is AgentMessageUi) {
                     if (notice == null) {
                         message.copy(
-                            content = result.content,
+                            content = if (sameRoundBlocks <= 1) {
+                                result.content
+                            } else {
+                                message.content.ifBlank { result.content }
+                            },
                             isStreaming = false,
                             renderMarkdown = true,
                         )
@@ -658,6 +695,14 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         }
         runMessageProjector.clearRun(runId)
         return messages
+    }
+
+    private fun String.assistantRound(runId: String): Int? {
+        val prefix = "assistant-$runId-"
+        return removePrefix(prefix)
+            .takeIf { it != this }
+            ?.substringBefore('-')
+            ?.toIntOrNull()
     }
 
     private fun stopCurrentRun() {

@@ -96,6 +96,7 @@ internal sealed interface ProviderEvent {
         val blockId: String? = null,
         val name: String? = null,
         val content: String = "",
+        val replaceContent: Boolean = false,
     ) : ProviderEvent
 
     data class Usage(

@@ -326,6 +326,7 @@ internal class AgentLoop(
                 blockId = blockId,
                 name = name,
                 contentChars = content.length,
+                replacementContent = content.takeIf { replaceContent },
             )
             is ProviderEvent.Usage -> AgentEvent.UsageReceived(round = round, usage = usage)
             is ProviderEvent.HostedToolStarted -> AgentEvent.HostedToolStarted(

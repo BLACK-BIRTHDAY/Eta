@@ -41,6 +41,51 @@ class OpenAiChatCompletionsProviderTest {
     }
 
     @Test
+    fun completeSplitsVisibleBlocksWhenDeltaTypeChanges() {
+        val body = buildString {
+            append(sseChunk(JSONObject().put("reasoning_content", "先分析")))
+            append(sseChunk(JSONObject().put("content", "先说明")))
+            append(sseChunk(JSONObject().put("reasoning_content", "再确认")))
+            append(sseChunk(JSONObject().put("content", "最终回答"), finishReason = "stop"))
+            append("data: [DONE]\n\n")
+        }
+
+        withSseServer(body) { baseUrl ->
+            val events = mutableListOf<ProviderEvent>()
+            OpenAiChatCompletionsProvider.complete(
+                request = providerRequest(baseUrl),
+                runController = AgentRunController(),
+                onEvent = events::add,
+            )
+
+            assertEquals(
+                listOf(
+                    "start:THINKING:0",
+                    "delta:THINKING:0:先分析",
+                    "end:THINKING:0",
+                    "start:TEXT:1",
+                    "delta:TEXT:1:先说明",
+                    "end:TEXT:1",
+                    "start:THINKING:2",
+                    "delta:THINKING:2:再确认",
+                    "end:THINKING:2",
+                    "start:TEXT:3",
+                    "delta:TEXT:3:最终回答",
+                    "end:TEXT:3",
+                ),
+                events.mapNotNull { event ->
+                    when (event) {
+                        is ProviderEvent.BlockStart -> "start:${event.kind}:${event.index}"
+                        is ProviderEvent.BlockDelta -> "delta:${event.kind}:${event.index}:${event.delta}"
+                        is ProviderEvent.BlockEnd -> "end:${event.kind}:${event.index}"
+                        else -> null
+                    }
+                },
+            )
+        }
+    }
+
+    @Test
     fun completeAcceptsFinishReasonWhenServerClosesWithoutDone() {
         val usage = JSONObject()
             .put("prompt_tokens", 10)

@@ -20,7 +20,7 @@ class AgentRunMessageProjectorTest {
         val runId = "run-1"
         var messages: List<AgentChatMessageUi> = listOf(UserMessageUi(id = "user-$runId", content = "看屏幕"))
 
-        messages = projector.appendReasoningDelta(runId, round = 1, delta = "先观察", messages)
+        messages = projector.appendReasoningDelta(runId, round = 1, index = 0, delta = "先观察", messages)
         now = 4_000L
         messages = projector.startTool(
             runId,
@@ -46,7 +46,7 @@ class AgentRunMessageProjectorTest {
         )
 
         now = 5_000L
-        messages = projector.appendReasoningDelta(runId, round = 2, delta = "再确认", messages)
+        messages = projector.appendReasoningDelta(runId, round = 2, index = 0, delta = "再确认", messages)
         messages = projector.startTool(
             runId,
             AgentEvent.ToolStarted(
@@ -62,9 +62,9 @@ class AgentRunMessageProjectorTest {
         assertEquals(
             listOf(
                 "user-$runId",
-                "$runId-thinking-1",
+                "$runId-thinking-1-0",
                 "$runId-tool-1-call_observe_1",
-                "$runId-thinking-2",
+                "$runId-thinking-2-0",
                 "$runId-tool-2-call_observe_2",
             ),
             messages.map { it.id }
@@ -93,7 +93,7 @@ class AgentRunMessageProjectorTest {
             AgentMessageUi(id = "assistant-$runId-1", content = "第一轮", isStreaming = false),
         )
 
-        messages = projector.appendReasoningDelta(runId, round = 2, delta = "继续推理", messages)
+        messages = projector.appendReasoningDelta(runId, round = 2, index = 0, delta = "继续推理", messages)
         messages = projector.startTool(
             runId,
             AgentEvent.ToolStarted(
@@ -104,16 +104,16 @@ class AgentRunMessageProjectorTest {
             ),
             projector.finalizeThinkingRound(runId, round = 2, messages)
         )
-        messages = projector.appendTextDelta(runId, round = 2, delta = "第二轮", messages)
-        messages = projector.appendTextDelta(runId, round = 2, delta = "回答", messages)
+        messages = projector.appendTextDelta(runId, round = 2, index = 1, delta = "第二轮", messages)
+        messages = projector.appendTextDelta(runId, round = 2, index = 1, delta = "回答", messages)
 
         assertEquals(
             listOf(
                 "user-$runId",
                 "assistant-$runId-1",
-                "$runId-thinking-2",
+                "$runId-thinking-2-0",
                 "$runId-tool-2-call_2",
-                "assistant-$runId-2",
+                "assistant-$runId-2-1",
             ),
             messages.map { it.id }
         )
@@ -177,7 +177,7 @@ class AgentRunMessageProjectorTest {
             UserMessageUi(id = "user-$runId", content = "搜一下")
         )
 
-        messages = projector.appendTextDelta(runId, round = 1, delta = "先查找应用", messages)
+        messages = projector.appendTextDelta(runId, round = 1, index = 0, delta = "先查找应用", messages)
         messages = projector.startTool(
             runId,
             AgentEvent.ToolStarted(
@@ -192,7 +192,7 @@ class AgentRunMessageProjectorTest {
         assertEquals(
             listOf(
                 "user-$runId",
-                "assistant-$runId-1",
+                "assistant-$runId-1-0",
                 "$runId-tool-1-call_1",
             ),
             messages.map { it.id }
@@ -207,7 +207,7 @@ class AgentRunMessageProjectorTest {
             UserMessageUi(id = "user-$runId", content = "你好")
         )
 
-        messages = projector.appendTextDelta(runId, round = 1, delta = "回答。\n\n", messages)
+        messages = projector.appendTextDelta(runId, round = 1, index = 0, delta = "回答。\n\n", messages)
         messages = projector.finalizeTextRound(runId, round = 1, messages)
 
         val assistant = messages.last() as AgentMessageUi
@@ -235,5 +235,75 @@ class AgentRunMessageProjectorTest {
 
         assertEquals(ToolActivityStatusUi.Unknown, tool.status)
         assertEquals("任务中断", tool.resultSummary)
+    }
+
+    @Test
+    fun keepsInterleavedReasoningTextAndHostedToolInEventOrder() {
+        val projector = AgentRunMessageProjector(nowElapsedRealtime = { 1_000L })
+        val runId = "run-interleaved"
+        var messages: List<AgentChatMessageUi> = listOf(
+            UserMessageUi(id = "user-$runId", content = "搜索最新消息"),
+        )
+
+        messages = projector.appendReasoningDelta(
+            runId,
+            round = 1,
+            index = 0,
+            delta = "先判断需要搜索",
+            messages,
+        )
+        messages = projector.appendTextDelta(
+            runId,
+            round = 1,
+            index = 1,
+            delta = "我先查一下。",
+            messages,
+        )
+        messages = projector.startHostedTool(
+            runId,
+            AgentEvent.HostedToolStarted(round = 1, toolCallId = "ws_1", name = "网页搜索"),
+            projector.finalizeTextRound(runId, round = 1, messages),
+        )
+        messages = projector.finishHostedTool(
+            runId,
+            AgentEvent.HostedToolFinished(
+                round = 1,
+                toolCallId = "ws_1",
+                name = "网页搜索",
+                success = true,
+            ),
+            messages,
+        )
+        messages = projector.appendReasoningDelta(
+            runId,
+            round = 1,
+            index = 2,
+            delta = "整理搜索结果",
+            messages,
+        )
+        messages = projector.appendTextDelta(
+            runId,
+            round = 1,
+            index = 3,
+            delta = "这是最终答案。",
+            messages,
+        )
+
+        assertEquals(
+            listOf(
+                "user-$runId",
+                "$runId-thinking-1-0",
+                "assistant-$runId-1-1",
+                "$runId-tool-1-ws_1",
+                "$runId-thinking-1-2",
+                "assistant-$runId-1-3",
+            ),
+            messages.map { it.id },
+        )
+        assertFalse((messages[1] as ThinkingMessageUi).isStreaming)
+        assertFalse((messages[2] as AgentMessageUi).isStreaming)
+        assertEquals(ToolActivityStatusUi.Success, (messages[3] as ToolActivityMessageUi).status)
+        assertFalse((messages[4] as ThinkingMessageUi).isStreaming)
+        assertTrue((messages[5] as AgentMessageUi).isStreaming)
     }
 }

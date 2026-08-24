@@ -132,8 +132,36 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
         var sawDone = false
         var finishReason: String? = null
         var nextContentIndex = 0
-        var thinkingContentIndex: Int? = null
-        var textContentIndex: Int? = null
+        var activeVisibleBlock: StreamingVisibleBlock? = null
+
+        fun finishActiveVisibleBlock() {
+            val block = activeVisibleBlock ?: return
+            onEvent(
+                ProviderEvent.BlockEnd(
+                    kind = block.kind,
+                    index = block.contentIndex,
+                    content = block.content.toString(),
+                )
+            )
+            activeVisibleBlock = null
+        }
+
+        fun appendVisibleDelta(kind: AssistantBlockKind, delta: String) {
+            if (delta.isEmpty()) return
+            var block = activeVisibleBlock
+            if (block?.kind != kind) {
+                finishActiveVisibleBlock()
+                block = StreamingVisibleBlock(
+                    kind = kind,
+                    contentIndex = nextContentIndex++,
+                ).also { created ->
+                    activeVisibleBlock = created
+                    onEvent(ProviderEvent.BlockStart(kind, created.contentIndex))
+                }
+            }
+            block.content.append(delta)
+            onEvent(ProviderEvent.BlockDelta(kind, block.contentIndex, delta))
+        }
 
         BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { reader ->
             while (true) {
@@ -167,40 +195,19 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
                 if (delta.has("reasoning_content") && !delta.isNull("reasoning_content")) {
                     val text = delta.optString("reasoning_content")
                     if (text.isNotEmpty()) {
-                        val index = thinkingContentIndex ?: nextContentIndex++
-                            .also {
-                                thinkingContentIndex = it
-                                onEvent(ProviderEvent.BlockStart(AssistantBlockKind.THINKING, it))
-                            }
                         reasoningContent.append(text)
-                        onEvent(
-                            ProviderEvent.BlockDelta(
-                                kind = AssistantBlockKind.THINKING,
-                                index = index,
-                                delta = text,
-                            )
-                        )
+                        appendVisibleDelta(AssistantBlockKind.THINKING, text)
                     }
                 }
                 if (delta.has("content") && !delta.isNull("content")) {
                     val text = delta.optString("content")
                     if (text.isNotEmpty()) {
-                        val index = textContentIndex ?: nextContentIndex++
-                            .also {
-                                textContentIndex = it
-                                onEvent(ProviderEvent.BlockStart(AssistantBlockKind.TEXT, it))
-                            }
                         content.append(text)
-                        onEvent(
-                            ProviderEvent.BlockDelta(
-                                kind = AssistantBlockKind.TEXT,
-                                index = index,
-                                delta = text,
-                            )
-                        )
+                        appendVisibleDelta(AssistantBlockKind.TEXT, text)
                     }
                 }
                 val deltaToolCalls = delta.optJSONArray("tool_calls") ?: continue
+                if (deltaToolCalls.length() > 0) finishActiveVisibleBlock()
                 for (i in 0 until deltaToolCalls.length()) {
                     val item = deltaToolCalls.optJSONObject(i) ?: continue
                     val index = item.optInt("index", i)
@@ -240,24 +247,7 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
         if (!sawStreamData) error("模型接口未返回 SSE data chunk")
         if (!sawDone && finishReason == null) error("模型接口 SSE 流未正常结束")
 
-        thinkingContentIndex?.let { index ->
-            onEvent(
-                ProviderEvent.BlockEnd(
-                    kind = AssistantBlockKind.THINKING,
-                    index = index,
-                    content = reasoningContent.toString(),
-                )
-            )
-        }
-        textContentIndex?.let { index ->
-            onEvent(
-                ProviderEvent.BlockEnd(
-                    kind = AssistantBlockKind.TEXT,
-                    index = index,
-                    content = content.toString(),
-                )
-            )
-        }
+        finishActiveVisibleBlock()
         toolCalls.values.sortedBy { it.contentIndex }.forEach { call ->
             onEvent(
                 ProviderEvent.BlockEnd(
@@ -313,6 +303,12 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
                 )
         }
     }
+
+    private data class StreamingVisibleBlock(
+        val kind: AssistantBlockKind,
+        val contentIndex: Int,
+        val content: StringBuilder = StringBuilder(),
+    )
 
     private fun mergeExtraBody(request: JSONObject, extraBodyJson: String) {
         if (extraBodyJson.isBlank()) return

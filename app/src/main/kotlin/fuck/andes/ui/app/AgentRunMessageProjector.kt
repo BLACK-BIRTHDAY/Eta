@@ -13,17 +13,37 @@ internal class AgentRunMessageProjector(
 ) {
     private val thinkingStartedAt = mutableMapOf<String, Long>()
 
+    fun startAssistantBlock(
+        runId: String,
+        event: AgentEvent.AssistantBlockStart,
+        messages: List<AgentChatMessageUi>,
+    ): List<AgentChatMessageUi> = transitionVisibleBlock(
+        runId = runId,
+        round = event.round,
+        kind = event.kind,
+        index = event.index,
+        messages = messages,
+    )
+
     fun appendTextDelta(
         runId: String,
         round: Int,
+        index: Int,
         delta: String,
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
         if (delta.isEmpty()) return messages
 
-        val assistantId = assistantMessageId(runId, round)
+        val transitioned = transitionVisibleBlock(
+            runId = runId,
+            round = round,
+            kind = AgentEvent.AssistantBlockKind.TEXT,
+            index = index,
+            messages = messages,
+        )
+        val assistantId = assistantMessageId(runId, round, index)
         var updated = false
-        val next = messages.map { message ->
+        val next = transitioned.map { message ->
             if (message is AgentMessageUi && message.id == assistantId) {
                 updated = true
                 message.copy(
@@ -48,15 +68,23 @@ internal class AgentRunMessageProjector(
     fun appendReasoningDelta(
         runId: String,
         round: Int,
+        index: Int,
         delta: String,
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
         if (delta.isEmpty()) return messages
 
-        val thinkingId = thinkingMessageId(runId, round)
+        val transitioned = transitionVisibleBlock(
+            runId = runId,
+            round = round,
+            kind = AgentEvent.AssistantBlockKind.THINKING,
+            index = index,
+            messages = messages,
+        )
+        val thinkingId = thinkingMessageId(runId, round, index)
         val elapsedSeconds = elapsedSeconds(thinkingId)
         var updated = false
-        val next = messages.map { message ->
+        val next = transitioned.map { message ->
             if (message is ThinkingMessageUi && message.id == thinkingId) {
                 updated = true
                 message.copy(
@@ -71,16 +99,12 @@ internal class AgentRunMessageProjector(
         }
         if (updated) return next
 
-        return next.insertBeforeAssistant(
-            runId = runId,
-            round = round,
-            message = ThinkingMessageUi(
-                id = thinkingId,
-                content = delta,
-                isStreaming = true,
-                elapsedSeconds = elapsedSeconds,
-                collapsed = false,
-            )
+        return next + ThinkingMessageUi(
+            id = thinkingId,
+            content = delta,
+            isStreaming = true,
+            elapsedSeconds = elapsedSeconds,
+            collapsed = false,
         )
     }
 
@@ -90,12 +114,15 @@ internal class AgentRunMessageProjector(
         content: String,
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
-        val thinkingId = thinkingMessageId(runId, round)
-        if (messages.any { it is ThinkingMessageUi && it.id == thinkingId }) {
+        if (messages.any {
+                it is ThinkingMessageUi && isThinkingMessageForRound(it.id, runId, round)
+            }
+        ) {
             return finalizeThinkingRound(runId, round, messages)
         }
 
-        return messages.insertBeforeAssistant(
+        val thinkingId = thinkingFallbackMessageId(runId, round)
+        return messages.insertBeforeFirstAssistant(
             runId = runId,
             round = round,
             message = ThinkingMessageUi(
@@ -122,10 +149,26 @@ internal class AgentRunMessageProjector(
         round: Int,
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
-        val thinkingId = thinkingMessageId(runId, round)
+        return messages.map { message ->
+            if (message is ThinkingMessageUi && isThinkingMessageForRound(message.id, runId, round)) {
+                message.finished()
+            } else {
+                message
+            }
+        }
+    }
+
+    fun finalizeThinkingBlock(
+        runId: String,
+        round: Int,
+        index: Int,
+        replacementContent: String?,
+        messages: List<AgentChatMessageUi>,
+    ): List<AgentChatMessageUi> {
+        val thinkingId = thinkingMessageId(runId, round, index)
         return messages.map { message ->
             if (message is ThinkingMessageUi && message.id == thinkingId) {
-                message.finished()
+                message.finished(replacementContent)
             } else {
                 message
             }
@@ -138,7 +181,11 @@ internal class AgentRunMessageProjector(
     ): List<AgentChatMessageUi> =
         messages.map { message ->
             if (message is AgentMessageUi && message.id.startsWith(assistantMessagePrefix(runId))) {
-                message.copy(content = message.content.trimEnd(), isStreaming = false)
+                message.copy(
+                    content = message.content.trimEnd(),
+                    isStreaming = false,
+                    renderMarkdown = true,
+                )
             } else {
                 message
             }
@@ -151,10 +198,34 @@ internal class AgentRunMessageProjector(
     ): List<AgentChatMessageUi> {
         // 定稿时裁掉尾部空白：模型输出常以换行收尾，Markdown 渲染会把每个尾部
         // 换行节点变成一段固定间距，在正文与后续工具卡片之间形成莫名的空行。
-        val assistantId = assistantMessageId(runId, round)
+        return messages.map { message ->
+            if (message is AgentMessageUi && isAssistantMessageForRound(message.id, runId, round)) {
+                message.copy(
+                    content = message.content.trimEnd(),
+                    isStreaming = false,
+                    renderMarkdown = true,
+                )
+            } else {
+                message
+            }
+        }
+    }
+
+    fun finalizeTextBlock(
+        runId: String,
+        round: Int,
+        index: Int,
+        replacementContent: String?,
+        messages: List<AgentChatMessageUi>,
+    ): List<AgentChatMessageUi> {
+        val assistantId = assistantMessageId(runId, round, index)
         return messages.map { message ->
             if (message is AgentMessageUi && message.id == assistantId) {
-                message.copy(content = message.content.trimEnd(), isStreaming = false)
+                message.copy(
+                    content = replacementContent?.trimEnd() ?: message.content.trimEnd(),
+                    isStreaming = false,
+                    renderMarkdown = true,
+                )
             } else {
                 message
             }
@@ -166,8 +237,8 @@ internal class AgentRunMessageProjector(
         event: AgentEvent.ToolStarted,
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
-        // 同一轮内文本一定先于工具执行到达（工具要等 assistant 消息完整返回后才启动），
-        // 工具行直接追加在该轮正文之后，不能插到正文前面。
+        // 工具执行发生在对应 assistant 工具块完整返回之后；此时直接追加即可保留
+        // 工具前说明、工具活动与下一轮结果的真实时间顺序。
         val message = ToolActivityMessageUi(
             id = toolActivityMessageId(runId, event.round, event.toolCallId),
             toolName = event.name,
@@ -277,8 +348,9 @@ internal class AgentRunMessageProjector(
         thinkingStartedAt.keys.removeAll { it.startsWith("$runId-thinking-") }
     }
 
-    private fun ThinkingMessageUi.finished(): ThinkingMessageUi =
+    private fun ThinkingMessageUi.finished(authoritativeContent: String? = null): ThinkingMessageUi =
         copy(
+            content = authoritativeContent ?: content,
             isStreaming = false,
             elapsedSeconds = thinkingStartedAt[id]?.let { startedAt ->
                 ((nowElapsedRealtime() - startedAt) / 1000).toInt().coerceAtLeast(0)
@@ -291,13 +363,53 @@ internal class AgentRunMessageProjector(
         return ((nowElapsedRealtime() - startedAt) / 1000).toInt().coerceAtLeast(0)
     }
 
-    private fun List<AgentChatMessageUi>.insertBeforeAssistant(
+    private fun transitionVisibleBlock(
+        runId: String,
+        round: Int,
+        kind: AgentEvent.AssistantBlockKind,
+        index: Int,
+        messages: List<AgentChatMessageUi>,
+    ): List<AgentChatMessageUi> {
+        val activeAssistantId = if (kind == AgentEvent.AssistantBlockKind.TEXT) {
+            assistantMessageId(runId, round, index)
+        } else {
+            null
+        }
+        val activeThinkingId = if (kind == AgentEvent.AssistantBlockKind.THINKING) {
+            thinkingMessageId(runId, round, index)
+        } else {
+            null
+        }
+        return messages.map { message ->
+            when {
+                message is AgentMessageUi &&
+                    message.isStreaming &&
+                    isAssistantMessageForRound(message.id, runId, round) &&
+                    message.id != activeAssistantId ->
+                    message.copy(
+                        content = message.content.trimEnd(),
+                        isStreaming = false,
+                        renderMarkdown = true,
+                    )
+
+                message is ThinkingMessageUi &&
+                    message.isStreaming &&
+                    isThinkingMessageForRound(message.id, runId, round) &&
+                    message.id != activeThinkingId ->
+                    message.finished()
+
+                else -> message
+            }
+        }
+    }
+
+    private fun List<AgentChatMessageUi>.insertBeforeFirstAssistant(
         runId: String,
         round: Int,
         message: AgentChatMessageUi,
     ): List<AgentChatMessageUi> {
         val assistantIndex = indexOfFirst {
-            it is AgentMessageUi && it.id == assistantMessageId(runId, round)
+            it is AgentMessageUi && isAssistantMessageForRound(it.id, runId, round)
         }
         return if (assistantIndex >= 0) {
             toMutableList().apply { add(assistantIndex, message) }
@@ -306,14 +418,27 @@ internal class AgentRunMessageProjector(
         }
     }
 
-    private fun assistantMessageId(runId: String, round: Int): String =
-        "${assistantMessagePrefix(runId)}$round"
+    private fun assistantMessageId(runId: String, round: Int, index: Int): String =
+        "${assistantMessagePrefix(runId)}$round-$index"
 
     private fun assistantMessagePrefix(runId: String): String =
         "assistant-$runId-"
 
-    private fun thinkingMessageId(runId: String, round: Int): String =
-        "$runId-thinking-$round"
+    private fun thinkingMessageId(runId: String, round: Int, index: Int): String =
+        "$runId-thinking-$round-$index"
+
+    private fun thinkingFallbackMessageId(runId: String, round: Int): String =
+        "$runId-thinking-$round-fallback"
+
+    private fun isAssistantMessageForRound(messageId: String, runId: String, round: Int): Boolean {
+        val legacyId = "${assistantMessagePrefix(runId)}$round"
+        return messageId == legacyId || messageId.startsWith("$legacyId-")
+    }
+
+    private fun isThinkingMessageForRound(messageId: String, runId: String, round: Int): Boolean {
+        val prefix = "$runId-thinking-$round"
+        return messageId == prefix || messageId.startsWith("$prefix-")
+    }
 
     private fun toolActivityMessageId(runId: String, round: Int, toolCallId: String): String =
         "$runId-tool-$round-${toolCallId.ifBlank { "unknown" }}"
