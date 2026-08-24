@@ -1037,7 +1037,7 @@ private fun SuggestionCard(
     }
 }
 
-// 建议卡的图标色取自 Eta 启动图标的四色圆点，保持品牌一致。
+// 建议卡使用固定功能色区分建议类型，不与启动图标调色板绑定。
 private val AccentBlue = Color(0xFF4285F4)
 private val AccentRed = Color(0xFFEA4335)
 private val AccentYellow = Color(0xFFF9AB00)
