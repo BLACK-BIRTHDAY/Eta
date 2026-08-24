@@ -22,9 +22,13 @@ import fuck.andes.agent.terminal.AlpineEnvironmentStatus
 import fuck.andes.agent.terminal.AlpineInstallProgress
 import fuck.andes.agent.terminal.AlpineInstallResult
 import fuck.andes.agent.terminal.AlpineInstallStage
+import fuck.andes.agent.terminal.AlpinePythonToolsInstaller
 import fuck.andes.agent.terminal.ApkAnalysisInstallProgress
 import fuck.andes.agent.terminal.ApkAnalysisInstallResult
 import fuck.andes.agent.terminal.ApkAnalysisInstallStage
+import fuck.andes.agent.terminal.PythonToolsInstallProgress
+import fuck.andes.agent.terminal.PythonToolsInstallResult
+import fuck.andes.agent.terminal.PythonToolsInstallStage
 import fuck.andes.ui.components.MiuixScaffoldPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,6 +38,12 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TextButton
 
+private enum class InstallTarget {
+    BASE,
+    PYTHON,
+    APK_ANALYSIS,
+}
+
 @Composable
 internal fun LinuxEnvironmentScreen(
     context: Context,
@@ -42,19 +52,23 @@ internal fun LinuxEnvironmentScreen(
     val installer = remember(context.applicationContext) {
         AlpineEnvironmentInstaller(context.applicationContext)
     }
+    val pythonToolsInstaller = remember(context.applicationContext) {
+        AlpinePythonToolsInstaller(context.applicationContext)
+    }
     val apkAnalysisInstaller = remember(context.applicationContext) {
         AlpineApkAnalysisInstaller(context.applicationContext)
     }
     val coroutineScope = rememberCoroutineScope()
     var status by remember { mutableStateOf(installer.status()) }
-    var installing by remember { mutableStateOf(false) }
+    var busyTarget by remember { mutableStateOf<InstallTarget?>(null) }
     var checkingHealth by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<AlpineInstallProgress?>(null) }
     var resultMessage by remember { mutableStateOf<String?>(null) }
     var health by remember { mutableStateOf<AlpineEnvironmentHealth?>(null) }
+    var pythonToolsReady by remember { mutableStateOf(pythonToolsInstaller.isReady()) }
+    var pythonToolsProgress by remember { mutableStateOf<PythonToolsInstallProgress?>(null) }
     var apkAnalysisReady by remember { mutableStateOf(apkAnalysisInstaller.isReady()) }
     var apkAnalysisProgress by remember { mutableStateOf<ApkAnalysisInstallProgress?>(null) }
-    var apkAnalysisResultMessage by remember { mutableStateOf<String?>(null) }
 
     MiuixScaffoldPage(
         title = stringResource(R.string.ui_linux_tool_environment_314d22),
@@ -73,16 +87,16 @@ internal fun LinuxEnvironmentScreen(
                     endActions = {
                         TextButton(
                             text = when {
-                                installing -> context.getString(R.string.linux_installing)
+                                busyTarget == InstallTarget.BASE -> context.getString(R.string.linux_installing)
                                 status.state == AlpineEnvironmentState.READY -> context.getString(R.string.linux_ready)
                                 status.state == AlpineEnvironmentState.BASE_READY && status.version != null -> context.getString(R.string.linux_upgrade_tools)
                                 status.state == AlpineEnvironmentState.BASE_READY -> context.getString(R.string.linux_continue_installation)
                                 else -> context.getString(R.string.linux_download_install)
                             },
-                            enabled = !installing && status.state != AlpineEnvironmentState.READY,
+                            enabled = busyTarget == null && status.state != AlpineEnvironmentState.READY,
                             onClick = {
-                                if (installing) return@TextButton
-                                installing = true
+                                if (busyTarget != null) return@TextButton
+                                busyTarget = InstallTarget.BASE
                                 resultMessage = null
                                 coroutineScope.launch {
                                     val result = installer.install { update ->
@@ -91,27 +105,18 @@ internal fun LinuxEnvironmentScreen(
                                         }
                                     }
                                     status = installer.status()
+                                    pythonToolsReady = pythonToolsInstaller.isReady()
                                     apkAnalysisReady = apkAnalysisInstaller.isReady()
                                     health = null
                                     progress = null
-                                    installing = false
+                                    busyTarget = null
                                     resultMessage = result.toMessage(context)
                                 }
                             },
                         )
                     },
                 )
-            }
-        }
-
-        if (status.state == AlpineEnvironmentState.READY) {
-            item(key = "health-title") { SmallTitle(stringResource(R.string.ui_environmental_inspection_d58123)) }
-            item(key = "health-card") {
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
-                ) {
+                if (status.state == AlpineEnvironmentState.READY) {
                     BasicComponent(
                         title = health?.title(context) ?: context.getString(R.string.linux_not_checked),
                         summary = health?.summary(context) ?: context.getString(R.string.linux_health_summary),
@@ -119,16 +124,16 @@ internal fun LinuxEnvironmentScreen(
                             val repairNeeded = health?.healthy == false
                             TextButton(
                                 text = when {
-                                    installing -> context.getString(R.string.linux_busy)
+                                    busyTarget == InstallTarget.BASE -> context.getString(R.string.linux_busy)
                                     checkingHealth -> context.getString(R.string.linux_checking)
                                     repairNeeded -> context.getString(R.string.linux_repair)
                                     else -> context.getString(R.string.linux_check)
                                 },
-                                enabled = !checkingHealth && !installing,
+                                enabled = !checkingHealth && busyTarget == null,
                                 onClick = {
-                                    if (checkingHealth || installing) return@TextButton
+                                    if (checkingHealth || busyTarget != null) return@TextButton
                                     if (repairNeeded) {
-                                        installing = true
+                                        busyTarget = InstallTarget.BASE
                                         health = null
                                         resultMessage = null
                                         coroutineScope.launch {
@@ -139,7 +144,7 @@ internal fun LinuxEnvironmentScreen(
                                             }
                                             status = installer.status()
                                             progress = null
-                                            installing = false
+                                            busyTarget = null
                                             resultMessage = result.toMessage(context)
                                         }
                                     } else {
@@ -159,12 +164,46 @@ internal fun LinuxEnvironmentScreen(
 
         if (status.state == AlpineEnvironmentState.READY) {
             item(key = "optional-tools-title") { SmallTitle(stringResource(R.string.ui_optional_tools_3097d6)) }
-            item(key = "apk-analysis-card") {
+            item(key = "optional-tools-card") {
                 Card(
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 12.dp),
                 ) {
+                    BasicComponent(
+                        title = stringResource(R.string.linux_python_tools),
+                        summary = pythonToolsProgress?.summary(context) ?: if (pythonToolsReady) {
+                            context.getString(R.string.linux_python_tools_ready)
+                        } else {
+                            context.getString(R.string.linux_python_tools_summary)
+                        },
+                        endActions = {
+                            TextButton(
+                                text = when {
+                                    pythonToolsReady -> context.getString(R.string.linux_installed)
+                                    busyTarget == InstallTarget.PYTHON -> context.getString(R.string.linux_installing)
+                                    else -> context.getString(R.string.linux_install)
+                                },
+                                enabled = busyTarget == null && !pythonToolsReady,
+                                onClick = {
+                                    if (busyTarget != null || pythonToolsReady) return@TextButton
+                                    busyTarget = InstallTarget.PYTHON
+                                    resultMessage = null
+                                    coroutineScope.launch {
+                                        val result = pythonToolsInstaller.install { update ->
+                                            withContext(Dispatchers.Main.immediate) {
+                                                pythonToolsProgress = update
+                                            }
+                                        }
+                                        pythonToolsReady = pythonToolsInstaller.isReady()
+                                        pythonToolsProgress = null
+                                        busyTarget = null
+                                        resultMessage = result.toMessage(context)
+                                    }
+                                },
+                            )
+                        },
+                    )
                     BasicComponent(
                         title = stringResource(R.string.ui_apk_analysis_95ad17),
                         summary = apkAnalysisProgress?.summary(context) ?: if (apkAnalysisReady) {
@@ -176,14 +215,14 @@ internal fun LinuxEnvironmentScreen(
                             TextButton(
                                 text = when {
                                     apkAnalysisReady -> context.getString(R.string.linux_installed)
-                                    installing -> context.getString(R.string.linux_installing)
+                                    busyTarget == InstallTarget.APK_ANALYSIS -> context.getString(R.string.linux_installing)
                                     else -> context.getString(R.string.linux_install)
                                 },
-                                enabled = !installing && !apkAnalysisReady,
+                                enabled = busyTarget == null && !apkAnalysisReady,
                                 onClick = {
-                                    if (installing || apkAnalysisReady) return@TextButton
-                                    installing = true
-                                    apkAnalysisResultMessage = null
+                                    if (busyTarget != null || apkAnalysisReady) return@TextButton
+                                    busyTarget = InstallTarget.APK_ANALYSIS
+                                    resultMessage = null
                                     coroutineScope.launch {
                                         val result = apkAnalysisInstaller.install { update ->
                                             withContext(Dispatchers.Main.immediate) {
@@ -192,25 +231,13 @@ internal fun LinuxEnvironmentScreen(
                                         }
                                         apkAnalysisReady = apkAnalysisInstaller.isReady()
                                         apkAnalysisProgress = null
-                                        installing = false
-                                        apkAnalysisResultMessage = result.toMessage(context)
+                                        busyTarget = null
+                                        resultMessage = result.toMessage(context)
                                     }
                                 },
                             )
                         },
                     )
-                }
-            }
-        }
-
-        apkAnalysisResultMessage?.let { message ->
-            item(key = "apk-analysis-result-card") {
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
-                ) {
-                    BasicComponent(title = message)
                 }
             }
         }
@@ -224,40 +251,6 @@ internal fun LinuxEnvironmentScreen(
                 ) {
                     BasicComponent(title = message)
                 }
-            }
-        }
-
-        item(key = "details-title") { SmallTitle(stringResource(R.string.ui_illustrate_26670d)) }
-        item(key = "details-card") {
-            Card(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp),
-            ) {
-                BasicComponent(
-                    title = stringResource(R.string.ui_separate_from_android_root_shell_d2e22f),
-                    summary = stringResource(R.string.ui_system_application_log_and_magisk_operations_still_u_69659b),
-                )
-                BasicComponent(
-                    title = stringResource(R.string.ui_agent_basic_tools_98276b),
-                    summary = stringResource(R.string.ui_pre_installed_rg_fd_git_ssh_curl_rsync_diff_patch_jq_c492d9),
-                )
-                BasicComponent(
-                    title = stringResource(R.string.ui_python_tools_b811ed),
-                    summary = stringResource(R.string.ui_python_pip_venv_pipx_uv_and_ruff_are_pre_installed_p_1aa31e),
-                )
-                BasicComponent(
-                    title = stringResource(R.string.ui_scale_on_demand_fdd11e),
-                    summary = stringResource(R.string.ui_node_js_compiler_tmux_vim_and_network_packet_capture_05dcca),
-                )
-                BasicComponent(
-                    title = stringResource(R.string.ui_stable_workspace_86d734),
-                    summary = stringResource(R.string.ui_linux_defaults_to_workspace_and_continues_to_be_comp_052e9b),
-                )
-                BasicComponent(
-                    title = stringResource(R.string.ui_permission_boundaries_b11a0c),
-                    summary = stringResource(R.string.ui_the_environment_runs_through_root_chroot_and_uses_a__83aefe),
-                )
             }
         }
     }
@@ -313,6 +306,8 @@ private fun AlpineInstallProgress.summary(context: Context): String {
     return context.getString(R.string.linux_progress_percent, stageName, percent)
 }
 
+private fun PythonToolsInstallProgress.summary(context: Context): String = stage.displayName(context)
+
 private fun ApkAnalysisInstallProgress.summary(context: Context): String {
     val stageName = stage.displayName(context)
     if (stage != ApkAnalysisInstallStage.DOWNLOADING || totalBytes <= 0L) {
@@ -339,6 +334,13 @@ private fun AlpineInstallResult.toMessage(context: Context): String = when (this
     is AlpineInstallResult.Failed -> context.getString(R.string.linux_stage_failed, stage.displayName(context))
 }
 
+private fun PythonToolsInstallResult.toMessage(context: Context): String = when (this) {
+    PythonToolsInstallResult.AlreadyReady -> context.getString(R.string.linux_python_tools_already_ready)
+    PythonToolsInstallResult.EnvironmentNotReady -> context.getString(R.string.linux_base_required)
+    PythonToolsInstallResult.Installed -> context.getString(R.string.linux_python_tools_installed)
+    is PythonToolsInstallResult.Failed -> context.getString(R.string.linux_python_stage_failed, stage.displayName(context))
+}
+
 private fun ApkAnalysisInstallResult.toMessage(context: Context): String = when (this) {
     ApkAnalysisInstallResult.AlreadyReady -> context.getString(R.string.linux_apk_analysis_ready)
     ApkAnalysisInstallResult.EnvironmentNotReady -> context.getString(R.string.linux_base_required)
@@ -359,6 +361,15 @@ private fun AlpineInstallStage.displayName(context: Context): String = context.g
         AlpineInstallStage.EXTRACTING -> R.string.linux_stage_extracting
         AlpineInstallStage.INSTALLING_TOOLS -> R.string.linux_stage_installing_tools
         AlpineInstallStage.COMPLETE -> R.string.linux_stage_complete
+    },
+)
+
+private fun PythonToolsInstallStage.displayName(context: Context): String = context.getString(
+    when (this) {
+        PythonToolsInstallStage.CHECKING -> R.string.linux_python_stage_checking
+        PythonToolsInstallStage.INSTALLING -> R.string.linux_python_stage_installing
+        PythonToolsInstallStage.VERIFYING -> R.string.linux_python_stage_verifying
+        PythonToolsInstallStage.COMPLETE -> R.string.linux_stage_complete
     },
 )
 

@@ -279,15 +279,14 @@ internal class AlpineEnvironmentInstaller(
     }
 
     private suspend fun installCommonTools(rootfs: File): Boolean {
-        val packages = DEFAULT_PACKAGES.joinToString(" ")
+        val packages = AGENT_PACKAGES.joinToString(" ")
         val command = """
             apk update
             apk add --no-cache $packages
-            ln -sf /usr/bin/python3 /usr/local/bin/python
             cat > /${AlpineEnvironmentPaths.COMMON_TOOLS_MARKER} <<'ETA_TOOLSET_EOF'
             alpine=$ALPINE_VERSION
             toolset=${AlpineEnvironmentPaths.TOOLSET_REVISION}
-            profiles=agent,python
+            profiles=agent
             ETA_TOOLSET_EOF
             chmod 0644 /${AlpineEnvironmentPaths.COMMON_TOOLS_MARKER}
         """.trimIndent()
@@ -357,17 +356,6 @@ internal class AlpineEnvironmentInstaller(
             "zstd",
         )
 
-        internal val PYTHON_PACKAGES = listOf(
-            "pipx",
-            "py3-pip",
-            "py3-virtualenv",
-            "python3",
-            "ruff",
-            "uv",
-        )
-
-        internal val DEFAULT_PACKAGES = (AGENT_PACKAGES + PYTHON_PACKAGES).distinct()
-
         private val HEALTH_CHECK_COMMANDS = listOf(
             "bash",
             "curl",
@@ -376,12 +364,10 @@ internal class AlpineEnvironmentInstaller(
             "git",
             "jq",
             "patch",
-            "python3",
             "rg",
             "rsync",
             "sqlite3",
             "ssh",
-            "uv",
         )
 
         internal fun artifactForAbis(abis: List<String>): VerifiedArtifact? =

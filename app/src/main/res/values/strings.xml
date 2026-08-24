@@ -222,20 +222,15 @@
 - Long-term preferences:</string>
   <string name="ui_apk_analysis_95ad17">APK analysis</string>
   <string name="ui_agent_and_local_tools_can_still_be_used_but_the_syst_b14479">Agent and local tools remain available. System assistant takeover, Gemini, and Circle to Search settings cannot be changed right now.</string>
-  <string name="ui_agent_basic_tools_98276b">Agent basic tools</string>
   <string name="ui_endpoint_mode_3c8546">Endpoint mode</string>
   <string name="ui_eta_system_assistant_003e9b">Eta system assistant</string>
   <string name="ui_lsposed_service_is_not_connected_44734d">LSPosed service is not connected</string>
   <string name="ui_linux_tool_environment_314d22">Linux tool environment</string>
-  <string name="ui_linux_defaults_to_workspace_and_continues_to_be_comp_052e9b">Linux defaults to /workspace and continues to be compatible with /data/local/tmp/fuck_andes; shared storage is located in /sdcard.</string>
   <string name="ui_the_entire_contents_of_memory_md_will_be_deleted_and_83a8ac">The entire contents of MEMORY.md will be deleted and the memory switch will remain in its current state.</string>
-  <string name="ui_node_js_compiler_tmux_vim_and_network_packet_capture_05dcca">Node.js, compiler, tmux, Vim and network packet capture tools do not occupy space by default and can be installed using apk add according to project needs.</string>
   <string name="ui_provider_does_not_exist_83cee6">Provider does not exist</string>
-  <string name="ui_python_tools_b811ed">Python tools</string>
   <string name="ui_search_in_one_turn_179584">Circle to Search</string>
   <string name="ui_contextual_usage_d12810">Context usage</string>
   <string name="ui_context_length_tokens_227860">Context window (tokens)</string>
-  <string name="ui_separate_from_android_root_shell_d2e22f">Separate from Android Root Shell</string>
   <string name="ui_bright_screen_evokes_automatic_voice_input_4358fe">Bright screen evokes automatic voice input</string>
   <string name="ui_only_take_over_with_agent_prefix_d17556">Only take over with /agent prefix</string>
   <string name="ui_only_check_the_ranges_actually_supported_by_the_mode_2c343d">Only check the ranges actually supported by the model or gateway; unsupported combinations will clearly report an error before requesting.</string>
@@ -290,7 +285,6 @@
   <string name="ui_open_current_browser_58358e">Open current browser</string>
   <string name="ui_open_wechat_6b2c28">Open WeChat</string>
   <string name="ui_skill_53da13">Skill</string>
-  <string name="ui_scale_on_demand_fdd11e">Scale on demand</string>
   <string name="ui_search_provider_74e049">Search provider</string>
   <string name="ui_search_model_df5586">Search model</string>
   <string name="ui_support_anthropic_claude_official_or_compatible_api_de3f80">Support Anthropic Claude official or compatible API</string>
@@ -308,7 +302,6 @@
   <string name="ui_permissions_560165">Permissions</string>
   <string name="ui_permissions_and_status_35f368">Permissions and status</string>
   <string name="ui_permission_health_3048bb">Permissions</string>
-  <string name="ui_permission_boundaries_b11a0c">Permission boundaries</string>
   <string name="ui_check_memory_pressure_2d9600">Check memory pressure</string>
   <string name="ui_core_memory_injection_budget_48b5d5">Core memory injection budget</string>
   <string name="ui_model_provider_e8c7f5">Model providers</string>
@@ -322,9 +315,7 @@
   <string name="ui_clear_all_memory_a43bd3">Clear all memory?</string>
   <string name="ui_source_code_740296">source code</string>
   <string name="ui_click_to_reinstall_dc60de">Click to reinstall</string>
-  <string name="ui_environmental_inspection_d58123">Environment check</string>
   <string name="ui_environmental_status_5b32a1">Environment status</string>
-  <string name="ui_the_environment_runs_through_root_chroot_and_uses_a__83aefe">The environment runs through Root chroot and uses a separate mount namespace to avoid mount leaks; it provides a tool chain, not a security sandbox.</string>
   <string name="ui_user_skills_748e7f">User skills</string>
   <string name="ui_determined_by_model_or_provider_06c326">Determined by model or provider</string>
   <string name="ui_long_press_the_power_button_1958d0">Long press the power button</string>
@@ -332,8 +323,6 @@
   <string name="ui_knew_cb63c6">Got it</string>
   <string name="ui_remove_image_089db3">Remove image</string>
   <string name="ui_remove_file_reference_04bbfc">Remove file reference</string>
-  <string name="ui_stable_workspace_86d734">stable workspace</string>
-  <string name="ui_system_application_log_and_magisk_operations_still_u_69659b">System, application, log, and Magisk operations still use the Android environment; general tools such as Python, Git, jq, and zip use the Alpine environment.</string>
   <string name="ui_system_assistant_takes_over_f46043">System assistant takes over</string>
   <string name="ui_system_enhancement_dcd4ad">System enhancement</string>
   <string name="ui_system_applications_have_voice_wake_up_permissions_f_0190f2">System applications have voice wake-up permissions, fewer self-start restrictions, and the experience is close to native. Will be installed via Magisk/KernelSU module and will take effect after reboot.</string>
@@ -349,7 +338,6 @@
   <string name="ui_set_up_7debf9">set up</string>
   <string name="ui_access_7f5641">Access</string>
   <string name="ui_this_value_is_used_for_session_clipping_and_context__c3f9e7">This value is used for session clipping and context budgeting. When left blank, the remote or official directory value is used.</string>
-  <string name="ui_illustrate_26670d">illustrate</string>
   <string name="ui_input_file_path_36d474">input file path</string>
   <string name="ui_return_11d024">return</string>
   <string name="ui_connection_configuration_7d057b">Connection</string>
@@ -360,8 +348,6 @@
   <string name="ui_reset_built_in_configuration_35b6ec">Reset built-in settings</string>
   <string name="ui_reset_browser_session_791b36">Reset browser session</string>
   <string name="ui_lock_screen_evokes_automatic_voice_input_1cde18">Lock screen evokes automatic voice input</string>
-  <string name="ui_python_pip_venv_pipx_uv_and_ruff_are_pre_installed_p_1aa31e">Python, pip, venv, pipx, uv and Ruff are pre-installed; project dependencies are still prioritized to be installed in independent virtual environments.</string>
-  <string name="ui_pre_installed_rg_fd_git_ssh_curl_rsync_diff_patch_jq_c492d9">Pre-installed rg, fd, Git, SSH, curl, rsync, diff, patch, jq, SQLite, process tools and common compression formats, suitable for search, modification, transmission and diagnosis.</string>
   <string name="ui_deep_thinking_enabled_by_default_c032d6">Reasoning enabled by default</string>
   <string name="tool_tap_area">Tap area</string>
   <string name="tool_current_context">Time and location</string>
@@ -884,6 +870,15 @@
   <string name="linux_check">Check</string>
   <string name="linux_apk_tools_ready">JADX, Apktool, smali, and baksmali are ready. Apktool rebuilding is not yet supported</string>
   <string name="linux_apk_tools_summary">Install OpenJDK 17, JADX, Apktool, smali, and baksmali. Downloads about 84 MB and requires 768 MB of free space; a verified mirror is used if the official source is unavailable</string>
+  <string name="linux_python_tools">Python tools</string>
+  <string name="linux_python_tools_summary">Install Python, pip, venv, pipx, uv, and Ruff; project dependencies should still go into isolated virtual environments first</string>
+  <string name="linux_python_tools_ready">Python, pip, venv, pipx, uv, and Ruff are ready</string>
+  <string name="linux_python_tools_already_ready">Python tools are already ready</string>
+  <string name="linux_python_tools_installed">Python tools installed</string>
+  <string name="linux_python_stage_checking">Checking the Linux base environment</string>
+  <string name="linux_python_stage_installing">Installing Python tools</string>
+  <string name="linux_python_stage_verifying">Verifying Python tools</string>
+  <string name="linux_python_stage_failed">%1$s failed. Try again later</string>
   <string name="linux_installed">Installed</string>
   <string name="linux_install">Install</string>
   <string name="linux_not_installed">Not installed</string>
@@ -891,8 +886,8 @@
   <string name="linux_alpine_ready">Alpine %1$s ready</string>
   <string name="linux_requirements">Requires Root and BusyBox from Magisk, KernelSU, or APatch</string>
   <string name="linux_tools_incomplete">Common tools are not fully installed. Installation can continue from the current progress</string>
-  <string name="linux_tools_upgrade_summary">The base environment is available. Upgrade to add the latest Agent and Python toolset</string>
-  <string name="linux_agent_ready_summary">The Agent can work in /workspace through terminal with environment=linux</string>
+  <string name="linux_tools_upgrade_summary">The base environment is available. Upgrade to add the latest Agent toolset</string>
+  <string name="linux_agent_ready_summary">Pre-installed basic tools such as rg, fd, Git, SSH, curl, jq and SQLite; the Agent can work in /workspace through terminal with environment=linux</string>
   <string name="linux_health_ok">Environment healthy</string>
   <plurals name="linux_missing_core_commands">
     <item quantity="one">Missing %d core command</item>

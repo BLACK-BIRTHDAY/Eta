@@ -45,7 +45,7 @@ Eta is not a one-shot chat wrapper: the model issues instructions, Eta executes 
 | ---- | -------------- |
 | **Native device tools** | Alarms, timers, media control, volume, Wi-Fi / Bluetooth, device and storage state, plus on-device search across photos, calendar, contacts, SMS, notifications, health summaries, and ColorOS notes and system memory—all structured tools with explicit schemas |
 | **Embedded browser** | Loads JavaScript-heavy pages offscreen, extracts structured content, and operates page elements; when human intervention helps (e.g. a CAPTCHA), the same WebView attaches to the app UI for direct takeover |
-| **Terminal and files** | Authorized `user` / `root` shell commands, file access, and scripts; an optional Alpine Linux environment preloads Python, Git, `rg`, and other common tools |
+| **Terminal and files** | Authorized `user` / `root` shell commands, file access, and scripts; an optional Alpine Linux environment preloads Git, `rg`, and other common tools, with the Python toolchain and APK analysis tools installable on demand |
 | **GUI / computer use** | Screenshots, accessibility nodes, tapping, scrolling, and text input, with an overlay and gesture feedback during foreground work that you can interrupt or take over. Covers the long tail of apps with no machine interface |
 
 On top of that:
@@ -115,7 +115,7 @@ BYOK—Bring Your Own Key—means the agent follows the capabilities of the mode
 
 1. Install the APK, open Eta, and configure a model provider, API key, and active model.
 2. Grant overlay, accessibility, installed-app visibility, location, notification-access, usage-access, and background-execution permissions as needed; location tasks launched from assistant entry points such as Breeno require “allow all the time”.
-3. Enable native device tools, sensitive reads, sensitive device actions, and terminal/file tools as needed; choose the terminal identity explicitly as `user` or `root`, and install the optional Linux environment for tools such as Python and Git.
+3. Enable native device tools, sensitive reads, sensitive device actions, and terminal/file tools as needed; choose the terminal identity explicitly as `user` or `root`, and install the optional Linux environment for tools such as Git, with the Python toolchain installable on demand inside it.
 4. Enable Eta's accessibility service in Android Settings.
 5. Optional system entry points:
    - Native digital assistant: open **Eta system assistant** on the Settings page and select Eta in Android's system picker

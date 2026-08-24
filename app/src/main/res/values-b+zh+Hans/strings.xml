@@ -204,20 +204,15 @@
 - 长期偏好：</string>
   <string name="ui_apk_analysis_95ad17">APK 分析</string>
   <string name="ui_agent_and_local_tools_can_still_be_used_but_the_syst_b14479">Agent 与本地工具仍可使用，系统助手接管、Gemini 和一圈即搜设置暂不可修改</string>
-  <string name="ui_agent_basic_tools_98276b">Agent 基础工具</string>
   <string name="ui_endpoint_mode_3c8546">Endpoint 模式</string>
   <string name="ui_eta_system_assistant_003e9b">Eta 系统助手</string>
   <string name="ui_lsposed_service_is_not_connected_44734d">LSPosed 服务未连接</string>
   <string name="ui_linux_tool_environment_314d22">Linux 工具环境</string>
-  <string name="ui_linux_defaults_to_workspace_and_continues_to_be_comp_052e9b">Linux 默认进入 /workspace，并继续兼容 /data/local/tmp/fuck_andes；共享存储位于 /sdcard。</string>
   <string name="ui_the_entire_contents_of_memory_md_will_be_deleted_and_83a8ac">MEMORY.md 的全部内容将被删除，记忆开关保持当前状态。</string>
-  <string name="ui_node_js_compiler_tmux_vim_and_network_packet_capture_05dcca">Node.js、编译器、tmux、Vim 与网络抓包工具不默认占用空间，可按项目需要使用 apk add 安装。</string>
   <string name="ui_provider_does_not_exist_83cee6">Provider 不存在</string>
-  <string name="ui_python_tools_b811ed">Python 工具</string>
   <string name="ui_search_in_one_turn_179584">一圈即搜</string>
   <string name="ui_contextual_usage_d12810">上下文用量</string>
   <string name="ui_context_length_tokens_227860">上下文窗口（tokens）</string>
-  <string name="ui_separate_from_android_root_shell_d2e22f">与 Android Root Shell 分离</string>
   <string name="ui_bright_screen_evokes_automatic_voice_input_4358fe">亮屏唤起自动语音输入</string>
   <string name="ui_only_take_over_with_agent_prefix_d17556">仅以 /agent 前缀接管</string>
   <string name="ui_only_check_the_ranges_actually_supported_by_the_mode_2c343d">仅勾选模型或网关实际支持的档位；不支持的组合会在请求前明确报错。</string>
@@ -272,7 +267,6 @@
   <string name="ui_open_current_browser_58358e">打开当前浏览器</string>
   <string name="ui_open_wechat_6b2c28">打开微信</string>
   <string name="ui_skill_53da13">技能</string>
-  <string name="ui_scale_on_demand_fdd11e">按需扩展</string>
   <string name="ui_search_provider_74e049">搜索提供商</string>
   <string name="ui_search_model_df5586">搜索模型</string>
   <string name="ui_support_anthropic_claude_official_or_compatible_api_de3f80">支持 Anthropic Claude 官方或兼容 API</string>
@@ -290,7 +284,6 @@
   <string name="ui_permissions_560165">权限</string>
   <string name="ui_permissions_and_status_35f368">权限与状态</string>
   <string name="ui_permission_health_3048bb">权限健康</string>
-  <string name="ui_permission_boundaries_b11a0c">权限边界</string>
   <string name="ui_check_memory_pressure_2d9600">查看内存压力</string>
   <string name="ui_core_memory_injection_budget_48b5d5">核心记忆注入预算</string>
   <string name="ui_model_provider_e8c7f5">模型提供商</string>
@@ -304,9 +297,7 @@
   <string name="ui_clear_all_memory_a43bd3">清空全部记忆？</string>
   <string name="ui_source_code_740296">源代码</string>
   <string name="ui_click_to_reinstall_dc60de">点击重新安装</string>
-  <string name="ui_environmental_inspection_d58123">环境检查</string>
   <string name="ui_environmental_status_5b32a1">环境状态</string>
-  <string name="ui_the_environment_runs_through_root_chroot_and_uses_a__83aefe">环境通过 Root chroot 运行，并用独立 mount namespace 避免挂载泄漏；它提供工具链，不是安全沙箱。</string>
   <string name="ui_user_skills_748e7f">用户技能</string>
   <string name="ui_determined_by_model_or_provider_06c326">由模型或 Provider 决定</string>
   <string name="ui_long_press_the_power_button_1958d0">电源键长按</string>
@@ -314,8 +305,6 @@
   <string name="ui_knew_cb63c6">知道了</string>
   <string name="ui_remove_image_089db3">移除图片</string>
   <string name="ui_remove_file_reference_04bbfc">移除文件引用</string>
-  <string name="ui_stable_workspace_86d734">稳定工作区</string>
-  <string name="ui_system_application_log_and_magisk_operations_still_u_69659b">系统、应用、日志和 Magisk 操作仍使用 Android 环境；Python、Git、jq、zip 等通用工具使用 Alpine 环境。</string>
   <string name="ui_system_assistant_takes_over_f46043">系统助手接管</string>
   <string name="ui_system_enhancement_dcd4ad">系统增强</string>
   <string name="ui_system_applications_have_voice_wake_up_permissions_f_0190f2">系统应用享有语音唤醒权限、更少的自启限制，体验接近原生。将通过 Magisk / KernelSU 模块安装，重启后生效。</string>
@@ -331,7 +320,6 @@
   <string name="ui_set_up_7debf9">设置</string>
   <string name="ui_access_7f5641">访问</string>
   <string name="ui_this_value_is_used_for_session_clipping_and_context__c3f9e7">该值用于会话裁剪和上下文预算。留空时使用远端或官方目录值。</string>
-  <string name="ui_illustrate_26670d">说明</string>
   <string name="ui_input_file_path_36d474">输入文件路径</string>
   <string name="ui_return_11d024">返回</string>
   <string name="ui_connection_configuration_7d057b">连接配置</string>
@@ -342,8 +330,6 @@
   <string name="ui_reset_built_in_configuration_35b6ec">重置内置配置</string>
   <string name="ui_reset_browser_session_791b36">重置浏览器会话</string>
   <string name="ui_lock_screen_evokes_automatic_voice_input_1cde18">锁屏唤起自动语音输入</string>
-  <string name="ui_python_pip_venv_pipx_uv_and_ruff_are_pre_installed_p_1aa31e">预装 Python、pip、venv、pipx、uv 与 Ruff；项目依赖仍优先安装到独立虚拟环境。</string>
-  <string name="ui_pre_installed_rg_fd_git_ssh_curl_rsync_diff_patch_jq_c492d9">预装 rg、fd、Git、SSH、curl、rsync、diff、patch、jq、SQLite、进程工具和常用压缩格式，适合搜索、修改、传输与诊断。</string>
   <string name="ui_deep_thinking_enabled_by_default_c032d6">默认启用推理</string>
   <string name="tool_tap_area">点击区域</string>
   <string name="tool_current_context">时间与位置</string>
@@ -872,6 +858,15 @@
   <string name="linux_check">检查</string>
   <string name="linux_apk_tools_ready">JADX、Apktool、smali 与 baksmali 已就绪；Apktool 暂不支持回编译</string>
   <string name="linux_apk_tools_summary">安装 OpenJDK 17、JADX、Apktool、smali 与 baksmali；下载约 84 MB，需预留 768 MB；官方下载不可达时尝试已校验的镜像</string>
+  <string name="linux_python_tools">Python 工具</string>
+  <string name="linux_python_tools_summary">安装 Python、pip、venv、pipx、uv 与 Ruff；项目依赖仍优先安装到独立虚拟环境</string>
+  <string name="linux_python_tools_ready">Python、pip、venv、pipx、uv 与 Ruff 已就绪</string>
+  <string name="linux_python_tools_already_ready">Python 工具已经就绪</string>
+  <string name="linux_python_tools_installed">Python 工具安装完成</string>
+  <string name="linux_python_stage_checking">检查 Linux 基础环境</string>
+  <string name="linux_python_stage_installing">安装 Python 工具</string>
+  <string name="linux_python_stage_verifying">验证 Python 工具</string>
+  <string name="linux_python_stage_failed">%1$s失败，可以稍后重试</string>
   <string name="linux_installed">已安装</string>
   <string name="linux_install">安装</string>
   <string name="linux_not_installed">尚未安装</string>
@@ -879,8 +874,8 @@
   <string name="linux_alpine_ready">Alpine %1$s 已就绪</string>
   <string name="linux_requirements">需要 Root 与 Magisk、KernelSU 或 APatch BusyBox</string>
   <string name="linux_tools_incomplete">常用工具安装尚未完成，可以从当前进度继续</string>
-  <string name="linux_tools_upgrade_summary">基础环境可用，升级后补齐新版 Agent 与 Python 工具集</string>
-  <string name="linux_agent_ready_summary">Agent 可通过 terminal 的 environment=linux 在 /workspace 工作</string>
+  <string name="linux_tools_upgrade_summary">基础环境可用，升级后补齐新版 Agent 工具集</string>
+  <string name="linux_agent_ready_summary">预装 rg、fd、Git、SSH、curl、jq、SQLite 等基础工具，Agent 可通过 terminal 的 environment=linux 在 /workspace 工作</string>
   <string name="linux_health_ok">环境正常</string>
   <plurals name="linux_missing_core_commands">
     <item quantity="other">缺少 %d 个核心命令</item>
