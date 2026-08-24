@@ -183,7 +183,9 @@ internal sealed interface AgentEvent {
 
 private const val MAX_LOGGED_TOOL_NAMES = 8
 private const val RESULT_CODE_MARKER = "code="
-private const val RESULT_FIELD_SEPARATOR = ", "
+
+/** 摘要字段分隔符：旧格式用逗号，人文化摘要用间隔号。 */
+private val RESULT_FIELD_SEPARATORS = listOf(", ", " · ")
 
 private fun String.toSafeResultLogFields(): String = buildString {
     append("summary_chars=").append(this@toSafeResultLogFields.length)
@@ -195,14 +197,19 @@ private fun String.toSafeResultLogFields(): String = buildString {
 private fun String.extractResultCode(): String? {
     val fieldStart = when {
         startsWith(RESULT_CODE_MARKER) -> 0
-        else -> indexOf(RESULT_FIELD_SEPARATOR + RESULT_CODE_MARKER)
-            .takeIf { it >= 0 }
-            ?.plus(RESULT_FIELD_SEPARATOR.length)
-            ?: return null
+        else -> RESULT_FIELD_SEPARATORS
+            .mapNotNull { separator ->
+                indexOf(separator + RESULT_CODE_MARKER)
+                    .takeIf { it >= 0 }
+                    ?.plus(separator.length)
+            }
+            .minOrNull() ?: return null
     }
     val valueStart = fieldStart + RESULT_CODE_MARKER.length
-    val valueEnd = indexOf(RESULT_FIELD_SEPARATOR, startIndex = valueStart)
-        .takeIf { it >= 0 }
-        ?: length
+    val valueEnd = RESULT_FIELD_SEPARATORS
+        .mapNotNull { separator ->
+            indexOf(separator, startIndex = valueStart).takeIf { it >= 0 }
+        }
+        .minOrNull() ?: length
     return substring(valueStart, valueEnd)
 }

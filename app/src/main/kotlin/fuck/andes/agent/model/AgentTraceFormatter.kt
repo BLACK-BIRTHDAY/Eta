@@ -21,7 +21,7 @@ internal class AgentTraceFormatter {
                 summarizeTextLength("粘贴文本", toolCall.argumentsJson, "text")
             "clear_text" -> "清空文本"
             "get_clipboard" -> "读取剪贴板"
-            "search_apps" -> summarizeTextLength("搜索应用", toolCall.argumentsJson, "query")
+            "search_apps" -> summarizeQueryArguments("搜索应用", toolCall.argumentsJson)
             "launch_app" -> "打开应用"
             "get_current_context" -> "读取当前上下文"
             "observe_screen" -> summarizeObservationArguments(toolCall.argumentsJson)
@@ -48,7 +48,15 @@ internal class AgentTraceFormatter {
             "skills_list_curated" -> "浏览精选技能"
             "skills_inspect_github" -> "查看技能详情"
             "skills_install_from_github" -> "安装技能"
-            else -> DEVICE_ACTION_LABELS[toolCall.name] ?: "准备执行"
+            else -> {
+                val label = DEVICE_ACTION_LABELS[toolCall.name]
+                when {
+                    label == null -> "准备执行"
+                    toolCall.name.startsWith("search_") ->
+                        summarizeQueryArguments(label, toolCall.argumentsJson)
+                    else -> label
+                }
+            }
         }
 
     /** 命令以脱敏后的用户可见投影进入运行轨迹；日志仍只记录长度。 */
@@ -120,6 +128,16 @@ internal class AgentTraceFormatter {
         runCatching {
             val chars = JSONObject(argumentsJson).optString(key).length
             "$label · $chars 字符"
+        }.getOrDefault(label)
+
+    /** 搜索关键词是用户自己发起的查询，直接展示；仍做单行化与长度截断。 */
+    private fun summarizeQueryArguments(label: String, argumentsJson: String): String =
+        runCatching {
+            val query = sanitizeSummaryValue(
+                JSONObject(argumentsJson).optString("query"),
+                MAX_QUERY_SUMMARY_CHARS,
+            )
+            if (query.isNotBlank()) "$label · $query" else label
         }.getOrDefault(label)
 
     private fun summarizePointArguments(label: String, argumentsJson: String): String =
@@ -213,11 +231,17 @@ internal class AgentTraceFormatter {
         result: AgentModelClient.ToolResult,
     ): String {
         val json = parseResultJson(result)
+        // 终端 exit_code != 0 时 ok=false 但没有 code 字段，必须走专用分支保留退出码与输出
+        if (toolName == "terminal" || toolName == "run_command") {
+            return summarizeTerminalResult(json)
+        }
         if (!isSuccessResult(result)) return summarizeFailure(json)
         return when (toolName) {
             BROWSER_TOOL_NAME -> json?.let(::summarizeBrowserResult) ?: "浏览器操作完成"
             "memory_get", "memory_write" ->
                 json?.let { summarizeMemoryResult(toolName, it) } ?: "完成"
+            "search_apps" -> json?.let(::summarizeSearchAppsResult) ?: "完成"
+            "launch_app" -> json?.let(::summarizeLaunchAppResult) ?: "已打开"
             else -> json?.let { summarizeGenericResult(it, result) } ?: "完成"
         }
     }
@@ -225,10 +249,17 @@ internal class AgentTraceFormatter {
     private fun parseResultJson(result: AgentModelClient.ToolResult): JSONObject? =
         runCatching { JSONObject(result.content) }.getOrNull()
 
-    /** 失败摘要保留 code= 标记，供运行日志提取稳定错误码。 */
+    /** 失败摘要保留 code= 标记，供运行日志提取稳定错误码；message 是工具侧给出的中文原因。 */
     private fun summarizeFailure(json: JSONObject?): String {
         val code = json?.optString("code")?.takeIf { it.isNotBlank() }
-        return if (code != null) "失败 · code=$code" else "失败"
+        val reason = json?.optString("message")
+            ?.let(::sanitizeSummaryValue)
+            ?.takeIf { it.isNotBlank() }
+        return buildList {
+            add("失败")
+            reason?.let(::add)
+            code?.let { add("code=$it") }
+        }.joinToString(" · ")
     }
 
     private fun summarizeMemoryResult(toolName: String, json: JSONObject): String =
@@ -248,6 +279,72 @@ internal class AgentTraceFormatter {
             json.optJSONArray("candidates")?.let { add("${it.length()} 个候选") }
             if (result.images.isNotEmpty()) add("${result.images.size} 张图片")
         }.joinToString(" · ")
+
+    private fun summarizeSearchAppsResult(json: JSONObject): String {
+        val apps = json.optJSONArray("apps") ?: return "未找到匹配应用"
+        val total = apps.length()
+        if (total == 0) return "未找到匹配应用"
+        val names = (0 until total).mapNotNull { index ->
+            apps.optJSONObject(index)?.optString("app_name")
+                ?.let(::sanitizeSummaryValue)
+                ?.takeIf { it.isNotBlank() }
+        }
+        return buildString {
+            append("已找到 $total 个应用")
+            val shown = names.take(MAX_LISTED_APP_NAMES)
+            if (shown.isNotEmpty()) {
+                append(" · ").append(shown.joinToString("、"))
+                if (total > shown.size) append(" 等")
+            }
+        }
+    }
+
+    private fun summarizeLaunchAppResult(json: JSONObject): String {
+        val appName = sanitizeSummaryValue(json.optString("app_name"))
+        return if (appName.isNotBlank()) "已打开 · $appName" else "已打开"
+    }
+
+    /**
+     * 终端结果面向用户展示退出状态与输出预览；输出可能很长，
+     * 只保留开头几行，截断时追加省略标记。
+     */
+    private fun summarizeTerminalResult(json: JSONObject?): String {
+        if (json == null) return "终端"
+        if (json.optString("code").isNotBlank()) return summarizeFailure(json)
+        if (!json.has("exit_code") || json.isNull("exit_code")) {
+            val action = json.optString("action").terminalActionLabel()
+            return if (json.optBoolean("ok", true)) "终端 · $action" else "失败 · $action"
+        }
+        val exitCode = json.optInt("exit_code")
+        val timedOut = json.optBoolean("timed_out", false)
+        val status = when {
+            timedOut -> "失败 · 执行超时"
+            exitCode == 0 -> "执行完成"
+            else -> "失败 · 退出码 $exitCode"
+        }
+        val output = if (exitCode == 0) {
+            json.optString("stdout")
+        } else {
+            json.optString("stderr").ifBlank { json.optString("stdout") }
+        }
+        val truncated = json.optBoolean("stdout_truncated", false) ||
+            json.optBoolean("stderr_truncated", false)
+        val preview = terminalOutputPreview(output, truncated) ?: return status
+        return "$status\n$preview"
+    }
+
+    private fun terminalOutputPreview(output: String, truncated: Boolean): String? {
+        val normalized = output.trim()
+        if (normalized.isEmpty()) return null
+        val allLines = normalized.lines()
+        var preview = allLines.take(MAX_TERMINAL_PREVIEW_LINES).joinToString("\n")
+        var capped = allLines.size > MAX_TERMINAL_PREVIEW_LINES || truncated
+        if (preview.length > MAX_TERMINAL_PREVIEW_CHARS) {
+            preview = preview.take(MAX_TERMINAL_PREVIEW_CHARS)
+            capped = true
+        }
+        return if (capped) "$preview\n…" else preview
+    }
 
     private fun summarizeBrowserResult(json: JSONObject): String {
         val page = json.optJSONObject("page")
@@ -310,12 +407,12 @@ internal class AgentTraceFormatter {
             optInt(key, -1).takeIf { it >= 0 }
         }
 
-    private fun sanitizeSummaryValue(value: String): String =
+    private fun sanitizeSummaryValue(value: String, maxChars: Int = 80): String =
         value.replace(Regex("\\s+"), " ")
             .trim()
             .replace(',', '，')
             .replace('=', '＝')
-            .let { if (it.length <= 80) it else it.take(80) + "..." }
+            .let { if (it.length <= maxChars) it else it.take(maxChars) + "..." }
 
     private fun safeHttpHost(rawUrl: String): String? =
         rawUrl.trim()
@@ -405,6 +502,10 @@ internal class AgentTraceFormatter {
     private companion object {
         const val BROWSER_TOOL_NAME = "browser_use"
         const val MAX_DISPLAY_COMMAND_CHARS = 4_000
+        const val MAX_QUERY_SUMMARY_CHARS = 30
+        const val MAX_LISTED_APP_NAMES = 3
+        const val MAX_TERMINAL_PREVIEW_LINES = 3
+        const val MAX_TERMINAL_PREVIEW_CHARS = 240
         val SENSITIVE_ASSIGNMENT = Regex(
             """(?i)\b([A-Z0-9_]*(?:API[_-]?KEY|ACCESS[_-]?TOKEN|AUTH[_-]?TOKEN|TOKEN|PASSWORD|PASSWD|SECRET)[A-Z0-9_]*)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s;&|]+)"""
         )

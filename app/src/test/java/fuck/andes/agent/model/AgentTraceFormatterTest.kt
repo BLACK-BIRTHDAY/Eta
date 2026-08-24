@@ -52,12 +52,6 @@ class AgentTraceFormatterTest {
                 sensitiveParts = listOf("/storage/emulated/0/Private"),
             ),
             RedactionCase(
-                toolName = "search_apps",
-                argumentsJson = """{"query":"confidential-app-name"}""",
-                expectedParts = listOf("搜索应用", "字符"),
-                sensitiveParts = listOf("confidential-app-name"),
-            ),
-            RedactionCase(
                 toolName = "memory_get",
                 argumentsJson = """{"query":"private relationship"}""",
                 expectedParts = listOf("检索记忆"),
@@ -260,6 +254,188 @@ class AgentTraceFormatterTest {
         assertTrue(summary.contains("321 字节"))
         assertFalse(summary.contains("ok="))
         assertFalse(summary.contains("private memory"))
+    }
+
+    @Test
+    fun searchQueryIsShownInSummary() {
+        val searchApps = formatter.summarizeArguments(
+            AgentModelClient.ToolCall(
+                id = "search-apps",
+                name = "search_apps",
+                argumentsJson = """{"query":"抖音"}""",
+            ),
+        )
+        assertEquals("搜索应用 · 抖音", searchApps)
+
+        val searchFiles = formatter.summarizeArguments(
+            AgentModelClient.ToolCall(
+                id = "search-files",
+                name = "search_files",
+                argumentsJson = """{"query":"周报"}""",
+            ),
+        )
+        assertEquals("搜索文件 · 周报", searchFiles)
+
+        // 关键词单行化并截断，避免撑爆折叠行标题
+        val longQuery = formatter.summarizeArguments(
+            AgentModelClient.ToolCall(
+                id = "search-long",
+                name = "search_apps",
+                argumentsJson = """{"query":"${"很长的关键词".repeat(10)}\n第二行"}""",
+            ),
+        )
+        assertFalse(longQuery.contains("\n"))
+        assertTrue(longQuery.length <= "搜索应用 · ".length + 30 + 3)
+
+        // 非搜索类设备工具不追加 query
+        val deviceStatus = formatter.summarizeArguments(
+            AgentModelClient.ToolCall(
+                id = "device-status",
+                name = "device_status",
+                argumentsJson = """{"query":"不应出现"}""",
+            ),
+        )
+        assertEquals("查看设备状态", deviceStatus)
+    }
+
+    @Test
+    fun searchAppsResultListsAppNames() {
+        val summary = formatter.summarizeResult(
+            "search_apps",
+            AgentModelClient.ToolResult(
+                content = """
+                    {"ok":true,"tool":"search_apps","query":"抖音","apps":[
+                      {"app_name":"抖音","package_name":"com.ss.android.ugc.aweme","is_system_app":false},
+                      {"app_name":"抖音极速版","package_name":"com.ss.android.ugc.aweme.lite","is_system_app":false},
+                      {"app_name":"抖音商城","package_name":"com.ss.android.ugc.livelite","is_system_app":false},
+                      {"app_name":"抖音火山版","package_name":"com.ss.android.ugc.live","is_system_app":false}
+                    ]}
+                """.trimIndent(),
+            ),
+        )
+
+        assertTrue(summary.contains("已找到 4 个应用"))
+        assertTrue(summary.contains("抖音、抖音极速版、抖音商城"))
+        assertTrue(summary.contains("等"))
+        assertFalse(summary.contains("com.ss.android"))
+
+        val empty = formatter.summarizeResult(
+            "search_apps",
+            AgentModelClient.ToolResult(
+                content = """{"ok":true,"tool":"search_apps","query":"不存在的应用","apps":[]}""",
+            ),
+        )
+        assertEquals("未找到匹配应用", empty)
+    }
+
+    @Test
+    fun launchAppResultShowsAppName() {
+        val summary = formatter.summarizeResult(
+            "launch_app",
+            AgentModelClient.ToolResult(
+                content = """{"ok":true,"tool":"launch_app","app_name":"抖音","package_name":"com.ss.android.ugc.aweme"}""",
+            ),
+        )
+
+        assertEquals("已打开 · 抖音", summary)
+    }
+
+    @Test
+    fun terminalResultShowsExitCodeAndOutputPreview() {
+        val success = formatter.summarizeResult(
+            "run_command",
+            AgentModelClient.ToolResult(
+                content = """{"ok":true,"tool":"run_command","exit_code":0,"stdout":"hello\nworld","stderr":"","timed_out":false}""",
+            ),
+        )
+        assertTrue(success.startsWith("执行完成"))
+        assertTrue(success.contains("hello\nworld"))
+
+        val failure = formatter.summarizeResult(
+            "terminal",
+            AgentModelClient.ToolResult(
+                content = """{"ok":false,"tool":"terminal","action":"exec","exit_code":1,"stdout":"","stderr":"Permission denied"}""",
+            ),
+        )
+        assertTrue(failure.startsWith("失败 · 退出码 1"))
+        assertTrue(failure.contains("Permission denied"))
+
+        val timedOut = formatter.summarizeResult(
+            "run_command",
+            AgentModelClient.ToolResult(
+                content = """{"ok":false,"tool":"run_command","exit_code":-2,"timed_out":true,"stdout":""}""",
+            ),
+        )
+        assertEquals("失败 · 执行超时", timedOut)
+
+        // 协议错误仍保留 code= 标记
+        val coded = formatter.summarizeResult(
+            "terminal",
+            AgentModelClient.ToolResult(
+                content = """{"ok":false,"code":"JOB_NOT_FOUND"}""",
+            ),
+        )
+        assertEquals("失败 · code=JOB_NOT_FOUND", coded)
+
+        // 带中文原因的错误：原因面向用户，code= 留给日志提取
+        val codedWithMessage = formatter.summarizeResult(
+            "terminal",
+            AgentModelClient.ToolResult(
+                content = """{"ok":false,"code":"TERMINAL_TOOLS_DISABLED","message":"请先启用终端/文件工具"}""",
+            ),
+        )
+        assertEquals("失败 · 请先启用终端/文件工具 · code=TERMINAL_TOOLS_DISABLED", codedWithMessage)
+
+        // 无输出的会话动作
+        val closed = formatter.summarizeResult(
+            "terminal",
+            AgentModelClient.ToolResult(
+                content = """{"ok":true,"tool":"terminal","action":"close","closed_session":true}""",
+            ),
+        )
+        assertEquals("终端 · 关闭终端", closed)
+    }
+
+    @Test
+    fun failureSummaryShowsHumanReasonAndKeepsCodeMarker() {
+        val summary = formatter.summarizeResult(
+            "wait_for_text",
+            AgentModelClient.ToolResult(
+                content = """{"ok":false,"code":"TIMEOUT","message":"等待文本超时：抖音"}""",
+            ),
+        )
+        assertEquals("失败 · 等待文本超时：抖音 · code=TIMEOUT", summary)
+
+        val codeOnly = formatter.summarizeResult(
+            "tap_element",
+            AgentModelClient.ToolResult(
+                content = """{"ok":false,"code":"INVALID_NODE_INDEX"}""",
+            ),
+        )
+        assertEquals("失败 · code=INVALID_NODE_INDEX", codeOnly)
+    }
+
+    @Test
+    fun terminalResultPreviewIsBounded() {
+        val longOutput = (1..10).joinToString("\n") { "line-$it-${"x".repeat(100)}" }
+        val summary = formatter.summarizeResult(
+            "run_command",
+            AgentModelClient.ToolResult(
+                content = JSONObject()
+                    .put("ok", true)
+                    .put("tool", "run_command")
+                    .put("exit_code", 0)
+                    .put("stdout", longOutput)
+                    .put("stdout_truncated", true)
+                    .toString(),
+            ),
+        )
+
+        val previewLines = summary.lines()
+        // 状态行 + 最多 3 行预览 + 省略标记
+        assertTrue(previewLines.size <= 5)
+        assertTrue(summary.endsWith("…"))
+        assertTrue(summary.length < longOutput.length)
     }
 
     private data class RedactionCase(

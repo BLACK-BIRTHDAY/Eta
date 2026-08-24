@@ -157,7 +157,6 @@ import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.basic.TooltipDefaults
 import top.yukonga.miuix.kmp.basic.rememberTooltipState
 import top.yukonga.miuix.kmp.squircle.squircleBorder
-import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -1921,7 +1920,7 @@ private fun ThinkingRow(
                 text = if (message.isStreaming) {
                     stringResource(R.string.reasoning_in_progress)
                 } else {
-                    message.elapsedSeconds?.let { seconds ->
+                    message.elapsedSeconds?.takeIf { it > 0 }?.let { seconds ->
                         pluralStringResource(
                             R.plurals.reasoning_completed_seconds,
                             seconds,
@@ -2025,6 +2024,16 @@ private fun ToolActivityInline(
             else -> null
         }
     }
+    // 失败原因直接显示在折叠行，不必展开卡片；剥离去重「失败」前缀与日志用的 code= 尾巴
+    val failureSubtitle = if (message.status == ToolActivityStatusUi.Failed) {
+        message.resultSummary
+            ?.lineSequence()?.firstOrNull()
+            ?.removePrefix("失败 · ")
+            ?.substringBefore(" · code=")
+            ?.takeIf { it.isNotBlank() && it != "失败" }
+    } else {
+        null
+    }
 
     Column(
         modifier = modifier
@@ -2067,11 +2076,16 @@ private fun ToolActivityInline(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (browserSubtitle != null) {
+                val subtitle = failureSubtitle ?: browserSubtitle
+                if (subtitle != null) {
                     Text(
-                        text = browserSubtitle,
+                        text = subtitle,
                         style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f),
+                        color = if (failureSubtitle != null) {
+                            StatusError
+                        } else {
+                            MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -2092,24 +2106,34 @@ private fun ToolActivityInline(
                     },
                     label = "tool_status",
                 ) { status ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp),
-                        modifier = Modifier.graphicsLayer(
-                            alpha = if (status == ToolActivityStatusUi.Running) pulseAlpha else 1f
-                        ),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(7.dp)
-                                .clip(CircleShape)
-                                .background(status.statusColor())
+                    // 成功是常态，只留低饱和度对勾；运行中与失败才占用视觉注意力
+                    if (status == ToolActivityStatusUi.Success) {
+                        Icon(
+                            painter = painterResource(LucideR.drawable.lucide_ic_check),
+                            contentDescription = stringResource(R.string.tool_status_success),
+                            modifier = Modifier.size(13.dp),
+                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
                         )
-                        Text(
-                            text = status.statusLabel(),
-                            style = MiuixTheme.textStyles.footnote2,
-                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f),
-                        )
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                            modifier = Modifier.graphicsLayer(
+                                alpha = if (status == ToolActivityStatusUi.Running) pulseAlpha else 1f
+                            ),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(status.statusColor())
+                            )
+                            Text(
+                                text = status.statusLabel(),
+                                style = MiuixTheme.textStyles.footnote2,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f),
+                            )
+                        }
                     }
                 }
                 Icon(
@@ -2154,7 +2178,9 @@ private fun ToolActivityInline(
                     Text(
                         text = message.resultSummary,
                         style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        maxLines = 10,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 if (showBrowserShortcut) {
