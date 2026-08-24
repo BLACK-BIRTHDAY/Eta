@@ -12,6 +12,61 @@ import org.junit.Test
 
 class AgentRuntimeSessionTest {
     @Test
+    fun replacementSubscriberReceivesSafeReplayThenLiveEventsAndResult() {
+        val firstEvents = mutableListOf<AgentEvent>()
+        val firstResults = mutableListOf<AgentRuntimeWire.RunResult>()
+        val replacementEvents = mutableListOf<AgentEvent>()
+        val replacementResults = mutableListOf<AgentRuntimeWire.RunResult>()
+        val session = AgentRuntimeSession(
+            runId = "run-attach",
+            eventSink = firstEvents::add,
+            resultSink = firstResults::add,
+        )
+        val visibleDelta = AgentEvent.AssistantBlockDelta(
+            round = 1,
+            kind = AgentEvent.AssistantBlockKind.TEXT,
+            index = 0,
+            deltaChars = 2,
+            delta = "你好",
+        )
+        val privateToolDelta = AgentEvent.AssistantBlockDelta(
+            round = 1,
+            kind = AgentEvent.AssistantBlockKind.TOOL_CALL,
+            index = 1,
+            deltaChars = 16,
+            delta = "{\"token\":\"secret\"}",
+        )
+        session.emit(visibleDelta)
+        session.emit(privateToolDelta)
+
+        assertTrue(session.attach(replacementEvents::add, replacementResults::add))
+        assertEquals(listOf(visibleDelta), replacementEvents)
+
+        val liveEvent = AgentEvent.ToolFinished(
+            round = 1,
+            toolCallId = "call-1",
+            name = "run_command",
+            resultSummary = "完成",
+            imageCount = 0,
+            imageBytes = 0,
+            success = true,
+        )
+        session.emit(liveEvent)
+        val result = AgentRuntimeWire.RunResult(
+            runId = "run-attach",
+            ok = true,
+            content = "完成",
+        )
+        session.complete(result)
+
+        assertEquals(listOf(visibleDelta, privateToolDelta, liveEvent), firstEvents)
+        assertEquals(listOf(visibleDelta, liveEvent), replacementEvents)
+        assertEquals(listOf(result), firstResults)
+        assertEquals(listOf(result), replacementResults)
+        assertFalse(session.attach({}, {}))
+    }
+
+    @Test
     fun concurrentCompletionAndCancellationPublishExactlyOneTerminalResult() {
         repeat(100) { iteration ->
             val results = Collections.synchronizedList(mutableListOf<AgentRuntimeWire.RunResult>())

@@ -16,7 +16,9 @@ internal object AgentContinuationBuilder {
             AgentModelClient.buildUserHistoryMessage(request.prompt, request.images) +
             response.transcript
         val handoff = request.handoff?.let { original ->
-            if (original.source != AGENT_UI_HANDOFF_SOURCE) return@let original.copy(id = newRunId)
+            if (original.source != AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE) {
+                return@let original.copy(id = newRunId)
+            }
             val payload = AgentUiHandoffPayload.from(original.payload)
             val nextSupplement = AgentUiHandoffPayload.Supplement(
                 index = (payload.supplements.maxOfOrNull { it.index } ?: 0) + 1,
@@ -40,5 +42,4 @@ internal object AgentContinuationBuilder {
         )
     }
 
-    private const val AGENT_UI_HANDOFF_SOURCE = "agent_ui"
 }

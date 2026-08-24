@@ -25,10 +25,15 @@ internal interface RuntimeRunDao {
 
     @Transaction
     suspend fun replaceRuntimeResults(results: List<RuntimeResultEntity>) {
+        val retainedRunIds = results.mapTo(mutableSetOf()) { it.runId }
+        val removedRunIds = runtimeResults()
+            .map { it.runId }
+            .filterNot { it in retainedRunIds }
         deleteRuntimeResults()
         if (results.isNotEmpty()) {
             insertRuntimeResults(results)
         }
+        removedRunIds.forEach { runId -> deleteInFlightRun(runId) }
     }
 
     @Transaction
@@ -78,6 +83,43 @@ internal interface RuntimeRunDao {
                 insertArchivedEvents(seed.events)
             }
         }
+    }
+
+    @Transaction
+    @Query("SELECT * FROM runtime_inflight_runs ORDER BY created_at ASC")
+    suspend fun inFlightRuns(): List<RuntimeInFlightRunWithEvents>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertInFlightRun(run: RuntimeInFlightRunEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertInFlightEvent(event: RuntimeInFlightEventEntity)
+
+    @Query("UPDATE runtime_inflight_runs SET updated_at = :updatedAt WHERE run_id = :runId")
+    suspend fun touchInFlightRun(runId: String, updatedAt: Long)
+
+    @Query("DELETE FROM runtime_inflight_events WHERE run_id = :runId")
+    suspend fun deleteInFlightEvents(runId: String)
+
+    @Query("DELETE FROM runtime_inflight_runs WHERE run_id = :runId")
+    suspend fun deleteInFlightRun(runId: String)
+
+    @Transaction
+    suspend fun acknowledgeRuntimeResult(runId: String) {
+        deleteRuntimeResult(runId)
+        deleteInFlightRun(runId)
+    }
+
+    @Transaction
+    suspend fun replaceInFlightRun(run: RuntimeInFlightRunEntity) {
+        deleteInFlightEvents(run.runId)
+        upsertInFlightRun(run)
+    }
+
+    @Transaction
+    suspend fun appendInFlightEvent(event: RuntimeInFlightEventEntity, updatedAt: Long) {
+        insertInFlightEvent(event)
+        touchInFlightRun(event.runId, updatedAt)
     }
 }
 

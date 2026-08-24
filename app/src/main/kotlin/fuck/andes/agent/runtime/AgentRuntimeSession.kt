@@ -12,8 +12,8 @@ import kotlin.concurrent.withLock
 internal class AgentRuntimeSession(
     val runId: String,
     val controller: AgentRunController = AgentRunController(),
-    private val eventSink: (AgentEvent) -> Unit = {},
-    private val resultSink: (AgentRuntimeWire.RunResult) -> Unit = {},
+    eventSink: ((AgentEvent) -> Unit)? = null,
+    resultSink: ((AgentRuntimeWire.RunResult) -> Unit)? = null,
 ) {
     private enum class State {
         RUNNING,
@@ -23,6 +23,22 @@ internal class AgentRuntimeSession(
 
     private val lock = ReentrantLock()
     private var state = State.RUNNING
+    private val replayEvents = mutableListOf<AgentEvent>()
+    private val subscribers = mutableListOf<Subscriber>()
+
+    private data class Subscriber(
+        val eventSink: (AgentEvent) -> Unit,
+        val resultSink: (AgentRuntimeWire.RunResult) -> Unit,
+    )
+
+    init {
+        if (eventSink != null || resultSink != null) {
+            subscribers += Subscriber(
+                eventSink = eventSink ?: {},
+                resultSink = resultSink ?: {},
+            )
+        }
+    }
 
     val isTerminal: Boolean
         get() = lock.withLock { state == State.TERMINAL }
@@ -30,9 +46,24 @@ internal class AgentRuntimeSession(
     fun emit(event: AgentEvent): Boolean =
         lock.withLock {
             if (state != State.RUNNING) return false
-            eventSink(event)
+            recordForReplay(event)
+            subscribers.forEach { it.eventSink(event) }
             true
         }
+
+    /**
+     * Activity 被移出任务栈后 Runtime 仍可能继续执行。新 UI 先重放安全事件，再加入实时订阅，
+     * 两步在同一把锁内完成，避免重放与实时流之间出现缺口。
+     */
+    fun attach(
+        eventSink: (AgentEvent) -> Unit,
+        resultSink: (AgentRuntimeWire.RunResult) -> Unit,
+    ): Boolean = lock.withLock {
+        if (state == State.TERMINAL) return false
+        replayEvents.forEach(eventSink)
+        subscribers += Subscriber(eventSink, resultSink)
+        true
+    }
 
     fun steer(text: String): Boolean =
         lock.withLock {
@@ -46,8 +77,33 @@ internal class AgentRuntimeSession(
     ): T? =
         lock.withLock {
             if (state != State.RUNNING || !controller.steer(text)) return null
-            eventFactory().also(eventSink)
+            eventFactory().also { event ->
+                recordForReplay(event)
+                subscribers.forEach { it.eventSink(event) }
+            }
         }
+
+    private fun recordForReplay(event: AgentEvent) {
+        val projected = event.recoveryProjection() ?: return
+        if (projected !is AgentEvent.AssistantBlockDelta) {
+            replayEvents += projected
+            return
+        }
+        val previous = replayEvents.lastOrNull() as? AgentEvent.AssistantBlockDelta
+        if (
+            previous != null &&
+            previous.round == projected.round &&
+            previous.kind == projected.kind &&
+            previous.index == projected.index
+        ) {
+            replayEvents[replayEvents.lastIndex] = previous.copy(
+                deltaChars = previous.deltaChars + projected.deltaChars,
+                delta = previous.delta + projected.delta,
+            )
+        } else {
+            replayEvents += projected
+        }
+    }
 
     /**
      * 先原子竞争 COMMITTING，再完成提交前副作用和结果发布。取消与替换不能越过提交胜者，
@@ -66,7 +122,9 @@ internal class AgentRuntimeSession(
         val commitFailure = runCatching(beforePublish).exceptionOrNull()
         lock.withLock {
             state = State.TERMINAL
-            resultSink(result)
+            subscribers.forEach { it.resultSink(result) }
+            subscribers.clear()
+            replayEvents.clear()
         }
         commitFailure?.let { throw it }
         return true
@@ -84,7 +142,11 @@ internal class AgentRuntimeSession(
             )
         }
         controller.cancel()
-        resultSink(result)
+        lock.withLock {
+            subscribers.forEach { it.resultSink(result) }
+            subscribers.clear()
+            replayEvents.clear()
+        }
         return true
     }
 }

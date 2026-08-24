@@ -312,8 +312,10 @@ internal object AgentConversationStore {
 
     private fun String.toToolStatus(): ToolActivityStatusUi =
         runCatching { ToolActivityStatusUi.valueOf(this) }.getOrNull()
-            ?.takeUnless { it == ToolActivityStatusUi.Running }
-            ?: ToolActivityStatusUi.Failed
+            ?.let { status ->
+                if (status == ToolActivityStatusUi.Running) ToolActivityStatusUi.Unknown else status
+            }
+            ?: ToolActivityStatusUi.Unknown
 
     private fun List<String>.toJsonArrayString(): String =
         JSONArray().also { array ->

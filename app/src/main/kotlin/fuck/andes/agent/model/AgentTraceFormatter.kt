@@ -51,7 +51,7 @@ internal class AgentTraceFormatter {
             else -> DEVICE_ACTION_LABELS[toolCall.name] ?: "准备执行"
         }
 
-    /** 原始命令只进入运行轨迹供用户核对；日志仍由 AgentEvent 记录长度。 */
+    /** 命令以脱敏后的用户可见投影进入运行轨迹；日志仍只记录长度。 */
     fun displayCommand(toolCall: AgentModelClient.ToolCall): String? =
         if (toolCall.name == "terminal" || toolCall.name == "run_command") {
             runCatching {
@@ -59,10 +59,22 @@ internal class AgentTraceFormatter {
                     .optString("command")
                     .trim()
                     .takeIf { it.isNotBlank() && it.length <= MAX_DISPLAY_COMMAND_CHARS }
+                    ?.redactDisplaySecrets()
             }.getOrNull()
         } else {
             null
         }
+
+    private fun String.redactDisplaySecrets(): String =
+        replace(SENSITIVE_ASSIGNMENT) { match ->
+            "${match.groupValues[1]}=<已隐藏>"
+        }
+            .replace(SENSITIVE_FLAG) { match ->
+                "${match.groupValues[1]}<已隐藏>"
+            }
+            .replace(SENSITIVE_HEADER) { match ->
+                "${match.groupValues[1]}${match.groupValues[2]}<已隐藏>"
+            }
 
     /** 外部 URI 摘要不记录 path、query、fragment 或用户信息。 */
     fun summarizeOpenUriArguments(argumentsJson: String): String =
@@ -393,6 +405,15 @@ internal class AgentTraceFormatter {
     private companion object {
         const val BROWSER_TOOL_NAME = "browser_use"
         const val MAX_DISPLAY_COMMAND_CHARS = 4_000
+        val SENSITIVE_ASSIGNMENT = Regex(
+            """(?i)\b([A-Z0-9_]*(?:API[_-]?KEY|ACCESS[_-]?TOKEN|AUTH[_-]?TOKEN|TOKEN|PASSWORD|PASSWD|SECRET)[A-Z0-9_]*)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s;&|]+)"""
+        )
+        val SENSITIVE_FLAG = Regex(
+            """(?i)(--?(?:password|passwd|token|api[-_]?key|secret)(?:\s*=\s*|\s+))(?:"[^"]*"|'[^']*'|[^\s;&|]+)"""
+        )
+        val SENSITIVE_HEADER = Regex(
+            """(?i)\b(Authorization|Proxy-Authorization|X-Api-Key)(\s*:\s*)[^'"\r\n;&|]+"""
+        )
         val BROWSER_ACTIONS = setOf(
             "navigate",
             "get_readable",

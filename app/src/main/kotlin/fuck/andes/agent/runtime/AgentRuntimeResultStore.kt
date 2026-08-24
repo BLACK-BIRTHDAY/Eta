@@ -57,7 +57,7 @@ internal object AgentRuntimeResultStore {
             runBlocking(Dispatchers.IO) {
                 FuckAndesDatabase.get(appContext)
                     .runtimeRunDao()
-                    .deleteRuntimeResult(runId)
+                    .acknowledgeRuntimeResult(runId)
             }
             rememberAcknowledgement(runId, System.currentTimeMillis())
         }

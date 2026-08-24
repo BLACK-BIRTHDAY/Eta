@@ -39,7 +39,10 @@ internal object AgentPendingResultRecovery {
         )
         if (history.alreadyApplied) return Outcome(state, alreadyApplied = true)
 
-        val messagesWithResult = state.messages.toMutableList().also { messages ->
+        val messagesWithResult = state.messages
+            .filterNot { it is SystemNoticeMessageUi && it.id == interruptedNoticeId(runId) }
+            .toMutableList()
+            .also { messages ->
             val assistantIndex = messages.indexOfLast { it.isAssistantForRun(runId) }
             val completedMessage: AgentChatMessageUi = when {
                 content != null -> AgentMessageUi(
@@ -119,5 +122,7 @@ internal object AgentPendingResultRecovery {
 
     private fun supplementMessageId(runId: String, index: Int): String =
         "user-$runId-supplement-$index"
+
+    private fun interruptedNoticeId(runId: String): String = "interrupted-$runId"
 
 }

@@ -11,6 +11,7 @@ import java.io.File
 import java.io.FileOutputStream
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
@@ -23,6 +24,17 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class AgentRuntimeWireTest {
+    @Test
+    fun attachResponsePreservesRunIdentityAndDecision() {
+        val accepted = AgentRuntimeWire.attachRunResponseBundle("run-1", attached = true)
+        val rejected = AgentRuntimeWire.attachRunResponseBundle("run-2", attached = false)
+
+        assertEquals("run-1", AgentRuntimeWire.runIdFromBundle(accepted))
+        assertTrue(AgentRuntimeWire.attachRunSucceeded(accepted))
+        assertEquals("run-2", AgentRuntimeWire.runIdFromBundle(rejected))
+        assertFalse(AgentRuntimeWire.attachRunSucceeded(rejected))
+    }
+
     @Test
     fun oversizedLegacyInlineImageRequestIsRejectedBeforeMessengerSend() {
         val request = AgentRuntimeWire.RunRequest(

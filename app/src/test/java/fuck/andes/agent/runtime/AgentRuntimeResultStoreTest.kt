@@ -110,4 +110,140 @@ class AgentRuntimeResultStoreTest {
         assertEquals("call-1", restored.result.transcript[1].toolCallId)
         assertEquals("完成", restored.result.transcript.last().content)
     }
+
+    @Test
+    fun acknowledgementRemovesCommittedCheckpoint() {
+        val runId = "checkpoint-${System.nanoTime()}"
+        val request = AgentRuntimeWire.RunRequest(
+            runId = runId,
+            prompt = "检查运行状态",
+            config = AgentModelClient.ModelConfig(
+                baseUrl = "https://example.com/v1",
+                apiKey = "test-key",
+                model = "test-model",
+                systemPrompt = "",
+            ),
+            images = emptyList(),
+            handoff = AgentRuntimeWire.EntryHandoff(
+                id = runId,
+                source = AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE,
+                payload = "conversation-1",
+            ),
+        )
+        val recorder = AgentRunCheckpointRecorder.create(context, request)!!
+        recorder.accept(
+            AgentEvent.ToolStarted(
+                round = 1,
+                toolCallId = "call-1",
+                name = "run_command",
+                argsPreview = "执行命令 · Android · root",
+                command = "uptime",
+            )
+        )
+        recorder.seal()
+        assertTrue(
+            AgentRuntimeResultStore.add(
+                context,
+                AgentRuntimeWire.CompletedRun(
+                    handoff = requireNotNull(request.handoff),
+                    result = AgentRuntimeWire.RunResult(
+                        runId = runId,
+                        ok = true,
+                        content = "完成",
+                    ),
+                    createdAt = System.currentTimeMillis(),
+                ),
+            )
+        )
+
+        assertEquals(
+            runId,
+            AgentRunCheckpointStore.list(context).single().runId,
+        )
+
+        AgentRuntimeResultStore.remove(context, runId)
+
+        assertTrue(AgentRuntimeResultStore.list(context).none { it.result.runId == runId })
+        assertTrue(AgentRunCheckpointStore.list(context).isEmpty())
+    }
+
+    @Test
+    fun capacityPruningRemovesTheMatchingTerminalCheckpoint() {
+        val now = System.currentTimeMillis()
+        repeat(9) { index ->
+            val runId = "capacity-$index"
+            createCheckpoint(runId)
+            assertTrue(
+                AgentRuntimeResultStore.add(
+                    context,
+                    completedRun(runId, createdAt = now + index),
+                )
+            )
+        }
+
+        assertEquals(8, AgentRuntimeResultStore.list(context).size)
+        assertTrue(AgentRuntimeResultStore.list(context).none { it.result.runId == "capacity-0" })
+        assertTrue(AgentRunCheckpointStore.list(context).none { it.runId == "capacity-0" })
+        assertEquals(8, AgentRunCheckpointStore.list(context).size)
+    }
+
+    @Test
+    fun agePruningRemovesTheMatchingTerminalCheckpoint() {
+        val runId = "expired-result"
+        createCheckpoint(runId)
+
+        assertTrue(
+            AgentRuntimeResultStore.add(
+                context,
+                completedRun(
+                    runId = runId,
+                    createdAt = System.currentTimeMillis() - 13L * 60L * 60L * 1000L,
+                ),
+            )
+        )
+
+        assertTrue(AgentRuntimeResultStore.list(context).isEmpty())
+        assertTrue(AgentRunCheckpointStore.list(context).isEmpty())
+    }
+
+    private fun createCheckpoint(runId: String) {
+        val recorder = AgentRunCheckpointRecorder.create(
+            context,
+            AgentRuntimeWire.RunRequest(
+                runId = runId,
+                prompt = "测试",
+                config = AgentModelClient.ModelConfig(
+                    baseUrl = "https://example.com/v1",
+                    apiKey = "test-key",
+                    model = "test-model",
+                    systemPrompt = "",
+                ),
+                images = emptyList(),
+                handoff = AgentRuntimeWire.EntryHandoff(
+                    id = runId,
+                    source = AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE,
+                    payload = "conversation-1",
+                ),
+            ),
+        )!!
+        recorder.accept(AgentEvent.RunStarted(0, 0, 1, false))
+        recorder.seal()
+    }
+
+    private fun completedRun(
+        runId: String,
+        createdAt: Long,
+    ) = AgentRuntimeWire.CompletedRun(
+        handoff = AgentRuntimeWire.EntryHandoff(
+            id = runId,
+            source = AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE,
+            payload = "conversation-1",
+        ),
+        result = AgentRuntimeWire.RunResult(
+            runId = runId,
+            ok = true,
+            content = "完成",
+        ),
+        createdAt = createdAt,
+    )
 }

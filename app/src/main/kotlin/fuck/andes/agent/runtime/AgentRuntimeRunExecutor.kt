@@ -58,9 +58,11 @@ internal class AgentRuntimeRunExecutor(
         var toolsBinding: AgentRunController.ResourceBinding? = null
         var response: AgentModelClient.ModelResponse.Text? = null
         var cancelled = false
+        var checkpointRecorder: AgentRunCheckpointRecorder? = null
         val timing = AgentRunTiming(AndroidAgentLogger)
 
         val result = try {
+            checkpointRecorder = AgentRunCheckpointRecorder.create(appContext, request)
             entrySurfaceGuard = EntrySurfaceGuard.from(request.handoff, AndroidAgentLogger)
             val skillIndexService = SkillRuntime.createIndexService(appContext)
             val skillLoader = SkillRuntime.createLoader(appContext)
@@ -169,7 +171,13 @@ internal class AgentRuntimeRunExecutor(
                 memoryContext = memoryContext,
             ) { event ->
                 timing.accept(event)
-                acceptEvent(session, event, archivedEvents, entrySurfaceGuard)
+                acceptEvent(
+                    session,
+                    event,
+                    archivedEvents,
+                    entrySurfaceGuard,
+                    checkpointRecorder,
+                )
             }
             response = completedResponse
             AgentRuntimeWire.RunResult(
@@ -194,7 +202,21 @@ internal class AgentRuntimeRunExecutor(
                     "Agent runtime failed: type=${throwable.safeLogType()}"
                 )
                 val event = AgentEvent.RunFailed(message)
-                acceptEvent(session, event, archivedEvents, entrySurfaceGuard)
+                runCatching {
+                    acceptEvent(
+                        session,
+                        event,
+                        archivedEvents,
+                        entrySurfaceGuard,
+                        checkpointRecorder,
+                    )
+                }.onFailure { checkpointFailure ->
+                    AndroidAgentLogger.error(
+                        "Agent runtime failure checkpoint failed: " +
+                            "type=${checkpointFailure.safeLogType()}"
+                    )
+                    session.emit(event)
+                }
             }
             AgentRuntimeWire.RunResult(
                 runId = request.runId,
@@ -210,6 +232,12 @@ internal class AgentRuntimeRunExecutor(
         }
 
         if (cancelled) {
+            runCatching { checkpointRecorder?.discard() }.onFailure { throwable ->
+                AndroidAgentLogger.error(
+                    "Agent runtime cancelled checkpoint cleanup failed: " +
+                        "type=${throwable.safeLogType()}"
+                )
+            }
             session.cancel("已停止")
             return Outcome(
                 result = result,
@@ -226,6 +254,12 @@ internal class AgentRuntimeRunExecutor(
                 request
             }
         val committed = session.complete(result) {
+            runCatching { checkpointRecorder?.seal() }
+                .onFailure { throwable ->
+                    AndroidAgentLogger.error(
+                        "Agent runtime checkpoint seal failed: type=${throwable.safeLogType()}"
+                    )
+                }
             runCatching { persistArtifacts(completedRequest, result, archivedEvents) }
                 .onFailure { throwable ->
                     AndroidAgentLogger.error(
@@ -247,7 +281,9 @@ internal class AgentRuntimeRunExecutor(
         event: AgentEvent,
         archivedEvents: MutableList<AgentEvent>,
         entrySurfaceGuard: EntrySurfaceGuard?,
+        checkpointRecorder: AgentRunCheckpointRecorder?,
     ) {
+        checkpointRecorder?.accept(event)
         if (!session.emit(event)) return
         archivedEvents += event
         if (event !is AgentEvent.AssistantBlockDelta) {

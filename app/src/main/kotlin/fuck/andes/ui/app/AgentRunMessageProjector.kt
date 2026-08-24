@@ -258,6 +258,21 @@ internal class AgentRunMessageProjector(
             }
         }
 
+    fun interruptRunningTools(
+        reason: String,
+        messages: List<AgentChatMessageUi>,
+    ): List<AgentChatMessageUi> =
+        messages.map { message ->
+            if (message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running) {
+                message.copy(
+                    status = ToolActivityStatusUi.Unknown,
+                    resultSummary = reason.take(MAX_TOOL_RESULT_PREVIEW_CHARS),
+                )
+            } else {
+                message
+            }
+        }
+
     fun clearRun(runId: String) {
         thinkingStartedAt.keys.removeAll { it.startsWith("$runId-thinking-") }
     }

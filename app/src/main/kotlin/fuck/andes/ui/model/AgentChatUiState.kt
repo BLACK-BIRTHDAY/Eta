@@ -45,7 +45,8 @@ data class AgentMessageUi(
 enum class SystemNoticeCode(val wireValue: String) {
     Stopped("stopped"),
     EmptyResult("empty_result"),
-    RuntimeFailed("runtime_failed");
+    RuntimeFailed("runtime_failed"),
+    Interrupted("interrupted");
 
     companion object {
         fun fromWireValue(value: String): SystemNoticeCode? = entries.firstOrNull {
@@ -126,6 +127,7 @@ enum class ToolActivityStatusUi {
     Running,
     Success,
     Failed,
+    Unknown,
 }
 
 /**

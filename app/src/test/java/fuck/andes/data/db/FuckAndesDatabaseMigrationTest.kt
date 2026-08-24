@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class FuckAndesDatabaseMigrationTest {
     @Test
-    fun migration6To15PreservesDataAndMovesBoundedConversationContext() {
+    fun migration6To16PreservesDataAndMovesBoundedConversationContext() {
         val context = RuntimeEnvironment.getApplication() as Context
         val databaseName = "migration-${UUID.randomUUID()}.db"
         createVersion6Database(context, databaseName)
@@ -36,6 +36,7 @@ class FuckAndesDatabaseMigrationTest {
                 FuckAndesDatabase.MIGRATION_12_13,
                 FuckAndesDatabase.MIGRATION_13_14,
                 FuckAndesDatabase.MIGRATION_14_15,
+                FuckAndesDatabase.MIGRATION_15_16,
             )
             .build()
         try {
@@ -66,6 +67,9 @@ class FuckAndesDatabaseMigrationTest {
             val migratedMessage = runBlocking(Dispatchers.IO) {
                 database.conversationDao().messages().single()
             }
+            val inFlightRuns = runBlocking(Dispatchers.IO) {
+                database.runtimeRunDao().inFlightRuns()
+            }
 
             assertEquals("保留的结果", result.content)
             assertEquals("[]", result.transcriptJson)
@@ -89,6 +93,7 @@ class FuckAndesDatabaseMigrationTest {
             assertEquals(listOf("built-in", "manual"), provider.models.map { it.modelId })
             assertEquals(false, provider.hostedWebSearchEnabled)
             assertEquals(false, migratedMessage.isEdited)
+            assertEquals(emptyList<RuntimeInFlightRunWithEvents>(), inFlightRuns)
             assertEquals(null, provider.models.first().contextWindowOverride)
             assertEquals(null, provider.models.first().reasoningOverride)
             assertEquals(null, provider.models.first().reasoningCapabilitiesOverride)

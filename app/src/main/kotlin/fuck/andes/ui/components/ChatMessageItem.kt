@@ -277,6 +277,7 @@ internal fun ChatMessageItem(
                                 SystemNoticeCode.Stopped -> R.string.system_notice_stopped
                                 SystemNoticeCode.EmptyResult -> R.string.system_notice_empty_result
                                 SystemNoticeCode.RuntimeFailed -> R.string.system_notice_runtime_failed
+                                SystemNoticeCode.Interrupted -> R.string.system_notice_interrupted
                             },
                         ),
                     )
@@ -2046,6 +2047,7 @@ private fun ToolActivityInline(
                 tint = when (message.status) {
                     ToolActivityStatusUi.Running -> MiuixTheme.colorScheme.primary
                     ToolActivityStatusUi.Failed -> StatusError
+                    ToolActivityStatusUi.Unknown -> MiuixTheme.colorScheme.onSurfaceVariantSummary
                     ToolActivityStatusUi.Success ->
                         MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
                 }
@@ -2512,6 +2514,7 @@ private fun ToolActivityStatusUi.statusColor() = when (this) {
     ToolActivityStatusUi.Running -> StatusRunning
     ToolActivityStatusUi.Success -> StatusSuccess
     ToolActivityStatusUi.Failed -> StatusError
+    ToolActivityStatusUi.Unknown -> MiuixTheme.colorScheme.onSurfaceVariantSummary
 }
 
 @Composable
@@ -2519,6 +2522,7 @@ private fun ToolActivityStatusUi.statusLabel(): String = when (this) {
     ToolActivityStatusUi.Running -> stringResource(R.string.tool_status_running)
     ToolActivityStatusUi.Success -> stringResource(R.string.tool_status_success)
     ToolActivityStatusUi.Failed -> stringResource(R.string.tool_status_failed)
+    ToolActivityStatusUi.Unknown -> stringResource(R.string.tool_status_unknown)
 }
 
 @Composable

@@ -18,9 +18,11 @@ import androidx.room.migration.Migration
         RuntimeResultEntity::class,
         RuntimeArchiveRunEntity::class,
         RuntimeArchiveEventEntity::class,
+        RuntimeInFlightRunEntity::class,
+        RuntimeInFlightEventEntity::class,
         SkillRegistryEntity::class,
     ],
-    version = 15,
+    version = 16,
     exportSchema = false,
 )
 internal abstract class FuckAndesDatabase : RoomDatabase() {
@@ -50,6 +52,7 @@ internal abstract class FuckAndesDatabase : RoomDatabase() {
                         MIGRATION_12_13,
                         MIGRATION_13_14,
                         MIGRATION_14_15,
+                        MIGRATION_15_16,
                     )
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
@@ -170,6 +173,39 @@ internal abstract class FuckAndesDatabase : RoomDatabase() {
             database.execSQL(
                 "ALTER TABLE provider_models ADD COLUMN " +
                     "reasoning_capabilities_override_json TEXT NOT NULL DEFAULT 'null'"
+            )
+        }
+
+        internal val MIGRATION_15_16 = Migration(15, 16) { database ->
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS runtime_inflight_runs (" +
+                    "run_id TEXT NOT NULL, " +
+                    "owner_instance_id TEXT NOT NULL, " +
+                    "handoff_id TEXT NOT NULL, " +
+                    "handoff_source TEXT NOT NULL, " +
+                    "handoff_payload TEXT NOT NULL, " +
+                    "dismiss_entry_surface INTEGER NOT NULL, " +
+                    "created_at INTEGER NOT NULL, " +
+                    "updated_at INTEGER NOT NULL, " +
+                    "PRIMARY KEY(run_id))"
+            )
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS runtime_inflight_events (" +
+                    "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "run_id TEXT NOT NULL, " +
+                    "sort_index INTEGER NOT NULL, " +
+                    "event_json TEXT NOT NULL, " +
+                    "FOREIGN KEY(run_id) REFERENCES runtime_inflight_runs(run_id) " +
+                    "ON UPDATE NO ACTION ON DELETE CASCADE)"
+            )
+            database.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_runtime_inflight_events_run_id " +
+                    "ON runtime_inflight_events(run_id)"
+            )
+            database.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                    "index_runtime_inflight_events_run_id_sort_index " +
+                    "ON runtime_inflight_events(run_id, sort_index)"
             )
         }
     }

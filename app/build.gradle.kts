@@ -109,6 +109,7 @@ dependencies {
     implementation(libs.lucide.icons)
     implementation(libs.androidx.navigationevent)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.activity.compose)
     implementation(libs.markdown.renderer)
     implementation(libs.markdown.renderer.m3)

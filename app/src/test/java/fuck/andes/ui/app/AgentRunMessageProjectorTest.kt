@@ -214,4 +214,26 @@ class AgentRunMessageProjectorTest {
         assertEquals("回答。", assistant.content)
         assertFalse(assistant.isStreaming)
     }
+
+    @Test
+    fun interruptedToolBecomesUnknownInsteadOfFailed() {
+        val projector = AgentRunMessageProjector(nowElapsedRealtime = { 1_000L })
+        val runId = "run-interrupted"
+        val running = projector.startTool(
+            runId,
+            AgentEvent.ToolStarted(
+                round = 1,
+                toolCallId = "call-1",
+                name = "run_command",
+                argsPreview = "执行命令",
+            ),
+            listOf(UserMessageUi(id = "user-$runId", content = "重启设备")),
+        )
+
+        val interrupted = projector.interruptRunningTools("任务中断", running)
+        val tool = interrupted.filterIsInstance<ToolActivityMessageUi>().single()
+
+        assertEquals(ToolActivityStatusUi.Unknown, tool.status)
+        assertEquals("任务中断", tool.resultSummary)
+    }
 }

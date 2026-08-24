@@ -70,3 +70,46 @@ internal data class RuntimeArchiveRunWithEvents(
     )
     val events: List<RuntimeArchiveEventEntity>,
 )
+
+@Entity(tableName = "runtime_inflight_runs")
+internal data class RuntimeInFlightRunEntity(
+    @PrimaryKey @ColumnInfo(name = "run_id") val runId: String,
+    @ColumnInfo(name = "owner_instance_id") val ownerInstanceId: String,
+    @ColumnInfo(name = "handoff_id") val handoffId: String,
+    @ColumnInfo(name = "handoff_source") val handoffSource: String,
+    @ColumnInfo(name = "handoff_payload") val handoffPayload: String,
+    @ColumnInfo(name = "dismiss_entry_surface") val dismissEntrySurface: Boolean,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+)
+
+@Entity(
+    tableName = "runtime_inflight_events",
+    foreignKeys = [
+        ForeignKey(
+            entity = RuntimeInFlightRunEntity::class,
+            parentColumns = ["run_id"],
+            childColumns = ["run_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [
+        Index("run_id"),
+        Index(value = ["run_id", "sort_index"], unique = true),
+    ],
+)
+internal data class RuntimeInFlightEventEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @ColumnInfo(name = "run_id") val runId: String,
+    @ColumnInfo(name = "sort_index") val sortIndex: Int,
+    @ColumnInfo(name = "event_json") val eventJson: String,
+)
+
+internal data class RuntimeInFlightRunWithEvents(
+    @Embedded val run: RuntimeInFlightRunEntity,
+    @Relation(
+        parentColumn = "run_id",
+        entityColumn = "run_id",
+    )
+    val events: List<RuntimeInFlightEventEntity>,
+)

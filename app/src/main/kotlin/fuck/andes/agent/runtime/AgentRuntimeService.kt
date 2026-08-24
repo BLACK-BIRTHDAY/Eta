@@ -214,6 +214,17 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 AgentRuntimeWire.MSG_DRAIN_RESULTS -> {
                     sendDrainedResults(msg.replyTo)
                 }
+
+                AgentRuntimeWire.MSG_QUERY_ACTIVE_RUN -> {
+                    sendActiveRun(msg.replyTo)
+                }
+
+                AgentRuntimeWire.MSG_ATTACH_RUN -> {
+                    attachRun(
+                        runId = AgentRuntimeWire.runIdFromBundle(msg.data ?: return),
+                        replyTo = msg.replyTo,
+                    )
+                }
             }
         }
     }
@@ -312,7 +323,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         synchronized(supplementsLock) {
             activeSupplements.clear()
             nextSupplementIndex = 1
-            if (request.handoff?.source == AGENT_UI_HANDOFF_SOURCE) {
+            if (request.handoff?.source == AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE) {
                 val payload = AgentUiHandoffPayload.from(request.handoff.payload)
                 activeSupplements += payload.supplements
                 nextSupplementIndex = (
@@ -395,12 +406,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         result: AgentRuntimeWire.RunResult,
         events: List<AgentEvent>,
     ) {
-        runCatching { persistCompletedRun(request, result) }
-            .onFailure { throwable ->
-                AndroidAgentLogger.error(
-                    "Agent runtime outbox persistence failed: type=${throwable.safeLogType()}"
-                )
-            }
+        // outbox 是终态与在途 checkpoint 之间的提交点；失败时保留 checkpoint 供下次恢复。
+        persistCompletedRun(request, result)
         runCatching { persistArchivedRun(request, result, events) }
             .onFailure { throwable ->
                 AndroidAgentLogger.error(
@@ -506,6 +513,38 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         }.onFailure { throwable ->
             AndroidAgentLogger.warnThrottled("runtime_drain_results_failed") {
                 "Agent runtime drain results failed: type=${throwable.safeLogType()}"
+            }
+        }
+    }
+
+    private fun sendActiveRun(replyTo: Messenger?) {
+        runCatching {
+            val msg = Message.obtain(null, AgentRuntimeWire.MSG_QUERY_ACTIVE_RUN_RESPONSE)
+            msg.data = AgentRuntimeWire.ackBundle(activeSession?.runId.orEmpty())
+            replyTo?.send(msg)
+        }.onFailure { throwable ->
+            AndroidAgentLogger.warnThrottled("runtime_active_run_delivery_failed") {
+                "Agent runtime active run delivery failed: type=${throwable.safeLogType()}"
+            }
+        }
+    }
+
+    private fun attachRun(runId: String, replyTo: Messenger?) {
+        val session = activeSession
+        val attached = replyTo != null &&
+            runId.isNotBlank() &&
+            session?.runId == runId &&
+            session.attach(
+                eventSink = { event -> sendEventTo(replyTo, event) },
+                resultSink = { result -> sendResultTo(replyTo, result) },
+            )
+        runCatching {
+            val msg = Message.obtain(null, AgentRuntimeWire.MSG_ATTACH_RUN_RESPONSE)
+            msg.data = AgentRuntimeWire.attachRunResponseBundle(runId, attached)
+            replyTo?.send(msg)
+        }.onFailure { throwable ->
+            AndroidAgentLogger.warnThrottled("runtime_attach_run_delivery_failed") {
+                "Agent runtime attach response failed: type=${throwable.safeLogType()}"
             }
         }
     }
@@ -653,7 +692,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         }
 
         val completed = lastCompletedRunContext ?: return
-        if (completed.request.handoff?.source != AGENT_UI_HANDOFF_SOURCE) {
+        if (completed.request.handoff?.source != AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE) {
             state.value = state.value.copy(status = AgentOverlayStatus.ContinuationUnavailable)
             return
         }
@@ -988,7 +1027,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
 
     private fun AgentRuntimeWire.RunRequest.withActiveSupplements(): AgentRuntimeWire.RunRequest {
         val handoff = handoff ?: return this
-        if (handoff.source != AGENT_UI_HANDOFF_SOURCE) return this
+        if (handoff.source != AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE) return this
         val supplements = synchronized(supplementsLock) { activeSupplements.toList() }
         if (supplements.isEmpty()) return this
         val payload = AgentUiHandoffPayload.from(handoff.payload).copy(
@@ -1000,7 +1039,6 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     }
 
     private companion object {
-        const val AGENT_UI_HANDOFF_SOURCE = "agent_ui"
         const val ACTION_KEEP_ALIVE = "fuck.andes.agent.runtime.KEEP_ALIVE"
         const val HIDE_DELAY_MS = 2_500L
         const val RESULT_REVIEW_DELAY_MS = 120_000L

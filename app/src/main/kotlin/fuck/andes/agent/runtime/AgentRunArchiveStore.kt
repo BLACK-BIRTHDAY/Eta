@@ -1,7 +1,6 @@
 package fuck.andes.agent.runtime
 
 import android.content.Context
-import android.os.Bundle
 import fuck.andes.agent.model.AgentConversationCodec
 import fuck.andes.agent.model.AgentModelClient
 import fuck.andes.data.db.FuckAndesDatabase
@@ -13,7 +12,6 @@ import fuck.andes.data.db.RuntimeRunDao
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
-import org.json.JSONObject
 
 /**
  * Process-persistent archive for externally initiated runs that should later be
@@ -102,7 +100,7 @@ internal object AgentRunArchiveStore {
             RuntimeArchiveEventEntity(
                 archiveRunId = archiveRunId,
                 sortIndex = index,
-                eventJson = bundleToJson(AgentRuntimeWire.eventToBundle(event)).toString(),
+                eventJson = AgentEventJsonCodec.encode(event),
             )
         }
 
@@ -144,11 +142,7 @@ internal object AgentRunArchiveStore {
                 },
                 events = events
                     .sortedBy { it.sortIndex }
-                    .mapNotNull { event ->
-                        runCatching {
-                            AgentRuntimeWire.eventFromBundle(jsonToBundle(JSONObject(event.eventJson)))
-                        }.getOrNull()
-                    },
+                    .mapNotNull { event -> AgentEventJsonCodec.decode(event.eventJson) },
             )
         }.getOrNull()
 
@@ -160,40 +154,15 @@ internal object AgentRunArchiveStore {
                 .map { it.copy(id = 0) },
         )
 
-    @Suppress("DEPRECATION")
-    private fun bundleToJson(bundle: Bundle): JSONObject =
-        JSONObject().also { json ->
-            bundle.keySet().forEach { key ->
-                when (val value = bundle.get(key)) {
-                    is String -> json.put(key, value)
-                    is Boolean -> json.put(key, value)
-                    is Int -> json.put(key, value)
-                    is Long -> json.put(key, value)
-                    is ArrayList<*> -> json.put(key, JSONArray(value))
-                    null -> json.put(key, JSONObject.NULL)
-                }
-            }
-        }
-
-    private fun jsonToBundle(json: JSONObject): Bundle =
-        Bundle().also { bundle ->
-            json.keys().forEach { key ->
-                when (val value = json.opt(key)) {
-                    is String -> bundle.putString(key, value)
-                    is Boolean -> bundle.putBoolean(key, value)
-                    is Int -> bundle.putInt(key, value)
-                    is Long -> bundle.putLong(key, value)
-                    is JSONArray -> bundle.putStringArrayList(
-                        key,
-                        ArrayList((0 until value.length()).map { index -> value.optString(index) }),
-                    )
-                }
-            }
-        }
-
     private fun compactEvents(events: List<AgentEvent>): List<AgentEvent> {
         val compacted = mutableListOf<AgentEvent>()
         events.forEach { event ->
+            if (
+                event is AgentEvent.AssistantBlockDelta &&
+                event.kind == AgentEvent.AssistantBlockKind.TOOL_CALL
+            ) {
+                return@forEach
+            }
             val previous = compacted.lastOrNull()
             val merged = when {
                 previous is AgentEvent.AssistantBlockDelta &&

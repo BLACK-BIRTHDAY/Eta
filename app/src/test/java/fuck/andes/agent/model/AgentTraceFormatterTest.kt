@@ -1,5 +1,6 @@
 package fuck.andes.agent.model
 
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -126,6 +127,27 @@ class AgentTraceFormatterTest {
                 )
             )
         )
+    }
+
+    @Test
+    fun displayedTerminalCommandsRedactCommonCredentialForms() {
+        val command = """export API_KEY='sk-secret'; curl -H 'Authorization: Bearer token-value' --password hunter2 https://example.com?access_token=query-secret"""
+        val displayed = formatter.displayCommand(
+            AgentModelClient.ToolCall(
+                id = "secret-command",
+                name = "run_command",
+                argumentsJson = JSONObject().put("command", command).toString(),
+            )
+        )!!
+
+        assertTrue(displayed.contains("API_KEY=<已隐藏>"))
+        assertTrue(displayed.contains("Authorization: <已隐藏>"))
+        assertTrue(displayed.contains("--password <已隐藏>"))
+        assertTrue(displayed.contains("access_token=<已隐藏>"))
+        assertFalse(displayed.contains("sk-secret"))
+        assertFalse(displayed.contains("token-value"))
+        assertFalse(displayed.contains("hunter2"))
+        assertFalse(displayed.contains("query-secret"))
     }
 
     @Test
