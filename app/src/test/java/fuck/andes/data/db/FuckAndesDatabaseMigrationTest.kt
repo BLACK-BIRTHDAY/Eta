@@ -2,6 +2,7 @@ package fuck.andes.data.db
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -20,10 +21,21 @@ import org.robolectric.annotation.Config
 @Config(sdk = [36])
 class FuckAndesDatabaseMigrationTest {
     @Test
-    fun migration6To16PreservesDataAndMovesBoundedConversationContext() {
+    fun migration6To18PreservesDataAndMovesBoundedConversationContext() {
         val context = RuntimeEnvironment.getApplication() as Context
         val databaseName = "migration-${UUID.randomUUID()}.db"
         createVersion6Database(context, databaseName)
+
+        val migration16To17WithMcpData = Migration(16, 17) { database ->
+            FuckAndesDatabase.MIGRATION_16_17.migrate(database)
+            database.execSQL(
+                "INSERT INTO mcp_servers (id, name, url, enabled, protocol_mode, " +
+                    "authorization_type, tools_json, enabled_tool_names_json, created_at, " +
+                    "sort_order, last_refreshed_at, last_protocol_version) VALUES " +
+                    "('mcp-1', 'MCP', 'http://127.0.0.1:8787/mcp', 1, 'auto', 'none', " +
+                    "'[]', '[]', 1, 0, 2, '2026-07-28')"
+            )
+        }
 
         val database = Room.databaseBuilder(context, FuckAndesDatabase::class.java, databaseName)
             .addMigrations(
@@ -37,6 +49,8 @@ class FuckAndesDatabaseMigrationTest {
                 FuckAndesDatabase.MIGRATION_13_14,
                 FuckAndesDatabase.MIGRATION_14_15,
                 FuckAndesDatabase.MIGRATION_15_16,
+                migration16To17WithMcpData,
+                FuckAndesDatabase.MIGRATION_17_18,
             )
             .build()
         try {
@@ -70,6 +84,9 @@ class FuckAndesDatabaseMigrationTest {
             val inFlightRuns = runBlocking(Dispatchers.IO) {
                 database.runtimeRunDao().inFlightRuns()
             }
+            val mcpServers = runBlocking(Dispatchers.IO) {
+                database.mcpServerDao().servers()
+            }
 
             assertEquals("保留的结果", result.content)
             assertEquals("[]", result.transcriptJson)
@@ -94,6 +111,8 @@ class FuckAndesDatabaseMigrationTest {
             assertEquals(false, provider.hostedWebSearchEnabled)
             assertEquals(false, migratedMessage.isEdited)
             assertEquals(emptyList<RuntimeInFlightRunWithEvents>(), inFlightRuns)
+            assertEquals(listOf("mcp-1"), mcpServers.map { it.id })
+            assertEquals(null, mcpServers.single().toolsExpireAt)
             assertEquals(null, provider.models.first().contextWindowOverride)
             assertEquals(null, provider.models.first().reasoningOverride)
             assertEquals(null, provider.models.first().reasoningCapabilitiesOverride)

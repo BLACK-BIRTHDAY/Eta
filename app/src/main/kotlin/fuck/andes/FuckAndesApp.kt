@@ -10,6 +10,7 @@ import fuck.andes.core.safeLogType
 import fuck.andes.data.datastore.SettingsDataStore
 import fuck.andes.data.repository.AgentMemoryRepository
 import fuck.andes.data.repository.AppearanceSettingsRepository
+import fuck.andes.data.repository.McpServerRepository
 import fuck.andes.data.repository.ProviderRepository
 import fuck.andes.ui.app.PredictiveBackController
 import io.github.libxposed.service.XposedService
@@ -50,6 +51,7 @@ class FuckAndesApp : Application(), XposedServiceHelper.OnServiceListener {
         PredictiveBackController.apply(applicationInfo, predictiveBackEnabled)
         AgentMemoryRepository.init(this)
         ProviderRepository.init(this)
+        McpServerRepository.init(this)
         XposedServiceHelper.registerListener(this)
         applicationScope.launch {
             runCatching {

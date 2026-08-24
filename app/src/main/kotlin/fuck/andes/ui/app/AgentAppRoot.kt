@@ -68,6 +68,8 @@ import fuck.andes.ui.screens.browser.AgentBrowserScreen
 import fuck.andes.ui.screens.enhance.SystemEnhanceScreen
 import fuck.andes.ui.screens.home.AgentHomeScreen
 import fuck.andes.ui.screens.memory.AgentMemoryScreen
+import fuck.andes.ui.screens.mcp.McpServerDetailScreen
+import fuck.andes.ui.screens.mcp.McpServersScreen
 import fuck.andes.ui.screens.permissions.PermissionHealthScreen
 import fuck.andes.ui.screens.skills.AgentSkillsScreen
 import fuck.andes.ui.screens.terminal.LinuxEnvironmentScreen
@@ -489,6 +491,18 @@ fun AgentAppRoot(
                 ModelProviderListScreen(
                     onNavigate = { route -> pushRoute(route) },
                     onBack = ::popRoute
+                )
+            }
+            entry<AppRoute.McpServers>(swipeDismiss = swipeDismiss) {
+                McpServersScreen(
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            entry<AppRoute.McpServerDetail>(swipeDismiss = swipeDismiss) { route ->
+                McpServerDetailScreen(
+                    serverId = route.serverId,
+                    onBack = ::popRoute,
                 )
             }
             entry<AppRoute.ModelProviderDetail>(swipeDismiss = swipeDismiss) { route ->

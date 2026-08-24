@@ -21,8 +21,9 @@ import androidx.room.migration.Migration
         RuntimeInFlightRunEntity::class,
         RuntimeInFlightEventEntity::class,
         SkillRegistryEntity::class,
+        McpServerEntity::class,
     ],
-    version = 16,
+    version = 18,
     exportSchema = false,
 )
 internal abstract class FuckAndesDatabase : RoomDatabase() {
@@ -30,6 +31,7 @@ internal abstract class FuckAndesDatabase : RoomDatabase() {
     abstract fun providerDao(): ProviderDao
     abstract fun runtimeRunDao(): RuntimeRunDao
     abstract fun skillDao(): SkillDao
+    abstract fun mcpServerDao(): McpServerDao
 
     companion object {
         @Volatile
@@ -53,6 +55,8 @@ internal abstract class FuckAndesDatabase : RoomDatabase() {
                         MIGRATION_13_14,
                         MIGRATION_14_15,
                         MIGRATION_15_16,
+                        MIGRATION_16_17,
+                        MIGRATION_17_18,
                     )
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
@@ -74,6 +78,29 @@ internal abstract class FuckAndesDatabase : RoomDatabase() {
             database.execSQL(
                 "ALTER TABLE runtime_archive_runs ADD COLUMN transcript_json TEXT NOT NULL DEFAULT '[]'"
             )
+        }
+
+        internal val MIGRATION_16_17 = Migration(16, 17) { database ->
+            database.execSQL(
+                "CREATE TABLE IF NOT EXISTS mcp_servers (" +
+                    "id TEXT NOT NULL, " +
+                    "name TEXT NOT NULL, " +
+                    "url TEXT NOT NULL, " +
+                    "enabled INTEGER NOT NULL, " +
+                    "protocol_mode TEXT NOT NULL, " +
+                    "authorization_type TEXT NOT NULL, " +
+                    "tools_json TEXT NOT NULL, " +
+                    "enabled_tool_names_json TEXT NOT NULL, " +
+                    "created_at INTEGER NOT NULL, " +
+                    "sort_order INTEGER NOT NULL, " +
+                    "last_refreshed_at INTEGER, " +
+                    "last_protocol_version TEXT, " +
+                    "PRIMARY KEY(id))"
+            )
+        }
+
+        internal val MIGRATION_17_18 = Migration(17, 18) { database ->
+            database.execSQL("ALTER TABLE mcp_servers ADD COLUMN tools_expire_at INTEGER")
         }
 
         internal val MIGRATION_7_8 = Migration(7, 8) { database ->

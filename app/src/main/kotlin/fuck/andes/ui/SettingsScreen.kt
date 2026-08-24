@@ -245,6 +245,17 @@ internal fun SettingsScreen(
                         iconTint = ColorOSVividGreen,
                     )
                     PrefDivider()
+                    ArrowPreference(
+                        title = stringResource(R.string.route_mcp_servers),
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_network,
+                                tint = ColorOSVividGreen,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.McpServers) },
+                    )
+                    PrefDivider()
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
