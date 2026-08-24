@@ -45,6 +45,14 @@ internal object AgentOverlayVisibilityPolicy {
     internal fun requiresEntrySurfaceDismissal(name: String?): Boolean =
         name.requiresEntrySurfaceDismissal()
 
+    internal fun shouldRecordForegroundExecution(
+        event: AgentEvent,
+        entrySurfaceReady: Boolean,
+    ): Boolean =
+        entrySurfaceReady &&
+            event is AgentEvent.ToolStarted &&
+            event.name.isForegroundOperationTool()
+
     private fun String?.isForegroundOperationTool(): Boolean =
         this?.trim()?.lowercase() in foregroundOperationTools
 

@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal class EntrySurfaceGuard private constructor(
     internal val targetPackageName: String?,
     private val logger: AgentLogger,
+    private val ownedSurfaceDismissal: (() -> Boolean)?,
 ) {
     private val triggered = AtomicBoolean(false)
     private val dismissalCompleted = AtomicBoolean(false)
@@ -26,6 +27,27 @@ internal class EntrySurfaceGuard private constructor(
     fun dismissOnce(): Boolean {
         if (dismissalCompleted.get()) return true
         if (!triggered.compareAndSet(false, true)) return dismissalCompleted.get()
+        ownedSurfaceDismissal?.let { dismiss ->
+            val startedAt = System.nanoTime()
+            val completed = runCatching(dismiss).getOrDefault(false)
+            val waitedMillis = (System.nanoTime() - startedAt) / NANOS_PER_MILLISECOND
+            if (completed) {
+                dismissalCompleted.set(true)
+                logger.debug {
+                    "Agent runtime owned entry surface dismissed before foreground operation " +
+                        "waitedMs=$waitedMillis"
+                }
+            } else {
+                // 自有入口关闭是幂等定向操作，失败后允许再次确认，不会误退底层 App。
+                triggered.set(false)
+                logger.warn(
+                    "Agent runtime owned entry surface dismiss incomplete before foreground " +
+                        "operation: waitedMs=$waitedMillis"
+                )
+            }
+            return completed
+        }
+
         val service = AgentAccessibilityService.current()
         if (service == null) {
             triggered.set(false)
@@ -97,6 +119,7 @@ internal class EntrySurfaceGuard private constructor(
         fun from(
             handoff: AgentRuntimeWire.EntryHandoff?,
             logger: AgentLogger,
+            etaVoiceSurfaceDismissal: (() -> Boolean)? = null,
         ): EntrySurfaceGuard? {
             if (handoff?.dismissEntrySurfaceOnForegroundOperation != true) return null
             val packageName = when (handoff.source) {
@@ -105,7 +128,10 @@ internal class EntrySurfaceGuard private constructor(
                 AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE -> ETA_PACKAGE_NAME
                 else -> null
             }
-            return EntrySurfaceGuard(packageName, logger)
+            val ownedSurfaceDismissal = etaVoiceSurfaceDismissal.takeIf {
+                handoff.source == AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE
+            }
+            return EntrySurfaceGuard(packageName, logger, ownedSurfaceDismissal)
         }
 
         private const val BREENO_HANDOFF_SOURCE = "breeno"
@@ -113,6 +139,7 @@ internal class EntrySurfaceGuard private constructor(
         private const val XIAOAI_HANDOFF_SOURCE = "xiaoai"
         private const val XIAOAI_PACKAGE_NAME = "com.miui.voiceassist"
         private const val ETA_PACKAGE_NAME = "fuck.andes"
+        private const val NANOS_PER_MILLISECOND = 1_000_000L
     }
 }
 

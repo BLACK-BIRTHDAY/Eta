@@ -197,4 +197,39 @@ class AgentOverlayVisibilityPolicyTest {
         assertFalse(AgentOverlayVisibilityPolicy.shouldRevealFor(event))
         assertFalse(AgentOverlayVisibilityPolicy.isForegroundOperationTool("set_alarm"))
     }
+
+    @Test
+    fun `foreground execution is recorded only after entry surface is ready`() {
+        val planned = AgentEvent.AssistantReceived(
+            round = 1,
+            contentChars = 0,
+            reasoningContent = "",
+            toolNames = listOf("launch_app"),
+        )
+        val started = AgentEvent.ToolStarted(
+            round = 1,
+            toolCallId = "call_launch",
+            name = "launch_app",
+            argsPreview = "参数已接收",
+        )
+
+        assertFalse(
+            AgentOverlayVisibilityPolicy.shouldRecordForegroundExecution(
+                planned,
+                entrySurfaceReady = true,
+            )
+        )
+        assertFalse(
+            AgentOverlayVisibilityPolicy.shouldRecordForegroundExecution(
+                started,
+                entrySurfaceReady = false,
+            )
+        )
+        assertTrue(
+            AgentOverlayVisibilityPolicy.shouldRecordForegroundExecution(
+                started,
+                entrySurfaceReady = true,
+            )
+        )
+    }
 }

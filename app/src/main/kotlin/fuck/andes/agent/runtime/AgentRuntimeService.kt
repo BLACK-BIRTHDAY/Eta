@@ -372,19 +372,27 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     ) {
         if (activeSession !== session) return
         val revealsForegroundOperation = AgentOverlayVisibilityPolicy.shouldRevealFor(event)
-        if (
-            AgentOverlayVisibilityPolicy.shouldDismissEntrySurfaceFor(event) &&
-            entrySurfaceGuard != null
-        ) {
-            runCatching { entrySurfaceGuard.dismissOnce() }
+        val requiresEntrySurfaceDismissal =
+            AgentOverlayVisibilityPolicy.shouldDismissEntrySurfaceFor(event)
+        val entrySurfaceReady = if (requiresEntrySurfaceDismissal && entrySurfaceGuard != null) {
+            runCatching { entrySurfaceGuard.dismissOnce() }.getOrDefault(false)
+        } else {
+            true
         }
         mainHandler.post {
             if (activeSession !== session) return@post
-            if (revealsForegroundOperation) hasExecutedForegroundTool = true
+            if (
+                AgentOverlayVisibilityPolicy.shouldRecordForegroundExecution(
+                    event,
+                    entrySurfaceReady,
+                )
+            ) {
+                hasExecutedForegroundTool = true
+            }
             if (session.isTerminal) return@post
             runCatching {
                 state.value = state.value.applyEvent(event)
-                if (revealsForegroundOperation) {
+                if (revealsForegroundOperation && entrySurfaceReady) {
                     if (orbView == null) {
                         AgentHapticFeedback.perform(
                             this,

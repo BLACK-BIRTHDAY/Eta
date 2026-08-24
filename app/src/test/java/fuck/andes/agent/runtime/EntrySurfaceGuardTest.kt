@@ -8,6 +8,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
 
 class EntrySurfaceGuardTest {
     @Test
@@ -47,17 +48,44 @@ class EntrySurfaceGuardTest {
 
     @Test
     fun etaVoiceGuardExcludesEtaUntilTheVoiceWindowIsDismissed() {
+        val dismissCalls = AtomicInteger()
         val guard = EntrySurfaceGuard.from(
             handoff = handoff(
                 source = AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE,
                 dismiss = true,
             ),
             logger = NoOpLogger,
+            etaVoiceSurfaceDismissal = {
+                dismissCalls.incrementAndGet()
+                true
+            },
         )
 
         assertNotNull(guard)
         assertEquals("fuck.andes", guard?.targetPackageName)
+        assertTrue(guard?.dismissOnce() == true)
+        assertTrue(guard?.dismissOnce() == true)
+        assertEquals(1, dismissCalls.get())
         assertEquals(setOf("fuck.andes"), guard?.consumeScreenshotExcludedPackages())
+    }
+
+    @Test
+    fun etaVoiceOwnedDismissalCanRetryWithoutSendingBackToTheUnderlyingApp() {
+        val dismissCalls = AtomicInteger()
+        val guard = EntrySurfaceGuard.from(
+            handoff = handoff(
+                source = AgentRuntimeWire.ETA_VOICE_HANDOFF_SOURCE,
+                dismiss = true,
+            ),
+            logger = NoOpLogger,
+            etaVoiceSurfaceDismissal = {
+                dismissCalls.incrementAndGet() >= 2
+            },
+        )
+
+        assertFalse(guard?.dismissOnce() == true)
+        assertTrue(guard?.dismissOnce() == true)
+        assertEquals(2, dismissCalls.get())
     }
 
     @Test

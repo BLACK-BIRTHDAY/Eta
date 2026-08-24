@@ -7,7 +7,9 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.provider.Settings
 import android.view.Gravity
 import android.view.View
@@ -55,7 +57,10 @@ import fuck.andes.ui.model.ToolActivityMessageUi
 import fuck.andes.ui.model.TokenUsageUi
 import fuck.andes.ui.model.UserMessageUi
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -87,6 +92,8 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private var windowManager: WindowManager? = null
     private var windowView: ComposeView? = null
     private var windowParams: WindowManager.LayoutParams? = null
+    private var detachingWindowView: View? = null
+    private val windowDetachCallbacks = mutableListOf<(Boolean) -> Unit>()
     private var backInvokedDispatcher: OnBackInvokedDispatcher? = null
     private var backInvokedCallback: OnBackInvokedCallback? = null
     private var runJob: Job? = null
@@ -108,6 +115,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
 
     override fun onCreate() {
         super.onCreate()
+        activeService = this
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
@@ -135,6 +143,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         scope.cancel()
         cancellationExecutor.shutdown()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
+        if (activeService === this) activeService = null
         super.onDestroy()
     }
 
@@ -441,12 +450,13 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     }
 
     private fun handleRuntimeEvent(runId: String, event: AgentEvent) {
-        if (activeRunId != runId) return
-        if (AgentOverlayVisibilityPolicy.shouldDismissEntrySurfaceFor(event)) {
-            hiddenForForegroundOperation = true
-            removeWindow()
+        scope.launch(Dispatchers.Main.immediate) {
+            if (activeRunId != runId) return@launch
+            if (AgentOverlayVisibilityPolicy.shouldDismissEntrySurfaceFor(event)) {
+                hideForForegroundOperation()
+            }
+            uiState = projectRuntimeEvent(runId, event, uiState)
         }
-        uiState = projectRuntimeEvent(runId, event, uiState)
     }
 
     private fun projectRuntimeEvent(
@@ -722,18 +732,75 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         )
     }
 
-    private fun removeWindow() {
+    private fun hideForForegroundOperation(onComplete: ((Boolean) -> Unit)? = null) {
+        hiddenForForegroundOperation = true
+        EtaVoiceInteractionSession.requestHideForForegroundOperation(this)
+        removeWindow(onComplete)
+    }
+
+    private fun removeWindow(onComplete: ((Boolean) -> Unit)? = null) {
         unregisterSystemBackCallback()
-        windowView?.let { view ->
-            runCatching {
-                (getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager)
-                    ?.hideSoftInputFromWindow(view.windowToken, 0)
-                windowManager?.removeView(view)
+        detachingWindowView?.let { detachingView ->
+            onComplete?.let(windowDetachCallbacks::add)
+            if (!detachingView.isAttachedToWindow) {
+                finishWindowDetach(success = true)
+            }
+            return
+        }
+
+        val view = windowView
+        val wm = windowManager
+        if (view == null || wm == null || !view.isAttachedToWindow) {
+            windowView = null
+            windowParams = null
+            windowManager = null
+            onComplete?.invoke(true)
+            return
+        }
+
+        onComplete?.let(windowDetachCallbacks::add)
+        val attachListener = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: View) = Unit
+
+            override fun onViewDetachedFromWindow(view: View) {
+                view.removeOnAttachStateChangeListener(this)
+                finishWindowDetach(success = true)
             }
         }
+        detachingWindowView = view
+        view.addOnAttachStateChangeListener(attachListener)
+
+        val removed = runCatching {
+            (getSystemService(INPUT_METHOD_SERVICE) as? InputMethodManager)
+                ?.hideSoftInputFromWindow(view.windowToken, 0)
+            wm.removeView(view)
+            true
+        }.getOrElse { throwable ->
+            view.removeOnAttachStateChangeListener(attachListener)
+            AndroidAgentLogger.warnThrottled("eta_assistant_overlay_remove_failed") {
+                "Eta assistant overlay removeView failed: type=${throwable.javaClass.simpleName}"
+            }
+            false
+        }
+        if (!removed) {
+            finishWindowDetach(success = false)
+            return
+        }
+
         windowView = null
         windowParams = null
         windowManager = null
+        if (!view.isAttachedToWindow) {
+            view.removeOnAttachStateChangeListener(attachListener)
+            finishWindowDetach(success = true)
+        }
+    }
+
+    private fun finishWindowDetach(success: Boolean) {
+        detachingWindowView = null
+        val callbacks = windowDetachCallbacks.toList()
+        windowDetachCallbacks.clear()
+        callbacks.forEach { callback -> callback(success) }
     }
 
     private fun dismissAndStop() {
@@ -820,6 +887,52 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         private const val LEGACY_STOPPED_ERROR = "已停止"
         private const val SYNTHETIC_STOPPED = "eta_status:stopped"
         private const val SYNTHETIC_RUNTIME_FAILED = "eta_status:runtime_failed"
+        private const val FOREGROUND_DISMISS_TIMEOUT_MS = 2_000L
+        private val mainHandler = Handler(Looper.getMainLooper())
+
+        @Volatile
+        private var activeService: EtaAssistantOverlayService? = null
+
+        /**
+         * Eta 自己拥有入口浮层，直接关闭并等待具体 View detach；不能按包名猜测，
+         * 因为入口、Runtime 与结果浮层都属于同一个包。
+         */
+        fun dismissForForegroundOperation(context: Context): Boolean {
+            val service = activeService
+            if (service == null) {
+                EtaVoiceInteractionSession.requestHideForForegroundOperation(context)
+                return true
+            }
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                service.hideForForegroundOperation()
+                return service.windowView == null && service.detachingWindowView == null
+            }
+
+            val completed = CountDownLatch(1)
+            val dismissed = AtomicBoolean(false)
+            mainHandler.post {
+                val current = activeService
+                if (current == null) {
+                    EtaVoiceInteractionSession.requestHideForForegroundOperation(context)
+                    dismissed.set(true)
+                    completed.countDown()
+                } else if (current !== service) {
+                    completed.countDown()
+                } else {
+                    current.hideForForegroundOperation { success ->
+                        dismissed.set(success)
+                        completed.countDown()
+                    }
+                }
+            }
+            return try {
+                completed.await(FOREGROUND_DISMISS_TIMEOUT_MS, TimeUnit.MILLISECONDS) &&
+                    dismissed.get()
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                false
+            }
+        }
 
         fun show(context: Context) {
             context.applicationContext.startService(
