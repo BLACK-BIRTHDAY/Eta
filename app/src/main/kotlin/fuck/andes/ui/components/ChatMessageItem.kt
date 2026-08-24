@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -60,15 +61,20 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.isTraversalGroup
 import androidx.compose.ui.semantics.semantics
@@ -82,13 +88,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.takeOrElse
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.composables.icons.lucide.R as LucideR
 import com.mikepenz.markdown.annotator.annotatorSettings
 import com.mikepenz.markdown.annotator.buildMarkdownAnnotatedString
+import com.mikepenz.markdown.compose.LocalMarkdownA11yLabels
 import com.mikepenz.markdown.compose.LocalMarkdownComponents
+import com.mikepenz.markdown.compose.LocalMarkdownDimens
 import com.mikepenz.markdown.compose.LocalMarkdownPadding
 import com.mikepenz.markdown.compose.MarkdownElement
 import com.mikepenz.markdown.compose.components.MarkdownComponentModel
@@ -810,6 +820,16 @@ private fun StableMarkdown(
                 modifier = it,
             )
         },
+        success = { state, successComponents, successModifier ->
+            Column(successModifier) {
+                state.node.children.forEach { node ->
+                    // 顶层 EOL（空行）组件是空实现，但库仍会给它加块间距，过滤掉避免双倍空白
+                    if (node.type != MarkdownTokenTypes.EOL) {
+                        MarkdownElement(node, successComponents, state.content)
+                    }
+                }
+            }
+        },
     )
 }
 
@@ -974,6 +994,8 @@ private fun StreamingGfmSuccess(
 
     Column(modifier) {
         state.node.children.forEach { node ->
+            // 顶层 EOL（空行）组件是空实现，但库仍会给它加块间距，过滤掉避免双倍空白
+            if (node.type == MarkdownTokenTypes.EOL) return@forEach
             key(node.startOffset, node.type.name) {
                 MarkdownElement(
                     node = node,
@@ -1245,6 +1267,9 @@ private fun chatMarkdownComponents(
             revealCoordinator = revealCoordinator,
         )
     },
+    blockQuote = { model ->
+        ChatBlockQuote(model)
+    },
 )
 
 /**
@@ -1286,11 +1311,6 @@ private fun ChatMarkdownList(
                 val checkboxNode = remember(item) {
                     item.children.firstOrNull { child -> child.type == CHECK_BOX }
                 }
-                val markerText = if (ordered) {
-                    "${initialListNumber + index}. "
-                } else {
-                    "• "
-                }
                 val markerVisible = streamingListMarkerVisible(
                     coordinatorActive = suppressEmptyMarker,
                     firstRevealKey = firstRevealKey,
@@ -1321,13 +1341,37 @@ private fun ChatMarkdownList(
                                     typography = model.typography,
                                 ),
                             )
-                        } else {
+                        } else if (ordered) {
                             Text(
-                                text = markerText,
-                                style = if (ordered) model.typography.ordered else model.typography.bullet,
+                                text = "${initialListNumber + index}.",
+                                style = model.typography.ordered.copy(
+                                    color = MiuixTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.SemiBold,
+                                ),
+                            )
+                        } else {
+                            // Compose 单行 Text 在默认 Trim.Both 下忽略 lineHeight，行框即字体自然行高；
+                            // marker 必须与正文同 fontSize/lineHeight 才能共享度规对齐，
+                            // 层级差异只通过字形与颜色表达。
+                            val bulletDepth = depth % 3
+                            Text(
+                                text = when (bulletDepth) {
+                                    0 -> "•"
+                                    1 -> "◦"
+                                    else -> "▪"
+                                },
+                                style = model.typography.bullet.copy(
+                                    color = if (bulletDepth == 2) {
+                                        MiuixTheme.colorScheme.onSurfaceVariantSummary
+                                    } else {
+                                        MiuixTheme.colorScheme.primary
+                                    },
+                                ),
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(6.dp))
 
                     Column {
                         item.children.forEach { child ->
@@ -1745,6 +1789,68 @@ private fun ChatMarkdownTableCell(
             revealState.onTextLayout(text.text, layoutResult)
         },
     )
+}
+
+/**
+ * 引用块：圆角浅色竖条 + 弱化文字。
+ * 库默认实现把竖条颜色绑死在 quote 文字颜色上，无法分别控制，因此竖条自绘；
+ * 子节点仍交给 ambient components，流式显现与嵌套引用行为不变。
+ */
+@Composable
+private fun ChatBlockQuote(model: MarkdownComponentModel) {
+    val components = LocalMarkdownComponents.current
+    val padding = LocalMarkdownPadding.current
+    val dimens = LocalMarkdownDimens.current
+    val a11yLabels = LocalMarkdownA11yLabels.current
+    val barColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.4f)
+    val emptyLineHeight = with(LocalDensity.current) {
+        model.typography.quote.lineHeight.takeOrElse { 22.sp }.toDp()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics { contentDescription = a11yLabels.blockquote }
+            .drawBehind {
+                val thickness = dimens.blockQuoteThickness.toPx()
+                val x = padding.blockQuoteBar
+                    .calculateStartPadding(LayoutDirection.Ltr).toPx() + thickness / 2
+                drawLine(
+                    color = barColor,
+                    strokeWidth = thickness,
+                    start = Offset(x, padding.blockQuoteBar.calculateTopPadding().toPx()),
+                    end = Offset(
+                        x,
+                        size.height - padding.blockQuoteBar.calculateBottomPadding().toPx(),
+                    ),
+                    cap = StrokeCap.Round,
+                )
+            }
+            .padding(padding.blockQuote),
+    ) {
+        model.node.children.forEach { child ->
+            key(child.startOffset) {
+                when (child.type) {
+                    MarkdownElementTypes.BLOCK_QUOTE -> ChatBlockQuote(
+                        MarkdownComponentModel(
+                            content = model.content,
+                            node = child,
+                            typography = model.typography,
+                        ),
+                    )
+
+                    MarkdownTokenTypes.EOL -> Spacer(Modifier.height(emptyLineHeight))
+
+                    else -> MarkdownElement(
+                        node = child,
+                        components = components,
+                        content = model.content,
+                        includeSpacer = false,
+                    )
+                }
+            }
+        }
+    }
 }
 
 private fun ASTNode.containsMarkdownImage(): Boolean =
