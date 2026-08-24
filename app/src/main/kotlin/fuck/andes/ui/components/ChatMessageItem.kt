@@ -89,6 +89,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.takeOrElse
@@ -821,14 +822,12 @@ private fun StableMarkdown(
             )
         },
         success = { state, successComponents, successModifier ->
-            Column(successModifier) {
-                state.node.children.forEach { node ->
-                    // 顶层 EOL（空行）组件是空实现，但库仍会给它加块间距，过滤掉避免双倍空白
-                    if (node.type != MarkdownTokenTypes.EOL) {
-                        MarkdownElement(node, successComponents, state.content)
-                    }
-                }
-            }
+            ChatMarkdownDocument(
+                root = state.node,
+                content = state.content,
+                components = successComponents,
+                modifier = successModifier,
+            )
         },
     )
 }
@@ -992,19 +991,98 @@ private fun StreamingGfmSuccess(
         revealCoordinator.retainBlocks(activeRevealBlocks)
     }
 
+    ChatMarkdownDocument(
+        root = state.node,
+        content = state.content,
+        components = components,
+        modifier = modifier,
+    )
+}
+
+/**
+ * 空行只负责切分 Markdown 块，不直接占据布局高度；可见块之间按语义分配留白，
+ * 避免统一 block padding 让标题、正文、列表和表格失去层级。
+ */
+@Composable
+private fun ChatMarkdownDocument(
+    root: ASTNode,
+    content: String,
+    components: MarkdownComponents,
+    modifier: Modifier = Modifier,
+) {
+    val blocks = remember(root) { topLevelMarkdownBlocks(root) }
+    val density = LocalDensity.current
     Column(modifier) {
-        state.node.children.forEach { node ->
-            // 顶层 EOL（空行）组件是空实现，但库仍会给它加块间距，过滤掉避免双倍空白
-            if (node.type == MarkdownTokenTypes.EOL) return@forEach
+        blocks.forEachIndexed { index, node ->
+            val previousType = blocks.getOrNull(index - 1)?.type
+            val gap = with(density) {
+                markdownBlockSpacing(previousType, node.type).toDp()
+            }
+            if (gap > 0.dp) Spacer(Modifier.height(gap))
             key(node.startOffset, node.type.name) {
                 MarkdownElement(
                     node = node,
                     components = components,
-                    content = state.content,
+                    content = content,
+                    includeSpacer = false,
                 )
             }
         }
     }
+}
+
+internal fun topLevelMarkdownBlocks(root: ASTNode): List<ASTNode> =
+    root.children.filterNot { node -> node.type == MarkdownTokenTypes.EOL }
+
+internal fun markdownBlockSpacing(previous: IElementType?, current: IElementType): TextUnit {
+    if (previous == null) return 0.sp
+    if (previous.isMarkdownHeading() && current.isMarkdownHeading()) return 12.sp
+    if (current.isMarkdownHeading()) {
+        return if (current == MarkdownElementTypes.ATX_1 ||
+            current == MarkdownElementTypes.SETEXT_1 ||
+            current == MarkdownElementTypes.ATX_2 ||
+            current == MarkdownElementTypes.SETEXT_2
+        ) {
+            24.sp
+        } else {
+            20.sp
+        }
+    }
+    if (previous.isMarkdownHeading()) return 10.sp
+    if (previous.isMarkdownParagraph() && current.isMarkdownParagraph()) return 16.sp
+    if (previous.isMarkdownStructuredBlock() || current.isMarkdownStructuredBlock()) return 16.sp
+    return 14.sp
+}
+
+private fun IElementType.isMarkdownHeading(): Boolean = when (this) {
+    MarkdownElementTypes.ATX_1,
+    MarkdownElementTypes.ATX_2,
+    MarkdownElementTypes.ATX_3,
+    MarkdownElementTypes.ATX_4,
+    MarkdownElementTypes.ATX_5,
+    MarkdownElementTypes.ATX_6,
+    MarkdownElementTypes.SETEXT_1,
+    MarkdownElementTypes.SETEXT_2,
+    -> true
+
+    else -> false
+}
+
+private fun IElementType.isMarkdownParagraph(): Boolean =
+    this == MarkdownElementTypes.PARAGRAPH || this == MarkdownTokenTypes.TEXT
+
+private fun IElementType.isMarkdownStructuredBlock(): Boolean = when (this) {
+    MarkdownElementTypes.ORDERED_LIST,
+    MarkdownElementTypes.UNORDERED_LIST,
+    MarkdownElementTypes.BLOCK_QUOTE,
+    MarkdownElementTypes.CODE_BLOCK,
+    MarkdownElementTypes.CODE_FENCE,
+    MarkdownElementTypes.IMAGE,
+    MarkdownTokenTypes.HORIZONTAL_RULE,
+    TABLE,
+    -> true
+
+    else -> false
 }
 
 internal data class StreamingMarkdownTarget(
@@ -1037,8 +1115,8 @@ private enum class ChatMarkdownTone {
 @Composable
 private fun chatMarkdownTypography(tone: ChatMarkdownTone) = markdownTypography(
     h1 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 20.sp else 17.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 28.sp else 25.sp,
+        fontSize = if (tone == ChatMarkdownTone.Answer) 21.sp else 17.sp,
+        lineHeight = if (tone == ChatMarkdownTone.Answer) 29.sp else 25.sp,
         fontWeight = FontWeight.Bold,
     ),
     h2 = chatMarkdownBodyStyle(tone).copy(
@@ -1049,22 +1127,22 @@ private fun chatMarkdownTypography(tone: ChatMarkdownTone) = markdownTypography(
     h3 = chatMarkdownBodyStyle(tone).copy(
         fontSize = if (tone == ChatMarkdownTone.Answer) 18.sp else 15.sp,
         lineHeight = if (tone == ChatMarkdownTone.Answer) 26.sp else 23.sp,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
     ),
     h4 = chatMarkdownBodyStyle(tone).copy(
         fontSize = if (tone == ChatMarkdownTone.Answer) 17.sp else 14.sp,
         lineHeight = if (tone == ChatMarkdownTone.Answer) 25.sp else 22.sp,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
     ),
     h5 = chatMarkdownBodyStyle(tone).copy(
         fontSize = if (tone == ChatMarkdownTone.Answer) 16.sp else 14.sp,
         lineHeight = if (tone == ChatMarkdownTone.Answer) 24.sp else 22.sp,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
     ),
     h6 = chatMarkdownBodyStyle(tone).copy(
         fontSize = if (tone == ChatMarkdownTone.Answer) 15.sp else 14.sp,
         lineHeight = if (tone == ChatMarkdownTone.Answer) 23.sp else 22.sp,
-        fontWeight = FontWeight.Bold,
+        fontWeight = FontWeight.SemiBold,
     ),
     text = chatMarkdownBodyStyle(tone),
     paragraph = chatMarkdownBodyStyle(tone),
@@ -1142,7 +1220,8 @@ private fun chatMarkdownDimens() = markdownDimens(
 
 @Composable
 private fun chatMarkdownPadding() = markdownPadding(
-    block = 7.dp,
+    // 顶层块由 ChatMarkdownDocument 按语义分配留白，库的统一前置间距保持关闭。
+    block = 0.dp,
     list = 3.dp,
     listItemTop = 3.dp,
     listItemBottom = 3.dp,
@@ -1199,17 +1278,16 @@ private fun chatMarkdownComponents(
             suppressEmptyMarker = suppressEmptyListMarkers,
         )
     },
-    heading1 = { ChatHeadingBlock(it, it.typography.h1, topPadding = 14.dp, revealCoordinator = revealCoordinator) },
-    heading2 = { ChatHeadingBlock(it, it.typography.h2, topPadding = 13.dp, revealCoordinator = revealCoordinator) },
-    heading3 = { ChatHeadingBlock(it, it.typography.h3, topPadding = 12.dp, revealCoordinator = revealCoordinator) },
-    heading4 = { ChatHeadingBlock(it, it.typography.h4, topPadding = 10.dp, revealCoordinator = revealCoordinator) },
-    heading5 = { ChatHeadingBlock(it, it.typography.h5, topPadding = 9.dp, revealCoordinator = revealCoordinator) },
-    heading6 = { ChatHeadingBlock(it, it.typography.h6, topPadding = 8.dp, revealCoordinator = revealCoordinator) },
+    heading1 = { ChatHeadingBlock(it, it.typography.h1, revealCoordinator = revealCoordinator) },
+    heading2 = { ChatHeadingBlock(it, it.typography.h2, revealCoordinator = revealCoordinator) },
+    heading3 = { ChatHeadingBlock(it, it.typography.h3, revealCoordinator = revealCoordinator) },
+    heading4 = { ChatHeadingBlock(it, it.typography.h4, revealCoordinator = revealCoordinator) },
+    heading5 = { ChatHeadingBlock(it, it.typography.h5, revealCoordinator = revealCoordinator) },
+    heading6 = { ChatHeadingBlock(it, it.typography.h6, revealCoordinator = revealCoordinator) },
     setextHeading1 = {
         ChatHeadingBlock(
             it,
             it.typography.h1,
-            topPadding = 14.dp,
             setext = true,
             revealCoordinator = revealCoordinator,
         )
@@ -1218,7 +1296,6 @@ private fun chatMarkdownComponents(
         ChatHeadingBlock(
             it,
             it.typography.h2,
-            topPadding = 13.dp,
             setext = true,
             revealCoordinator = revealCoordinator,
         )
@@ -1513,38 +1590,35 @@ private fun ChatRevealAnnotatedText(
 }
 
 /**
- * 标题块：在库默认的块间距之上再补段前距，让标题与上文拉开层级。
+ * 标题自身只负责文字样式；与相邻块的距离由文档级排版统一决定。
  */
 @Composable
 private fun ChatHeadingBlock(
     model: MarkdownComponentModel,
     style: TextStyle,
-    topPadding: Dp,
     setext: Boolean = false,
     revealCoordinator: SmoothTextRevealCoordinator? = null,
 ) {
-    Column(modifier = Modifier.padding(top = topPadding)) {
-        val contentChildType = if (setext) {
-            MarkdownTokenTypes.SETEXT_CONTENT
-        } else {
-            MarkdownTokenTypes.ATX_CONTENT
-        }
-        if (revealCoordinator == null || model.node.containsMarkdownImage()) {
-            MarkdownHeader(
-                content = model.content,
-                node = model.node,
-                style = style,
-                contentChildType = contentChildType,
-            )
-        } else {
-            ChatRevealMarkdownText(
-                model = model,
-                style = style,
-                revealCoordinator = revealCoordinator,
-                contentChildType = contentChildType,
-                modifier = Modifier.semantics { heading() },
-            )
-        }
+    val contentChildType = if (setext) {
+        MarkdownTokenTypes.SETEXT_CONTENT
+    } else {
+        MarkdownTokenTypes.ATX_CONTENT
+    }
+    if (revealCoordinator == null || model.node.containsMarkdownImage()) {
+        MarkdownHeader(
+            content = model.content,
+            node = model.node,
+            style = style,
+            contentChildType = contentChildType,
+        )
+    } else {
+        ChatRevealMarkdownText(
+            model = model,
+            style = style,
+            revealCoordinator = revealCoordinator,
+            contentChildType = contentChildType,
+            modifier = Modifier.semantics { heading() },
+        )
     }
 }
 

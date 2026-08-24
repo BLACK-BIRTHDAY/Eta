@@ -1,5 +1,9 @@
 package fuck.andes.ui.components
 
+import androidx.compose.ui.unit.sp
+import fuck.andes.ui.markdown.StreamingGfmParserSession
+import org.intellij.markdown.MarkdownElementTypes
+import org.intellij.markdown.flavours.gfm.GFMElementTypes
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -199,6 +203,44 @@ class SmoothTextRevealPolicyTest {
         assertEquals(40, streamingMarkdownBatchSize(backlogChars = 64))
         assertEquals(64, streamingMarkdownBatchSize(backlogChars = 160))
         assertEquals(96, streamingMarkdownBatchSize(backlogChars = 384))
+    }
+
+    @Test
+    fun markdownDocumentCollapsesSourceBlankLinesIntoSemanticBlocks() {
+        val snapshot = StreamingGfmParserSession().parse(
+            source = "第一段\n\n\n第二段",
+            isComplete = true,
+        )
+
+        assertEquals(
+            listOf(MarkdownElementTypes.PARAGRAPH, MarkdownElementTypes.PARAGRAPH),
+            topLevelMarkdownBlocks(snapshot.state.node).map { node -> node.type },
+        )
+    }
+
+    @Test
+    fun markdownBlockSpacingBuildsReadableHierarchyWithoutLeadingGap() {
+        assertEquals(0.sp, markdownBlockSpacing(null, MarkdownElementTypes.PARAGRAPH))
+        assertEquals(
+            16.sp,
+            markdownBlockSpacing(MarkdownElementTypes.PARAGRAPH, MarkdownElementTypes.PARAGRAPH),
+        )
+        assertEquals(
+            24.sp,
+            markdownBlockSpacing(MarkdownElementTypes.PARAGRAPH, MarkdownElementTypes.ATX_2),
+        )
+        assertEquals(
+            10.sp,
+            markdownBlockSpacing(MarkdownElementTypes.ATX_2, MarkdownElementTypes.PARAGRAPH),
+        )
+        assertEquals(
+            16.sp,
+            markdownBlockSpacing(MarkdownElementTypes.PARAGRAPH, MarkdownElementTypes.UNORDERED_LIST),
+        )
+        assertEquals(
+            16.sp,
+            markdownBlockSpacing(GFMElementTypes.TABLE, MarkdownElementTypes.PARAGRAPH),
+        )
     }
 
     @Test
