@@ -45,7 +45,7 @@ Eta is not a one-shot chat wrapper: the model issues instructions, Eta executes 
 | ---- | -------------- |
 | **Native device tools** | Alarms, timers, media control, volume, Wi-Fi / Bluetooth, device and storage state, plus on-device search across photos, calendar, contacts, SMS, notifications, health summaries, and ColorOS notes and system memory—all structured tools with explicit schemas |
 | **Embedded browser** | Loads JavaScript-heavy pages offscreen, extracts structured content, and operates page elements; when human intervention helps (e.g. a CAPTCHA), the same WebView attaches to the app UI for direct takeover |
-| **Terminal and files** | Authorized `user` / `root` shell commands, file access, and scripts; an optional Alpine Linux environment preloads Git, `rg`, and other common tools, with the Python toolchain and APK analysis tools installable on demand |
+| **Terminal and files** | Authorized `user` / `root` shell commands, file access, and scripts; an optional Alpine Linux environment preloads Git, `rg`, and other common tools, with Python, Node.js, SSH, and APK analysis toolsets installable on demand |
 | **GUI / computer use** | Screenshots, accessibility nodes, tapping, scrolling, and text input, with an overlay and gesture feedback during foreground work that you can interrupt or take over. Covers the long tail of apps with no machine interface |
 
 On top of that:

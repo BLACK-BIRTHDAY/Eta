@@ -58,8 +58,7 @@ internal object AgentPromptBuilder {
                         "Android 系统、应用、日志、Magisk 与设备文件操作使用 terminal 的 environment=android；" +
                         "Git、压缩打包、JSON 处理或编译工具优先使用 environment=linux；如果返回 LINUX_ENVIRONMENT_NOT_READY，" +
                         "准确告知用户先到设置安装 Linux 工具环境，不要把 Android 缺少命令误报成设备不支持。" +
-                        "若 python3、pip 或 uv 命令不存在，准确告知用户在 Linux 工具环境页面安装“Python 工具”，" +
-                        "不要在 Android 环境或自行下载的方式冒充。" +
+                        "若 python3、pip、uv、node 或 npm 命令不存在，准确告知用户在 Linux 工具环境页面安装对应的“Python 工具”或“Node.js 环境”；需要 sshd 或 ssh-keygen 时引导安装“SSH 远程访问”；不要在 Android 环境冒充或自行下载未校验的工具。" +
                         "Linux 环境默认在 /workspace 工作，该目录与 Android 的 /data/local/tmp/fuck_andes 对应；" +
                         "共享存储可通过 /sdcard 使用，Linux 环境不能直接假定其他 Android 受保护路径可见。" +
                         "分析 APK 时优先在 linux 环境使用 jadx、apktool、smali 或 baksmali；若命令不存在，" +

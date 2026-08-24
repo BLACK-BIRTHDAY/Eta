@@ -9,9 +9,13 @@ internal object AlpineEnvironmentPaths {
     const val COMMON_TOOLS_MARKER = ".eta-common-tools-ready"
     const val APK_ANALYSIS_MARKER = ".eta-apk-analysis-ready"
     const val PYTHON_TOOLS_MARKER = ".eta-python-tools-ready"
+    const val NODE_TOOLS_MARKER = ".eta-node-tools-ready"
+    const val SSH_TOOLS_MARKER = ".eta-ssh-tools-ready"
     const val TOOLSET_REVISION = 3
     const val APK_ANALYSIS_REVISION = 1
     const val PYTHON_TOOLS_REVISION = 1
+    const val NODE_TOOLS_REVISION = 1
+    const val SSH_TOOLS_REVISION = 1
 
     fun environmentDir(context: Context): File =
         File(context.filesDir, "terminal/alpine")
@@ -43,18 +47,19 @@ internal object AlpineEnvironmentPaths {
         }.getOrDefault(false)
     }
 
-    fun pythonToolsReady(rootfsPath: String?): Boolean {
+    fun packageProfileReady(rootfsPath: String?, profile: AlpinePackageProfile): Boolean {
         if (!commonToolsReady(rootfsPath)) return false
         val rootfs = File(rootfsPath ?: return false)
-        val marker = File(rootfs, PYTHON_TOOLS_MARKER)
+        val marker = File(rootfs, profile.markerName)
         val markerReady = marker.isFile && runCatching {
             marker.useLines { lines ->
-                lines.any { line -> line.trim() == "profile=$PYTHON_TOOLS_REVISION" }
+                lines.any { line -> line.trim() == "profile=${profile.revision}" }
             }
         }.getOrDefault(false)
         if (markerReady) return true
-        // toolset 2 及更早的环境把 Python 装进基础工具集且无独立 marker，用二进制存在性识别旧安装。
-        return File(rootfs, "usr/bin/python3").isFile && File(rootfs, "usr/bin/uv").isFile
+        // 旧版本把部分工具捆进基础包且无独立 marker，用二进制存在性识别旧安装。
+        return profile.legacyBinaries.isNotEmpty() &&
+            profile.legacyBinaries.all { path -> File(rootfs, path).isFile }
     }
 
     fun apkAnalysisReady(rootfsPath: String?): Boolean {

@@ -68,15 +68,23 @@ class AlpineEnvironmentInstallerTest {
     }
 
     @Test
-    fun pythonProfilePackagesCoverThePythonToolchain() {
-        val packages = AlpinePythonToolsInstaller.PACKAGES
-
-        assertTrue(packages.containsAll(listOf("python3", "py3-virtualenv", "pipx", "uv", "ruff")))
-        assertEquals(packages.distinct(), packages)
+    fun packageProfilesCoverPythonNodeAndSshToolchains() {
+        assertTrue(
+            AlpinePackageProfiles.PYTHON.packages
+                .containsAll(listOf("python3", "py3-virtualenv", "pipx", "uv", "ruff")),
+        )
+        assertTrue(AlpinePackageProfiles.NODE.packages.containsAll(listOf("nodejs", "npm")))
+        assertTrue(AlpinePackageProfiles.SSH.packages.contains("openssh"))
+        AlpinePackageProfiles.ALL.forEach { profile ->
+            assertEquals(profile.packages.distinct(), profile.packages)
+            assertTrue(profile.markerName.startsWith(".eta-"))
+            assertTrue(profile.verifyCommands.isNotEmpty())
+        }
+        assertEquals(AlpinePackageProfiles.ALL.map { it.id }.distinct(), AlpinePackageProfiles.ALL.map { it.id })
     }
 
     @Test
-    fun pythonToolsReadinessHonoursMarkerRevisionAndLegacyBinaryInstalls() {
+    fun packageProfileReadinessHonoursMarkerRevisionAndLegacyBinaryInstalls() {
         val rootfs = temporaryFolder.newFolder("python-rootfs")
         File(rootfs, "bin").mkdirs()
         File(rootfs, "bin/busybox").writeText("busybox")
@@ -84,24 +92,23 @@ class AlpineEnvironmentInstallerTest {
         File(rootfs, AlpineEnvironmentPaths.COMMON_TOOLS_MARKER).writeText(
             "toolset=${AlpineEnvironmentPaths.TOOLSET_REVISION}\n",
         )
+        val python = AlpinePackageProfiles.PYTHON
 
-        assertFalse(AlpineEnvironmentPaths.pythonToolsReady(rootfs.absolutePath))
+        assertFalse(AlpineEnvironmentPaths.packageProfileReady(rootfs.absolutePath, python))
 
-        File(rootfs, AlpineEnvironmentPaths.PYTHON_TOOLS_MARKER).writeText("profile=0\n")
-        assertFalse(AlpineEnvironmentPaths.pythonToolsReady(rootfs.absolutePath))
+        File(rootfs, python.markerName).writeText("profile=0\n")
+        assertFalse(AlpineEnvironmentPaths.packageProfileReady(rootfs.absolutePath, python))
 
-        File(rootfs, AlpineEnvironmentPaths.PYTHON_TOOLS_MARKER).writeText(
-            "profile=${AlpineEnvironmentPaths.PYTHON_TOOLS_REVISION}\n",
-        )
-        assertTrue(AlpineEnvironmentPaths.pythonToolsReady(rootfs.absolutePath))
+        File(rootfs, python.markerName).writeText("profile=${python.revision}\n")
+        assertTrue(AlpineEnvironmentPaths.packageProfileReady(rootfs.absolutePath, python))
 
         // toolset 2 及更早的环境把 Python 装进基础工具集且无独立 marker，靠二进制存在性识别。
-        File(rootfs, AlpineEnvironmentPaths.PYTHON_TOOLS_MARKER).delete()
+        File(rootfs, python.markerName).delete()
         File(rootfs, "usr/bin").mkdirs()
         File(rootfs, "usr/bin/python3").writeText("python3")
-        assertFalse(AlpineEnvironmentPaths.pythonToolsReady(rootfs.absolutePath))
+        assertFalse(AlpineEnvironmentPaths.packageProfileReady(rootfs.absolutePath, python))
         File(rootfs, "usr/bin/uv").writeText("uv")
-        assertTrue(AlpineEnvironmentPaths.pythonToolsReady(rootfs.absolutePath))
+        assertTrue(AlpineEnvironmentPaths.packageProfileReady(rootfs.absolutePath, python))
     }
 
     @Test
