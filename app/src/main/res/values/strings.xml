@@ -243,12 +243,12 @@
   <string name="ui_about_bed172">about</string>
   <string name="ui_after_closing_no_memory_will_be_injected_and_the_mod_db3d23">After closing, no memory will be injected, and the model will not be allowed to read or write; existing content will be retained.</string>
   <string name="ui_built_in_09ceea">built-in</string>
-  <string name="ui_built_in_skills_1ceedf">Built-in skills</string>
+  <string name="ui_built_in_skills_1ceedf">Built-in</string>
   <string name="ui_analyze_current_screen_ebf08f">Analyze current screen</string>
   <string name="ui_delete_3755f5">delete</string>
   <string name="ui_remove_provider_9f848f">Remove provider</string>
   <string name="ui_delete_model_cf24da">Delete model</string>
-  <string name="ui_delete_user_skills_f319a9">Delete user skills</string>
+  <string name="ui_delete_user_skills_f319a9">Delete Skill</string>
   <string name="ui_delete_this_conversation_3f351b">Delete this conversation</string>
   <string name="ui_long_press_with_two_fingers_to_trigger_a_circle_sear_ab597a">Touch and hold with two fingers to start Circle to Search</string>
   <string name="ui_cancel_edit_c698df">Cancel edit</string>
@@ -284,7 +284,6 @@
   <string name="ui_long_press_on_the_gesture_bar_triggers_a_circle_to_s_b80117">Touch and hold the gesture bar to start Circle to Search</string>
   <string name="ui_open_current_browser_58358e">Open current browser</string>
   <string name="ui_open_wechat_6b2c28">Open WeChat</string>
-  <string name="ui_skill_53da13">Skill</string>
   <string name="ui_search_provider_74e049">Search provider</string>
   <string name="ui_search_model_df5586">Search model</string>
   <string name="ui_support_anthropic_claude_official_or_compatible_api_de3f80">Support Anthropic Claude official or compatible API</string>
@@ -295,8 +294,8 @@
   <string name="ui_added_openai_compatible_6bd471">Add OpenAI-compatible provider</string>
   <string name="ui_add_new_provider_74df54">Add new provider</string>
   <string name="ui_accessibility_enhancement_tools_8fd257">Accessibility enhancement tools</string>
-  <string name="ui_no_skills_installed_yet_4e960f">No skills installed yet</string>
-  <string name="ui_replace_user_skills_250e98">Replace user skills?</string>
+  <string name="ui_no_skills_installed_yet_4e960f">No Skills installed yet</string>
+  <string name="ui_replace_user_skills_250e98">Replace Skill?</string>
   <string name="ui_how_can_i_help_you_e75391">How can I help you?</string>
   <string name="ui_server_side_web_search_ddb8e0">Provider-hosted web search</string>
   <string name="ui_permissions_560165">Permissions</string>
@@ -316,7 +315,7 @@
   <string name="ui_source_code_740296">source code</string>
   <string name="ui_click_to_reinstall_dc60de">Click to reinstall</string>
   <string name="ui_environmental_status_5b32a1">Environment status</string>
-  <string name="ui_user_skills_748e7f">User skills</string>
+  <string name="ui_user_skills_748e7f">Installed by you</string>
   <string name="ui_determined_by_model_or_provider_06c326">Determined by model or provider</string>
   <string name="ui_long_press_the_power_button_1958d0">Long press the power button</string>
   <string name="ui_leave_blank_to_use_the_default_mobile_agent_prompt_w_21e7c8">Leave blank to use the default mobile Agent system prompt</string>
@@ -334,7 +333,7 @@
   <string name="ui_url_or_domain_name_3ee97a">URL or domain name</string>
   <string name="ui_the_webpage_cannot_be_opened_3db06d">The webpage cannot be opened</string>
   <string name="ui_automatically_set_default_assistant_f86963">Automatically set default assistant</string>
-  <string name="ui_memory_b55ff5">memory</string>
+  <string name="ui_memory_b55ff5">Memory</string>
   <string name="ui_set_up_7debf9">set up</string>
   <string name="ui_access_7f5641">Access</string>
   <string name="ui_this_value_is_used_for_session_clipping_and_context__c3f9e7">This value is used for session clipping and context budgeting. When left blank, the remote or official directory value is used.</string>
@@ -956,6 +955,8 @@
   <string name="skills_choose_package">Choose a skill package containing SKILL.md</string>
   <string name="skills_choose_zip">Choose ZIP skill package</string>
   <string name="skills_replace_summary">A user skill named “%1$s” (%2$s) already exists. Replacing it will overwrite all of its current files.</string>
+  <string name="settings_context_extensions">Context &amp; extensions</string>
+  <string name="settings_llm_providers">LLM providers</string>
   <string name="skills_replace">Replace</string>
   <string name="skills_delete_summary">After deleting “%1$s”, you will need to reinstall it to restore it.</string>
   <string name="skills_no_description">No description</string>

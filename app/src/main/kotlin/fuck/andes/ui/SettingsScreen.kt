@@ -194,9 +194,9 @@ internal fun SettingsScreen(
                 }
             }
 
-            // ── Agent ──────────────────────────────────────────────────
+            // ── LLM 提供商 ──────────────────────────────────────────────
             item(key = "section_agent") {
-                SmallTitle("Agent")
+                SmallTitle(stringResource(R.string.settings_llm_providers))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                     ArrowPreference(
                         title = stringResource(R.string.ui_model_provider_e8c7f5),
@@ -218,7 +218,13 @@ internal fun SettingsScreen(
                         icon = LucideR.drawable.lucide_ic_brain_circuit,
                         iconTint = ColorOSRoyalBlue,
                     )
-                    PrefDivider()
+                }
+            }
+
+            // ── 上下文与扩展 ────────────────────────────────────────────
+            item(key = "section_context_extensions") {
+                SmallTitle(stringResource(R.string.settings_context_extensions))
+                Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                     ArrowPreference(
                         title = stringResource(R.string.ui_memory_b55ff5),
                         startAction = {
@@ -228,6 +234,28 @@ internal fun SettingsScreen(
                             )
                         },
                         onClick = { onNavigate(AppRoute.Memory) },
+                    )
+                    PrefDivider()
+                    ArrowPreference(
+                        title = stringResource(R.string.route_skills),
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_puzzle,
+                                tint = ColorOSRoyalBlue,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.Skills) },
+                    )
+                    PrefDivider()
+                    ArrowPreference(
+                        title = stringResource(R.string.route_mcp_servers),
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_network,
+                                tint = ColorOSVividGreen,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.McpServers) },
                     )
                 }
             }
@@ -243,17 +271,6 @@ internal fun SettingsScreen(
                         key = Prefs.Keys.AGENT_BROWSER_TOOLS,
                         icon = LucideR.drawable.lucide_ic_globe,
                         iconTint = ColorOSVividGreen,
-                    )
-                    PrefDivider()
-                    ArrowPreference(
-                        title = stringResource(R.string.route_mcp_servers),
-                        startAction = {
-                            TintedIcon(
-                                icon = LucideR.drawable.lucide_ic_network,
-                                tint = ColorOSVividGreen,
-                            )
-                        },
-                        onClick = { onNavigate(AppRoute.McpServers) },
                     )
                     PrefDivider()
                     SwitchPref(

@@ -68,7 +68,7 @@ fun AgentSkillsScreen(
     }
 
     MiuixScaffoldPage(
-        title = stringResource(R.string.ui_skill_53da13),
+        title = stringResource(R.string.route_skills),
         onBack = { onAction(AgentSkillsAction.NavigateBack) },
         modifier = modifier,
     ) {
