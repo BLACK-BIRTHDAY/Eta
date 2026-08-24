@@ -99,6 +99,48 @@ class McpProtocolValidationTest {
     }
 
     @Test
+    fun legacyHandshakeUsesOlderVersionSelectedByServer() {
+        val requestIndex = AtomicInteger()
+        val subsequentVersions = CopyOnWriteArrayList<String>()
+        val server = localServer { exchange ->
+            if (exchange.requestMethod == "DELETE") {
+                exchange.respond(200, "")
+                return@localServer
+            }
+            val body = JSONObject(exchange.requestBody.bufferedReader().use { it.readText() })
+            when (requestIndex.getAndIncrement()) {
+                0 -> exchange.respond(400, "legacy")
+                1 -> exchange.respond(
+                    200,
+                    """{"jsonrpc":"2.0","id":${body.getLong("id")},"result":{"protocolVersion":"2024-11-05","capabilities":{},"serverInfo":{"name":"test","version":"1"}}}""",
+                    mapOf("Mcp-Session-Id" to "session-1"),
+                )
+                2 -> {
+                    subsequentVersions += exchange.requestHeaders.getFirst("MCP-Protocol-Version")
+                    exchange.respond(202, "")
+                }
+                3 -> {
+                    subsequentVersions += exchange.requestHeaders.getFirst("MCP-Protocol-Version")
+                    exchange.respond(
+                        200,
+                        """{"jsonrpc":"2.0","id":${body.getLong("id")},"result":{"tools":[{"name":"legacy","inputSchema":{"type":"object"}}]}}""",
+                    )
+                }
+            }
+        }
+        try {
+            val configured = McpServerSetting(id = "test", name = "Test", url = server.url())
+            val discovery = McpHttpClient(configured, bearerToken = null).use { it.discoverTools() }
+
+            assertEquals("2024-11-05", discovery.protocolVersion)
+            assertEquals(listOf("2024-11-05", "2024-11-05"), subsequentVersions)
+            assertEquals(listOf("legacy"), discovery.tools.map { it.name })
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun modernJsonRpcHeaderErrorDoesNotFallBackToLegacy() {
         val requestCount = AtomicInteger()
         val server = localServer { exchange ->

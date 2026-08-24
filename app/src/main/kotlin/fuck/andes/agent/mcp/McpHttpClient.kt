@@ -62,7 +62,7 @@ internal class McpHttpClient(
         val version = negotiatedVersion ?: when (
             server.lastProtocolVersion ?: server.protocolMode
         ) {
-            McpProtocolMode.LEGACY -> initializeLegacy()
+            in SUPPORTED_LEGACY_PROTOCOL_VERSIONS -> initializeLegacy()
             else -> McpProtocolMode.LATEST.also { negotiatedVersion = it }
         }
         fun invoke(sessionId: String?): JSONObject = unwrapResult(
@@ -78,7 +78,7 @@ internal class McpHttpClient(
                 ).json,
             ) { "MCP 工具返回为空" },
         )
-        return if (version == McpProtocolMode.LEGACY) {
+        return if (version in SUPPORTED_LEGACY_PROTOCOL_VERSIONS) {
             withLegacySessionRetry(::invoke)
         } else {
             invoke(sessionId = null)
@@ -88,6 +88,7 @@ internal class McpHttpClient(
     override fun close() {
         val call: Call?
         val sessionId: String?
+        val protocolVersion: String?
         synchronized(lifecycleLock) {
             if (closed) return
             closed = true
@@ -95,9 +96,12 @@ internal class McpHttpClient(
             activeCall = null
             sessionId = legacySessionId
             legacySessionId = null
+            protocolVersion = negotiatedVersion
         }
         call?.cancel()
-        sessionId?.let(::releaseLegacySession)
+        if (sessionId != null && protocolVersion in SUPPORTED_LEGACY_PROTOCOL_VERSIONS) {
+            releaseLegacySession(sessionId, requireNotNull(protocolVersion))
+        }
     }
 
     private fun discoverLatest(): Discovery {
@@ -123,9 +127,9 @@ internal class McpHttpClient(
 
     private fun discoverLegacy(): Discovery {
         val listed = withLegacySessionRetry { sessionId ->
-            listTools(McpProtocolMode.LEGACY, sessionId)
+            listTools(requireNotNull(negotiatedVersion), sessionId)
         }
-        return Discovery(McpProtocolMode.LEGACY, listed.tools, cacheTtlMs = null)
+        return Discovery(requireNotNull(negotiatedVersion), listed.tools, cacheTtlMs = null)
     }
 
     private fun <T> withLegacySessionRetry(block: (String?) -> T): T {
@@ -143,8 +147,9 @@ internal class McpHttpClient(
     }
 
     private fun initializeLegacy(): String {
-        if (negotiatedVersion == McpProtocolMode.LEGACY && legacySessionId != null) {
-            return McpProtocolMode.LEGACY
+        val currentVersion = negotiatedVersion
+        if (currentVersion in SUPPORTED_LEGACY_PROTOCOL_VERSIONS && legacySessionId != null) {
+            return requireNotNull(currentVersion)
         }
         val initialized = request(
             method = "initialize",
@@ -161,7 +166,8 @@ internal class McpHttpClient(
         val initializeResult = unwrapResult(
             requireNotNull(initialized.json) { "MCP initialize 返回为空" }
         )
-        require(initializeResult.optString("protocolVersion") == McpProtocolMode.LEGACY) {
+        val protocolVersion = initializeResult.optString("protocolVersion")
+        require(protocolVersion in SUPPORTED_LEGACY_PROTOCOL_VERSIONS) {
             "MCP 服务器返回了不支持的协议版本"
         }
         val newSessionId = initialized.sessionId
@@ -174,16 +180,16 @@ internal class McpHttpClient(
             }
         }
         if (!accepted) {
-            newSessionId?.let(::releaseLegacySession)
+            newSessionId?.let { releaseLegacySession(it, protocolVersion) }
             error("MCP 客户端已关闭")
         }
         notification(
             method = "notifications/initialized",
-            protocolVersion = McpProtocolMode.LEGACY,
+            protocolVersion = protocolVersion,
             sessionId = legacySessionId,
         )
-        negotiatedVersion = McpProtocolMode.LEGACY
-        return McpProtocolMode.LEGACY
+        negotiatedVersion = protocolVersion
+        return protocolVersion
     }
 
     private fun listTools(protocolVersion: String, sessionId: String?): ToolList {
@@ -348,11 +354,11 @@ internal class McpHttpClient(
         }
     }
 
-    private fun releaseLegacySession(sessionId: String) {
+    private fun releaseLegacySession(sessionId: String, protocolVersion: String) {
         val request = Request.Builder()
             .url(endpoint)
             .delete()
-            .header(HEADER_PROTOCOL_VERSION, McpProtocolMode.LEGACY)
+            .header(HEADER_PROTOCOL_VERSION, protocolVersion)
             .header(HEADER_SESSION_ID, sessionId)
             .applyAuthorization()
             .build()
@@ -462,6 +468,12 @@ internal class McpHttpClient(
         const val MAX_DESCRIPTION_CHARS = 2_000
         const val MAX_DISCOVERED_TOOLS = 128
         const val MAX_LIST_PAGES = 8
+        val SUPPORTED_LEGACY_PROTOCOL_VERSIONS = setOf(
+            "2024-11-05",
+            "2025-03-26",
+            "2025-06-18",
+            McpProtocolMode.LEGACY,
+        )
         val MODERN_JSON_RPC_ERRORS = setOf(-32601, -32020, -32021, -32022)
     }
 }
