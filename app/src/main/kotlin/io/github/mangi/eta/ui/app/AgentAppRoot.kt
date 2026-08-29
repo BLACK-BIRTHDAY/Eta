@@ -74,6 +74,7 @@ import io.github.mangi.eta.ui.screens.mcp.McpServersScreen
 import io.github.mangi.eta.ui.screens.permissions.PermissionHealthScreen
 import io.github.mangi.eta.ui.screens.skills.AgentSkillsScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxEnvironmentScreen
+import io.github.mangi.eta.ui.screens.terminal.UserTerminalScreen
 import io.github.mangi.eta.ui.screens.tools.AgentToolsScreen
 
 /**
@@ -88,7 +89,8 @@ fun AgentAppRoot(
     val uiScope = rememberCoroutineScope()
     val backStack = rememberNavBackStack<AppRoute>(AppRoute.Home)
     val navigator = remember(backStack) { AgentNavigator(backStack) }
-    val agentState = viewModel<AgentAppViewModel>().state
+    val appViewModel = viewModel<AgentAppViewModel>()
+    val agentState = appViewModel.state
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
@@ -167,7 +169,7 @@ fun AgentAppRoot(
             onDismissConversationPane = { conversationPaneOpen = false },
             onSearchConversations = { query -> agentState.updateSearchQuery(query) },
             onNewConversation = { createConversation() },
-            onOpenTerminal = { pushRoute(AppRoute.LinuxEnvironment) },
+            onOpenTerminal = { pushRoute(AppRoute.Terminal) },
             onOpenBrowser = { pushRoute(AppRoute.Browser) },
             onSelectConversation = { conversationId -> selectConversation(conversationId) },
             onConversationRename = { conversation ->
@@ -300,6 +302,14 @@ fun AgentAppRoot(
             entry<AppRoute.Browser>(swipeDismiss = swipeDismiss) {
                 RoutedShell(route = AppRoute.Browser) {
                     AgentBrowserScreen()
+                }
+            }
+            entry<AppRoute.Terminal>(swipeDismiss = swipeDismiss) {
+                RoutedShell(route = AppRoute.Terminal) {
+                    UserTerminalScreen(
+                        store = appViewModel.terminalStore,
+                        onOpenEnvironment = { pushRoute(AppRoute.LinuxEnvironment) },
+                    )
                 }
             }
             entry<AppRoute.Tools>(swipeDismiss = swipeDismiss) {

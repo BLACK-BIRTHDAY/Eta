@@ -2,9 +2,7 @@ package io.github.mangi.eta.agent.terminal
 
 import io.github.mangi.eta.core.AgentLogger
 
-import java.io.ByteArrayOutputStream
 import java.io.File
-import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -525,13 +523,13 @@ internal class RootShellTerminalController(
                     timedOut = false
                 )
             }
-            val marker = "__ETA_STATUS_${UUID.randomUUID().toString().replace("-", "")}"
+            val marker = SessionStatusProtocol.newMarker()
             val stdoutStart = session.stdout.text().length
             val stderrStart = session.stderr.text().length
             val commandBlock = buildString {
                 append(command)
                 append('\n')
-                append("printf '\\n$marker:%s:%s\\n' \"${'$'}?\" \"${'$'}PWD\"")
+                append(SessionStatusProtocol.statusCommand(marker))
                 append('\n')
             }
             runCatching {
@@ -560,15 +558,15 @@ internal class RootShellTerminalController(
                         timedOut = false
                     )
                 }
-                val statusLine = stdoutDelta.lineSequence().firstOrNull { it.startsWith("$marker:") }
-                if (statusLine != null) {
-                    val status = statusLine.removePrefix("$marker:")
-                    val separator = status.indexOf(':')
-                    val exitCode = if (separator > 0) status.take(separator).toIntOrNull() ?: -1 else -1
-                    val cwd = if (separator > 0) status.drop(separator + 1).ifBlank { session.cwd } else session.cwd
+                val status = stdoutDelta.lineSequence()
+                    .firstOrNull { SessionStatusProtocol.isStatusLine(it, marker) }
+                    ?.let { SessionStatusProtocol.parseStatusLine(it, marker) }
+                if (status != null) {
+                    val exitCode = status.exitCode
+                    val cwd = status.cwd ?: session.cwd
                     val cleanedStdout = stdoutDelta
                         .lineSequence()
-                        .filterNot { it.startsWith("$marker:") }
+                        .filterNot { SessionStatusProtocol.isStatusLine(it, marker) }
                         .joinToString("\n")
                         .trimEnd()
                     val stderrDelta = session.stderr.text().drop(stderrStart).trimEnd()
@@ -994,49 +992,5 @@ internal class RootShellTerminalController(
         lateinit var stdoutThread: Thread
         lateinit var stderrThread: Thread
         lateinit var waiterThread: Thread
-    }
-
-    private class ByteArrayOutputCollector {
-        private val output = ByteArrayOutputStream()
-        private var totalBytesRead = 0L
-        private var truncated = false
-
-        fun readFrom(input: java.io.InputStream, maxBytes: Int = Int.MAX_VALUE) {
-            runCatching {
-                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                while (true) {
-                    val read = input.read(buffer)
-                    if (read < 0) break
-                    synchronized(this) {
-                        totalBytesRead += read.toLong()
-                        val allowed = (maxBytes - output.size()).coerceAtLeast(0)
-                        if (allowed > 0) {
-                            output.write(buffer, 0, read.coerceAtMost(allowed))
-                        }
-                        if (read > allowed) {
-                            truncated = true
-                        }
-                    }
-                }
-            }.onFailure { throwable ->
-                if (throwable !is IOException) throw throwable
-            }
-        }
-
-        fun bytes(): ByteArray = synchronized(this) { output.toByteArray() }
-
-        fun text(): String = bytes().decodeToString()
-
-        fun totalBytesRead(): Long = synchronized(this) { totalBytesRead }
-
-        fun isTruncated(): Boolean = synchronized(this) { truncated }
-
-        fun clear() {
-            synchronized(this) {
-                output.reset()
-                totalBytesRead = 0
-                truncated = false
-            }
-        }
     }
 }

@@ -170,6 +170,8 @@ Eta 不对浏览器请求执行额外的 URL、DNS、IP、主机数量、请求�
 - `android` 是原生 Android Shell，负责系统、应用、日志、Magisk 和设备文件操作。Root 会话会自动发现 Magisk、KernelSU 或 APatch 提供的 BusyBox，并以 standalone `ash` 补齐不在系统 PATH 中的 applet。
 - `linux` 是可选安装的 Alpine 工具环境，预装模型高频使用的 `rg`、`fd`、Git/SSH、diff/patch、curl、rsync、jq、SQLite 与常用压缩工具；Python 工具链（python3、pip、venv、pipx、uv、Ruff）、Node.js 环境（nodejs、npm）、完整 OpenSSH（sshd、ssh-keygen 等）与 APK 分析工具（OpenJDK、JADX、Apktool、smali、baksmali）作为独立 profile 按需安装。Eta 下载固定版本的官方 minirootfs 并校验 SHA-256，在 App 私有目录中解压，通过独立 mount namespace + Root chroot 运行；Linux 默认在映射到 Eta Android 工作目录的 `/workspace` 中执行，共享存储位于 `/sdcard`。它不是安全沙箱，也不会取代 Android 环境。
 
+首页溢出菜单的「打开终端」是供用户手动操作的终端：块式界面按命令、输出和退出码组织，可在 Android 与 Linux 两个环境间切换。它使用独立的常驻 shell 会话，与 Agent 工具调用的会话互不共享；离开页面后运行中的命令继续在后台执行，回到页面可接着查看输出。
+
 聊天输入栏可以引用任意本地绝对路径下的普通文件或文件夹，发送后以附件名称和原始请求分开展示。Eta 只把经过 Root 解析的规范绝对路径写入模型上下文，不上传、不复制或缓存原文件；模型再按任务调用文件或终端工具读取。系统文件选择器会解析内部存储文档，以及能转换为本地媒体库路径的“最近”文件；云盘和其他只有 `content://` URI 的来源不会降级为上传。
 
 ## 长期记忆
