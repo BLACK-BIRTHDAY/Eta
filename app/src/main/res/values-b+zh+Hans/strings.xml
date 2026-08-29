@@ -29,6 +29,8 @@
   <string name="action_new_conversation">新建对话</string>
   <string name="action_conversation_history">会话历史</string>
   <string name="action_more">更多选项</string>
+  <string name="action_open_terminal">打开终端</string>
+  <string name="action_open_browser">打开浏览器</string>
   <string name="route_chat">对话</string>
   <string name="route_browser">Agent 浏览器</string>
   <string name="route_tools">工具能力</string>

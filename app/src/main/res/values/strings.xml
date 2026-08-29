@@ -30,6 +30,8 @@
   <string name="action_new_conversation">New conversation</string>
   <string name="action_conversation_history">Conversation history</string>
   <string name="action_more">More options</string>
+  <string name="action_open_terminal">Open terminal</string>
+  <string name="action_open_browser">Open browser</string>
   <string name="route_chat">Chat</string>
   <string name="route_browser">Agent browser</string>
   <string name="route_tools">Tools</string>

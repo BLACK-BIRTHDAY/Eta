@@ -8,12 +8,18 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.R as LucideR
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.components.AdaptiveTopAppBar
@@ -26,18 +32,23 @@ import io.github.mangi.eta.ui.components.topBarContainerColor
 import io.github.mangi.eta.ui.navigation.AppRoute
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
+import top.yukonga.miuix.kmp.basic.DropdownImpl
+import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
+import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.window.WindowListPopup
 
 /**
  * Agent App 统一壳层。
  *
  * - 负责全局 Scaffold、状态栏/横向安全边距、顶层工具栏。
- * - 首页工具栏只保留历史入口与新建对话，保持聊天舞台干净。
+ * - 首页工具栏只保留历史入口与溢出菜单（新建对话、终端、浏览器），保持聊天舞台干净。
  * - 非首页子路由统一提供返回按钮与标题，避免每个页面各自像独立设置页。
  * - Settings 由标准二级页骨架自己提供 TopAppBar，壳层在此路由不重复绘制。
  */
@@ -52,6 +63,8 @@ fun AgentAppShell(
     onDismissConversationPane: () -> Unit,
     onSearchConversations: (String) -> Unit,
     onNewConversation: () -> Unit,
+    onOpenTerminal: () -> Unit,
+    onOpenBrowser: () -> Unit,
     onSelectConversation: (String) -> Unit,
     onConversationRename: (ConversationSummaryUi) -> Unit,
     onConversationDelete: (ConversationSummaryUi) -> Unit,
@@ -82,6 +95,8 @@ fun AgentAppShell(
                             onBack = onBack,
                             onOpenConversationPane = onOpenConversationPane,
                             onNewConversation = onNewConversation,
+                            onOpenTerminal = onOpenTerminal,
+                            onOpenBrowser = onOpenBrowser,
                         )
                     }
                 }
@@ -132,6 +147,8 @@ private fun AgentTopBar(
     onBack: () -> Unit,
     onOpenConversationPane: () -> Unit,
     onNewConversation: () -> Unit,
+    onOpenTerminal: () -> Unit,
+    onOpenBrowser: () -> Unit,
 ) {
     val isHome = route is AppRoute.Home
     val navigationIcon: @Composable () -> Unit = {
@@ -148,12 +165,11 @@ private fun AgentTopBar(
     }
     val actions: @Composable RowScope.() -> Unit = {
         if (isHome) {
-            IconButton(onClick = onNewConversation) {
-                Icon(
-                    painter = painterResource(LucideR.drawable.lucide_ic_message_circle_plus),
-                    contentDescription = stringResource(R.string.action_new_conversation),
-                )
-            }
+            TopBarOverflowMenu(
+                onNewConversation = onNewConversation,
+                onOpenTerminal = onOpenTerminal,
+                onOpenBrowser = onOpenBrowser,
+            )
         }
     }
 
@@ -174,6 +190,91 @@ private fun AgentTopBar(
             navigationIcon = navigationIcon,
             actions = actions,
         )
+    }
+}
+
+private val TopBarMenuIconSize = 20.dp
+
+/**
+ * 首页顶栏溢出菜单。WindowListPopup 以父布局为锚点，因此与触发按钮包在同一个 Box 中，
+ * 弹层从按钮下方右对齐展开。
+ */
+@Composable
+private fun TopBarOverflowMenu(
+    onNewConversation: () -> Unit,
+    onOpenTerminal: () -> Unit,
+    onOpenBrowser: () -> Unit,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { showMenu = true }) {
+            Icon(
+                painter = painterResource(LucideR.drawable.lucide_ic_ellipsis_vertical),
+                contentDescription = stringResource(R.string.action_more),
+            )
+        }
+        WindowListPopup(
+            show = showMenu,
+            alignment = PopupPositionProvider.Align.End,
+            enableWindowDim = false,
+            onDismissRequest = { showMenu = false },
+        ) {
+            val newConversationText = stringResource(R.string.action_new_conversation)
+            val openTerminalText = stringResource(R.string.action_open_terminal)
+            val openBrowserText = stringResource(R.string.action_open_browser)
+            val menuItems = remember(newConversationText, openTerminalText, openBrowserText) {
+                listOf(
+                    DropdownItem(
+                        text = newConversationText,
+                        icon = { modifier ->
+                            Icon(
+                                painter = painterResource(LucideR.drawable.lucide_ic_message_circle_plus),
+                                contentDescription = null,
+                                modifier = modifier.size(TopBarMenuIconSize),
+                            )
+                        },
+                    ),
+                    DropdownItem(
+                        text = openTerminalText,
+                        icon = { modifier ->
+                            Icon(
+                                painter = painterResource(LucideR.drawable.lucide_ic_square_terminal),
+                                contentDescription = null,
+                                modifier = modifier.size(TopBarMenuIconSize),
+                            )
+                        },
+                    ),
+                    DropdownItem(
+                        text = openBrowserText,
+                        icon = { modifier ->
+                            Icon(
+                                painter = painterResource(LucideR.drawable.lucide_ic_globe),
+                                contentDescription = null,
+                                modifier = modifier.size(TopBarMenuIconSize),
+                            )
+                        },
+                    ),
+                )
+            }
+            ListPopupColumn {
+                menuItems.forEachIndexed { index, item ->
+                    DropdownImpl(
+                        item = item,
+                        optionSize = menuItems.size,
+                        isSelected = false,
+                        index = index,
+                        onSelectedIndexChange = {
+                            showMenu = false
+                            when (index) {
+                                0 -> onNewConversation()
+                                1 -> onOpenTerminal()
+                                2 -> onOpenBrowser()
+                            }
+                        },
+                    )
+                }
+            }
+        }
     }
 }
 
