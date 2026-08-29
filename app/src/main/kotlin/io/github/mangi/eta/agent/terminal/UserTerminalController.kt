@@ -18,6 +18,7 @@ internal class UserTerminalController(
     private val logger: AgentLogger,
     private val linuxRootfsPath: String? = null,
     private val processSupervisor: ShellProcessSupervisor = ShellProcessSupervisor(),
+    private val linuxSharedMountsProvider: () -> List<SharedFolderMount> = { emptyList() },
 ) : AutoCloseable {
 
     private companion object {
@@ -84,6 +85,11 @@ internal class UserTerminalController(
                 mergeStderr = false,
                 environment = environment,
                 linuxRootfsPath = linuxRootfsPath,
+                linuxSharedMounts = if (environment == TerminalEnvironment.LINUX) {
+                    linuxSharedMountsProvider()
+                } else {
+                    emptyList()
+                },
             ) ?: return OpenResult.Failed("PROCESS_START_FAILED", "无法启动终端进程")
             val newSession = Session(
                 environment = environment,

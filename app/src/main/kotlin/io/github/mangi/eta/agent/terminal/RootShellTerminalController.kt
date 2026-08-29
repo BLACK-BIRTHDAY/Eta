@@ -15,6 +15,7 @@ internal class RootShellTerminalController(
     private val linuxRootfsPath: String? = null,
     private val processSupervisor: ShellProcessSupervisor = ShellProcessSupervisor(),
     private val detachedSupervisor: DetachedTaskSupervisor? = null,
+    private val linuxSharedMountsProvider: () -> List<SharedFolderMount> = { emptyList() },
 ) : AutoCloseable {
     private companion object {
         const val DEFAULT_CWD = "/data/local/tmp/eta"
@@ -269,6 +270,7 @@ internal class RootShellTerminalController(
             mergeStderr = mergeStderr,
             environment = environment,
             linuxRootfsPath = linuxRootfsPath,
+            linuxSharedMounts = sharedMountsFor(environment),
         ) ?: return errorJson(
             if (processSupervisor.isClosing) "TERMINAL_CLOSED" else "PROCESS_START_FAILED",
             if (processSupervisor.isClosing) "terminal controller 已关闭" else "无法启动 terminal process",
@@ -906,7 +908,12 @@ internal class RootShellTerminalController(
             mergeStderr = false,
             environment = environment,
             linuxRootfsPath = linuxRootfsPath,
+            linuxSharedMounts = sharedMountsFor(environment),
         )
+
+    /** 共享挂载只在 Linux 会话建立时解析；Android 环境不涉及。 */
+    private fun sharedMountsFor(environment: TerminalEnvironment): List<SharedFolderMount> =
+        if (environment == TerminalEnvironment.LINUX) linuxSharedMountsProvider() else emptyList()
 
     private fun runText(
         identity: String,
@@ -984,6 +991,7 @@ internal class RootShellTerminalController(
             stdin = stdin,
             environment = environment,
             linuxRootfsPath = linuxRootfsPath,
+            linuxSharedMounts = sharedMountsFor(environment),
         )
 
     private fun String.truncateForJson(): String =

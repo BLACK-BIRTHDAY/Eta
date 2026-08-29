@@ -45,6 +45,9 @@ sealed interface AppRoute : NavKey {
     data object LinuxEnvironment : AppRoute
 
     @Serializable
+    data object SharedFolders : AppRoute
+
+    @Serializable
     data object ModelProviders : AppRoute
 
     @Serializable

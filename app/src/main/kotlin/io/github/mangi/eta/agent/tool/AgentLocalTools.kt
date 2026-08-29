@@ -32,6 +32,7 @@ import io.github.mangi.eta.agent.skill.PublicGitHubSkillSource
 import io.github.mangi.eta.agent.terminal.AlpineEnvironmentPaths
 import io.github.mangi.eta.agent.terminal.DetachedTaskSupervisor
 import io.github.mangi.eta.agent.terminal.RootShellTerminalController
+import io.github.mangi.eta.agent.terminal.SharedFolderMounts
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AgentLogger
 import io.github.mangi.eta.core.HookSupport
@@ -101,7 +102,9 @@ internal class AgentLocalTools(
             logger = logger,
             recordsFile = DetachedTaskSupervisor.defaultRecordsFile(context),
             linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(context).absolutePath,
+            linuxSharedMountsProvider = { SharedFolderMounts.current() },
         ),
+        linuxSharedMountsProvider = { SharedFolderMounts.current() },
     )
     private val publishedObservation = AtomicReference(PublishedObservation())
     private val runAvailableSkillIds = runAvailableSkillIds

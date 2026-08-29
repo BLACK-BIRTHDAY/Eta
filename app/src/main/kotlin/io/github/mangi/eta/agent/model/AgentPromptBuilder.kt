@@ -64,6 +64,8 @@ internal object AgentPromptBuilder {
                         "若 python3、pip、uv、node 或 npm 命令不存在，准确告知用户在 Linux 工具环境页面安装对应的“Python 工具”或“Node.js 环境”；需要 sshd 或 ssh-keygen 时引导安装“SSH 远程访问”；不要在 Android 环境冒充或自行下载未校验的工具。" +
                         "Linux 环境默认在 /workspace 工作，该目录与 Android 的 /data/local/tmp/eta 对应；" +
                         "共享存储可通过 /sdcard 使用，Linux 环境不能直接假定其他 Android 受保护路径可见。" +
+                        "用户配置的共享文件夹挂载在 Linux 环境 /workspace/mounts/ 下，每个子目录对应一个 Android 目录；" +
+                        "用户提到共享文件、手机目录或要处理设备上的文件时，先 ls /workspace/mounts/ 确认已有共享，再读写对应子目录。" +
                         "分析 APK 时优先在 linux 环境使用 jadx、apktool、smali 或 baksmali；若命令不存在，" +
                         "准确告知用户在 Linux 工具环境页面安装“APK 分析”，不要自行下载不受校验的工具。" +
                         "当前 Apktool 只支持解码与检查，不支持 build/回编译；不要绕过该限制或宣称已经生成可安装 APK。" +

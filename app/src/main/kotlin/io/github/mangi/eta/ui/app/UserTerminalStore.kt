@@ -6,6 +6,7 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.terminal.AlpineEnvironmentPaths
 import io.github.mangi.eta.agent.terminal.DetachedTaskStatus
 import io.github.mangi.eta.agent.terminal.DetachedTaskSupervisor
+import io.github.mangi.eta.agent.terminal.SharedFolderMounts
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.agent.terminal.UserTerminalController
 import io.github.mangi.eta.core.AndroidAgentLogger
@@ -71,11 +72,13 @@ internal class UserTerminalStore(
     private val controller = UserTerminalController(
         logger = AndroidAgentLogger,
         linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(appContext).absolutePath,
+        linuxSharedMountsProvider = { SharedFolderMounts.current() },
     )
     private val daemonSupervisor = DetachedTaskSupervisor(
         logger = AndroidAgentLogger,
         recordsFile = DetachedTaskSupervisor.defaultRecordsFile(appContext),
         linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(appContext).absolutePath,
+        linuxSharedMountsProvider = { SharedFolderMounts.current() },
     )
 
     private val _uiState = MutableStateFlow(

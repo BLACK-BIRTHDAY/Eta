@@ -74,6 +74,7 @@ import io.github.mangi.eta.ui.screens.mcp.McpServersScreen
 import io.github.mangi.eta.ui.screens.permissions.PermissionHealthScreen
 import io.github.mangi.eta.ui.screens.skills.AgentSkillsScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxEnvironmentScreen
+import io.github.mangi.eta.ui.screens.terminal.SharedFoldersScreen
 import io.github.mangi.eta.ui.screens.terminal.UserTerminalScreen
 import io.github.mangi.eta.ui.screens.tools.AgentToolsScreen
 
@@ -504,6 +505,13 @@ fun AgentAppRoot(
             }
             entry<AppRoute.LinuxEnvironment>(swipeDismiss = swipeDismiss) {
                 LinuxEnvironmentScreen(
+                    context = context,
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            entry<AppRoute.SharedFolders>(swipeDismiss = swipeDismiss) {
+                SharedFoldersScreen(
                     context = context,
                     onBack = ::popRoute,
                 )

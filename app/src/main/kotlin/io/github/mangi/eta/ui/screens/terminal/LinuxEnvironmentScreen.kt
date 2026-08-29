@@ -6,14 +6,21 @@ import android.content.Context
 import android.icu.text.ListFormatter
 import android.text.format.Formatter
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.terminal.AlpineEnvironmentInstaller
 import io.github.mangi.eta.agent.terminal.AlpineEnvironmentHealth
@@ -32,14 +39,19 @@ import io.github.mangi.eta.agent.terminal.ApkAnalysisInstallStage
 import io.github.mangi.eta.agent.terminal.PackageProfileInstallProgress
 import io.github.mangi.eta.agent.terminal.PackageProfileInstallResult
 import io.github.mangi.eta.agent.terminal.PackageProfileInstallStage
+import io.github.mangi.eta.ui.components.IconTintGreen
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.navigation.AppRoute
+import com.composables.icons.lucide.R as LucideR
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TextButton
+import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 private enum class InstallTarget {
     BASE,
@@ -60,6 +72,7 @@ private data class PackageProfileUi(
 @Composable
 internal fun LinuxEnvironmentScreen(
     context: Context,
+    onNavigate: (AppRoute) -> Unit,
     onBack: () -> Unit,
 ) {
     val installer = remember(context.applicationContext) {
@@ -201,6 +214,29 @@ internal fun LinuxEnvironmentScreen(
                                 },
                             )
                         },
+                    )
+                }
+            }
+        }
+
+        if (status.state == AlpineEnvironmentState.READY) {
+            item(key = "shared-folders-title") { SmallTitle(stringResource(R.string.shared_folders_title)) }
+            item(key = "shared-folders-card") {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                ) {
+                    ArrowPreference(
+                        title = stringResource(R.string.shared_folders_entry_title),
+                        summary = stringResource(R.string.shared_folders_entry_summary),
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_folder_open,
+                                tint = IconTintGreen,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.SharedFolders) },
                     )
                 }
             }
@@ -441,3 +477,21 @@ private fun ApkAnalysisInstallStage.displayName(context: Context): String = cont
         ApkAnalysisInstallStage.COMPLETE -> R.string.linux_apk_stage_complete
     },
 )
+
+@Composable
+private fun TintedIcon(icon: Int, tint: Color) {
+    Box(
+        modifier = Modifier
+            .padding(end = 12.dp)
+            .size(32.dp)
+            .background(tint, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = null,
+            modifier = Modifier.size(18.dp),
+            tint = Color.White,
+        )
+    }
+}

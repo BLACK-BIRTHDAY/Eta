@@ -56,6 +56,7 @@ internal class DetachedTaskSupervisor(
     private val recordsFile: File,
     private val linuxRootfsPath: String? = null,
     private val daemonDir: String = DEFAULT_DAEMON_DIR,
+    private val linuxSharedMountsProvider: () -> List<SharedFolderMount> = { emptyList() },
 ) {
     companion object {
         const val DEFAULT_DAEMON_DIR = "/data/local/tmp/eta/daemon"
@@ -257,7 +258,7 @@ internal class DetachedTaskSupervisor(
             TerminalEnvironment.LINUX -> {
                 val rootfs = linuxRootfsPath
                     ?: return OneShotShellResult(-1, ByteArray(0), "Linux rootfs 未配置".toByteArray())
-                oneShotSupervisor.buildLinuxPayload(rootfs, script)
+                oneShotSupervisor.buildLinuxPayload(rootfs, script, linuxSharedMountsProvider())
             }
         }
         val process = runCatching {

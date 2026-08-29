@@ -42,6 +42,7 @@ internal class ShellProcessSupervisor(
         mergeStderr: Boolean,
         environment: TerminalEnvironment = TerminalEnvironment.ANDROID,
         linuxRootfsPath: String? = null,
+        linuxSharedMounts: List<SharedFolderMount> = emptyList(),
     ): Process? {
         if (isClosing) return null
         require(identity == "root" || identity == "user") { "identity 仅支持 root/user" }
@@ -59,6 +60,7 @@ internal class ShellProcessSupervisor(
             identity = identity,
             environment = environment,
             linuxRootfsPath = linuxRootfsPath,
+            linuxSharedMounts = linuxSharedMounts,
         )
         val process = runCatching {
             val builder = if (identity == "root") {
@@ -151,6 +153,7 @@ internal class ShellProcessSupervisor(
         identity: String,
         environment: TerminalEnvironment,
         linuxRootfsPath: String?,
+        linuxSharedMounts: List<SharedFolderMount> = emptyList(),
     ): String {
         val managedCommand = command?.let { value ->
             "$value\neta_status=${'$'}?\nwait\nexit ${'$'}eta_status"
@@ -165,6 +168,7 @@ internal class ShellProcessSupervisor(
                     "Linux 工具环境 rootfs 未配置"
                 },
                 command = managedCommand,
+                sharedMounts = linuxSharedMounts,
             )
         }
 
@@ -218,12 +222,23 @@ internal class ShellProcessSupervisor(
     /**
      * Linux 工具环境始终在独立 mount namespace 中启动，避免 bind mount 泄漏到 Android 全局。
      * chroot 不是安全沙箱；它只负责提供完整 Linux userland，Android 系统操作仍应走 android 环境。
+     * [sharedMounts] 在 namespace 建立时按当前配置逐个 bind 到 rootfs 的 workspace/mounts/<name>，
+     * 会话结束即随 namespace 回收，Android 侧不留需要卸载的全局挂载。
      */
-    internal fun buildLinuxPayload(rootfsPath: String, command: String?): String {
+    internal fun buildLinuxPayload(
+        rootfsPath: String,
+        command: String?,
+        sharedMounts: List<SharedFolderMount> = emptyList(),
+    ): String {
         val rootfs = shellQuote(rootfsPath)
         val mode = if (command == null) "session" else "command"
         val payload = shellQuote(command.orEmpty())
-        val innerScript = """
+        // name 经 SharedFolderMounts 校验只含 [A-Za-z0-9._-]，可安全拼进双引号路径。
+        val mountsBlock = sharedMounts.joinToString("\n") { mount ->
+            "eta_mount_optional ${shellQuote(mount.sourcePath)} " +
+                "\"\$eta_rootfs${SharedFolderMounts.LINUX_MOUNTS_ROOT}/${mount.name}\" bind"
+        }
+        val innerScriptHead = """
             eta_rootfs=${'$'}1
             eta_busybox=${'$'}2
             eta_mode=${'$'}3
@@ -252,6 +267,8 @@ internal class ShellProcessSupervisor(
             eta_mount_required /data/local/tmp "${'$'}eta_rootfs/data/local/tmp" bind
             "${'$'}eta_busybox" mkdir -p /data/local/tmp/eta || exit 125
             eta_mount_required /data/local/tmp/eta "${'$'}eta_rootfs/workspace" bind
+        """.trimIndent()
+        val innerScriptTail = """
             if [ "${'$'}eta_mode" = command ]; then
               exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /usr/bin/env -i \
                 HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=dumb NO_COLOR=1 \
@@ -265,6 +282,11 @@ internal class ShellProcessSupervisor(
               PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
               /bin/sh
         """.trimIndent()
+        val innerScript = if (mountsBlock.isEmpty()) {
+            "$innerScriptHead\n$innerScriptTail"
+        } else {
+            "$innerScriptHead\n$mountsBlock\n$innerScriptTail"
+        }
         val discovery = AndroidBusyBox.discoveryScript()
         return "$discovery; " +
             "[ -n \"${'$'}eta_busybox\" ] || { echo 'ETA_LINUX_BUSYBOX_MISSING' >&2; exit 127; }; " +
@@ -428,6 +450,7 @@ internal fun runOneShotShell(
     stdin: ByteArray? = null,
     environment: TerminalEnvironment = TerminalEnvironment.ANDROID,
     linuxRootfsPath: String? = null,
+    linuxSharedMounts: List<SharedFolderMount> = emptyList(),
 ): OneShotShellResult {
     val process = processSupervisor.startShellProcess(
         identity = identity,
@@ -435,6 +458,7 @@ internal fun runOneShotShell(
         mergeStderr = false,
         environment = environment,
         linuxRootfsPath = linuxRootfsPath,
+        linuxSharedMounts = linuxSharedMounts,
     ) ?: return OneShotShellResult(
         if (processSupervisor.isClosing) -3 else -1,
         ByteArray(0),
