@@ -90,7 +90,7 @@ MCP 地址由用户直接配置，HTTP、HTTPS、局域网与本机地址使用�
 `terminal` 的 `environment` 明确区分设备控制与通用 Linux 工具，默认值为 `android`：
 
 - `android` 继续使用系统 Shell。`user` 身份不升级权限；`root` 身份在 `su` 内探测 Magisk、KernelSU、APatch 或系统 BusyBox，并优先进入 standalone `ash`，因此 BusyBox applet 不要求预先加入 PATH。旧 `run_command`、文件读写和目录操作保持这一环境，避免改变既有 Android 路径与命令语义。
-- `linux` 仅允许 `root`，并要求用户先在设置中安装 Eta 管理的 Alpine 环境。每个命令或会话进入独立 mount namespace，挂载必要的 `/proc`、`/dev` 以及可用的共享存储后再 chroot；`/workspace` 绑定 Eta 的 Android 工作目录 `/data/local/tmp/fuck_andes`，并作为 Linux 默认工作目录，`/sdcard` 继续指向共享存储。进程结束时命名空间一并销毁，不把 bind mount 留在 Android 全局。chroot 只提供 Linux userland，不构成安全沙箱。
+- `linux` 仅允许 `root`，并要求用户先在设置中安装 Eta 管理的 Alpine 环境。每个命令或会话进入独立 mount namespace，挂载必要的 `/proc`、`/dev` 以及可用的共享存储后再 chroot；`/workspace` 绑定 Eta 的 Android 工作目录 `/data/local/tmp/eta`，并作为 Linux 默认工作目录，`/sdcard` 继续指向共享存储。进程结束时命名空间一并销毁，不把 bind mount 留在 Android 全局。chroot 只提供 Linux userland，不构成安全沙箱。
 
 安装器只接受代码中固定版本、大小和 SHA-256 的 Alpine 官方 minirootfs，先在临时目录校验并解压，再原子替换 App 私有 rootfs。默认工具档案包含 Agent 高频使用的搜索、差异、补丁、Git/SSH、传输、结构化数据、进程与压缩工具，以及 Python、pip、venv、pipx、uv 和 Ruff。工具档案使用版本化完成标记；旧安装会保留 rootfs 和用户文件，只补装当前档案。工具安装完成前不会写入完成标记，失败后可继续安装。
 
@@ -148,7 +148,7 @@ App 恢复时以 `checkpoint + outbox + active session` 统一对账，不再用
 - `McpRunContextTest`
 - `AgentMemoryStoreTest`
 - `AgentMemoryContextBuilderTest`
-- `FuckAndesDatabaseMigrationTest`
+- `EtaDatabaseMigrationTest`
 
 最终验证仍运行项目统一命令：
 

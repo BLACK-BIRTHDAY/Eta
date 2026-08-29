@@ -26,7 +26,7 @@ Eta 使用同一组四级日志语义，并按运行环境选择后端：App 与
 
 Release 裁剪以 `app/proguard-rules.pro` 为唯一可执行事实来源，规则边界如下：
 
-- `-maximumremovedandroidloglevel 3 class fuck.andes.** { *; }` 只删除 Eta 自有代码中的 Android `VERBOSE/DEBUG`，不影响依赖库。
+- `-maximumremovedandroidloglevel 3 class io.github.mangi.eta.** { *; }` 只删除 Eta 自有代码中的 Android `VERBOSE/DEBUG`，不影响依赖库。
 - 对 `AgentLogger.debug(Function0)`、`AndroidAgentLogger.debug(Function0)` 和 `ModuleLogger.debug(Function0)` 使用精确的 `-assumenosideeffects`，覆盖 R8 无法识别的 Xposed 日志后端。
 - 不为 `INFO/WARN/ERROR` 声明无副作用，不使用 `*Logger` 或全局 `android.util.Log` 通配裁剪规则。
 - 每次修改规则后同时构建 Debug 与 Release，并检查 R8 configuration/usage、DEX 日志调用、代表性日志字符串和 Xposed 入口元数据。
@@ -126,10 +126,10 @@ Google App 作为普通用户应用时，缺乏语音唤醒所需的系统权限
 
 根导航使用 Miuix `NavDisplay` 与可保存路由栈，横移返回开关实时控制各路由的 `swipeDismiss`；预测性返回开关通过 `ApplicationInfo` 的系统开关应用，并无转场重建主 Activity。首页会话列表保持在聊天舞台下层，通过双锚点横向拖动状态控制显露与收起；手势沿用 Compose 的方向仲裁和子组件优先级，不抢占消息滚动、横向代码块、附件栏或文本选择。设置页与标准二级页面共用自适应 Scaffold：手机显示可折叠大标题，宽屏改用小标题并将内容限制在居中的最大宽度内。界面缩放覆盖主 App 的 Compose Density，但宽屏判定保留缩放前 Density，避免缩放触发错误的手机/宽屏布局切换；系统助手浮层不应用界面缩放。
 
-外观配置保存在现有 `fuck_andes_settings` DataStore。主题根统一解析跟随系统、浅色、深色、Monet 色彩风格、强调色与纯黑背景，并同步系统栏和 Markdown 的 Material 颜色桥接。顶栏使用 Miuix `LayerBackdrop` 捕获滚动内容，可选择高斯或渐进模糊；关闭模糊时，顶栏与聊天输入区都回退为主题纯色表面。页面滚动继续使用 Miuix 越界回弹和边界触感反馈，横屏安全区由 display cutout 与导航栏 Insets 共同约束。
+外观配置保存在现有 `eta_settings` DataStore。主题根统一解析跟随系统、浅色、深色、Monet 色彩风格、强调色与纯黑背景，并同步系统栏和 Markdown 的 Material 颜色桥接。顶栏使用 Miuix `LayerBackdrop` 捕获滚动内容，可选择高斯或渐进模糊；关闭模糊时，顶栏与聊天输入区都回退为主题纯色表面。页面滚动继续使用 Miuix 越界回弹和边界触感反馈，横屏安全区由 display cutout 与导航栏 Insets 共同约束。
 
 - **Eta Runtime 配置**：默认思考、网页浏览、设备直达、敏感信息读取、敏感设备操作和终端/文件工具保存在 App 私有配置中，不依赖 LSPosed。Runtime 在请求开始和每次工具执行前读取当前值；升级时会兼容迁移已有 RemotePreferences 值。
-- **Hook 配置**：`FuckAndesApp` 在 `Application.onCreate` 注册 `XposedServiceHelper`，框架通过 `XposedProvider` 推送 binder 后拿到 `XposedService`。系统助手接管、Gemini 和一圈即搜等 Hook 开关通过 `XposedService.getRemotePreferences()` 写入 LSPosed 数据库；服务未连接时这些开关保持不可修改。
+- **Hook 配置**：`EtaApp` 在 `Application.onCreate` 注册 `XposedServiceHelper`，框架通过 `XposedProvider` 推送 binder 后拿到 `XposedService`。系统助手接管、Gemini 和一圈即搜等 Hook 开关通过 `XposedService.getRemotePreferences()` 写入 LSPosed 数据库；服务未连接时这些开关保持不可修改。
 - **Hook 进程**：`ModuleMain.onModuleLoaded` 调用 `XposedInterface.getRemotePreferences()` 缓存只读 `SharedPreferences` 到 `Prefs`。各 Hook 拦截回调入口直接读 `Prefs.isEnabled(key)`，关闭则走原逻辑；因此正常使用时，配置切换后的下一次相关触发表现为实时生效。这里的实时生效来自 Hook 入口读取当前配置，不是 libxposed API 102 的 hot reload 特性。
 - **延迟任务复查**：已排队的后台配置修复、`HotwordSelfHealHooks` retry 与 `GoogleAppHooks` 锁屏/亮屏语音命令会在执行前再次检查对应开关，避免用户在任务排队期间关闭开关后被旧任务绕过。
 
