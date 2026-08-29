@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.terminal
 
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -52,5 +53,26 @@ class ShellProcessSupervisorTest {
         assertTrue(payload.contains("eta_rootfs/workspace"))
         assertTrue(payload.contains("chroot"))
         assertTrue(payload.contains(AlpineEnvironmentPaths.READY_MARKER))
+    }
+
+    @Test
+    fun ptyLauncherWrapsPayloadWithScriptAndSetsSize() {
+        val supervisor = ShellProcessSupervisor()
+        val launcher = supervisor.buildTrackedShellLauncher(
+            ownershipFile = File(System.getProperty("java.io.tmpdir"), "eta-pty-test.owner"),
+            ownershipToken = "token123",
+            command = null,
+            identity = "user",
+            environment = TerminalEnvironment.ANDROID,
+            linuxRootfsPath = null,
+            pty = true,
+            ptyCols = 120,
+            ptyRows = 40,
+        )
+
+        assertTrue(launcher.contains("script -qfc"))
+        assertTrue(launcher.contains("stty rows 40 cols 120"))
+        assertTrue(launcher.contains("TERM=xterm-256color"))
+        assertTrue(launcher.contains("/dev/null"))
     }
 }

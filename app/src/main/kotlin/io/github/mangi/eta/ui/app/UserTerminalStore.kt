@@ -10,6 +10,7 @@ import io.github.mangi.eta.agent.terminal.SharedFolderMounts
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.agent.terminal.UserTerminalController
 import io.github.mangi.eta.core.AndroidAgentLogger
+import io.github.mangi.eta.ui.components.ansiPlainText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -64,8 +65,6 @@ internal class UserTerminalStore(
         const val MAX_BLOCKS = 200
         const val MAX_BLOCK_OUTPUT_CHARS = 64_000
         const val FLUSH_INTERVAL_MS = 120L
-        // TERM=dumb 下输出基本无 ANSI；这里只兜底剔除强制上色命令的 CSI/OSC 序列。
-        val ANSI_PATTERN = Regex("\u001B\\[[0-9;?]*[A-Za-z]|\u001B\\][^\u0007]*\u0007")
     }
 
     private val appContext = context.applicationContext
@@ -114,12 +113,12 @@ internal class UserTerminalStore(
         }
     }
 
-    /** 读取守护任务日志尾部；失败时返回可展示的原因文本。 */
+    /** 读取守护任务日志尾部；ANSI 序列剥离为纯文本，失败时返回可展示的原因文本。 */
     suspend fun daemonLogs(id: String): String = withContext(Dispatchers.IO) {
         val result = daemonSupervisor.readLogs(id)
         when {
             result.ok && result.text.isBlank() -> appContext.getString(R.string.terminal_daemon_logs_empty)
-            result.ok -> result.text.trimEnd()
+            result.ok -> ansiPlainText(result.text.trimEnd())
             else -> result.message.ifBlank { appContext.getString(R.string.terminal_daemon_logs_empty) }
         }
     }
@@ -191,13 +190,32 @@ internal class UserTerminalStore(
         controller.close()
     }
 
+    /** 输出保留原始 ANSI 序列，渲染层解析为颜色与样式；运行日志/复制场景由渲染层剥离。 */
     private fun onOutputDelta(blockId: Long, text: String) {
-        val clean = ANSI_PATTERN.replace(text, "")
-        if (clean.isEmpty()) return
-        synchronized(outputBuffer) { outputBuffer.append(clean) }
+        if (text.isEmpty()) return
+        synchronized(outputBuffer) { outputBuffer.append(text) }
         val now = System.currentTimeMillis()
         if (now - lastFlushMs >= FLUSH_INTERVAL_MS) {
             flushOutput(blockId)
+        }
+    }
+
+    /** 运行中向会话 stdin 发送一行输入，并以暗色回显到当前块（管道没有 tty 回显）。 */
+    fun sendInput(rawInput: String) {
+        val text = rawInput.trim()
+        if (text.isEmpty()) return
+        if (!_uiState.value.running) return
+        scope.launch(Dispatchers.IO) { controller.writeInput(text + "\n") }
+        _uiState.update { state ->
+            state.copy(
+                blocks = state.blocks.map { block ->
+                    if (block.running) {
+                        block.copy(output = block.output + "\u001B[2m" + text + "\u001B[0m\n")
+                    } else {
+                        block
+                    }
+                },
+            )
         }
     }
 

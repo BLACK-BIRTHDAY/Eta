@@ -14,9 +14,14 @@ internal class AgentAppViewModel(application: Application) : AndroidViewModel(ap
         context = application,
         scope = viewModelScope,
     )
+    val consoleStore = ConsoleStore(
+        context = application,
+        scope = viewModelScope,
+    )
 
     override fun onCleared() {
         terminalStore.close()
+        consoleStore.close()
         super.onCleared()
     }
 }

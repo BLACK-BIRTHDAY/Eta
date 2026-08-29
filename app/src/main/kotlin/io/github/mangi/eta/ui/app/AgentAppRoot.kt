@@ -75,7 +75,7 @@ import io.github.mangi.eta.ui.screens.permissions.PermissionHealthScreen
 import io.github.mangi.eta.ui.screens.skills.AgentSkillsScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxEnvironmentScreen
 import io.github.mangi.eta.ui.screens.terminal.SharedFoldersScreen
-import io.github.mangi.eta.ui.screens.terminal.UserTerminalScreen
+import io.github.mangi.eta.ui.screens.terminal.TerminalEntryScreen
 import io.github.mangi.eta.ui.screens.tools.AgentToolsScreen
 
 /**
@@ -307,8 +307,9 @@ fun AgentAppRoot(
             }
             entry<AppRoute.Terminal>(swipeDismiss = swipeDismiss) {
                 RoutedShell(route = AppRoute.Terminal) {
-                    UserTerminalScreen(
-                        store = appViewModel.terminalStore,
+                    TerminalEntryScreen(
+                        terminalStore = appViewModel.terminalStore,
+                        consoleStore = appViewModel.consoleStore,
                         onOpenEnvironment = { pushRoute(AppRoute.LinuxEnvironment) },
                     )
                 }

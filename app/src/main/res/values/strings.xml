@@ -43,6 +43,7 @@
   <string name="route_linux_environment">Linux environment</string>
   <string name="route_terminal">Terminal</string>
   <string name="terminal_input_hint">Enter a command</string>
+  <string name="terminal_input_running_hint">Send input to the running command</string>
   <string name="terminal_send">Send</string>
   <string name="terminal_stop">Stop</string>
   <string name="terminal_empty_hint">Persistent shell session. Working directory and environment carry over between commands.</string>
@@ -51,6 +52,9 @@
   <string name="terminal_reinput">Reuse command</string>
   <string name="terminal_session_restarted">Session ended; reconnected</string>
   <string name="terminal_session_closed">Session exited</string>
+  <string name="terminal_reconnect">Reconnect</string>
+  <string name="terminal_console_mode">Console mode</string>
+  <string name="terminal_block_mode">Simple mode</string>
   <string name="terminal_interrupted">Stopped</string>
   <string name="terminal_env_switched">Switched to %1$s</string>
   <string name="terminal_exit_code">Exit code %1$d</string>

@@ -159,6 +159,35 @@ class UserTerminalControllerTest {
         }
     }
 
+    @Test
+    fun interactiveCommandReadsStdinInputWithoutEatingStatusMarker() {
+        val controller = UserTerminalController(NoopLogger)
+        try {
+            controller.openSession(TerminalEnvironment.ANDROID, cwd = temporaryFolder.root.absolutePath, identity = "user")
+
+            val output = StringBuilder()
+            val execResult = arrayOfNulls<UserTerminalController.ExecResult>(1)
+            val execThread = thread(name = "test-user-terminal-input") {
+                execResult[0] = controller.exec("read x; printf 'got:%s' \"\$x\"") { text, _ ->
+                    output.append(text)
+                }
+            }
+            // read 阻塞期间状态标记不在 stdin 中；写入的用户输入完整到达前台命令。
+            Thread.sleep(300)
+            assertTrue(controller.writeInput("hello\n"))
+            execThread.join(5_000)
+            assertFalse(execThread.isAlive)
+
+            val result = execResult[0]
+            assertNotNull(result)
+            assertEquals(0, result!!.exitCode)
+            assertFalse(result.sessionClosed)
+            assertTrue(output.toString().contains("got:hello"))
+        } finally {
+            controller.close()
+        }
+    }
+
     private object NoopLogger : AgentLogger {
         override fun debug(message: () -> String) = Unit
         override fun info(message: String) = Unit

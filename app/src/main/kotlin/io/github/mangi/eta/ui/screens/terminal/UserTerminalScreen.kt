@@ -62,6 +62,8 @@ import io.github.mangi.eta.ui.app.DaemonTaskUi
 import io.github.mangi.eta.ui.app.TerminalBlockUi
 import io.github.mangi.eta.ui.app.UserTerminalStore
 import io.github.mangi.eta.ui.app.UserTerminalUiState
+import io.github.mangi.eta.ui.components.ansiPlainText
+import io.github.mangi.eta.ui.components.ansiToAnnotatedString
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.Icon
@@ -84,6 +86,7 @@ import top.yukonga.miuix.kmp.window.WindowListPopup
 internal fun UserTerminalScreen(
     store: UserTerminalStore,
     onOpenEnvironment: () -> Unit,
+    onOpenConsole: (() -> Unit)? = null,
 ) {
     val state by store.uiState.collectAsState()
     var input by remember { mutableStateOf("") }
@@ -107,7 +110,12 @@ internal fun UserTerminalScreen(
     fun submit() {
         val command = input.trim()
         if (command.isEmpty()) return
-        store.send(command)
+        // 运行中输入发给前台进程 stdin，否则作为新命令执行。
+        if (state.running) {
+            store.sendInput(command)
+        } else {
+            store.send(command)
+        }
         input = ""
     }
 
@@ -140,6 +148,7 @@ internal fun UserTerminalScreen(
                 store.refreshDaemonTasks()
                 showTasks = true
             },
+            onOpenConsole = onOpenConsole,
         )
         if (!showLinuxGuide) {
             InputRow(
@@ -228,8 +237,10 @@ private fun CommandBlock(
                     style = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
                 )
                 if (block.output.isNotEmpty()) {
+                    // 原始输出含 ANSI 序列；整段重解析保证流式截断的序列在下一次到达后恢复。
+                    val parsedOutput = remember(block.output) { ansiToAnnotatedString(block.output) }
                     Text(
-                        text = block.output,
+                        text = parsedOutput,
                         style = MiuixTheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace),
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                         modifier = Modifier.padding(top = 2.dp),
@@ -328,7 +339,7 @@ private fun BlockMenu(
                 enabled = block.output.isNotEmpty(),
                 onSelectedIndexChange = {
                     onDismiss()
-                    clipboard.setText(AnnotatedString(block.output))
+                    clipboard.setText(AnnotatedString(ansiPlainText(block.output)))
                 },
             )
             DropdownImpl(
@@ -364,6 +375,7 @@ private fun StatusBar(
     onSwitchEnvironment: (TerminalEnvironment) -> Unit,
     onStop: () -> Unit,
     onOpenTasks: () -> Unit,
+    onOpenConsole: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -399,6 +411,16 @@ private fun StatusBar(
                 modifier = Modifier.size(18.dp),
                 tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             )
+        }
+        if (onOpenConsole != null) {
+            IconButton(onClick = onOpenConsole) {
+                Icon(
+                    painter = painterResource(LucideR.drawable.lucide_ic_square_terminal),
+                    contentDescription = stringResource(R.string.terminal_console_mode),
+                    modifier = Modifier.size(18.dp),
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
         }
         if (state.running) {
             TextButton(
@@ -437,7 +459,7 @@ private fun InputRow(
     onInputChange: (String) -> Unit,
     onSubmit: () -> Unit,
 ) {
-    val canSend = input.isNotBlank() && !running
+    val canSend = input.isNotBlank()
     TextField(
         value = input,
         onValueChange = onInputChange,
@@ -445,7 +467,9 @@ private fun InputRow(
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
             .padding(bottom = 10.dp),
-        label = stringResource(R.string.terminal_input_hint),
+        label = stringResource(
+            if (running) R.string.terminal_input_running_hint else R.string.terminal_input_hint,
+        ),
         useLabelAsPlaceholder = true,
         maxLines = 4,
         textStyle = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
@@ -506,117 +530,4 @@ private fun EmptyHint() {
             textAlign = TextAlign.Center,
         )
     }
-}
-
-@Composable
-private fun DaemonTasksDialog(
-    tasks: List<DaemonTaskUi>,
-    onDismiss: () -> Unit,
-    onStop: (String) -> Unit,
-    onLoadLogs: suspend (String) -> String,
-) {
-    WindowDialog(
-        show = true,
-        title = stringResource(R.string.terminal_daemon_tasks),
-        onDismissRequest = onDismiss,
-    ) {
-        if (tasks.isEmpty()) {
-            Text(
-                text = stringResource(R.string.terminal_daemon_empty),
-                style = MiuixTheme.textStyles.footnote1,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 24.dp),
-            )
-        } else {
-            LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
-                items(items = tasks, key = { it.id }) { task ->
-                    DaemonTaskRow(task = task, onStop = onStop, onLoadLogs = onLoadLogs)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun DaemonTaskRow(
-    task: DaemonTaskUi,
-    onStop: (String) -> Unit,
-    onLoadLogs: suspend (String) -> String,
-) {
-    var logsExpanded by remember(task.id) { mutableStateOf(false) }
-    var logs by remember(task.id) { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-    ) {
-        Text(
-            text = task.command,
-            style = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = daemonMeta(task),
-                style = MiuixTheme.textStyles.footnote2,
-                color = if (task.running) {
-                    MiuixTheme.colorScheme.primary
-                } else {
-                    MiuixTheme.colorScheme.onSurfaceVariantSummary
-                },
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(
-                text = stringResource(
-                    if (logsExpanded) R.string.terminal_daemon_hide_logs else R.string.terminal_daemon_view_logs
-                ),
-                onClick = {
-                    logsExpanded = !logsExpanded
-                    if (logsExpanded && logs == null) {
-                        scope.launch { logs = onLoadLogs(task.id) }
-                    }
-                },
-            )
-            TextButton(
-                text = stringResource(R.string.terminal_stop),
-                onClick = { onStop(task.id) },
-            )
-        }
-        if (logsExpanded) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 160.dp)
-                    .background(MiuixTheme.colorScheme.surfaceVariant)
-                    .verticalScroll(rememberScrollState())
-                    .padding(8.dp),
-            ) {
-                if (logs == null) {
-                    InfiniteProgressIndicator(size = 14.dp)
-                } else {
-                    Text(
-                        text = logs.orEmpty(),
-                        style = MiuixTheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun daemonMeta(task: DaemonTaskUi): String {
-    val environmentLabel = if (task.environment == TerminalEnvironment.LINUX) "Linux" else "Android"
-    val stateLabel = stringResource(
-        if (task.running) R.string.terminal_daemon_running else R.string.terminal_daemon_exited
-    )
-    return "$environmentLabel · ${task.identity} · $stateLabel"
 }

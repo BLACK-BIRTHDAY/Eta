@@ -42,6 +42,7 @@
   <string name="route_linux_environment">Linux 工具环境</string>
   <string name="route_terminal">终端</string>
   <string name="terminal_input_hint">输入命令</string>
+  <string name="terminal_input_running_hint">向运行中的命令发送输入</string>
   <string name="terminal_send">发送</string>
   <string name="terminal_stop">停止</string>
   <string name="terminal_empty_hint">常驻 Shell 会话：命令之间保留工作目录与环境，切出页面不中断运行。</string>
@@ -50,6 +51,9 @@
   <string name="terminal_reinput">重新填入</string>
   <string name="terminal_session_restarted">会话已断开，重新连接</string>
   <string name="terminal_session_closed">会话已退出</string>
+  <string name="terminal_reconnect">重新连接</string>
+  <string name="terminal_console_mode">控制台模式</string>
+  <string name="terminal_block_mode">简洁模式</string>
   <string name="terminal_interrupted">已停止</string>
   <string name="terminal_env_switched">已切换到 %1$s 环境</string>
   <string name="terminal_exit_code">退出码 %1$d</string>

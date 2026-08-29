@@ -187,6 +187,21 @@ internal class UserTerminalController(
         }
     }
 
+    /**
+     * 会话运行期间向 stdin 追加输入（模拟真实终端的键入），前台进程与后续 shell 命令都能读到。
+     * 返回 false 表示会话已不可用。
+     */
+    fun writeInput(text: String): Boolean {
+        val current = synchronized(sessionLock) { session } ?: return false
+        if (current.closed || !current.process.isAlive) return false
+        return runCatching {
+            synchronized(current.stdinLock) {
+                current.process.outputStream.write(text.toByteArray(Charsets.UTF_8))
+                current.process.outputStream.flush()
+            }
+        }.isSuccess
+    }
+
     override fun close() {
         processSupervisor.beginClosing()
         synchronized(sessionLock) {
@@ -232,10 +247,13 @@ internal class UserTerminalController(
                 )
             }
             val marker = SessionStatusProtocol.newMarker()
-            val commandBlock = "$command\n${SessionStatusProtocol.statusCommand(marker)}\n"
+            // 单逻辑行协议：状态 printf 不进 stdin，交互式命令读 stdin 不会吃掉标记。
+            val commandBlock = SessionStatusProtocol.commandLine(marker, command) + "\n"
             runCatching {
-                session.process.outputStream.write(commandBlock.toByteArray(Charsets.UTF_8))
-                session.process.outputStream.flush()
+                synchronized(session.stdinLock) {
+                    session.process.outputStream.write(commandBlock.toByteArray(Charsets.UTF_8))
+                    session.process.outputStream.flush()
+                }
             }.getOrElse {
                 session.closed = true
                 return InternalResult(null, session.cwd, timedOut = false, sessionClosed = true)
@@ -345,6 +363,9 @@ internal class UserTerminalController(
         val stderr: ByteArrayOutputCollector,
     ) {
         val execLock = Any()
+
+        /** exec 的命令行写入与运行期的用户输入写入共用同一把锁，避免字节交错。 */
+        val stdinLock = Any()
 
         @Volatile
         var closed: Boolean = false
