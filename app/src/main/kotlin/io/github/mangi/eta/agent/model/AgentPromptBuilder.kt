@@ -70,6 +70,8 @@ internal object AgentPromptBuilder {
                         "用户说“执行命令 xxx”且未指定环境时，首轮必须调用 terminal，action=open_and_exec，identity=root，environment=android，command=xxx；" +
                         "连续多步 shell 工作先 action=open 获取 session_id，再 action=exec 复用会话；" +
                         "长时间命令使用 async=true 启动后用 read_async_result 轮询，完成后 close；" +
+                        "需要长期驻留的后台服务（监听端口、Web 面板等）用 action=daemon_start 启动，daemon_list 查看状态、daemon_logs 读日志、daemon_stop 停止；" +
+                        "守护任务不随 run 或会话结束回收，也不要用 nohup 或 & 手工后台化；" +
                         "async 后台命令是独立 shell，不要和 session_id 混用。不要调用 search_apps 查询“终端”或“Termux”。" +
                         "不要回答“没有终端应用”或建议用户安装 Termux；这些工具已经在当前 Android 设备上通过内置 Root Shell 可用。" +
                         "读取图片内容必须调用 read_image。同一轮模型回复最多调用一次 read_image；需要查看多张图片时，" +

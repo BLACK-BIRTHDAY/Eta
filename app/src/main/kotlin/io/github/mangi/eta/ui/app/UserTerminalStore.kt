@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.runtime.Immutable
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.terminal.AlpineEnvironmentPaths
+import io.github.mangi.eta.agent.terminal.DetachedTaskStatus
+import io.github.mangi.eta.agent.terminal.DetachedTaskSupervisor
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.agent.terminal.UserTerminalController
 import io.github.mangi.eta.core.AndroidAgentLogger
@@ -29,6 +31,16 @@ internal data class TerminalBlockUi(
 )
 
 @Immutable
+internal data class DaemonTaskUi(
+    val id: String,
+    val command: String,
+    val environment: TerminalEnvironment,
+    val identity: String,
+    val running: Boolean,
+    val startedAt: Long,
+)
+
+@Immutable
 internal data class UserTerminalUiState(
     val blocks: List<TerminalBlockUi> = emptyList(),
     val environment: TerminalEnvironment = TerminalEnvironment.ANDROID,
@@ -36,6 +48,7 @@ internal data class UserTerminalUiState(
     val running: Boolean = false,
     val sessionAlive: Boolean = false,
     val linuxReady: Boolean = false,
+    val daemonTasks: List<DaemonTaskUi> = emptyList(),
 )
 
 /**
@@ -59,6 +72,11 @@ internal class UserTerminalStore(
         logger = AndroidAgentLogger,
         linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(appContext).absolutePath,
     )
+    private val daemonSupervisor = DetachedTaskSupervisor(
+        logger = AndroidAgentLogger,
+        recordsFile = DetachedTaskSupervisor.defaultRecordsFile(appContext),
+        linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(appContext).absolutePath,
+    )
 
     private val _uiState = MutableStateFlow(
         UserTerminalUiState(
@@ -75,6 +93,32 @@ internal class UserTerminalStore(
 
     fun refreshLinuxReady() {
         _uiState.update { it.copy(linuxReady = isLinuxReady()) }
+    }
+
+    fun refreshDaemonTasks() {
+        scope.launch {
+            val statuses = withContext(Dispatchers.IO) { daemonSupervisor.list() }
+            _uiState.update { state ->
+                state.copy(daemonTasks = statuses.map(::toDaemonTaskUi))
+            }
+        }
+    }
+
+    fun stopDaemonTask(id: String) {
+        scope.launch {
+            withContext(Dispatchers.IO) { daemonSupervisor.stop(id) }
+            refreshDaemonTasks()
+        }
+    }
+
+    /** 读取守护任务日志尾部；失败时返回可展示的原因文本。 */
+    suspend fun daemonLogs(id: String): String = withContext(Dispatchers.IO) {
+        val result = daemonSupervisor.readLogs(id)
+        when {
+            result.ok && result.text.isBlank() -> appContext.getString(R.string.terminal_daemon_logs_empty)
+            result.ok -> result.text.trimEnd()
+            else -> result.message.ifBlank { appContext.getString(R.string.terminal_daemon_logs_empty) }
+        }
     }
 
     fun send(rawCommand: String) {
@@ -225,4 +269,13 @@ internal class UserTerminalStore(
 
     private fun defaultEnvironment(): TerminalEnvironment =
         if (isLinuxReady()) TerminalEnvironment.LINUX else TerminalEnvironment.ANDROID
+
+    private fun toDaemonTaskUi(status: DetachedTaskStatus) = DaemonTaskUi(
+        id = status.task.id,
+        command = status.task.command,
+        environment = status.task.environment,
+        identity = status.task.identity,
+        running = status.running,
+        startedAt = status.task.startedAt,
+    )
 }

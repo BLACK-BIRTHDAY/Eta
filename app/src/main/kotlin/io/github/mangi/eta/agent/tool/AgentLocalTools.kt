@@ -30,6 +30,7 @@ import io.github.mangi.eta.agent.skill.GitHubSkillRepository
 import io.github.mangi.eta.agent.skill.GitHubSkillSourceException
 import io.github.mangi.eta.agent.skill.PublicGitHubSkillSource
 import io.github.mangi.eta.agent.terminal.AlpineEnvironmentPaths
+import io.github.mangi.eta.agent.terminal.DetachedTaskSupervisor
 import io.github.mangi.eta.agent.terminal.RootShellTerminalController
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AgentLogger
@@ -96,6 +97,11 @@ internal class AgentLocalTools(
     private val terminalController = RootShellTerminalController(
         logger = logger,
         linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(context).absolutePath,
+        detachedSupervisor = DetachedTaskSupervisor(
+            logger = logger,
+            recordsFile = DetachedTaskSupervisor.defaultRecordsFile(context),
+            linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(context).absolutePath,
+        ),
     )
     private val publishedObservation = AtomicReference(PublishedObservation())
     private val runAvailableSkillIds = runAvailableSkillIds
@@ -655,6 +661,7 @@ internal class AgentLocalTools(
             maxChars = args.optInt("max_chars", 8_000),
             closeIfDone = args.optBoolean("close_if_done", false),
             environment = args.optString("environment", "android"),
+            taskId = args.optString("task_id").ifBlank { null },
         )
     }
 

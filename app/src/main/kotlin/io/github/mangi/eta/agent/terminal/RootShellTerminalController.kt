@@ -14,6 +14,7 @@ internal class RootShellTerminalController(
     private val logger: AgentLogger,
     private val linuxRootfsPath: String? = null,
     private val processSupervisor: ShellProcessSupervisor = ShellProcessSupervisor(),
+    private val detachedSupervisor: DetachedTaskSupervisor? = null,
 ) : AutoCloseable {
     private companion object {
         const val DEFAULT_CWD = "/data/local/tmp/eta"
@@ -80,6 +81,7 @@ internal class RootShellTerminalController(
         maxChars: Int,
         closeIfDone: Boolean,
         environment: String = TerminalEnvironment.ANDROID.wireName,
+        taskId: String? = null,
     ): String {
         return when (action.lowercase()) {
             "open" -> openSession(identity = identity, cwd = cwd, environment = environment)
@@ -110,9 +112,18 @@ internal class RootShellTerminalController(
                 closeIfDone = closeIfDone
             )
             "close" -> closeTerminal(sessionId = sessionId, jobId = jobId)
+            "daemon_start" -> daemonStart(
+                command = command,
+                cwd = cwd,
+                identity = identity,
+                environment = environment,
+            )
+            "daemon_list" -> daemonList()
+            "daemon_logs" -> daemonLogs(taskId = taskId.orEmpty())
+            "daemon_stop" -> daemonStop(taskId = taskId.orEmpty())
             else -> errorJson(
                 "UNSUPPORTED_TERMINAL_ACTION",
-                "terminal action 仅支持 open/exec/open_and_exec/read_async_result/close"
+                "terminal action 仅支持 open/exec/open_and_exec/read_async_result/close/daemon_start/daemon_list/daemon_logs/daemon_stop"
             )
         }
     }
@@ -363,6 +374,97 @@ internal class RootShellTerminalController(
             .put("stderr", if (job.mergeStderr) "" else stderrRaw.truncateForJson())
             .put("stdout_truncated", job.stdout.isTruncated())
             .put("stderr_truncated", !job.mergeStderr && job.stderr.isTruncated())
+            .toString()
+    }
+
+    private fun daemonStart(
+        command: String,
+        cwd: String?,
+        identity: String,
+        environment: String,
+    ): String {
+        val supervisor = detachedSupervisor
+            ?: return errorJson("DAEMON_UNAVAILABLE", "守护任务宿主不可用")
+        val trimmed = command.trim()
+        if (trimmed.isBlank()) return errorJson("INVALID_ARGUMENT", "command 不能为空")
+        require(trimmed.length <= MAX_COMMAND_CHARS) { "command 过长：${trimmed.length}" }
+        val normalizedIdentity = normalizeIdentity(identity.ifBlank { "root" })
+        val normalizedEnvironment = normalizeEnvironment(environment)
+        environmentPreflight(normalizedIdentity, normalizedEnvironment)?.let { return it }
+        val safeCwd = normalizeCwd(cwd, normalizedEnvironment)
+        return when (val result = supervisor.start(trimmed, safeCwd, normalizedIdentity, normalizedEnvironment)) {
+            is DaemonStartResult.Started -> JSONObject()
+                .put("ok", true)
+                .put("tool", "terminal")
+                .put("action", "daemon_start")
+                .put("task_id", result.task.id)
+                .put("pid", result.task.pid)
+                .put("identity", result.task.identity)
+                .put("environment", result.task.environment.wireName)
+                .put("cwd", result.task.cwd)
+                .toString()
+            is DaemonStartResult.Failed -> errorJson(result.code, result.message)
+        }
+    }
+
+    private fun daemonList(): String {
+        val supervisor = detachedSupervisor
+            ?: return errorJson("DAEMON_UNAVAILABLE", "守护任务宿主不可用")
+        val statuses = supervisor.list()
+        val tasks = JSONArray()
+        statuses.forEach { status ->
+            tasks.put(
+                JSONObject()
+                    .put("task_id", status.task.id)
+                    .put("pid", status.task.pid)
+                    .put("running", status.running)
+                    .put("command", status.task.command)
+                    .put("cwd", status.task.cwd)
+                    .put("identity", status.task.identity)
+                    .put("environment", status.task.environment.wireName)
+                    .put("started_at", status.task.startedAt)
+            )
+        }
+        return JSONObject()
+            .put("ok", true)
+            .put("tool", "terminal")
+            .put("action", "daemon_list")
+            .put("task_count", statuses.size)
+            .put("running_count", statuses.count { it.running })
+            .put("tasks", tasks)
+            .toString()
+    }
+
+    private fun daemonLogs(taskId: String): String {
+        val supervisor = detachedSupervisor
+            ?: return errorJson("DAEMON_UNAVAILABLE", "守护任务宿主不可用")
+        if (taskId.isBlank()) return errorJson("INVALID_ARGUMENT", "task_id 不能为空")
+        val result = supervisor.readLogs(taskId)
+        if (!result.ok) {
+            return errorJson(result.code.ifBlank { "LOGS_UNAVAILABLE" }, result.message)
+        }
+        return JSONObject()
+            .put("ok", true)
+            .put("tool", "terminal")
+            .put("action", "daemon_logs")
+            .put("task_id", taskId)
+            .put("log", result.text.truncateForJson())
+            .put("log_truncated", result.truncated || result.text.length > MAX_OUTPUT_CHARS)
+            .toString()
+    }
+
+    private fun daemonStop(taskId: String): String {
+        val supervisor = detachedSupervisor
+            ?: return errorJson("DAEMON_UNAVAILABLE", "守护任务宿主不可用")
+        if (taskId.isBlank()) return errorJson("INVALID_ARGUMENT", "task_id 不能为空")
+        if (!supervisor.stop(taskId)) {
+            return errorJson("TASK_NOT_FOUND", "未找到守护任务：$taskId")
+        }
+        return JSONObject()
+            .put("ok", true)
+            .put("tool", "terminal")
+            .put("action", "daemon_stop")
+            .put("task_id", taskId)
             .toString()
     }
 
@@ -873,57 +975,16 @@ internal class RootShellTerminalController(
         timeoutSeconds: Long,
         stdin: ByteArray?,
         environment: TerminalEnvironment,
-    ): ProcessBytesResult {
-        val process = processSupervisor.startShellProcess(
+    ): OneShotShellResult =
+        runOneShotShell(
+            processSupervisor = processSupervisor,
             identity = identity,
             command = command,
-            mergeStderr = false,
+            timeoutSeconds = timeoutSeconds,
+            stdin = stdin,
             environment = environment,
             linuxRootfsPath = linuxRootfsPath,
-        ) ?: return ProcessBytesResult(
-            if (processSupervisor.isClosing) -3 else -1,
-            ByteArray(0),
-            if (processSupervisor.isClosing) "操作已取消".toByteArray() else "无法启动进程".toByteArray(),
         )
-
-        try {
-            val output = ByteArrayOutputCollector()
-            val stderr = ByteArrayOutputCollector()
-            val outputThread = thread(name = "agent-terminal-stdout") {
-                process.inputStream.use { input -> output.readFrom(input) }
-            }
-            val stderrThread = thread(name = "agent-terminal-stderr") {
-                process.errorStream.use { input -> stderr.readFrom(input) }
-            }
-            val stdinThread = thread(name = "agent-terminal-stdin") {
-                process.outputStream.use { out ->
-                    if (stdin != null) out.write(stdin)
-                }
-            }
-
-            val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
-            if (!finished) {
-                processSupervisor.terminateProcessTree(process)
-                outputThread.join(500)
-                stderrThread.join(500)
-                stdinThread.join(500)
-                processSupervisor.reapProcess(process)
-                return ProcessBytesResult(-2, output.bytes(), "命令执行超时".toByteArray())
-            }
-
-            outputThread.join(500)
-            stderrThread.join(500)
-            stdinThread.join(500)
-            return ProcessBytesResult(process.exitValue(), output.bytes(), stderr.bytes())
-        } finally {
-            if (processSupervisor.isClosing) {
-                processSupervisor.terminateAndReap(process)
-            } else {
-                processSupervisor.reapProcess(process)
-            }
-            processSupervisor.unregisterProcess(process)
-        }
-    }
 
     private fun String.truncateForJson(): String =
         if (length <= MAX_OUTPUT_CHARS) this else take(MAX_OUTPUT_CHARS) + "\n...[truncated]"
@@ -937,7 +998,6 @@ internal class RootShellTerminalController(
 
     private data class ShellTextResult(val exitCode: Int, val output: String, val stderr: String)
     private data class ShellBytesResult(val exitCode: Int, val output: ByteArray, val stderr: String)
-    private data class ProcessBytesResult(val exitCode: Int, val output: ByteArray, val stderr: ByteArray)
     private data class SessionCommandResult(
         val exitCode: Int,
         val stdout: String,

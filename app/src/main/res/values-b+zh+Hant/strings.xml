@@ -57,6 +57,13 @@
   <string name="terminal_output_truncated">輸出過長，已截斷</string>
   <string name="terminal_linux_not_ready">Linux 工具環境尚未安裝</string>
   <string name="terminal_open_environment">前往安裝</string>
+  <string name="terminal_daemon_tasks">背景任務</string>
+  <string name="terminal_daemon_empty">暫無背景任務</string>
+  <string name="terminal_daemon_running">執行中</string>
+  <string name="terminal_daemon_exited">已退出</string>
+  <string name="terminal_daemon_view_logs">日誌</string>
+  <string name="terminal_daemon_hide_logs">收合日誌</string>
+  <string name="terminal_daemon_logs_empty">暫無日誌輸出</string>
   <string name="route_model_providers">模型供應商</string>
   <string name="route_provider_details">Provider 詳細資料</string>
   <string name="route_new_provider">新增供應商</string>

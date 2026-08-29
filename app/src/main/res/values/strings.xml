@@ -58,6 +58,13 @@
   <string name="terminal_output_truncated">Output too long; truncated</string>
   <string name="terminal_linux_not_ready">Linux environment is not installed yet</string>
   <string name="terminal_open_environment">Install now</string>
+  <string name="terminal_daemon_tasks">Background tasks</string>
+  <string name="terminal_daemon_empty">No background tasks</string>
+  <string name="terminal_daemon_running">Running</string>
+  <string name="terminal_daemon_exited">Exited</string>
+  <string name="terminal_daemon_view_logs">Logs</string>
+  <string name="terminal_daemon_hide_logs">Hide logs</string>
+  <string name="terminal_daemon_logs_empty">No log output yet</string>
   <string name="route_model_providers">Model providers</string>
   <string name="route_provider_details">Provider details</string>
   <string name="route_new_provider">New provider</string>

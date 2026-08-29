@@ -3,6 +3,7 @@ package io.github.mangi.eta.agent.terminal
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+import kotlin.concurrent.thread
 
 internal enum class TerminalEnvironment(val wireName: String) {
     ANDROID("android"),
@@ -18,7 +19,6 @@ internal class ShellProcessSupervisor(
         const val PROCESS_REAP_TIMEOUT_MS = 1_000L
         const val PROCESS_OWNERSHIP_WAIT_MS = 500L
         const val PROCESS_SIGNAL_TIMEOUT_MS = 1_000L
-        const val PROCESS_OWNER_ENV = "ETA_PROCESS_OWNER"
 
         fun isAndroidRuntime(): Boolean =
             System.getProperty("java.vm.name").orEmpty().equals("Dalvik", ignoreCase = true) ||
@@ -169,7 +169,7 @@ internal class ShellProcessSupervisor(
         }
 
         val path = shellQuote(ownershipFile.absolutePath)
-        val exportOwner = "export $PROCESS_OWNER_ENV=${shellQuote(ownershipToken)}"
+        val exportOwner = "export $ETA_PROCESS_OWNER_ENV=${shellQuote(ownershipToken)}"
         val cleanupGroup =
                 "eta_cleanup_proc_group() { " +
                 "for stat_file in /proc/[0-9]*/stat; do " +
@@ -362,7 +362,7 @@ internal class ShellProcessSupervisor(
         requireOwnershipProof: Boolean,
     ) {
         val procPath = "/proc/${ownership.pid}"
-        val expectedOwner = shellQuote("$PROCESS_OWNER_ENV=${metadata.ownershipToken}")
+        val expectedOwner = shellQuote("$ETA_PROCESS_OWNER_ENV=${metadata.ownershipToken}")
         val guardedCommand = if (requireOwnershipProof) {
             "[ -e $procPath ] || exit 0; " +
                 "[ -r $procPath/environ ] || exit 0; " +
@@ -404,5 +404,78 @@ internal class ShellProcessSupervisor(
     )
 }
 
+/** 写入托管进程环境块的归属标记；巡检与停止前用它防止 PID 复用误杀。 */
+internal const val ETA_PROCESS_OWNER_ENV = "ETA_PROCESS_OWNER"
+
 internal fun shellQuote(value: String): String =
     "'" + value.replace("'", "'\\''") + "'"
+
+internal data class OneShotShellResult(
+    val exitCode: Int,
+    val output: ByteArray,
+    val stderr: ByteArray,
+)
+
+/**
+ * 一次性 Shell 命令原语：带超时回收与有界输出收集。调用方负责命令构造与输出解释；
+ * 超时或 supervisor 关闭时整棵进程树由 [ShellProcessSupervisor] 回收。
+ */
+internal fun runOneShotShell(
+    processSupervisor: ShellProcessSupervisor,
+    identity: String,
+    command: String,
+    timeoutSeconds: Long,
+    stdin: ByteArray? = null,
+    environment: TerminalEnvironment = TerminalEnvironment.ANDROID,
+    linuxRootfsPath: String? = null,
+): OneShotShellResult {
+    val process = processSupervisor.startShellProcess(
+        identity = identity,
+        command = command,
+        mergeStderr = false,
+        environment = environment,
+        linuxRootfsPath = linuxRootfsPath,
+    ) ?: return OneShotShellResult(
+        if (processSupervisor.isClosing) -3 else -1,
+        ByteArray(0),
+        if (processSupervisor.isClosing) "操作已取消".toByteArray() else "无法启动进程".toByteArray(),
+    )
+
+    try {
+        val output = ByteArrayOutputCollector()
+        val stderr = ByteArrayOutputCollector()
+        val outputThread = thread(name = "agent-terminal-stdout") {
+            process.inputStream.use { input -> output.readFrom(input) }
+        }
+        val stderrThread = thread(name = "agent-terminal-stderr") {
+            process.errorStream.use { input -> stderr.readFrom(input) }
+        }
+        val stdinThread = thread(name = "agent-terminal-stdin") {
+            process.outputStream.use { out ->
+                if (stdin != null) out.write(stdin)
+            }
+        }
+
+        val finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS)
+        if (!finished) {
+            processSupervisor.terminateProcessTree(process)
+            outputThread.join(500)
+            stderrThread.join(500)
+            stdinThread.join(500)
+            processSupervisor.reapProcess(process)
+            return OneShotShellResult(-2, output.bytes(), "命令执行超时".toByteArray())
+        }
+
+        outputThread.join(500)
+        stderrThread.join(500)
+        stdinThread.join(500)
+        return OneShotShellResult(process.exitValue(), output.bytes(), stderr.bytes())
+    } finally {
+        if (processSupervisor.isClosing) {
+            processSupervisor.terminateAndReap(process)
+        } else {
+            processSupervisor.reapProcess(process)
+        }
+        processSupervisor.unregisterProcess(process)
+    }
+}

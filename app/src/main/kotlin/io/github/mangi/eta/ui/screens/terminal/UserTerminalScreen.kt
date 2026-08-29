@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -25,6 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -33,6 +36,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,9 +58,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.composables.icons.lucide.R as LucideR
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
+import io.github.mangi.eta.ui.app.DaemonTaskUi
 import io.github.mangi.eta.ui.app.TerminalBlockUi
 import io.github.mangi.eta.ui.app.UserTerminalStore
 import io.github.mangi.eta.ui.app.UserTerminalUiState
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -67,6 +73,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.window.WindowDialog
 import top.yukonga.miuix.kmp.window.WindowListPopup
 
 /**
@@ -80,13 +87,15 @@ internal fun UserTerminalScreen(
 ) {
     val state by store.uiState.collectAsState()
     var input by remember { mutableStateOf("") }
+    var showTasks by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 从安装页返回后刷新 Linux 就绪态，引导页才会自动让位给终端。
+    // 从安装页返回后刷新 Linux 就绪态，引导页才会自动让位给终端；守护任务状态一并刷新。
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 store.refreshLinuxReady()
+                store.refreshDaemonTasks()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -127,6 +136,10 @@ internal fun UserTerminalScreen(
             state = state,
             onSwitchEnvironment = store::switchEnvironment,
             onStop = store::stop,
+            onOpenTasks = {
+                store.refreshDaemonTasks()
+                showTasks = true
+            },
         )
         if (!showLinuxGuide) {
             InputRow(
@@ -136,6 +149,15 @@ internal fun UserTerminalScreen(
                 onSubmit = ::submit,
             )
         }
+    }
+
+    if (showTasks) {
+        DaemonTasksDialog(
+            tasks = state.daemonTasks,
+            onDismiss = { showTasks = false },
+            onStop = store::stopDaemonTask,
+            onLoadLogs = store::daemonLogs,
+        )
     }
 }
 
@@ -341,6 +363,7 @@ private fun StatusBar(
     state: UserTerminalUiState,
     onSwitchEnvironment: (TerminalEnvironment) -> Unit,
     onStop: () -> Unit,
+    onOpenTasks: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -369,6 +392,14 @@ private fun StatusBar(
                 .weight(1f)
                 .padding(horizontal = 8.dp),
         )
+        IconButton(onClick = onOpenTasks) {
+            Icon(
+                painter = painterResource(LucideR.drawable.lucide_ic_activity),
+                contentDescription = stringResource(R.string.terminal_daemon_tasks),
+                modifier = Modifier.size(18.dp),
+                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+        }
         if (state.running) {
             TextButton(
                 text = stringResource(R.string.terminal_stop),
@@ -475,4 +506,117 @@ private fun EmptyHint() {
             textAlign = TextAlign.Center,
         )
     }
+}
+
+@Composable
+private fun DaemonTasksDialog(
+    tasks: List<DaemonTaskUi>,
+    onDismiss: () -> Unit,
+    onStop: (String) -> Unit,
+    onLoadLogs: suspend (String) -> String,
+) {
+    WindowDialog(
+        show = true,
+        title = stringResource(R.string.terminal_daemon_tasks),
+        onDismissRequest = onDismiss,
+    ) {
+        if (tasks.isEmpty()) {
+            Text(
+                text = stringResource(R.string.terminal_daemon_empty),
+                style = MiuixTheme.textStyles.footnote1,
+                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp),
+            )
+        } else {
+            LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                items(items = tasks, key = { it.id }) { task ->
+                    DaemonTaskRow(task = task, onStop = onStop, onLoadLogs = onLoadLogs)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DaemonTaskRow(
+    task: DaemonTaskUi,
+    onStop: (String) -> Unit,
+    onLoadLogs: suspend (String) -> String,
+) {
+    var logsExpanded by remember(task.id) { mutableStateOf(false) }
+    var logs by remember(task.id) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+    ) {
+        Text(
+            text = task.command,
+            style = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = daemonMeta(task),
+                style = MiuixTheme.textStyles.footnote2,
+                color = if (task.running) {
+                    MiuixTheme.colorScheme.primary
+                } else {
+                    MiuixTheme.colorScheme.onSurfaceVariantSummary
+                },
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                text = stringResource(
+                    if (logsExpanded) R.string.terminal_daemon_hide_logs else R.string.terminal_daemon_view_logs
+                ),
+                onClick = {
+                    logsExpanded = !logsExpanded
+                    if (logsExpanded && logs == null) {
+                        scope.launch { logs = onLoadLogs(task.id) }
+                    }
+                },
+            )
+            TextButton(
+                text = stringResource(R.string.terminal_stop),
+                onClick = { onStop(task.id) },
+            )
+        }
+        if (logsExpanded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 160.dp)
+                    .background(MiuixTheme.colorScheme.surfaceVariant)
+                    .verticalScroll(rememberScrollState())
+                    .padding(8.dp),
+            ) {
+                if (logs == null) {
+                    InfiniteProgressIndicator(size = 14.dp)
+                } else {
+                    Text(
+                        text = logs.orEmpty(),
+                        style = MiuixTheme.textStyles.footnote1.copy(fontFamily = FontFamily.Monospace),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun daemonMeta(task: DaemonTaskUi): String {
+    val environmentLabel = if (task.environment == TerminalEnvironment.LINUX) "Linux" else "Android"
+    val stateLabel = stringResource(
+        if (task.running) R.string.terminal_daemon_running else R.string.terminal_daemon_exited
+    )
+    return "$environmentLabel · ${task.identity} · $stateLabel"
 }

@@ -165,6 +165,8 @@ Eta 不对浏览器请求执行额外的 URL、DNS、IP、主机数量、请求�
 
 在用户授权下执行 `user` 或 `root` shell 命令，读写文件、列目录、跑脚本、查日志、改配置。会话式 shell 保持 cwd 和环境变量，异步任务后台执行并分段读取输出。聊天中的终端工具卡片可展开查看并复制实际执行的完整命令；运行日志仍只记录长度等受控摘要，不记录命令正文。
 
+需要长期驻留的后台服务（监听端口、Web 面板、定时任务等）通过 terminal 的 `daemon_start` 托管：进程经 setsid 脱离命令会话的进程组，输出写入工作区日志文件，任务记录落盘，不随 run、会话或页面结束回收。App 重启后按 PID 与归属标记校验认领存活进程，`daemon_list`、`daemon_logs`、`daemon_stop` 用于查看状态、读取日志和停止任务，用户也可在终端页的任务面板管理。守护任务数量与单次日志读取设有上限；设备重启后全部任务失效。
+
 终端按用途分为两个环境：
 
 - `android` 是原生 Android Shell，负责系统、应用、日志、Magisk 和设备文件操作。Root 会话会自动发现 Magisk、KernelSU 或 APatch 提供的 BusyBox，并以 standalone `ash` 补齐不在系统 PATH 中的 applet。
