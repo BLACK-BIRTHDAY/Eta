@@ -23,6 +23,9 @@ internal data class PackageProfileInstallProgress(
 internal sealed interface PackageProfileInstallResult {
     data object AlreadyReady : PackageProfileInstallResult
     data object EnvironmentNotReady : PackageProfileInstallResult
+
+    /** 依赖的 profile 尚未安装，按依赖链先装它。 */
+    data class DependencyMissing(val profileId: String) : PackageProfileInstallResult
     data object Installed : PackageProfileInstallResult
     data class Failed(val stage: PackageProfileInstallStage) : PackageProfileInstallResult
 }
@@ -38,6 +41,8 @@ internal data class LinuxPackageProfile(
     val markerName: String,
     val revision: Int,
     val specs: Map<LinuxDistribution, LinuxPackageSpec>,
+    /** 安装前必须就绪的前置 profile。 */
+    val dependsOn: LinuxPackageProfile? = null,
 ) {
     fun spec(distribution: LinuxDistribution): LinuxPackageSpec = requireNotNull(specs[distribution])
 }
@@ -92,7 +97,28 @@ internal object LinuxPackageProfiles {
             ),
         ),
     )
-    val ALL = listOf(PYTHON, NODE, SSH)
+
+    /**
+     * Kimi Code 是纯 JavaScript 的 npm 包，运行在 Node profile 之上。
+     * 始终安装最新正式版（升级重装即可）；--prefix /usr/local 让 kimi 进入 PATH 首位，
+     * 与 Node 归档自身的 prefix 无关。国内镜像优先，官方 registry 兜底。
+     */
+    private const val KIMI_INSTALL_SCRIPT =
+        "npm install -g --prefix /usr/local --registry=https://registry.npmmirror.com " +
+            "@moonshot-ai/kimi-code@latest || " +
+            "npm install -g --prefix /usr/local @moonshot-ai/kimi-code@latest"
+
+    val KIMI = LinuxPackageProfile(
+        id = "kimi",
+        markerName = AlpineEnvironmentPaths.KIMI_TOOLS_MARKER,
+        revision = AlpineEnvironmentPaths.KIMI_TOOLS_REVISION,
+        dependsOn = NODE,
+        specs = mapOf(
+            LinuxDistribution.ALPINE to LinuxPackageSpec(setupScript = KIMI_INSTALL_SCRIPT),
+            LinuxDistribution.DEBIAN to LinuxPackageSpec(setupScript = KIMI_INSTALL_SCRIPT),
+        ),
+    )
+    val ALL = listOf(PYTHON, NODE, SSH, KIMI)
 }
 
 internal fun linuxPackageProfileReady(rootfs: File, profile: LinuxPackageProfile): Boolean {
@@ -134,6 +160,11 @@ internal class LinuxPackageProfileInstaller(
             !File(rootfs, AlpineEnvironmentPaths.COMMON_TOOLS_MARKER).isFile
         ) {
             return@withContext PackageProfileInstallResult.EnvironmentNotReady
+        }
+        profile.dependsOn?.let { dependency ->
+            if (!linuxPackageProfileReady(rootfs, dependency)) {
+                return@withContext PackageProfileInstallResult.DependencyMissing(dependency.id)
+            }
         }
 
         val spec = profile.spec(distribution)

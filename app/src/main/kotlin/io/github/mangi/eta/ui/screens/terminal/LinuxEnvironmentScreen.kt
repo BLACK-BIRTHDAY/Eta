@@ -44,8 +44,15 @@ import io.github.mangi.eta.agent.terminal.DebianEnvironmentStatus
 import io.github.mangi.eta.agent.terminal.DebianInstallProgress
 import io.github.mangi.eta.agent.terminal.DebianInstallResult
 import io.github.mangi.eta.agent.terminal.DebianInstallStage
+import io.github.mangi.eta.agent.terminal.DetachedTaskSupervisor
 import io.github.mangi.eta.agent.terminal.LinuxDistribution
+import io.github.mangi.eta.agent.terminal.LinuxEnvironmentPaths
+import io.github.mangi.eta.agent.terminal.SharedFolderMounts
+import io.github.mangi.eta.agent.terminal.terminalEnvironment
+import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
+import io.github.mangi.eta.ui.app.KimiWebLaunchResult
+import io.github.mangi.eta.ui.app.KimiWebLauncher
 import io.github.mangi.eta.ui.components.IconTintGreen
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.navigation.AppRoute
@@ -68,6 +75,7 @@ private enum class InstallTarget {
     PYTHON,
     NODE,
     SSH,
+    KIMI,
 }
 
 private data class PackageProfileUi(
@@ -78,6 +86,39 @@ private data class PackageProfileUi(
     @param:StringRes val readyRes: Int,
     @param:StringRes val debianSummaryRes: Int = summaryRes,
     @param:StringRes val debianReadyRes: Int = readyRes,
+)
+
+private val packageProfileUis = listOf(
+    PackageProfileUi(
+        target = InstallTarget.PYTHON,
+        profile = LinuxPackageProfiles.PYTHON,
+        titleRes = R.string.linux_python_tools,
+        summaryRes = R.string.linux_python_tools_summary,
+        readyRes = R.string.linux_python_tools_ready,
+        debianSummaryRes = R.string.linux_python_tools_summary_debian,
+        debianReadyRes = R.string.linux_python_tools_ready_debian,
+    ),
+    PackageProfileUi(
+        target = InstallTarget.NODE,
+        profile = LinuxPackageProfiles.NODE,
+        titleRes = R.string.linux_node_tools,
+        summaryRes = R.string.linux_node_tools_summary,
+        readyRes = R.string.linux_node_tools_ready,
+    ),
+    PackageProfileUi(
+        target = InstallTarget.SSH,
+        profile = LinuxPackageProfiles.SSH,
+        titleRes = R.string.linux_ssh_tools,
+        summaryRes = R.string.linux_ssh_tools_summary,
+        readyRes = R.string.linux_ssh_tools_ready,
+    ),
+    PackageProfileUi(
+        target = InstallTarget.KIMI,
+        profile = LinuxPackageProfiles.KIMI,
+        titleRes = R.string.linux_kimi_tools,
+        summaryRes = R.string.linux_kimi_tools_summary,
+        readyRes = R.string.linux_kimi_tools_ready,
+    ),
 )
 
 @Composable
@@ -92,33 +133,6 @@ internal fun LinuxEnvironmentScreen(
     }
     val debianInstaller = remember(appContext) {
         DebianEnvironmentInstaller(appContext)
-    }
-    val packageProfileUis = remember {
-        listOf(
-            PackageProfileUi(
-                target = InstallTarget.PYTHON,
-                profile = LinuxPackageProfiles.PYTHON,
-                titleRes = R.string.linux_python_tools,
-                summaryRes = R.string.linux_python_tools_summary,
-                readyRes = R.string.linux_python_tools_ready,
-                debianSummaryRes = R.string.linux_python_tools_summary_debian,
-                debianReadyRes = R.string.linux_python_tools_ready_debian,
-            ),
-            PackageProfileUi(
-                target = InstallTarget.NODE,
-                profile = LinuxPackageProfiles.NODE,
-                titleRes = R.string.linux_node_tools,
-                summaryRes = R.string.linux_node_tools_summary,
-                readyRes = R.string.linux_node_tools_ready,
-            ),
-            PackageProfileUi(
-                target = InstallTarget.SSH,
-                profile = LinuxPackageProfiles.SSH,
-                titleRes = R.string.linux_ssh_tools,
-                summaryRes = R.string.linux_ssh_tools_summary,
-                readyRes = R.string.linux_ssh_tools_ready,
-            ),
-        )
     }
     val coroutineScope = rememberCoroutineScope()
     val selectionFlow = remember(appContext) {
@@ -153,6 +167,22 @@ internal fun LinuxEnvironmentScreen(
         mutableStateOf(apkAnalysisInstaller.isReady())
     }
     var apkAnalysisProgress by remember { mutableStateOf<ApkAnalysisInstallProgress?>(null) }
+    var kimiWebLaunching by remember { mutableStateOf(false) }
+    val kimiWebLauncher = remember(appContext) {
+        KimiWebLauncher(
+            context = appContext,
+            daemonSupervisor = DetachedTaskSupervisor(
+                logger = AndroidAgentLogger,
+                recordsFile = DetachedTaskSupervisor.defaultRecordsFile(appContext),
+                linuxRootfsPathProvider = { environment ->
+                    environment.linuxDistribution?.let { distribution ->
+                        LinuxEnvironmentPaths.rootfsDir(appContext, distribution).absolutePath
+                    }
+                },
+                linuxSharedMountsProvider = { SharedFolderMounts.current() },
+            ),
+        )
+    }
     val selectedBaseReady = when (selectedDistribution) {
         LinuxDistribution.ALPINE -> status.state != AlpineEnvironmentState.NOT_INSTALLED
         LinuxDistribution.DEBIAN -> debianStatus.state != DebianEnvironmentState.NOT_INSTALLED
@@ -205,6 +235,26 @@ internal fun LinuxEnvironmentScreen(
             progress = null
             debianProgress = null
             busyTarget = null
+        }
+    }
+
+    /** Kimi 就绪后按钮变为启动 Web UI：守护任务常驻 kimi web，解析地址后拉起浏览器。 */
+    fun launchKimiWeb() {
+        if (kimiWebLaunching) return
+        kimiWebLaunching = true
+        resultMessage = null
+        coroutineScope.launch {
+            val result = kimiWebLauncher.launch(selectedDistribution.terminalEnvironment)
+            kimiWebLaunching = false
+            if (result is KimiWebLaunchResult.Failed) {
+                resultMessage = context.getString(
+                    when (result.code) {
+                        "START_FAILED" -> R.string.linux_kimi_web_failed_start
+                        "URL_TIMEOUT" -> R.string.linux_kimi_web_failed_url
+                        else -> R.string.linux_kimi_web_failed_browser
+                    },
+                )
+            }
         }
     }
 
@@ -316,6 +366,7 @@ internal fun LinuxEnvironmentScreen(
                 ) {
                     packageProfileUis.forEach { profileUi ->
                         val ready = profileReady[profileUi.target] == true
+                        val isKimi = profileUi.target == InstallTarget.KIMI
                         val summaryRes = if (selectedDistribution == LinuxDistribution.DEBIAN) {
                             profileUi.debianSummaryRes
                         } else {
@@ -338,12 +389,27 @@ internal fun LinuxEnvironmentScreen(
                             endActions = {
                                 TextButton(
                                     text = when {
+                                        isKimi && ready -> stringResource(
+                                            if (kimiWebLaunching) {
+                                                R.string.linux_kimi_web_starting
+                                            } else {
+                                                R.string.linux_kimi_web_launch
+                                            },
+                                        )
                                         ready -> stringResource(R.string.linux_installed)
                                         busyTarget == profileUi.target -> stringResource(R.string.linux_installing)
                                         else -> stringResource(R.string.linux_install)
                                     },
-                                    enabled = busyTarget == null && !ready,
+                                    enabled = if (isKimi && ready) {
+                                        !kimiWebLaunching && busyTarget == null
+                                    } else {
+                                        busyTarget == null && !ready
+                                    },
                                     onClick = {
+                                        if (isKimi && ready) {
+                                            launchKimiWeb()
+                                            return@TextButton
+                                        }
                                         if (busyTarget != null || ready) return@TextButton
                                         busyTarget = profileUi.target
                                         resultMessage = null
@@ -517,18 +583,27 @@ private fun DebianInstallResult.toMessage(context: Context): String = when (this
     is DebianInstallResult.Failed -> context.getString(R.string.linux_stage_failed, stage.displayName(context))
 }
 
-private fun PackageProfileInstallResult.toMessage(context: Context, profileTitle: String): String =
-    when (this) {
-        PackageProfileInstallResult.AlreadyReady ->
-            context.getString(R.string.linux_profile_already_ready, profileTitle)
-        PackageProfileInstallResult.EnvironmentNotReady -> context.getString(R.string.linux_base_required)
-        PackageProfileInstallResult.Installed ->
-            context.getString(R.string.linux_profile_installed, profileTitle)
-        is PackageProfileInstallResult.Failed -> context.getString(
-            R.string.linux_profile_stage_failed,
-            PackageProfileInstallProgress(stage).summary(context, profileTitle),
-        )
+private fun PackageProfileInstallResult.toMessage(
+    context: Context,
+    profileTitle: String,
+): String = when (this) {
+    PackageProfileInstallResult.AlreadyReady ->
+        context.getString(R.string.linux_profile_already_ready, profileTitle)
+    PackageProfileInstallResult.EnvironmentNotReady -> context.getString(R.string.linux_base_required)
+    is PackageProfileInstallResult.DependencyMissing -> {
+        val dependencyTitle = packageProfileUis
+            .firstOrNull { it.profile.id == profileId }
+            ?.let { context.getString(it.titleRes) }
+            ?: profileId
+        context.getString(R.string.linux_profile_dependency_missing, dependencyTitle)
     }
+    PackageProfileInstallResult.Installed ->
+        context.getString(R.string.linux_profile_installed, profileTitle)
+    is PackageProfileInstallResult.Failed -> context.getString(
+        R.string.linux_profile_stage_failed,
+        PackageProfileInstallProgress(stage).summary(context, profileTitle),
+    )
+}
 
 private fun ApkAnalysisInstallResult.toMessage(context: Context): String = when (this) {
     ApkAnalysisInstallResult.AlreadyReady -> context.getString(R.string.linux_apk_analysis_ready)
