@@ -53,6 +53,13 @@ class ShellProcessSupervisorTest {
         assertTrue(payload.contains("eta_rootfs/workspace"))
         assertTrue(payload.contains("chroot"))
         assertTrue(payload.contains(AlpineEnvironmentPaths.READY_MARKER))
+        assertTrue(payload.contains("/bin/busybox env -i"))
+
+        val debianPayload = supervisor.buildLinuxPayload(
+            rootfsPath = "/data/user/0/io.github.mangi.eta/files/terminal/debian/rootfs",
+            command = "python3 --version",
+        )
+        assertTrue(debianPayload.contains("/usr/bin/env -i"))
     }
 
     @Test

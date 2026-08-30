@@ -167,14 +167,15 @@ Eta 不对浏览器请求执行额外的 URL、DNS、IP、主机数量、请求�
 
 需要长期驻留的后台服务（监听端口、Web 面板、定时任务等）通过 terminal 的 `daemon_start` 托管：进程经 setsid 脱离命令会话的进程组，输出写入工作区日志文件，任务记录落盘，不随 run、会话或页面结束回收。App 重启后按 PID 与归属标记校验认领存活进程，`daemon_list`、`daemon_logs`、`daemon_stop` 用于查看状态、读取日志和停止任务，用户也可在终端页的任务面板管理。守护任务数量与单次日志读取设有上限；设备重启后全部任务失效。
 
-终端按用途分为两个环境：
+终端按用途分为三个环境：
 
 - `android` 是原生 Android Shell，负责系统、应用、日志、Magisk 和设备文件操作。Root 会话会自动发现 Magisk、KernelSU 或 APatch 提供的 BusyBox，并以 standalone `ash` 补齐不在系统 PATH 中的 applet。
-- `linux` 是可选安装的 Alpine 工具环境，预装模型高频使用的 `rg`、`fd`、Git/SSH、diff/patch、curl、rsync、jq、SQLite 与常用压缩工具；Python 工具链（python3、pip、venv、pipx、uv、Ruff）、Node.js 环境（nodejs、npm）、完整 OpenSSH（sshd、ssh-keygen 等）与 APK 分析工具（OpenJDK、JADX、Apktool、smali、baksmali）作为独立 profile 按需安装。Eta 下载固定版本的官方 minirootfs 并校验 SHA-256，在 App 私有目录中解压，通过独立 mount namespace + Root chroot 运行；Linux 默认在映射到 Eta Android 工作目录的 `/workspace` 中执行，共享存储位于 `/sdcard`。它不是安全沙箱，也不会取代 Android 环境。
+- Linux 用户态在 Alpine musl 与 Debian Trixie glibc 中二选一，选择持久化后由模型工具、块式终端和控制台共同使用；模型可见协议统一为 `environment=linux`。基础 rootfs 与基础工具分步安装，基础工具集不包含 Python 或 Node.js；Python profile 只安装 uv，再由 uv 全局安装最新正式版 Python，Node.js profile 安装当前可用的最新正式版。SSH 使用发行版最新稳定包，APK 分析在两个发行版中均可单独安装。App 侧只读取安装器写入的完成标记，不再从非 Root 进程重复检查 rootfs 内的符号链接、二进制或执行权限。Eta 通过独立 mount namespace + Root chroot 运行所选环境；Linux 默认在映射到 Eta Android 工作目录的 `/workspace` 中执行，共享存储位于 `/sdcard`。它不是安全沙箱，也不会取代 Android 环境。
+- 中国大陆网络下，Alpine APK 只尝试阿里云与官方 CDN；Debian 主仓库只尝试清华 TUNA 与 Debian 官方源，安全更新固定使用 Debian 官方源。成功的源会写回 rootfs 供后续 profile 和工具安装复用；APT 同时关闭易触发连接重置的 HTTP pipelining 并启用重试。GitHub 制品只尝试一个固定 HTTPS 下载入口，再回到官方地址，所有 rootfs/制品仍必须通过固定大小和 SHA-256 校验。
 
 首页溢出菜单的「打开终端」是供用户手动操作的终端，主视图是 PTY 控制台：经 BusyBox `script` 为 shell 分配伪终端（启动时 stty 设定网格尺寸、TERM 宣告为 xterm-256color），输出字节流由 VT 子集屏幕缓冲区维护成字符网格——支持 SGR 颜色与样式、光标定位、行/屏擦除、滚动区、备用屏幕（alt buffer）与宽字符占格，滚动历史有界保留；软键盘输入经隐藏输入框捕获直接写 stdin，Esc/Ctrl/Tab/方向键由键条补齐，Ctrl 组合键产生真实控制字节。控制台会话离开页面后保持存活，回到页面按环境与网格尺寸重连；BusyBox script 不可用时回退到块式终端。
 
-块式终端按命令、输出和退出码组织，可在 Android 与 Linux 两个环境间切换。它使用独立的常驻 shell 会话，与 Agent 工具调用的会话互不共享；离开页面后运行中的命令继续在后台执行，回到页面可接着查看输出。输出中的 ANSI SGR 序列渲染为颜色与字重/斜体/下划线，`\r` 按行覆盖处理（进度条只保留最终状态），其余控制序列丢弃；复制与日志场景使用剥离转义后的纯文本。命令运行期间输入框保持可用，内容写入会话 stdin——状态行协议把退出码标记与命令合并在同一逻辑行内由 shell 自己输出，交互式命令（REPL、`read` 等）读取 stdin 时不会吃掉标记。
+块式终端按命令、输出和退出码组织，只在 Android 与当前选中的 Linux 发行版之间切换。它使用独立的常驻 shell 会话，与 Agent 工具调用的会话互不共享；离开页面后运行中的命令继续在后台执行，回到页面可接着查看输出。输出中的 ANSI SGR 序列渲染为颜色与字重/斜体/下划线，`\r` 按行覆盖处理（进度条只保留最终状态），其余控制序列丢弃；复制与日志场景使用剥离转义后的纯文本。命令运行期间输入框保持可用，内容写入会话 stdin——状态行协议把退出码标记与命令合并在同一逻辑行内由 shell 自己输出，交互式命令（REPL、`read` 等）读取 stdin 时不会吃掉标记。
 
 共享文件夹把用户选定的 Android 目录呈现到 Linux 环境的 `/workspace/mounts/<名称>` 下，在 Linux 工具环境页管理。挂载不做 Android 全局的持久 bind：每个 Linux 会话在自己的 mount namespace 建立时按当前配置逐个 bind 源目录，会话结束随 namespace 回收，因此配置改动对下一条命令或新会话生效，设备重启后也没有残留挂载需要清理。源路径与挂载名经归一化和禁区校验（系统关键树、工作区与 rootfs 自身不可作为源）；`/sdcard` 等模拟存储在 Linux 中不支持修改权限位。
 

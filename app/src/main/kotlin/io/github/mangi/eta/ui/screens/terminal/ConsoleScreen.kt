@@ -76,7 +76,11 @@ internal fun TerminalEntryScreen(
 ) {
     val consoleState by consoleStore.uiState.collectAsState()
     var consoleMode by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(Unit) { consoleStore.probePtySupport() }
+    LaunchedEffect(Unit) {
+        terminalStore.refreshLinuxReady()
+        consoleStore.refreshLinuxEnvironment()
+        consoleStore.probePtySupport()
+    }
     when {
         consoleMode && consoleState.ptySupported == true -> ConsoleScreen(
             store = consoleStore,
@@ -123,6 +127,7 @@ internal fun ConsoleScreen(
     ) {
         ConsoleStatusBar(
             environment = state.environment,
+            linuxEnvironment = state.linuxEnvironment,
             onSwitchEnvironment = store::switchEnvironment,
             onOpenTasks = {
                 terminalStore.refreshDaemonTasks()
@@ -172,6 +177,7 @@ internal fun ConsoleScreen(
 @Composable
 private fun ConsoleStatusBar(
     environment: TerminalEnvironment,
+    linuxEnvironment: TerminalEnvironment,
     onSwitchEnvironment: (TerminalEnvironment) -> Unit,
     onOpenTasks: () -> Unit,
     onExitConsole: () -> Unit,
@@ -188,9 +194,9 @@ private fun ConsoleStatusBar(
             onClick = { onSwitchEnvironment(TerminalEnvironment.ANDROID) },
         )
         EnvironmentTab(
-            label = "Linux",
-            selected = environment == TerminalEnvironment.LINUX,
-            onClick = { onSwitchEnvironment(TerminalEnvironment.LINUX) },
+            label = if (linuxEnvironment == TerminalEnvironment.ALPINE) "Alpine" else "Debian",
+            selected = environment == linuxEnvironment,
+            onClick = { onSwitchEnvironment(linuxEnvironment) },
         )
         Row(
             modifier = Modifier.weight(1f),

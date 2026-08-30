@@ -14,6 +14,7 @@ import kotlin.concurrent.thread
 internal class ConsoleSessionController(
     private val logger: AgentLogger,
     private val linuxRootfsPath: String? = null,
+    private val linuxRootfsPathProvider: ((TerminalEnvironment) -> String?)? = null,
     private val processSupervisor: ShellProcessSupervisor = ShellProcessSupervisor(),
     private val linuxSharedMountsProvider: () -> List<SharedFolderMount> = { emptyList() },
 ) : AutoCloseable {
@@ -49,8 +50,9 @@ internal class ConsoleSessionController(
     ): OpenResult {
         synchronized(sessionLock) {
             closeSessionLocked()
-            if (environment == TerminalEnvironment.LINUX &&
-                !AlpineEnvironmentPaths.rootfsReady(linuxRootfsPath)
+            val environmentRootfsPath = rootfsPath(environment)
+            if (environment.isLinux &&
+                !LinuxEnvironmentPaths.rootfsReady(environmentRootfsPath)
             ) {
                 return OpenResult.Failed("LINUX_ENVIRONMENT_NOT_READY", "Linux 工具环境尚未安装")
             }
@@ -59,8 +61,8 @@ internal class ConsoleSessionController(
                 command = null,
                 mergeStderr = true,
                 environment = environment,
-                linuxRootfsPath = linuxRootfsPath,
-                linuxSharedMounts = if (environment == TerminalEnvironment.LINUX) {
+                linuxRootfsPath = environmentRootfsPath,
+                linuxSharedMounts = if (environment.isLinux) {
                     linuxSharedMountsProvider()
                 } else {
                     emptyList()
@@ -91,7 +93,7 @@ internal class ConsoleSessionController(
                 onExit()
             }
             // 落到环境默认工作目录；clear 清掉这条引导命令本身的回显。
-            val defaultCwd = if (environment == TerminalEnvironment.LINUX) "/workspace" else DEFAULT_ANDROID_CWD
+            val defaultCwd = if (environment.isLinux) "/workspace" else DEFAULT_ANDROID_CWD
             runCatching {
                 process.outputStream.write("mkdir -p $defaultCwd; cd $defaultCwd && clear\n".toByteArray(Charsets.UTF_8))
                 process.outputStream.flush()
@@ -132,6 +134,9 @@ internal class ConsoleSessionController(
         processSupervisor.unregisterProcess(current.process)
         session = null
     }
+
+    private fun rootfsPath(environment: TerminalEnvironment): String? =
+        linuxRootfsPathProvider?.invoke(environment) ?: linuxRootfsPath
 
     private class PtySession(
         val environment: TerminalEnvironment,

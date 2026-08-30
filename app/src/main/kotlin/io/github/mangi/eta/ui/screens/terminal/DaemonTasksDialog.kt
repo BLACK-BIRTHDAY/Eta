@@ -141,7 +141,11 @@ private fun DaemonTaskRow(
 
 @Composable
 private fun daemonMeta(task: DaemonTaskUi): String {
-    val environmentLabel = if (task.environment == TerminalEnvironment.LINUX) "Linux" else "Android"
+    val environmentLabel = when (task.environment) {
+        TerminalEnvironment.ANDROID -> "Android"
+        TerminalEnvironment.ALPINE -> "Alpine"
+        TerminalEnvironment.DEBIAN -> "Debian"
+    }
     val stateLabel = stringResource(
         if (task.running) R.string.terminal_daemon_running else R.string.terminal_daemon_exited
     )

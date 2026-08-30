@@ -17,6 +17,7 @@ import kotlin.concurrent.thread
 internal class UserTerminalController(
     private val logger: AgentLogger,
     private val linuxRootfsPath: String? = null,
+    private val linuxRootfsPathProvider: ((TerminalEnvironment) -> String?)? = null,
     private val processSupervisor: ShellProcessSupervisor = ShellProcessSupervisor(),
     private val linuxSharedMountsProvider: () -> List<SharedFolderMount> = { emptyList() },
 ) : AutoCloseable {
@@ -70,11 +71,12 @@ internal class UserTerminalController(
             if (identity != "root" && identity != "user") {
                 return OpenResult.Failed("INVALID_ARGUMENT", "identity 仅支持 root/user")
             }
-            if (environment == TerminalEnvironment.LINUX && identity != "root") {
+            if (environment.isLinux && identity != "root") {
                 return OpenResult.Failed("LINUX_ENVIRONMENT_REQUIRES_ROOT", "Linux 工具环境仅支持 root identity")
             }
-            if (environment == TerminalEnvironment.LINUX &&
-                !AlpineEnvironmentPaths.rootfsReady(linuxRootfsPath)
+            val environmentRootfsPath = rootfsPath(environment)
+            if (environment.isLinux &&
+                !LinuxEnvironmentPaths.rootfsReady(environmentRootfsPath)
             ) {
                 return OpenResult.Failed("LINUX_ENVIRONMENT_NOT_READY", "Linux 工具环境尚未安装")
             }
@@ -84,8 +86,8 @@ internal class UserTerminalController(
                 command = null,
                 mergeStderr = false,
                 environment = environment,
-                linuxRootfsPath = linuxRootfsPath,
-                linuxSharedMounts = if (environment == TerminalEnvironment.LINUX) {
+                linuxRootfsPath = environmentRootfsPath,
+                linuxSharedMounts = if (environment.isLinux) {
                     linuxSharedMountsProvider()
                 } else {
                     emptyList()
@@ -222,7 +224,10 @@ internal class UserTerminalController(
     }
 
     private fun defaultCwd(environment: TerminalEnvironment): String =
-        if (environment == TerminalEnvironment.LINUX) LINUX_DEFAULT_CWD else DEFAULT_CWD
+        if (environment.isLinux) LINUX_DEFAULT_CWD else DEFAULT_CWD
+
+    private fun rootfsPath(environment: TerminalEnvironment): String? =
+        linuxRootfsPathProvider?.invoke(environment) ?: linuxRootfsPath
 
     private data class InternalResult(
         val exitCode: Int?,

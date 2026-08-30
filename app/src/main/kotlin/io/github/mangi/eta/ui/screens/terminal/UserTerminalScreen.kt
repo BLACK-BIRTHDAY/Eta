@@ -58,6 +58,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.composables.icons.lucide.R as LucideR
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
+import io.github.mangi.eta.agent.terminal.isLinux
 import io.github.mangi.eta.ui.app.DaemonTaskUi
 import io.github.mangi.eta.ui.app.TerminalBlockUi
 import io.github.mangi.eta.ui.app.UserTerminalStore
@@ -105,7 +106,7 @@ internal fun UserTerminalScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val showLinuxGuide = state.environment == TerminalEnvironment.LINUX && !state.linuxReady
+    val showLinuxGuide = state.environment.isLinux && !state.linuxReady
 
     fun submit() {
         val command = input.trim()
@@ -389,9 +390,9 @@ private fun StatusBar(
             onClick = { onSwitchEnvironment(TerminalEnvironment.ANDROID) },
         )
         EnvironmentTab(
-            label = "Linux",
-            selected = state.environment == TerminalEnvironment.LINUX,
-            onClick = { onSwitchEnvironment(TerminalEnvironment.LINUX) },
+            label = if (state.linuxEnvironment == TerminalEnvironment.ALPINE) "Alpine" else "Debian",
+            selected = state.environment == state.linuxEnvironment,
+            onClick = { onSwitchEnvironment(state.linuxEnvironment) },
         )
         Text(
             text = state.cwd,

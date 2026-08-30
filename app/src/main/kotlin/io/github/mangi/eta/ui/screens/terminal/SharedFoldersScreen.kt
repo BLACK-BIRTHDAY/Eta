@@ -27,6 +27,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.agent.terminal.AlpineEnvironmentPaths
+import io.github.mangi.eta.agent.terminal.LinuxDistribution
+import io.github.mangi.eta.agent.terminal.LinuxEnvironmentPaths
 import io.github.mangi.eta.agent.terminal.SharedFolderMount
 import io.github.mangi.eta.agent.terminal.SharedFolderMounts
 import io.github.mangi.eta.agent.terminal.ShellProcessSupervisor
@@ -59,8 +61,14 @@ internal fun SharedFoldersScreen(
     DisposableEffect(Unit) {
         onDispose { shellSupervisor.beginClosing() }
     }
-    val rootfsPath = remember(context.applicationContext) {
-        AlpineEnvironmentPaths.rootfsDir(context.applicationContext).absolutePath
+    val rootfsPaths = remember(context.applicationContext) {
+        listOf(
+            AlpineEnvironmentPaths.rootfsDir(context.applicationContext).absolutePath,
+            LinuxEnvironmentPaths.rootfsDir(
+                context.applicationContext,
+                LinuxDistribution.DEBIAN,
+            ).absolutePath,
+        )
     }
 
     var mounts by remember { mutableStateOf(SharedFolderMounts.current()) }
@@ -155,7 +163,7 @@ internal fun SharedFoldersScreen(
             context = context,
             supervisor = shellSupervisor,
             existing = mounts,
-            extraForbiddenRoots = listOf(rootfsPath),
+            extraForbiddenRoots = rootfsPaths,
             onDismiss = { showPicker = false },
             onConfirm = { source, name ->
                 val updated = mounts + SharedFolderMount(name = name, sourcePath = source)

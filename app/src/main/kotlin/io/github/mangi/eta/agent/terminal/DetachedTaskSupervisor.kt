@@ -55,6 +55,7 @@ internal class DetachedTaskSupervisor(
     private val logger: AgentLogger,
     private val recordsFile: File,
     private val linuxRootfsPath: String? = null,
+    private val linuxRootfsPathProvider: ((TerminalEnvironment) -> String?)? = null,
     private val daemonDir: String = DEFAULT_DAEMON_DIR,
     private val linuxSharedMountsProvider: () -> List<SharedFolderMount> = { emptyList() },
 ) {
@@ -131,7 +132,7 @@ internal class DetachedTaskSupervisor(
             cwd = cwd,
             identity = identity,
             environment = environment,
-            logPath = "$daemonDir/$id.log",
+            logPath = "$wireDir/$id.log",
             startedAt = System.currentTimeMillis(),
         )
         synchronized(RECORDS_LOCK) {
@@ -255,8 +256,8 @@ internal class DetachedTaskSupervisor(
     ): OneShotShellResult {
         val payload = when (environment) {
             TerminalEnvironment.ANDROID -> oneShotSupervisor.buildAndroidPayload(identity, script)
-            TerminalEnvironment.LINUX -> {
-                val rootfs = linuxRootfsPath
+            else -> {
+                val rootfs = rootfsPath(environment)
                     ?: return OneShotShellResult(-1, ByteArray(0), "Linux rootfs 未配置".toByteArray())
                 oneShotSupervisor.buildLinuxPayload(rootfs, script, linuxSharedMountsProvider())
             }
@@ -286,7 +287,10 @@ internal class DetachedTaskSupervisor(
     }
 
     private fun wireDaemonDir(environment: TerminalEnvironment): String =
-        if (environment == TerminalEnvironment.LINUX) LINUX_DAEMON_DIR else daemonDir
+        if (environment.isLinux) LINUX_DAEMON_DIR else daemonDir
+
+    private fun rootfsPath(environment: TerminalEnvironment): String? =
+        linuxRootfsPathProvider?.invoke(environment) ?: linuxRootfsPath
 
     private fun pruneExitedRecords(statuses: List<DetachedTaskStatus>) {
         val excess = statuses.size - MAX_RETAINED_RECORDS
@@ -357,10 +361,10 @@ internal class DetachedTaskSupervisor(
         command = getString("command"),
         cwd = getString("cwd"),
         identity = getString("identity"),
-        environment = if (optString("environment") == TerminalEnvironment.LINUX.wireName) {
-            TerminalEnvironment.LINUX
-        } else {
-            TerminalEnvironment.ANDROID
+        environment = when (optString("environment")) {
+            TerminalEnvironment.ALPINE.wireName -> TerminalEnvironment.ALPINE
+            TerminalEnvironment.DEBIAN.wireName -> TerminalEnvironment.DEBIAN
+            else -> TerminalEnvironment.ANDROID
         },
         logPath = getString("log_path"),
         startedAt = getLong("started_at"),

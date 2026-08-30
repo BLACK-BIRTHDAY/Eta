@@ -13,9 +13,13 @@ import org.json.JSONObject
 internal class RootShellTerminalController(
     private val logger: AgentLogger,
     private val linuxRootfsPath: String? = null,
+    private val linuxRootfsPathProvider: ((TerminalEnvironment) -> String?)? = null,
     private val processSupervisor: ShellProcessSupervisor = ShellProcessSupervisor(),
     private val detachedSupervisor: DetachedTaskSupervisor? = null,
     private val linuxSharedMountsProvider: () -> List<SharedFolderMount> = { emptyList() },
+    private val selectedLinuxEnvironmentProvider: () -> TerminalEnvironment = {
+        TerminalEnvironment.ALPINE
+    },
 ) : AutoCloseable {
     private companion object {
         const val DEFAULT_CWD = "/data/local/tmp/eta"
@@ -269,7 +273,7 @@ internal class RootShellTerminalController(
             command = fullCommand,
             mergeStderr = mergeStderr,
             environment = environment,
-            linuxRootfsPath = linuxRootfsPath,
+            linuxRootfsPath = rootfsPathFor(environment),
             linuxSharedMounts = sharedMountsFor(environment),
         ) ?: return errorJson(
             if (processSupervisor.isClosing) "TERMINAL_CLOSED" else "PROCESS_START_FAILED",
@@ -857,7 +861,11 @@ internal class RootShellTerminalController(
     private fun normalizeEnvironment(environment: String): TerminalEnvironment =
         when (environment.ifBlank { TerminalEnvironment.ANDROID.wireName }.lowercase()) {
             TerminalEnvironment.ANDROID.wireName -> TerminalEnvironment.ANDROID
-            TerminalEnvironment.LINUX.wireName -> TerminalEnvironment.LINUX
+            SELECTED_LINUX_WIRE_NAME -> selectedLinuxEnvironmentProvider()
+                .takeIf { it == TerminalEnvironment.ALPINE || it == TerminalEnvironment.DEBIAN }
+                ?: TerminalEnvironment.ALPINE
+            TerminalEnvironment.ALPINE.wireName -> TerminalEnvironment.ALPINE
+            TerminalEnvironment.DEBIAN.wireName -> TerminalEnvironment.DEBIAN
             else -> throw IllegalArgumentException("environment 仅支持 android/linux")
         }
 
@@ -865,9 +873,9 @@ internal class RootShellTerminalController(
         identity: String,
         environment: TerminalEnvironment,
     ): String? = when {
-        environment == TerminalEnvironment.LINUX && identity != "root" ->
+        environment.isLinux && identity != "root" ->
             errorJson("LINUX_ENVIRONMENT_REQUIRES_ROOT", "Linux 工具环境仅支持 root identity")
-        environment == TerminalEnvironment.LINUX && !AlpineEnvironmentPaths.rootfsReady(linuxRootfsPath) ->
+        environment.isLinux && !LinuxEnvironmentPaths.rootfsReady(rootfsPathFor(environment)) ->
             errorJson(
                 "LINUX_ENVIRONMENT_NOT_READY",
                 "Linux 工具环境尚未安装，请先在设置中完成环境配置",
@@ -876,7 +884,7 @@ internal class RootShellTerminalController(
     }
 
     private fun normalizeCwd(cwd: String?, environment: TerminalEnvironment): String {
-        val defaultCwd = if (environment == TerminalEnvironment.LINUX) LINUX_DEFAULT_CWD else DEFAULT_CWD
+        val defaultCwd = if (environment.isLinux) LINUX_DEFAULT_CWD else DEFAULT_CWD
         val requested = cwd?.trim().orEmpty().ifBlank { defaultCwd }
         val environmentPath = when {
             requested == "~" || requested.startsWith("~/") || requested.startsWith("/") -> requested
@@ -907,13 +915,16 @@ internal class RootShellTerminalController(
             command = null,
             mergeStderr = false,
             environment = environment,
-            linuxRootfsPath = linuxRootfsPath,
+            linuxRootfsPath = rootfsPathFor(environment),
             linuxSharedMounts = sharedMountsFor(environment),
         )
 
     /** 共享挂载只在 Linux 会话建立时解析；Android 环境不涉及。 */
     private fun sharedMountsFor(environment: TerminalEnvironment): List<SharedFolderMount> =
-        if (environment == TerminalEnvironment.LINUX) linuxSharedMountsProvider() else emptyList()
+        if (environment.isLinux) linuxSharedMountsProvider() else emptyList()
+
+    private fun rootfsPathFor(environment: TerminalEnvironment): String? =
+        linuxRootfsPathProvider?.invoke(environment) ?: linuxRootfsPath
 
     private fun runText(
         identity: String,
@@ -990,7 +1001,7 @@ internal class RootShellTerminalController(
             timeoutSeconds = timeoutSeconds,
             stdin = stdin,
             environment = environment,
-            linuxRootfsPath = linuxRootfsPath,
+            linuxRootfsPath = rootfsPathFor(environment),
             linuxSharedMounts = sharedMountsFor(environment),
         )
 

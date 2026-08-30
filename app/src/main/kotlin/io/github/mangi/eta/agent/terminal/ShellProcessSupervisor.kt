@@ -5,11 +5,6 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-internal enum class TerminalEnvironment(val wireName: String) {
-    ANDROID("android"),
-    LINUX("linux"),
-}
-
 /** 负责 Shell 进程的启动接纳、所有权识别、进程树终止与回收。 */
 internal class ShellProcessSupervisor(
     private val allowTreeFallback: Boolean = !isAndroidRuntime(),
@@ -52,7 +47,7 @@ internal class ShellProcessSupervisor(
     ): Process? {
         if (isClosing) return null
         require(identity == "root" || identity == "user") { "identity 仅支持 root/user" }
-        require(environment != TerminalEnvironment.LINUX || identity == "root") {
+        require(!environment.isLinux || identity == "root") {
             "Linux 工具环境仅支持 root identity"
         }
         val ownershipFile = runCatching {
@@ -175,7 +170,7 @@ internal class ShellProcessSupervisor(
                 identity = identity,
                 command = managedCommand,
             )
-            TerminalEnvironment.LINUX -> buildLinuxPayload(
+            else -> buildLinuxPayload(
                 rootfsPath = requireNotNull(linuxRootfsPath) {
                     "Linux 工具环境 rootfs 未配置"
                 },
@@ -315,13 +310,27 @@ internal class ShellProcessSupervisor(
         """.trimIndent()
         val innerScriptTail = """
             if [ "${'$'}eta_mode" = command ]; then
-              exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /usr/bin/env -i \
+              if [ -x "${'$'}eta_rootfs/usr/bin/env" ]; then
+                exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /usr/bin/env -i \
+                  HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType NO_COLOR=1 \
+                  LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+                  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+                  /bin/sh -lc "${'$'}eta_payload"
+              fi
+              exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /bin/busybox env -i \
                 HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType NO_COLOR=1 \
                 LANG=C.UTF-8 LC_ALL=C.UTF-8 \
                 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
                 /bin/sh -lc "${'$'}eta_payload"
             fi
-            exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /usr/bin/env -i \
+            if [ -x "${'$'}eta_rootfs/usr/bin/env" ]; then
+              exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /usr/bin/env -i \
+                HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType \
+                LANG=C.UTF-8 LC_ALL=C.UTF-8 \
+                PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+                /bin/sh
+            fi
+            exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /bin/busybox env -i \
               HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType \
               LANG=C.UTF-8 LC_ALL=C.UTF-8 \
               PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
@@ -336,8 +345,9 @@ internal class ShellProcessSupervisor(
         return "$discovery; " +
             "[ -n \"${'$'}eta_busybox\" ] || { echo 'ETA_LINUX_BUSYBOX_MISSING' >&2; exit 127; }; " +
             "eta_rootfs=$rootfs; " +
-            "[ -f \"${'$'}eta_rootfs/${AlpineEnvironmentPaths.READY_MARKER}\" ] && " +
-            "[ -x \"${'$'}eta_rootfs/bin/busybox\" ] || " +
+            "[ -f \"${'$'}eta_rootfs/${LinuxEnvironmentPaths.READY_MARKER}\" ] && " +
+            "[ -x \"${'$'}eta_rootfs/bin/sh\" ] && " +
+            "( [ -x \"${'$'}eta_rootfs/usr/bin/env\" ] || [ -x \"${'$'}eta_rootfs/bin/busybox\" ] ) || " +
             "{ echo 'ETA_LINUX_ENVIRONMENT_NOT_READY' >&2; exit 127; }; " +
             "\"${'$'}eta_busybox\" unshare -m --propagation private " +
             "\"${'$'}eta_busybox\" sh -c ${shellQuote(innerScript)} eta-linux " +

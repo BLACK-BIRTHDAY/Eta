@@ -4,12 +4,17 @@ import android.content.Context
 import androidx.compose.runtime.Immutable
 import io.github.mangi.eta.agent.terminal.AlpineEnvironmentPaths
 import io.github.mangi.eta.agent.terminal.ConsoleSessionController
+import io.github.mangi.eta.agent.terminal.LinuxDistribution
+import io.github.mangi.eta.agent.terminal.LinuxEnvironmentPaths
 import io.github.mangi.eta.agent.terminal.SharedFolderMounts
 import io.github.mangi.eta.agent.terminal.ShellProcessSupervisor
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.agent.terminal.TerminalScreenBuffer
 import io.github.mangi.eta.agent.terminal.ptySupported
+import io.github.mangi.eta.agent.terminal.terminalEnvironment
+import io.github.mangi.eta.agent.terminal.isLinux
 import io.github.mangi.eta.core.AndroidAgentLogger
+import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -32,7 +37,8 @@ internal data class ConsoleFrame(
 
 @Immutable
 internal data class ConsoleUiState(
-    val environment: TerminalEnvironment = TerminalEnvironment.LINUX,
+    val environment: TerminalEnvironment = TerminalEnvironment.DEBIAN,
+    val linuxEnvironment: TerminalEnvironment = TerminalEnvironment.DEBIAN,
     val connected: Boolean = false,
     val exited: Boolean = false,
     /** null = 探测中；false 时入口回退到块式终端。 */
@@ -60,20 +66,28 @@ internal class ConsoleStore(
     private val controller = ConsoleSessionController(
         logger = AndroidAgentLogger,
         linuxRootfsPath = linuxRootfsPath,
+        linuxRootfsPathProvider = { environment ->
+            environment.linuxDistribution?.let { distribution ->
+                LinuxEnvironmentPaths.rootfsDir(appContext, distribution).absolutePath
+            }
+        },
         linuxSharedMountsProvider = { SharedFolderMounts.current() },
     )
     private val bufferLock = Any()
+    private val initialLinuxEnvironment =
+        LinuxEnvironmentSettingsRepository.current(appContext).terminalEnvironment
 
     /** 屏幕缓冲区；写入只能在 IO 线程持锁进行，UI 线程持锁读快照。 */
     private var buffer: TerminalScreenBuffer? = null
 
     private val _uiState = MutableStateFlow(
         ConsoleUiState(
-            environment = if (AlpineEnvironmentPaths.rootfsReady(linuxRootfsPath)) {
-                TerminalEnvironment.LINUX
+            environment = if (isReady(initialLinuxEnvironment)) {
+                initialLinuxEnvironment
             } else {
                 TerminalEnvironment.ANDROID
             },
+            linuxEnvironment = initialLinuxEnvironment,
         )
     )
     val uiState: StateFlow<ConsoleUiState> = _uiState.asStateFlow()
@@ -88,6 +102,21 @@ internal class ConsoleStore(
         scope.launch {
             val supported = withContext(Dispatchers.IO) { ptySupported(ShellProcessSupervisor()) }
             _uiState.update { it.copy(ptySupported = supported) }
+        }
+    }
+
+    fun refreshLinuxEnvironment() {
+        val selected = LinuxEnvironmentSettingsRepository.current(appContext).terminalEnvironment
+        val current = _uiState.value
+        if (current.environment.isLinux && current.environment != selected) {
+            scope.launch(Dispatchers.IO) { controller.close() }
+        }
+        _uiState.update { state ->
+            state.copy(
+                linuxEnvironment = selected,
+                environment = if (state.environment.isLinux) selected else state.environment,
+                connected = if (state.environment.isLinux && state.environment != selected) false else state.connected,
+            )
         }
     }
 
@@ -182,4 +211,11 @@ internal class ConsoleStore(
         flushFrame()
         _uiState.update { it.copy(connected = false, exited = true) }
     }
+
+    private fun isReady(environment: TerminalEnvironment): Boolean =
+        environment.linuxDistribution?.let { distribution ->
+            LinuxEnvironmentPaths.rootfsReady(
+                LinuxEnvironmentPaths.rootfsDir(appContext, distribution).absolutePath,
+            )
+        } ?: false
 }
