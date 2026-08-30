@@ -2,17 +2,15 @@ package io.github.mangi.eta.ui.app
 
 import android.content.Context
 import androidx.compose.runtime.Immutable
-import io.github.mangi.eta.agent.terminal.AlpineEnvironmentPaths
 import io.github.mangi.eta.agent.terminal.ConsoleSessionController
-import io.github.mangi.eta.agent.terminal.LinuxDistribution
 import io.github.mangi.eta.agent.terminal.LinuxEnvironmentPaths
 import io.github.mangi.eta.agent.terminal.SharedFolderMounts
 import io.github.mangi.eta.agent.terminal.ShellProcessSupervisor
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.agent.terminal.TerminalScreenBuffer
+import io.github.mangi.eta.agent.terminal.isLinux
 import io.github.mangi.eta.agent.terminal.ptySupported
 import io.github.mangi.eta.agent.terminal.terminalEnvironment
-import io.github.mangi.eta.agent.terminal.isLinux
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
 import kotlinx.coroutines.CoroutineScope
@@ -36,7 +34,17 @@ internal data class ConsoleFrame(
 )
 
 @Immutable
+internal data class ConsoleSessionUi(
+    val id: String,
+    val environment: TerminalEnvironment,
+    val exited: Boolean = false,
+)
+
+@Immutable
 internal data class ConsoleUiState(
+    val sessions: List<ConsoleSessionUi> = emptyList(),
+    val activeSessionId: String? = null,
+    /** 环境 tab 的选择；与当前会话环境一致，无会话时表示新建会话的目标环境。 */
     val environment: TerminalEnvironment = TerminalEnvironment.DEBIAN,
     val linuxEnvironment: TerminalEnvironment = TerminalEnvironment.DEBIAN,
     val connected: Boolean = false,
@@ -44,13 +52,14 @@ internal data class ConsoleUiState(
     /** null = 探测中；false 时入口回退到块式终端。 */
     val ptySupported: Boolean? = null,
     val failMessage: String? = null,
+    /** 当前会话的画面；每个会话的屏幕缓冲区独立保存。 */
     val frame: ConsoleFrame = ConsoleFrame(),
 )
 
 /**
- * 控制台页面的 App 级状态所有者：持有 PTY 会话与屏幕缓冲区，
- * 字节流在 IO 线程喂入 [TerminalScreenBuffer]，按节流节奏向 UI 发布帧。
- * 离开页面（close）即终止会话——控制台不是后台任务容器，长驻服务应走守护任务。
+ * 控制台页面的 App 级状态所有者：持有多个 PTY 会话与各自独立的屏幕缓冲区，
+ * 字节流在 IO 线程喂入 [TerminalScreenBuffer]，按节流节奏向 UI 发布当前会话的帧。
+ * 离开页面会话仍存活；整体回收由 ViewModel 的 onCleared 触发。
  */
 internal class ConsoleStore(
     context: Context,
@@ -62,10 +71,8 @@ internal class ConsoleStore(
     }
 
     private val appContext = context.applicationContext
-    private val linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(appContext).absolutePath
     private val controller = ConsoleSessionController(
         logger = AndroidAgentLogger,
-        linuxRootfsPath = linuxRootfsPath,
         linuxRootfsPathProvider = { environment ->
             environment.linuxDistribution?.let { distribution ->
                 LinuxEnvironmentPaths.rootfsDir(appContext, distribution).absolutePath
@@ -77,8 +84,9 @@ internal class ConsoleStore(
     private val initialLinuxEnvironment =
         LinuxEnvironmentSettingsRepository.current(appContext).terminalEnvironment
 
-    /** 屏幕缓冲区；写入只能在 IO 线程持锁进行，UI 线程持锁读快照。 */
-    private var buffer: TerminalScreenBuffer? = null
+    /** 每个会话独立的屏幕缓冲区；写入只能在 IO 线程持锁进行，UI 线程持锁读快照。 */
+    private val buffers = mutableMapOf<String, TerminalScreenBuffer>()
+    private val sessionSizes = mutableMapOf<String, Pair<Int, Int>>()
 
     private val _uiState = MutableStateFlow(
         ConsoleUiState(
@@ -107,28 +115,135 @@ internal class ConsoleStore(
 
     fun refreshLinuxEnvironment() {
         val selected = LinuxEnvironmentSettingsRepository.current(appContext).terminalEnvironment
-        val current = _uiState.value
-        if (current.environment.isLinux && current.environment != selected) {
-            scope.launch(Dispatchers.IO) { controller.close() }
-        }
         _uiState.update { state ->
             state.copy(
                 linuxEnvironment = selected,
                 environment = if (state.environment.isLinux) selected else state.environment,
-                connected = if (state.environment.isLinux && state.environment != selected) false else state.connected,
             )
         }
     }
 
+    /**
+     * 确保当前有存活会话；网格尺寸变化重入时，当前会话存活则不重建。
+     * [environment] 仅用于没有可复用会话时的新建。
+     */
     fun open(environment: TerminalEnvironment, cols: Int, rows: Int) {
         if (cols <= 0 || rows <= 0) return
-        if (controller.activeEnvironment == environment && controller.isAlive) return
         lastCols = cols
         lastRows = rows
-        synchronized(bufferLock) {
-            buffer = TerminalScreenBuffer(cols, rows, SCROLLBACK_LINES)
+        val state = _uiState.value
+        val activeId = state.activeSessionId
+        if (activeId != null && controller.sessionAlive(activeId)) return
+        if (activeId == null) {
+            val reusable = state.sessions.lastOrNull { !it.exited && it.environment == environment }
+            if (reusable != null && controller.sessionAlive(reusable.id)) {
+                switchSession(reusable.id)
+                return
+            }
         }
-        _uiState.update { it.copy(connected = false, exited = false, failMessage = null, frame = ConsoleFrame()) }
+        createSession(environment, cols, rows)
+    }
+
+    /** 以当前环境与最近一次网格尺寸新建会话。 */
+    fun newSession() {
+        if (lastCols <= 0 || lastRows <= 0) return
+        createSession(_uiState.value.environment, lastCols, lastRows)
+    }
+
+    fun switchSession(sessionId: String) {
+        val session = _uiState.value.sessions.find { it.id == sessionId } ?: return
+        _uiState.update { state ->
+            state.copy(
+                activeSessionId = sessionId,
+                environment = session.environment,
+                connected = !session.exited,
+                exited = session.exited,
+                failMessage = null,
+            )
+        }
+        flushFrame(sessionId)
+    }
+
+    /** 关闭指定会话；关闭当前会话时切换到剩余最近的会话，没有则回到空态。 */
+    fun closeSession(sessionId: String) {
+        scope.launch(Dispatchers.IO) { controller.closeSession(sessionId) }
+        synchronized(bufferLock) { buffers.remove(sessionId) }
+        sessionSizes.remove(sessionId)
+        _uiState.update { state ->
+            val sessions = state.sessions.filterNot { it.id == sessionId }
+            if (state.activeSessionId != sessionId) {
+                state.copy(sessions = sessions)
+            } else {
+                val next = sessions.lastOrNull()
+                state.copy(
+                    sessions = sessions,
+                    activeSessionId = next?.id,
+                    environment = next?.environment ?: state.environment,
+                    connected = next != null && !next.exited,
+                    exited = next?.exited == true,
+                    failMessage = null,
+                    frame = ConsoleFrame(),
+                )
+            }
+        }
+        _uiState.value.activeSessionId?.let { flushFrame(it) }
+    }
+
+    /** 重启指定会话：终止后按原环境与原网格尺寸重开。 */
+    fun restartSession(sessionId: String) {
+        val session = _uiState.value.sessions.find { it.id == sessionId } ?: return
+        val size = sessionSizes[sessionId] ?: (lastCols to lastRows)
+        if (size.first <= 0 || size.second <= 0) return
+        scope.launch(Dispatchers.IO) { controller.closeSession(sessionId) }
+        synchronized(bufferLock) { buffers.remove(sessionId) }
+        sessionSizes.remove(sessionId)
+        _uiState.update { state ->
+            state.copy(sessions = state.sessions.filterNot { it.id == sessionId })
+        }
+        createSession(session.environment, size.first, size.second)
+    }
+
+    /** 切换环境 tab：只改目标环境；有该环境的存活会话则切过去，否则由网格回调新建。 */
+    fun switchEnvironment(environment: TerminalEnvironment) {
+        val state = _uiState.value
+        if (state.environment == environment && state.activeSessionId != null) return
+        val reusable = state.sessions.lastOrNull { !it.exited && it.environment == environment }
+        if (reusable != null) {
+            switchSession(reusable.id)
+        } else {
+            _uiState.update {
+                it.copy(
+                    environment = environment,
+                    activeSessionId = null,
+                    connected = false,
+                    exited = false,
+                    failMessage = null,
+                    frame = ConsoleFrame(),
+                )
+            }
+        }
+    }
+
+    /** 当前会话断开后以同一环境与网格尺寸重连。 */
+    fun reconnect() {
+        val activeId = _uiState.value.activeSessionId ?: return
+        restartSession(activeId)
+    }
+
+    fun write(text: String) {
+        val sessionId = _uiState.value.activeSessionId ?: return
+        scope.launch(Dispatchers.IO) { controller.write(sessionId, text) }
+    }
+
+    fun close() {
+        controller.close()
+    }
+
+    private fun createSession(environment: TerminalEnvironment, cols: Int, rows: Int) {
+        if (cols <= 0 || rows <= 0) return
+        lastCols = cols
+        lastRows = rows
+        _uiState.update { it.copy(connected = false, exited = false, failMessage = null) }
         scope.launch(Dispatchers.IO) {
             val result = controller.open(
                 environment = environment,
@@ -138,63 +253,54 @@ internal class ConsoleStore(
                 onExit = ::onExit,
             )
             when (result) {
-                ConsoleSessionController.OpenResult.Ready ->
-                    _uiState.update { it.copy(connected = true, environment = environment) }
+                is ConsoleSessionController.OpenResult.Ready -> {
+                    synchronized(bufferLock) {
+                        buffers[result.sessionId] = TerminalScreenBuffer(cols, rows, SCROLLBACK_LINES)
+                    }
+                    sessionSizes[result.sessionId] = cols to rows
+                    _uiState.update { state ->
+                        state.copy(
+                            sessions = state.sessions + ConsoleSessionUi(result.sessionId, environment),
+                            activeSessionId = result.sessionId,
+                            environment = environment,
+                            connected = true,
+                            exited = false,
+                            frame = ConsoleFrame(),
+                        )
+                    }
+                }
                 is ConsoleSessionController.OpenResult.Failed ->
                     _uiState.update { it.copy(connected = false, failMessage = result.message) }
             }
         }
     }
 
-    /** 切换环境：关闭当前会话并以最近一次的网格尺寸重开。 */
-    fun switchEnvironment(environment: TerminalEnvironment) {
-        if (_uiState.value.environment == environment && controller.isAlive) return
-        if (lastCols <= 0 || lastRows <= 0) return
-        scope.launch(Dispatchers.IO) { controller.close() }
-        _uiState.update { it.copy(environment = environment, connected = false, exited = false) }
-        open(environment, lastCols, lastRows)
-    }
-
-    /** 断开后以同一环境与网格尺寸重连。 */
-    fun reconnect() {
-        if (lastCols <= 0 || lastRows <= 0) return
-        scope.launch(Dispatchers.IO) { controller.close() }
-        open(_uiState.value.environment, lastCols, lastRows)
-    }
-
-    fun write(text: String) {
-        scope.launch(Dispatchers.IO) { controller.write(text) }
-    }
-
-    fun close() {
-        controller.close()
-    }
-
-    private fun onOutput(chunk: ByteArray) {
+    private fun onOutput(sessionId: String, chunk: ByteArray) {
         synchronized(bufferLock) {
-            buffer?.process(String(chunk, Charsets.UTF_8))
+            buffers[sessionId]?.process(String(chunk, Charsets.UTF_8))
         }
+        if (sessionId != _uiState.value.activeSessionId) return
         val now = System.currentTimeMillis()
         if (now - lastFlushMs >= FLUSH_INTERVAL_MS) {
-            flushFrame()
+            flushFrame(sessionId)
         } else {
-            scheduleFlush()
+            scheduleFlush(sessionId)
         }
     }
 
-    private fun scheduleFlush() {
+    private fun scheduleFlush(sessionId: String) {
         if (flushScheduled) return
         flushScheduled = true
         scope.launch {
             delay(FLUSH_INTERVAL_MS)
             flushScheduled = false
-            flushFrame()
+            flushFrame(sessionId)
         }
     }
 
-    private fun flushFrame() {
+    private fun flushFrame(sessionId: String) {
         val frame = synchronized(bufferLock) {
-            val current = buffer ?: return
+            val current = buffers[sessionId] ?: return
             ConsoleFrame(
                 lines = current.lines(),
                 screenRows = current.rows,
@@ -203,13 +309,23 @@ internal class ConsoleStore(
                 cursorVisible = current.cursorVisible,
             )
         }
+        if (sessionId != _uiState.value.activeSessionId) return
         lastFlushMs = System.currentTimeMillis()
         _uiState.update { it.copy(frame = frame) }
     }
 
-    private fun onExit() {
-        flushFrame()
-        _uiState.update { it.copy(connected = false, exited = true) }
+    private fun onExit(sessionId: String) {
+        _uiState.update { state ->
+            val sessions = state.sessions.map {
+                if (it.id == sessionId) it.copy(exited = true) else it
+            }
+            if (state.activeSessionId == sessionId) {
+                state.copy(sessions = sessions, connected = false, exited = true)
+            } else {
+                state.copy(sessions = sessions)
+            }
+        }
+        flushFrame(sessionId)
     }
 
     private fun isReady(environment: TerminalEnvironment): Boolean =

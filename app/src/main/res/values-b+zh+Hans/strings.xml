@@ -68,6 +68,14 @@
   <string name="terminal_daemon_view_logs">日志</string>
   <string name="terminal_daemon_hide_logs">收起日志</string>
   <string name="terminal_daemon_logs_empty">暂无日志输出</string>
+  <string name="terminal_sessions">会话</string>
+  <string name="terminal_session_empty">暂无会话</string>
+  <string name="terminal_new_session">新建会话</string>
+  <string name="terminal_restart_session">重启</string>
+  <string name="terminal_close_session">关闭</string>
+  <string name="terminal_session_current">当前</string>
+  <string name="terminal_session_idle">空闲</string>
+  <string name="terminal_session_exited">已退出</string>
   <string name="route_shared_folders">共享文件夹</string>
   <string name="shared_folders_title">共享文件夹</string>
   <string name="shared_folders_entry_title">共享文件夹</string>

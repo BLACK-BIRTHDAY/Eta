@@ -114,6 +114,7 @@ internal fun ConsoleScreen(
     val state by store.uiState.collectAsState()
     val terminalState by terminalStore.uiState.collectAsState()
     var showTasks by remember { mutableStateOf(false) }
+    var showSessions by remember { mutableStateOf(false) }
     var ctrlActive by remember { mutableStateOf(false) }
     var fieldValue by remember { mutableStateOf(TextFieldValue("")) }
     val focusRequester = remember { FocusRequester() }
@@ -133,6 +134,7 @@ internal fun ConsoleScreen(
                 terminalStore.refreshDaemonTasks()
                 showTasks = true
             },
+            onOpenSessions = { showSessions = true },
             onExitConsole = onExitConsole,
         )
         ConsoleGrid(
@@ -172,6 +174,26 @@ internal fun ConsoleScreen(
             onLoadLogs = terminalStore::daemonLogs,
         )
     }
+
+    if (showSessions) {
+        SessionListDialog(
+            rows = state.sessions.map { session ->
+                SessionDialogRow(
+                    id = session.id,
+                    environment = session.environment,
+                    subtitle = "",
+                    active = session.id == state.activeSessionId,
+                    running = !session.exited,
+                    alive = !session.exited,
+                )
+            },
+            onDismiss = { showSessions = false },
+            onSelect = store::switchSession,
+            onRestart = store::restartSession,
+            onClose = store::closeSession,
+            onNew = store::newSession,
+        )
+    }
 }
 
 @Composable
@@ -180,6 +202,7 @@ private fun ConsoleStatusBar(
     linuxEnvironment: TerminalEnvironment,
     onSwitchEnvironment: (TerminalEnvironment) -> Unit,
     onOpenTasks: () -> Unit,
+    onOpenSessions: () -> Unit,
     onExitConsole: () -> Unit,
 ) {
     Row(
@@ -203,6 +226,14 @@ private fun ConsoleStatusBar(
             horizontalArrangement = Arrangement.End,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            IconButton(onClick = onOpenSessions) {
+                Icon(
+                    painter = painterResource(LucideR.drawable.lucide_ic_layers),
+                    contentDescription = stringResource(R.string.terminal_sessions),
+                    modifier = Modifier.size(18.dp),
+                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                )
+            }
             IconButton(onClick = onOpenTasks) {
                 Icon(
                     painter = painterResource(LucideR.drawable.lucide_ic_activity),

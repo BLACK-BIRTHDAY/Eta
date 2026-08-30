@@ -92,6 +92,7 @@ internal fun UserTerminalScreen(
     val state by store.uiState.collectAsState()
     var input by remember { mutableStateOf("") }
     var showTasks by remember { mutableStateOf(false) }
+    var showSessions by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
     // 从安装页返回后刷新 Linux 就绪态，引导页才会自动让位给终端；守护任务状态一并刷新。
@@ -149,6 +150,7 @@ internal fun UserTerminalScreen(
                 store.refreshDaemonTasks()
                 showTasks = true
             },
+            onOpenSessions = { showSessions = true },
             onOpenConsole = onOpenConsole,
         )
         if (!showLinuxGuide) {
@@ -167,6 +169,26 @@ internal fun UserTerminalScreen(
             onDismiss = { showTasks = false },
             onStop = store::stopDaemonTask,
             onLoadLogs = store::daemonLogs,
+        )
+    }
+
+    if (showSessions) {
+        SessionListDialog(
+            rows = state.sessions.map { session ->
+                SessionDialogRow(
+                    id = session.id,
+                    environment = session.environment,
+                    subtitle = session.cwd,
+                    active = session.id == state.activeSessionId,
+                    running = session.running,
+                    alive = session.alive,
+                )
+            },
+            onDismiss = { showSessions = false },
+            onSelect = store::switchSession,
+            onRestart = store::restartSession,
+            onClose = store::closeSession,
+            onNew = store::newSession,
         )
     }
 }
@@ -376,6 +398,7 @@ private fun StatusBar(
     onSwitchEnvironment: (TerminalEnvironment) -> Unit,
     onStop: () -> Unit,
     onOpenTasks: () -> Unit,
+    onOpenSessions: () -> Unit,
     onOpenConsole: (() -> Unit)? = null,
 ) {
     Row(
@@ -405,6 +428,14 @@ private fun StatusBar(
                 .weight(1f)
                 .padding(horizontal = 8.dp),
         )
+        IconButton(onClick = onOpenSessions) {
+            Icon(
+                painter = painterResource(LucideR.drawable.lucide_ic_layers),
+                contentDescription = stringResource(R.string.terminal_sessions),
+                modifier = Modifier.size(18.dp),
+                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+            )
+        }
         IconButton(onClick = onOpenTasks) {
             Icon(
                 painter = painterResource(LucideR.drawable.lucide_ic_activity),

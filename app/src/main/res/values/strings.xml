@@ -69,6 +69,14 @@
   <string name="terminal_daemon_view_logs">Logs</string>
   <string name="terminal_daemon_hide_logs">Hide logs</string>
   <string name="terminal_daemon_logs_empty">No log output yet</string>
+  <string name="terminal_sessions">Sessions</string>
+  <string name="terminal_session_empty">No sessions yet</string>
+  <string name="terminal_new_session">New session</string>
+  <string name="terminal_restart_session">Restart</string>
+  <string name="terminal_close_session">Close</string>
+  <string name="terminal_session_current">Current</string>
+  <string name="terminal_session_idle">Idle</string>
+  <string name="terminal_session_exited">Exited</string>
   <string name="route_shared_folders">Shared folders</string>
   <string name="shared_folders_title">Shared folders</string>
   <string name="shared_folders_entry_title">Shared folders</string>

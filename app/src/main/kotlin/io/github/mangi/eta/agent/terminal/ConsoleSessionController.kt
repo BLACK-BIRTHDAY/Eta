@@ -1,7 +1,6 @@
 package io.github.mangi.eta.agent.terminal
 
 import io.github.mangi.eta.core.AgentLogger
-import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
@@ -9,7 +8,7 @@ import kotlin.concurrent.thread
  *
  * 与 [UserTerminalController] 的差别在于交互模型：控制台面向全屏 TUI 与交互式 CLI，
  * 输入直接写 stdin（含方向键、Ctrl 组合键的转义字节），输出由调用方喂给
- * [TerminalScreenBuffer] 维护屏幕网格。同一时刻只保留一个控制台会话。
+ * [TerminalScreenBuffer] 维护屏幕网格。多个控制台会话并存，按 sessionId 路由。
  */
 internal class ConsoleSessionController(
     private val logger: AgentLogger,
@@ -21,35 +20,50 @@ internal class ConsoleSessionController(
 
     private companion object {
         const val DEFAULT_ANDROID_CWD = "/data/local/tmp/eta"
+        const val MAX_SESSIONS = 6
     }
 
     sealed interface OpenResult {
-        data object Ready : OpenResult
+        data class Ready(val sessionId: String) : OpenResult
         data class Failed(val code: String, val message: String) : OpenResult
     }
 
+    data class SessionInfo(
+        val id: String,
+        val environment: TerminalEnvironment,
+        val alive: Boolean,
+    )
+
     private val sessionLock = Any()
-    private var session: PtySession? = null
+    private val sessions = LinkedHashMap<String, PtySession>()
+    private var nextSessionNumber = 0
 
-    val isAlive: Boolean
-        get() = synchronized(sessionLock) {
-            session?.let { !it.closed && it.process.isAlive } == true
+    fun listSessions(): List<SessionInfo> = synchronized(sessionLock) {
+        sessions.map { (id, session) ->
+            SessionInfo(
+                id = id,
+                environment = session.environment,
+                alive = !session.closed && session.process.isAlive,
+            )
         }
+    }
 
-    val activeEnvironment: TerminalEnvironment?
-        get() = synchronized(sessionLock) {
-            session?.takeIf { !it.closed && it.process.isAlive }?.environment
-        }
+    fun sessionAlive(sessionId: String): Boolean = synchronized(sessionLock) {
+        sessions[sessionId]?.let { !it.closed && it.process.isAlive } == true
+    }
 
     fun open(
         environment: TerminalEnvironment,
         cols: Int,
         rows: Int,
-        onOutput: (ByteArray) -> Unit,
-        onExit: () -> Unit,
+        onOutput: (sessionId: String, chunk: ByteArray) -> Unit,
+        onExit: (sessionId: String) -> Unit,
     ): OpenResult {
         synchronized(sessionLock) {
-            closeSessionLocked()
+            pruneDeadSessionsLocked()
+            if (sessions.size >= MAX_SESSIONS) {
+                return OpenResult.Failed("SESSION_LIMIT_REACHED", "会话数量已达上限")
+            }
             val environmentRootfsPath = rootfsPath(environment)
             if (environment.isLinux &&
                 !LinuxEnvironmentPaths.rootfsReady(environmentRootfsPath)
@@ -72,15 +86,16 @@ internal class ConsoleSessionController(
                 ptyRows = rows,
             ) ?: return OpenResult.Failed("PROCESS_START_FAILED", "无法启动控制台进程（缺少 BusyBox script？）")
 
+            val sessionId = "c${++nextSessionNumber}"
             val newSession = PtySession(environment, process)
-            session = newSession
+            sessions[sessionId] = newSession
             newSession.readerThread = thread(name = "console-pty-reader", isDaemon = true) {
                 val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                 try {
                     while (true) {
                         val read = process.inputStream.read(buffer)
                         if (read < 0) break
-                        onOutput(buffer.copyOf(read))
+                        onOutput(sessionId, buffer.copyOf(read))
                     }
                 } catch (_: Exception) {
                     // 进程死亡或关闭时读端断开，交给 waiter 统一上报退出。
@@ -90,22 +105,27 @@ internal class ConsoleSessionController(
                 runCatching { process.waitFor() }
                 newSession.closed = true
                 processSupervisor.retireExitedProcess(process)
-                onExit()
+                onExit(sessionId)
             }
             // 落到环境默认工作目录；clear 清掉这条引导命令本身的回显。
+            // 用户工具的安装器常把 PATH 写进 profile；控制台 shell 不是 login shell，这里显式补齐。
             val defaultCwd = if (environment.isLinux) "/workspace" else DEFAULT_ANDROID_CWD
+            val bootstrap = "mkdir -p $defaultCwd; " +
+                "[ -f /etc/profile ] && . /etc/profile; " +
+                "[ -f \"\$HOME/.profile\" ] && . \"\$HOME/.profile\"; " +
+                "cd $defaultCwd && clear\n"
             runCatching {
-                process.outputStream.write("mkdir -p $defaultCwd; cd $defaultCwd && clear\n".toByteArray(Charsets.UTF_8))
+                process.outputStream.write(bootstrap.toByteArray(Charsets.UTF_8))
                 process.outputStream.flush()
             }
             logger.info("Console action=open outcome=succeeded environment=${environment.wireName} cols=$cols rows=$rows")
-            return OpenResult.Ready
+            return OpenResult.Ready(sessionId)
         }
     }
 
-    /** 向控制台写入输入字节（键盘文本、方向键/功能键转义序列）。会话不可用时静默丢弃。 */
-    fun write(bytes: ByteArray) {
-        val current = synchronized(sessionLock) { session } ?: return
+    /** 向指定控制台会话写入输入字节（键盘文本、方向键/功能键转义序列）。会话不可用时静默丢弃。 */
+    fun write(sessionId: String, bytes: ByteArray) {
+        val current = synchronized(sessionLock) { sessions[sessionId] } ?: return
         if (current.closed || !current.process.isAlive) return
         runCatching {
             synchronized(current.stdinLock) {
@@ -115,24 +135,36 @@ internal class ConsoleSessionController(
         }
     }
 
-    fun write(text: String) = write(text.toByteArray(Charsets.UTF_8))
+    fun write(sessionId: String, text: String) = write(sessionId, text.toByteArray(Charsets.UTF_8))
+
+    /** 关闭单个会话；只回收该进程树，不影响其它会话，也不触发 supervisor 全局关闭。 */
+    fun closeSession(sessionId: String) {
+        synchronized(sessionLock) {
+            closeSessionLocked(sessionId)
+        }
+    }
 
     override fun close() {
         processSupervisor.beginClosing()
         synchronized(sessionLock) {
-            closeSessionLocked()
+            sessions.keys.toList().forEach { closeSessionLocked(it) }
         }
     }
 
-    private fun closeSessionLocked() {
-        val current = session ?: return
+    private fun closeSessionLocked(sessionId: String) {
+        val current = sessions.remove(sessionId) ?: return
         current.closed = true
         runCatching { current.process.outputStream.close() }
         processSupervisor.terminateAndReap(current.process)
         runCatching { current.readerThread.join(500) }
         runCatching { current.waiterThread.join(500) }
         processSupervisor.unregisterProcess(current.process)
-        session = null
+    }
+
+    /** 回收已退出的会话槽位，避免死会话占用并发上限。 */
+    private fun pruneDeadSessionsLocked() {
+        val deadIds = sessions.filterValues { it.closed || !it.process.isAlive }.keys.toList()
+        deadIds.forEach { closeSessionLocked(it) }
     }
 
     private fun rootfsPath(environment: TerminalEnvironment): String? =

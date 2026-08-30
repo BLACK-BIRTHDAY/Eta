@@ -4,10 +4,10 @@ import io.github.mangi.eta.core.AgentLogger
 import kotlin.concurrent.thread
 
 /**
- * 用户手动终端的会话控制器：同一时刻只保留一个常驻 shell 会话，cwd 与环境变量跨命令保持。
+ * 用户手动终端的会话控制器：多个常驻 shell 会话并存，每个会话的 cwd 与环境变量跨命令保持。
  *
  * 与面向模型的 [RootShellTerminalController] 分层独立：
- * - 无执行超时——命令何时结束由用户决定（“停止”终止整个会话，下次执行自动重开）；
+ * - 无执行超时——命令何时结束由用户决定（“停止”终止对应会话）；
  * - 输出经 onDelta 流式回调，不走模型工具的 JSON 合同与截断策略；
  * - 生命周期归属 App 级 UI 状态，不随单次 run 回收。
  *
@@ -26,13 +26,19 @@ internal class UserTerminalController(
         const val DEFAULT_CWD = "/data/local/tmp/eta"
         const val LINUX_DEFAULT_CWD = "/workspace"
         const val MAX_COMMAND_CHARS = 16_000
+        const val MAX_SESSIONS = 6
         const val STREAM_MAX_BYTES = 1024 * 1024
         const val POLL_INTERVAL_MS = 50L
         const val SETUP_TIMEOUT_MS = 5_000L
     }
 
     sealed interface OpenResult {
-        data class Ready(val environment: TerminalEnvironment, val cwd: String) : OpenResult
+        data class Ready(
+            val sessionId: String,
+            val environment: TerminalEnvironment,
+            val cwd: String,
+        ) : OpenResult
+
         data class Failed(val code: String, val message: String) : OpenResult
     }
 
@@ -44,30 +50,43 @@ internal class UserTerminalController(
         val interrupted: Boolean,
     )
 
+    data class SessionInfo(
+        val id: String,
+        val environment: TerminalEnvironment,
+        val cwd: String,
+        val alive: Boolean,
+    )
+
     private val sessionLock = Any()
-    private var session: Session? = null
+    private val sessions = LinkedHashMap<String, Session>()
+    private var nextSessionNumber = 0
 
-    val isAlive: Boolean
-        get() = synchronized(sessionLock) {
-            session?.let { !it.closed && it.process.isAlive } == true
+    fun listSessions(): List<SessionInfo> = synchronized(sessionLock) {
+        sessions.map { (id, session) ->
+            SessionInfo(
+                id = id,
+                environment = session.environment,
+                cwd = session.cwd,
+                alive = !session.closed && session.process.isAlive,
+            )
         }
+    }
 
-    val activeEnvironment: TerminalEnvironment?
-        get() = synchronized(sessionLock) {
-            session?.takeIf { !it.closed && it.process.isAlive }?.environment
-        }
+    fun sessionAlive(sessionId: String): Boolean = synchronized(sessionLock) {
+        sessions[sessionId]?.let { !it.closed && it.process.isAlive } == true
+    }
 
-    val currentCwd: String?
-        get() = synchronized(sessionLock) { session?.cwd }
-
-    /** 重开会话；同一时刻只保留一个活跃会话。identity 预留给无 root 环境的降级与测试。 */
+    /** 新建会话；已有会话保持存活。identity 预留给无 root 环境的降级与测试。 */
     fun openSession(
         environment: TerminalEnvironment,
         cwd: String? = null,
         identity: String = "root",
     ): OpenResult {
         synchronized(sessionLock) {
-            closeSessionLocked()
+            pruneDeadSessionsLocked()
+            if (sessions.size >= MAX_SESSIONS) {
+                return OpenResult.Failed("SESSION_LIMIT_REACHED", "会话数量已达上限")
+            }
             if (identity != "root" && identity != "user") {
                 return OpenResult.Failed("INVALID_ARGUMENT", "identity 仅支持 root/user")
             }
@@ -111,7 +130,8 @@ internal class UserTerminalController(
                 newSession.closed = true
                 processSupervisor.retireExitedProcess(process)
             }
-            if (!processSupervisor.transferActiveProcess(process) { session = newSession }) {
+            val sessionId = "s${++nextSessionNumber}"
+            if (!processSupervisor.transferActiveProcess(process) { sessions[sessionId] = newSession }) {
                 processSupervisor.terminateProcessTree(process)
                 return OpenResult.Failed("TERMINAL_CLOSED", "终端控制器已关闭")
             }
@@ -120,11 +140,14 @@ internal class UserTerminalController(
                 if (environment == TerminalEnvironment.ANDROID && safeCwd == DEFAULT_CWD) {
                     append("mkdir -p ${shellQuote(DEFAULT_CWD)} && ")
                 }
+                // 用户工具的安装器常把 PATH 写进 profile；常驻会话不是 login shell，这里显式补齐。
+                append("[ -f /etc/profile ] && . /etc/profile; ")
+                append("[ -f \"${'$'}HOME/.profile\" ] && . \"${'$'}HOME/.profile\"; ")
                 append("cd ${shellQuote(safeCwd)} && export TERM=dumb NO_COLOR=1")
             }
             val setupResult = execInternal(newSession, setup, SETUP_TIMEOUT_MS, null)
             if (setupResult.exitCode != 0 || setupResult.timedOut) {
-                closeSessionLocked()
+                closeSessionLocked(sessionId)
                 logger.warn("User terminal action=open outcome=failed environment=${environment.wireName}")
                 return OpenResult.Failed("SESSION_OPEN_FAILED", "终端会话初始化失败")
             }
@@ -132,18 +155,18 @@ internal class UserTerminalController(
             newSession.stdout.clear()
             newSession.stderr.clear()
             logger.info("User terminal action=open outcome=succeeded environment=${environment.wireName}")
-            return OpenResult.Ready(environment, newSession.cwd)
+            return OpenResult.Ready(sessionId, environment, newSession.cwd)
         }
     }
 
     /**
-     * 在常驻会话中执行命令并流式回调输出。阻塞当前线程，调用方需在 IO 线程使用。
+     * 在指定常驻会话中执行命令并流式回调输出。阻塞当前线程，调用方需在 IO 线程使用。
      * 无超时；用户停止或 shell 死亡（如执行 exit）时返回 sessionClosed=true。
      */
-    fun exec(command: String, onDelta: (text: String, isStderr: Boolean) -> Unit): ExecResult {
+    fun exec(sessionId: String, command: String, onDelta: (text: String, isStderr: Boolean) -> Unit): ExecResult {
         val trimmed = command.trim()
         require(trimmed.length <= MAX_COMMAND_CHARS) { "command 过长：${trimmed.length}" }
-        val current = synchronized(sessionLock) { session }
+        val current = synchronized(sessionLock) { sessions[sessionId] }
             ?: return ExecResult(
                 exitCode = null,
                 cwd = DEFAULT_CWD,
@@ -181,11 +204,11 @@ internal class UserTerminalController(
         )
     }
 
-    /** 终止当前会话及其进程组；下次 exec 前由调用方重新 openSession。 */
-    fun stopSession() {
+    /** 终止指定会话及其进程组；该会话的后续 exec 前由调用方重新 openSession。 */
+    fun stopSession(sessionId: String) {
         synchronized(sessionLock) {
-            session?.stopRequested = true
-            closeSessionLocked()
+            sessions[sessionId]?.stopRequested = true
+            closeSessionLocked(sessionId)
         }
     }
 
@@ -193,8 +216,8 @@ internal class UserTerminalController(
      * 会话运行期间向 stdin 追加输入（模拟真实终端的键入），前台进程与后续 shell 命令都能读到。
      * 返回 false 表示会话已不可用。
      */
-    fun writeInput(text: String): Boolean {
-        val current = synchronized(sessionLock) { session } ?: return false
+    fun writeInput(sessionId: String, text: String): Boolean {
+        val current = synchronized(sessionLock) { sessions[sessionId] } ?: return false
         if (current.closed || !current.process.isAlive) return false
         return runCatching {
             synchronized(current.stdinLock) {
@@ -207,12 +230,12 @@ internal class UserTerminalController(
     override fun close() {
         processSupervisor.beginClosing()
         synchronized(sessionLock) {
-            closeSessionLocked()
+            sessions.keys.toList().forEach { closeSessionLocked(it) }
         }
     }
 
-    private fun closeSessionLocked() {
-        val current = session ?: return
+    private fun closeSessionLocked(sessionId: String) {
+        val current = sessions.remove(sessionId) ?: return
         current.closed = true
         runCatching { current.process.outputStream.close() }
         processSupervisor.terminateAndReap(current.process)
@@ -220,7 +243,12 @@ internal class UserTerminalController(
         runCatching { current.stderrThread.join(500) }
         runCatching { current.waiterThread.join(500) }
         processSupervisor.unregisterProcess(current.process)
-        session = null
+    }
+
+    /** 回收已退出的会话槽位，避免死会话占用并发上限。 */
+    private fun pruneDeadSessionsLocked() {
+        val deadIds = sessions.filterValues { it.closed || !it.process.isAlive }.keys.toList()
+        deadIds.forEach { closeSessionLocked(it) }
     }
 
     private fun defaultCwd(environment: TerminalEnvironment): String =
