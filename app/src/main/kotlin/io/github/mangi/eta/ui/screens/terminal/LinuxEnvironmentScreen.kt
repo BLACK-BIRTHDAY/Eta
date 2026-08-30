@@ -352,6 +352,17 @@ internal fun LinuxEnvironmentScreen(
                         },
                         onClick = { onNavigate(AppRoute.SharedFolders) },
                     )
+                    ArrowPreference(
+                        title = stringResource(R.string.linux_files_entry_title),
+                        summary = stringResource(R.string.linux_files_entry_summary),
+                        startAction = {
+                            TintedIcon(
+                                icon = LucideR.drawable.lucide_ic_file_text,
+                                tint = IconTintGreen,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.LinuxFiles(selectedDistribution.wireName)) },
+                    )
                 }
             }
         }
