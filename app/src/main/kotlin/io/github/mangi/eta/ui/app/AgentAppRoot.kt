@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.Dispatchers
@@ -171,6 +172,25 @@ fun AgentAppRoot(
             onSearchConversations = { query -> agentState.updateSearchQuery(query) },
             onNewConversation = { createConversation() },
             onOpenTerminal = { pushRoute(AppRoute.Terminal) },
+            onLaunchKimiWeb = {
+                if (appViewModel.kimiWebReady()) {
+                    appViewModel.launchKimiWeb { result ->
+                        if (result is KimiWebLaunchResult.Failed) {
+                            Toast.makeText(
+                                context,
+                                when (result.code) {
+                                    "START_FAILED" -> R.string.linux_kimi_web_failed_start
+                                    "URL_TIMEOUT" -> R.string.linux_kimi_web_failed_url
+                                    else -> R.string.linux_kimi_web_failed_browser
+                                },
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                    }
+                } else {
+                    pushRoute(AppRoute.LinuxEnvironment)
+                }
+            },
             onOpenBrowser = { pushRoute(AppRoute.Browser) },
             onSelectConversation = { conversationId -> selectConversation(conversationId) },
             onConversationRename = { conversation ->

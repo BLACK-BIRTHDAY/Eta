@@ -32,6 +32,7 @@
   <string name="action_more">More options</string>
   <string name="action_open_terminal">Open terminal</string>
   <string name="action_open_browser">Open browser</string>
+  <string name="action_launch_kimi_web">Launch Kimi Web</string>
   <string name="route_chat">Chat</string>
   <string name="route_browser">Agent browser</string>
   <string name="route_tools">Tools</string>

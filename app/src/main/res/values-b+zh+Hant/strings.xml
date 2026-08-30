@@ -31,6 +31,7 @@
   <string name="action_more">更多選項</string>
   <string name="action_open_terminal">開啟終端機</string>
   <string name="action_open_browser">開啟瀏覽器</string>
+  <string name="action_launch_kimi_web">啟動 Kimi Web</string>
   <string name="route_chat">對話</string>
   <string name="route_browser">Agent 瀏覽器</string>
   <string name="route_tools">工具</string>

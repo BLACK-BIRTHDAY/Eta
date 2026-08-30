@@ -64,6 +64,7 @@ fun AgentAppShell(
     onSearchConversations: (String) -> Unit,
     onNewConversation: () -> Unit,
     onOpenTerminal: () -> Unit,
+    onLaunchKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
     onSelectConversation: (String) -> Unit,
     onConversationRename: (ConversationSummaryUi) -> Unit,
@@ -96,6 +97,7 @@ fun AgentAppShell(
                             onOpenConversationPane = onOpenConversationPane,
                             onNewConversation = onNewConversation,
                             onOpenTerminal = onOpenTerminal,
+                            onLaunchKimiWeb = onLaunchKimiWeb,
                             onOpenBrowser = onOpenBrowser,
                         )
                     }
@@ -148,6 +150,7 @@ private fun AgentTopBar(
     onOpenConversationPane: () -> Unit,
     onNewConversation: () -> Unit,
     onOpenTerminal: () -> Unit,
+    onLaunchKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
 ) {
     val isHome = route is AppRoute.Home
@@ -168,6 +171,7 @@ private fun AgentTopBar(
             TopBarOverflowMenu(
                 onNewConversation = onNewConversation,
                 onOpenTerminal = onOpenTerminal,
+                onLaunchKimiWeb = onLaunchKimiWeb,
                 onOpenBrowser = onOpenBrowser,
             )
         }
@@ -203,6 +207,7 @@ private val TopBarMenuIconSize = 20.dp
 private fun TopBarOverflowMenu(
     onNewConversation: () -> Unit,
     onOpenTerminal: () -> Unit,
+    onLaunchKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -221,8 +226,14 @@ private fun TopBarOverflowMenu(
         ) {
             val newConversationText = stringResource(R.string.action_new_conversation)
             val openTerminalText = stringResource(R.string.action_open_terminal)
+            val launchKimiWebText = stringResource(R.string.action_launch_kimi_web)
             val openBrowserText = stringResource(R.string.action_open_browser)
-            val menuItems = remember(newConversationText, openTerminalText, openBrowserText) {
+            val menuItems = remember(
+                newConversationText,
+                openTerminalText,
+                launchKimiWebText,
+                openBrowserText,
+            ) {
                 listOf(
                     DropdownItem(
                         text = newConversationText,
@@ -239,6 +250,16 @@ private fun TopBarOverflowMenu(
                         icon = { modifier ->
                             Icon(
                                 painter = painterResource(LucideR.drawable.lucide_ic_square_terminal),
+                                contentDescription = null,
+                                modifier = modifier.size(TopBarMenuIconSize),
+                            )
+                        },
+                    ),
+                    DropdownItem(
+                        text = launchKimiWebText,
+                        icon = { modifier ->
+                            Icon(
+                                painter = painterResource(R.drawable.ic_kimi_code),
                                 contentDescription = null,
                                 modifier = modifier.size(TopBarMenuIconSize),
                             )
@@ -268,7 +289,8 @@ private fun TopBarOverflowMenu(
                             when (index) {
                                 0 -> onNewConversation()
                                 1 -> onOpenTerminal()
-                                2 -> onOpenBrowser()
+                                2 -> onLaunchKimiWeb()
+                                3 -> onOpenBrowser()
                             }
                         },
                     )
