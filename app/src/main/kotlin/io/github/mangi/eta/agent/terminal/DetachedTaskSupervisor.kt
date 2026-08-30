@@ -99,8 +99,9 @@ internal class DetachedTaskSupervisor(
             appendLine("mkdir -p ${shellQuote(wireDir)} || exit 1")
             appendLine("rm -f ${shellQuote(wirePidFile)}")
             appendLine("cd ${shellQuote(cwd)} || exit 1")
+            // 两个分支都必须后台化：setsid 只是脱离会话，调用方仍会前台等待长驻命令结束。
             appendLine("if command -v setsid >/dev/null 2>&1; then")
-            appendLine("  setsid sh -c ${shellQuote(innerScript)} < /dev/null || exit 1")
+            appendLine("  setsid sh -c ${shellQuote(innerScript)} < /dev/null &")
             appendLine("else")
             appendLine("  sh -c ${shellQuote(innerScript)} < /dev/null &")
             appendLine("fi")
@@ -188,7 +189,7 @@ internal class DetachedTaskSupervisor(
         val result = runOneShotShell(
             processSupervisor = oneShotSupervisor,
             identity = task.identity,
-            command = "tail -c $limit ${shellQuote(task.logPath)} 2>/dev/null",
+            command = "tail -c $limit ${shellQuote(hostDaemonPath(task, task.logPath))} 2>/dev/null",
             timeoutSeconds = 15,
         )
         if (result.exitCode != 0) {
@@ -215,7 +216,7 @@ internal class DetachedTaskSupervisor(
             appendLine("    if [ -d /proc ]; then kill -9 -${task.pid} 2>/dev/null; else kill -9 ${task.pid} 2>/dev/null; fi")
             appendLine("  fi")
             appendLine("fi")
-            append("rm -f ${shellQuote(task.logPath)} ${shellQuote(task.logPath.removeSuffix(".log") + ".pid")}")
+            append("rm -f ${shellQuote(hostDaemonPath(task, task.logPath))} ${shellQuote(hostDaemonPath(task, task.logPath.removeSuffix(".log") + ".pid"))}")
         }
         runOneShotShell(
             processSupervisor = oneShotSupervisor,
@@ -289,6 +290,17 @@ internal class DetachedTaskSupervisor(
     private fun wireDaemonDir(environment: TerminalEnvironment): String =
         if (environment.isLinux) LINUX_DAEMON_DIR else daemonDir
 
+    /**
+     * Linux 任务的 /workspace 是宿主工作目录的 bind 视图，日志与 pid 文件的物理位置仍在宿主。
+     * 读写一律走宿主路径，避免为读日志专门进入 chroot。
+     */
+    internal fun hostDaemonPath(task: DetachedTask, wirePath: String): String =
+        if (task.environment.isLinux && wirePath.startsWith(LINUX_DAEMON_DIR)) {
+            DEFAULT_DAEMON_DIR + wirePath.removePrefix(LINUX_DAEMON_DIR)
+        } else {
+            wirePath
+        }
+
     private fun rootfsPath(environment: TerminalEnvironment): String? =
         linuxRootfsPathProvider?.invoke(environment) ?: linuxRootfsPath
 
@@ -302,7 +314,8 @@ internal class DetachedTaskSupervisor(
         if (victims.isEmpty()) return
         victims.groupBy { it.task.identity }.forEach { (identity, group) ->
             val removeScript = group.joinToString("\n") {
-                "rm -f ${shellQuote(it.task.logPath)} ${shellQuote(it.task.logPath.removeSuffix(".log") + ".pid")}"
+                "rm -f ${shellQuote(hostDaemonPath(it.task, it.task.logPath))} " +
+                    shellQuote(hostDaemonPath(it.task, it.task.logPath.removeSuffix(".log") + ".pid"))
             }
             runOneShotShell(
                 processSupervisor = oneShotSupervisor,

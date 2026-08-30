@@ -158,6 +158,40 @@ class DetachedTaskSupervisorTest {
         assertTrue(supervisor.list().isEmpty())
     }
 
+    @Test
+    fun linuxTaskPathsTranslateToHostDaemonDir() {
+        val supervisor = newSupervisor()
+        val linuxTask = DetachedTask(
+            id = "dm_linux01",
+            pid = 1234,
+            token = "token",
+            command = "kimi web",
+            cwd = "/workspace",
+            identity = "root",
+            environment = TerminalEnvironment.DEBIAN,
+            logPath = "/workspace/daemon/dm_linux01.log",
+            startedAt = 0L,
+        )
+        val androidTask = linuxTask.copy(
+            environment = TerminalEnvironment.ANDROID,
+            logPath = "/data/local/tmp/eta/daemon/dm_android01.log",
+        )
+
+        assertEquals(
+            "/data/local/tmp/eta/daemon/dm_linux01.log",
+            supervisor.hostDaemonPath(linuxTask, linuxTask.logPath),
+        )
+        assertEquals(
+            "/data/local/tmp/eta/daemon/dm_linux01.pid",
+            supervisor.hostDaemonPath(linuxTask, linuxTask.logPath.removeSuffix(".log") + ".pid"),
+        )
+        // Android 任务的路径原样保留。
+        assertEquals(
+            androidTask.logPath,
+            supervisor.hostDaemonPath(androidTask, androidTask.logPath),
+        )
+    }
+
     private fun writeRecord(pid: Long, token: String) {
         val records = JSONArray().put(
             JSONObject()
