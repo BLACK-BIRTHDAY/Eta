@@ -71,6 +71,8 @@ internal object LinuxPackageProfiles {
                 packages = listOf("nodejs-current", "npm"),
             ),
             LinuxDistribution.DEBIAN to LinuxPackageSpec(
+                // Node 官方 arm64 二进制链接 libatomic.so.1，归档安装不含系统依赖，需补装。
+                packages = listOf("libatomic1"),
                 managedTool = ManagedLinuxTool.NODE,
             ),
         ),
