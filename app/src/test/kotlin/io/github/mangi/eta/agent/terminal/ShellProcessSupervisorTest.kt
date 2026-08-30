@@ -54,6 +54,8 @@ class ShellProcessSupervisorTest {
         assertTrue(payload.contains("chroot"))
         assertTrue(payload.contains(AlpineEnvironmentPaths.READY_MARKER))
         assertTrue(payload.contains("/bin/busybox env -i"))
+        // Alpine 的 /bin/sh 是绝对符号链接，Android 侧就绪检查必须放行符号链接。
+        assertTrue(payload.contains("[ -h \"\$eta_rootfs/bin/sh\" ]"))
 
         val debianPayload = supervisor.buildLinuxPayload(
             rootfsPath = "/data/user/0/io.github.mangi.eta/files/terminal/debian/rootfs",

@@ -342,11 +342,13 @@ internal class ShellProcessSupervisor(
             "$innerScriptHead\n$mountsBlock\n$innerScriptTail"
         }
         val discovery = AndroidBusyBox.discoveryScript()
+        // Alpine 的 /bin/sh 是指向 /bin/busybox 的绝对符号链接，Android 侧 -x 会按宿主根目录
+        // 解析链接目标而误判缺失；符号链接视为存在，真实可执行性由 chroot 后的内核解析兜底。
         return "$discovery; " +
             "[ -n \"${'$'}eta_busybox\" ] || { echo 'ETA_LINUX_BUSYBOX_MISSING' >&2; exit 127; }; " +
             "eta_rootfs=$rootfs; " +
             "[ -f \"${'$'}eta_rootfs/${LinuxEnvironmentPaths.READY_MARKER}\" ] && " +
-            "[ -x \"${'$'}eta_rootfs/bin/sh\" ] && " +
+            "{ [ -x \"${'$'}eta_rootfs/bin/sh\" ] || [ -h \"${'$'}eta_rootfs/bin/sh\" ]; } && " +
             "( [ -x \"${'$'}eta_rootfs/usr/bin/env\" ] || [ -x \"${'$'}eta_rootfs/bin/busybox\" ] ) || " +
             "{ echo 'ETA_LINUX_ENVIRONMENT_NOT_READY' >&2; exit 127; }; " +
             "\"${'$'}eta_busybox\" unshare -m --propagation private " +
