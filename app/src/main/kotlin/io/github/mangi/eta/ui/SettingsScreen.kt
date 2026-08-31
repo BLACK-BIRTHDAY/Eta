@@ -791,8 +791,8 @@ private fun SwitchPref(
         onCheckedChange = { value ->
             // 同步提交；RemotePreferences.commit() 失败（binder 提交失败）时回滚 UI 状态，
             // 避免 UI 显示已切换而 hook 进程实际未收到。
-            val targetPrefs = prefs ?: return@SwitchPreference
-            if (putBooleanSync(targetPrefs, key, value)) {
+            val targetPrefs = prefs
+            if (targetPrefs != null && putBooleanSync(targetPrefs, key, value)) {
                 checked = value
                 if (key in Prefs.Keys.LOCAL_AGENT_KEYS) {
                     Prefs.reconcileAgentPreferences(EtaApp.serviceInstance)
