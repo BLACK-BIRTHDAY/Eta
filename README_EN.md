@@ -2,7 +2,7 @@
 
 [简体中文](README.md) | **English**
 
-<p><img src="https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.0"> <img src="https://img.shields.io/badge/AGP-9.3.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.1"> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
+<p><img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10"> <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2"> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
 
 **A third-party, system-level AI agent for Android**
 
@@ -11,7 +11,8 @@ With Root and LSPosed, Eta crosses the app sandbox and works at the system layer
 - **Direct system APIs** — alarms, media, volume, Wi-Fi, and more, callable directly by the model
 - **Personal context** — photos, calendar, SMS, notifications, recordings, health summaries, ColorOS system memory, and recent QQ / WeChat chat images, read on demand
 - **Built-in browser** — loads pages in the background, extracts content, and interacts with page elements; the user can take over when needed
-- **Root / Linux environment** — a complete shell environment: authorized commands, file access, and scripts, giving the model unlimited room to improvise
+- **A redesigned terminal** — a terminal experience rethought for mobile: a persistent manual terminal with multiple sessions, an interactive PTY console, durable daemon tasks, shared folders, and Linux file browsing; choose either Alpine or Debian userland
+- **Built-in Kimi Code** — Kimi Code comes preinstalled in the Linux environment, and the mobile-friendly Kimi Web UI launches from the home screen in one tap—smooth Vibe Coding right on your phone
 - **GUI agent** — third-party apps exposing APIs or CLIs would be the ideal path, but the closed mobile ecosystem leaves most apps without any machine interface; and interfaces are designed for people, inherently unfriendly to models. The long tail without an interface is handled by watching the screen and acting on controls
 
 Other third-party phone agents serve mainstream users, and mainstream users don't have Root—so their capabilities stay inside the app sandbox, while system entry points and data belong to the vendor. Desktop coding agents (Codex, Claude Code) or OpenClaw, when ported directly onto a phone, remain a lobster trapped in the sandbox: no complete system environment, no way to operate the real Android device. And OEM assistants, constrained by their own ecosystems, don't touch third-party app data.
@@ -45,7 +46,7 @@ Eta is not a one-shot chat wrapper: the model issues instructions, Eta executes 
 | ---- | -------------- |
 | **Native device tools** | Alarms, timers, media control, volume, Wi-Fi / Bluetooth, device and storage state, plus on-device search across photos, calendar, contacts, SMS, notifications, health summaries, and ColorOS notes and system memory—all structured tools with explicit schemas |
 | **Embedded browser** | Loads JavaScript-heavy pages offscreen, extracts structured content, and operates page elements; when human intervention helps (e.g. a CAPTCHA), the same WebView attaches to the app UI for direct takeover |
-| **Terminal and files** | Authorized `user` / `root` shell commands, file access, and scripts; choose either lightweight Alpine (musl) or broader Debian glibc, install the base environment first, then add tools as needed; China-network installs prefer one measured domestic mirror with an official fallback |
+| **Terminal and files** | Authorized `user` / `root` shell commands, file access, and scripts; the user-facing terminal offers multiple sessions, an interactive PTY console, daemon tasks, shared folders, and file browsing; choose either lightweight Alpine (musl) or broader Debian glibc, install the base environment first, then add tools as needed; China-network installs prefer one measured domestic mirror with an official fallback |
 | **GUI / computer use** | Screenshots, accessibility nodes, tapping, scrolling, and text input, with an overlay and gesture feedback during foreground work that you can interrupt or take over. Covers the long tail of apps with no machine interface |
 
 On top of that:
@@ -54,6 +55,21 @@ On top of that:
 - **Skills:** browse and install Skills from public GitHub repositories or import a local ZIP; the model reads them on demand, and installation never executes packaged scripts
 - **MCP tools:** connect remote Streamable HTTP servers and add individually enabled third-party tools to the Agent Loop; supports HTTP / HTTPS and an optional bearer token
 - **Sessions and results:** runs started from external entry points are archived into Eta conversations and recovered after process death; long-press a message to copy, edit, or delete from that turn, and regenerate any final response
+
+## A terminal redesigned for mobile
+
+Eta packs a complete computing environment into the phone: beyond the Android `user` / `root` shell, you can install an Alpine or Debian userland—all inside one terminal experience rethought for touch.
+
+- **Persistent manual terminal:** parallel sessions you can switch between at any time, living independently of agent runs
+- **Interactive PTY console:** a real TUI experience with arrow keys, shortcuts, scrolling, and ANSI rendering
+- **Daemon tasks:** long-running jobs keep going after you leave the page, with logs available anytime
+- **Shared folders:** mount any Android directory into the Linux environment at `/workspace/mounts/`, readable and writable both ways
+- **File browsing:** browse and preview files inside the Linux environment right in the app
+
+### Built-in Kimi Code
+
+- Kimi Code comes preinstalled in the Linux environment, ready out of the box
+- One tap on the home screen launches the mobile-friendly Kimi Web UI, so a coding session is always within reach
 
 ## What you can ask Eta to do
 
@@ -66,6 +82,7 @@ On top of that:
 - **Cross-app work and comparison:** finish to-dos inside an app, or analyze a product screenshot and search for the same item in another shopping app—falling back to screen operation only when no direct capability exists
 - **Web research:** read JavaScript-rendered pages in a persistent background session, handing control to you when a challenge appears
 - **Terminal work:** “Inspect LSPosed logs for hook errors, check whether my Magisk module is active, and clean up background processes”
+- **Coding on the phone:** use the preinstalled Kimi Code in the built-in terminal, or launch Kimi Web from the home screen—edit code, run commands, commit, and push without leaving your phone
 - **Assistant-triggered workflows:** start multi-step tasks from Eta's assistant panel, Breeno, or Super XiaoAI and let the same Runtime carry them out
 
 ## System assistant and OEM entry points
