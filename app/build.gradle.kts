@@ -30,8 +30,9 @@ android {
         applicationId = "io.github.mangi.eta"
         minSdk = 34
         targetSdk = 36
-        versionCode = 266
-        versionName = "2.6.6"
+        // versionCode 规则：yyyyMMdd + 两位当日序号（01 起），发版时随 versionName 一起手动递增。
+        versionCode = 2026083101
+        versionName = "3.0.0"
     }
 
     signingConfigs {
