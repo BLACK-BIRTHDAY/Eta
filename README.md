@@ -2,7 +2,7 @@
 
 **简体中文** | [English](README_EN.md)
 
-<p><img src="https://img.shields.io/badge/Kotlin-2.4.0-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.0"> <img src="https://img.shields.io/badge/AGP-9.3.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.1"> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
+<p><img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10"> <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2"> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
 
 **面向 Android 的第三方系统级 AI Agent**
 
@@ -11,7 +11,8 @@ Eta 借助 Root 与 LSPosed 越过 App 沙盒，直接进入系统底层：Hook 
 - **系统 API 直达**：闹钟、媒体、音量、Wi‑Fi 等系统能力，模型可直接调用
 - **个人上下文**：相册、日历、短信、通知、录音、健康摘要、ColorOS 系统记忆、QQ / 微信聊天图片等本机数据，模型按需读取
 - **内置浏览器**：后台加载网页、提取正文、操作页面元素，需要时可由用户直接接管
-- **Root / Linux 环境**：完整的 Shell 环境，授权后执行命令、读写文件、跑脚本，给模型无限的想象空间
+- **全新终端**：为移动设备重新设计的终端体验——常驻手动终端、多会话切换、交互式 PTY 控制台、可持久化守护任务、共享文件夹与文件浏览；Linux 环境在 Alpine 与 Debian 之间二选一
+- **内置 Kimi Code**：Linux 环境预制 Kimi Code 安装，配合完美适配移动端的 Kimi Web UI 一键启动，手机上也能享受丝滑的 Vibe Coding
 - **GUI Agent**：第三方 App 直接开放 API / CLI 才是最理想的路径，但移动互联网生态封闭，绝大多数应用没有任何机器接口；界面又是为人设计的，对模型天生不友好。没有接口的长尾场景，只能由 Agent 看屏幕、找控件、执行操作
 
 其他第三方手机 Agent 面向大众用户，大众用户没有 Root 权限，能力只能做在 App 沙盒里，系统入口和数据仍属于厂商；桌面端的 Coding Agent（Codex、Claude Code）或 OpenClaw 被直接搬进手机时，功能再全，也只是一只困在沙盒里的龙虾，没有完整的系统环境，无法操作真正的 Android 设备；原厂助手则受自家生态约束，不会触碰第三方应用的数据。
@@ -45,7 +46,7 @@ Agent 不会问一句答一句就结束：模型发指令，Eta 执行，结果�
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **设备直达**   | 闹钟、计时器、媒体控制、音量、Wi‑Fi / 蓝牙、设备与存储状态等系统能力，以及相册、日历、联系人、短信、通知、健康摘要、ColorOS 便签与系统记忆等本机数据检索——全部是有明确 Schema 的结构化工具 |
 | **网页浏览**   | 内置浏览器在后台加载 JavaScript 网页、提取结构化正文、操作页面元素；遇到验证码等场景可挂载到 App 界面，由用户直接接管                                                                         |
-| **终端与文件** | 授权后执行`user` / `root` shell 命令、读写文件、运行脚本；Linux 环境在轻量 Alpine（musl）与兼容性更好的 Debian glibc 之间二选一，先安装基础环境，再按需安装工具；中国大陆网络优先使用单个实测较快的国内镜像，并保留官方源兜底 |
+| **终端与文件** | 授权后执行`user` / `root` shell 命令、读写文件、运行脚本；面向用户的常驻终端提供多会话、交互式 PTY 控制台、守护任务、共享文件夹与文件浏览；Linux 环境在轻量 Alpine（musl）与兼容性更好的 Debian glibc 之间二选一，先安装基础环境，再按需安装工具；中国大陆网络优先使用单个实测较快的国内镜像，并保留官方源兜底 |
 | **GUI 操作**   | 截图、无障碍节点、点击、滚动与输入；前台操作时显示浮层与手势反馈，可随时停止或接管。没有系统接口的长尾场景由它补齐                                                                            |
 
 在此基础上：
@@ -54,6 +55,21 @@ Agent 不会问一句答一句就结束：模型发指令，Eta 执行，结果�
 - **Skills**：可浏览并安装公开 GitHub 仓库的 Skill，或导入本地 ZIP；模型按需读取，安装不会自动执行包内脚本
 - **MCP 工具**：连接远程 Streamable HTTP 服务器，把用户逐项启用的第三方工具接入 Agent Loop；支持 HTTP / HTTPS 与可选 Bearer Token
 - **会话与结果**：外部入口触发的运行结果归档到 App 会话，进程被杀也会尝试恢复；长按消息可复制、编辑或从该轮删除，最终回复可重新生成
+
+## 为移动设备重新设计的终端
+
+Eta 把完整的计算环境装进手机：Android `user` / `root` Shell 之外，还可以安装 Alpine 或 Debian 用户态，全部统一在同一套为触摸操作重新设计的终端体验里。
+
+- **常驻手动终端**：多会话并行、随时切换，会话独立于 Agent 任务存在
+- **交互式 PTY 控制台**：真正的 TUI 体验，方向键、快捷键、滚动与 ANSI 渲染都可用
+- **守护任务**：长任务退出页面后继续运行，日志随时回看
+- **共享文件夹**：把任意 Android 目录挂载进 Linux 环境的 `/workspace/mounts/`，双向读写
+- **文件浏览**：直接在 App 里浏览和预览 Linux 环境内的文件
+
+### 内置 Kimi Code
+
+- Linux 环境预制 Kimi Code 安装，开箱即用
+- 首页一键启动完美适配移动端的 Kimi Web UI，随时随地继续 Coding 会话
 
 ## 使用场景
 
@@ -66,6 +82,7 @@ Agent 不会问一句答一句就结束：模型发指令，Eta 执行，结果�
 - **跨 App 操作与比价** — 处理应用里的待办项目，或截图分析淘宝商品、自动打开京东搜索同款；没有直达接口时才由 Agent 看屏幕、找按钮、执行
 - **网页研究** — 在后台阅读 JavaScript 渲染的文档或资讯页面；遇到验证码时由用户直接接管
 - **终端任务** — “清一下后台，查 LSPosed 日志看 Hook 有没有异常，再看看 Magisk 模块生效了没”
+- **在手机上 Coding** — 打开内置终端使用预装的 Kimi Code，或从首页一键启动 Kimi Web，改代码、跑命令、提交推送全程在手机上完成
 - **系统助手入口触发** — 从 Eta 系统助手面板、小布或超级小爱发起多步任务，交给同一套 Agent Runtime 执行
 
 ## 系统助手入口
