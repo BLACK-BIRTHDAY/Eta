@@ -28,6 +28,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             toolResultImages = false,
             strictTools = false,
             parallelToolCalls = true,
+            systemPromptRole = SystemPromptRole.SYSTEM,
         )
 
     override fun complete(

@@ -21,6 +21,7 @@ internal object BuiltinProviders {
     const val STEPFUN_ID = "builtin-stepfun"
     const val SILICONFLOW_ID = "builtin-siliconflow"
     const val OPENROUTER_ID = "builtin-openrouter"
+    const val GEMINI_ID = "builtin-gemini"
 
     val PROVIDERS: List<ProviderSetting> = listOf(
         OpenAiCompatibleProviderSetting(
@@ -112,6 +113,15 @@ internal object BuiltinProviders {
             sourceType = ProviderSourceTypes.OPENROUTER,
             isBuiltIn = true,
             sortOrder = 9,
+            systemPrompt = DEFAULT_SYSTEM_PROMPT
+        ),
+        GeminiProviderSetting(
+            id = GEMINI_ID,
+            name = "Google Gemini",
+            baseUrl = "https://generativelanguage.googleapis.com",
+            sourceType = ProviderSourceTypes.GEMINI,
+            isBuiltIn = true,
+            sortOrder = 10,
             systemPrompt = DEFAULT_SYSTEM_PROMPT
         )
     )
