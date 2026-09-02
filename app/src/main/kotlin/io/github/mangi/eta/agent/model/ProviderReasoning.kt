@@ -325,4 +325,32 @@ internal object ProviderReasoning {
             else -> false
         }
     }
+
+    fun applyGeminiRequest(
+        request: JSONObject,
+        config: AgentModelClient.ModelConfig,
+    ) {
+        val effort = config.effectiveReasoningEffort
+        val model = config.model.trim().lowercase()
+        val generationConfig = request.optJSONObject("generationConfig") ?: JSONObject().also {
+            request.put("generationConfig", it)
+        }
+
+        val level = when (effort) {
+            ReasoningEffort.OFF,
+            ReasoningEffort.MINIMAL -> if (model.contains("3.7-flash")) "low" else "minimal"
+            ReasoningEffort.LOW -> "low"
+            ReasoningEffort.MEDIUM,
+            ReasoningEffort.DEFAULT -> "medium"
+            ReasoningEffort.HIGH,
+            ReasoningEffort.XHIGH,
+            ReasoningEffort.MAX -> "high"
+        }
+
+        generationConfig.put(
+            "thinkingConfig",
+            JSONObject().put("thinkingLevel", level).put("includeThoughts", true),
+        )
+    }
+
 }

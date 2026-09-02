@@ -10,6 +10,52 @@ import io.github.mangi.eta.data.model.ProviderSourceTypes
 
 internal object OfficialModelCatalog {
     private val modelsByCatalogId: Map<String, List<Model>> = mapOf(
+        ProviderSourceTypes.GEMINI to listOf(
+            officialModel(
+                id = "builtin-gemini-3-7-flash",
+                modelId = "gemini-3.7-flash",
+                displayName = "Gemini 3.7 Flash",
+                ownedBy = "google",
+                inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
+                toolCall = true,
+                reasoning = true,
+                structuredOutput = true,
+                contextWindow = 1_048_576,
+            ),
+            officialModel(
+                id = "builtin-gemini-3-1-pro-preview",
+                modelId = "gemini-3.1-pro-preview",
+                displayName = "Gemini 3.1 Pro Preview",
+                ownedBy = "google",
+                inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
+                toolCall = true,
+                reasoning = true,
+                structuredOutput = true,
+                contextWindow = 1_048_576,
+            ),
+            officialModel(
+                id = "builtin-gemini-3-5-flash",
+                modelId = "gemini-3.5-flash",
+                displayName = "Gemini 3.5 Flash",
+                ownedBy = "google",
+                inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
+                toolCall = true,
+                reasoning = true,
+                structuredOutput = true,
+                contextWindow = 1_048_576,
+            ),
+            officialModel(
+                id = "builtin-gemini-3-1-flash-lite",
+                modelId = "gemini-3.1-flash-lite",
+                displayName = "Gemini 3.1 Flash-Lite",
+                ownedBy = "google",
+                inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
+                toolCall = true,
+                reasoning = true,
+                structuredOutput = true,
+                contextWindow = 1_048_576,
+            ),
+        ),
         ProviderSourceTypes.OPENAI to listOf(
             officialModel(
                 id = "builtin-openai-gpt-5-6-sol",

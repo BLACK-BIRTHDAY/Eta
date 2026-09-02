@@ -123,6 +123,8 @@ internal object RuntimeConfigRepository {
             systemPrompt = systemPrompt,
             anthropicVersion = (provider as? AnthropicProviderSetting)?.anthropicVersion
                 ?: AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION,
+            geminiApiVersion = (provider as? GeminiProviderSetting)?.apiVersion
+                ?: GeminiProviderSetting.DEFAULT_API_VERSION,
             openAiEndpointMode = endpointMode,
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
             thinkingEnabled = reasoningCapabilities != null,

@@ -7,6 +7,7 @@ import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.skill.SkillContext
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
+import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.CustomBody
 import io.github.mangi.eta.data.model.CustomHeader
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
@@ -204,6 +205,7 @@ internal object AgentModelClient {
         val contextWindow: Int? = null,
         val systemPrompt: String,
         val anthropicVersion: String = AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION,
+        val geminiApiVersion: String = GeminiProviderSetting.DEFAULT_API_VERSION,
         val openAiEndpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS,
         val hostedWebSearchEnabled: Boolean = false,
         val terminalTools: Boolean = false,

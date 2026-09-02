@@ -88,6 +88,7 @@ private data class ProviderConfigDraft(
     val endpointMode: String,
     val hostedWebSearchEnabled: Boolean,
     val anthropicVersion: String,
+    val geminiApiVersion: String = GeminiProviderSetting.DEFAULT_API_VERSION,
 ) {
     companion object {
         fun from(provider: ProviderSetting): ProviderConfigDraft = ProviderConfigDraft(
@@ -100,10 +101,13 @@ private data class ProviderConfigDraft(
                 is OpenAiCompatibleProviderSetting -> provider.endpointMode
                 is CustomProviderSetting -> provider.endpointMode
                 is AnthropicProviderSetting -> ""
+                is GeminiProviderSetting -> ""
             },
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
             anthropicVersion = (provider as? AnthropicProviderSetting)?.anthropicVersion
                 ?: AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION,
+            geminiApiVersion = (provider as? GeminiProviderSetting)?.apiVersion
+                ?: GeminiProviderSetting.DEFAULT_API_VERSION,
         )
     }
 }
@@ -362,6 +366,7 @@ private fun ProviderConfigTab(
                                         endpointMode = draft.endpointMode,
                                         hostedWebSearchEnabled = draft.hostedWebSearchEnabled,
                                         anthropicVersion = draft.anthropicVersion,
+                                        geminiApiVersion = draft.geminiApiVersion,
                                     )
                                 )
                             } finally {
@@ -438,6 +443,7 @@ private fun ProviderConfigTab(
                                 endpointMode = draft.endpointMode,
                                 hostedWebSearchEnabled = draft.hostedWebSearchEnabled,
                                 anthropicVersion = draft.anthropicVersion,
+                                geminiApiVersion = draft.geminiApiVersion,
                             )
                             try {
                                 if (isNew) {
@@ -617,6 +623,7 @@ private fun buildUpdatedProvider(
     endpointMode: String,
     hostedWebSearchEnabled: Boolean,
     anthropicVersion: String,
+    geminiApiVersion: String = GeminiProviderSetting.DEFAULT_API_VERSION,
 ): ProviderSetting {
     val prompt = systemPrompt.trim().takeIf { it.isNotBlank() }
     return when (source) {
@@ -645,6 +652,14 @@ private fun buildUpdatedProvider(
             systemPrompt = prompt,
             isEnabled = isEnabled,
             anthropicVersion = anthropicVersion.trim().ifBlank { AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION },
+        )
+        is GeminiProviderSetting -> source.copy(
+            name = name.trim(),
+            baseUrl = baseUrl.trim(),
+            apiKey = apiKey.trim(),
+            systemPrompt = prompt,
+            isEnabled = isEnabled,
+            apiVersion = geminiApiVersion.trim().ifBlank { GeminiProviderSetting.DEFAULT_API_VERSION },
         )
     }
 }

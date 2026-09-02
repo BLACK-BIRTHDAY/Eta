@@ -19,6 +19,16 @@ internal object ProviderUrls {
     fun anthropicModelsUrl(baseUrl: String): String =
         appendPath(baseUrl, "v1/models")
 
+    fun geminiStreamGenerateContentUrl(baseUrl: String, apiVersion: String, model: String): String {
+        val version = apiVersion.trim().ifBlank { "v1beta" }
+        return appendPath(baseUrl, "$version/models/$model:streamGenerateContent?alt=sse")
+    }
+
+    fun geminiModelsUrl(baseUrl: String, apiVersion: String): String {
+        val version = apiVersion.trim().ifBlank { "v1beta" }
+        return appendPath(baseUrl, "$version/models")
+    }
+
     private fun appendPath(baseUrl: String, path: String): String =
         "${normalizeBaseUrl(baseUrl)}/${path.trimStart('/')}"
 }

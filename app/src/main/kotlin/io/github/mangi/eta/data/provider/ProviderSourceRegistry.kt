@@ -19,6 +19,7 @@ internal object ProviderSourceRegistry {
         ProviderSourceTypes.STEPFUN,
         ProviderSourceTypes.SILICONFLOW,
         ProviderSourceTypes.OPENROUTER,
+        ProviderSourceTypes.GEMINI,
     )
 
     fun normalize(sourceType: String?): String {
@@ -46,6 +47,9 @@ internal object ProviderSourceRegistry {
         }
         sourceTypeFromProviderId(providerId)?.let { return it }
         sourceTypeFromBaseUrl(baseUrl)?.let { return it }
+        if (providerType == ProviderTypes.GEMINI) {
+            return ProviderSourceTypes.GEMINI
+        }
         if (providerType == ProviderTypes.ANTHROPIC) {
             return ProviderSourceTypes.ANTHROPIC
         }
@@ -55,6 +59,7 @@ internal object ProviderSourceRegistry {
     private fun sourceTypeFromProviderId(providerId: String?): String? =
         when (providerId) {
             BuiltinProviders.OPENAI_ID -> ProviderSourceTypes.OPENAI
+            BuiltinProviders.GEMINI_ID -> ProviderSourceTypes.GEMINI
             BuiltinProviders.ANTHROPIC_ID -> ProviderSourceTypes.ANTHROPIC
             BuiltinProviders.BAILIAN_ID -> ProviderSourceTypes.BAILIAN
             BuiltinProviders.DEEPSEEK_ID -> ProviderSourceTypes.DEEPSEEK
@@ -71,6 +76,7 @@ internal object ProviderSourceRegistry {
         val httpUrl = baseUrl?.trim()?.toHttpUrlOrNull() ?: return null
         return when {
             httpUrl.host == "api.openai.com" -> ProviderSourceTypes.OPENAI
+            httpUrl.host == "generativelanguage.googleapis.com" -> ProviderSourceTypes.GEMINI
             httpUrl.host == "api.anthropic.com" -> ProviderSourceTypes.ANTHROPIC
             httpUrl.host == "api.deepseek.com" -> ProviderSourceTypes.DEEPSEEK
             httpUrl.host == "api.moonshot.cn" -> ProviderSourceTypes.MOONSHOT

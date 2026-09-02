@@ -89,6 +89,7 @@ internal object AgentRuntimeWire {
     private const val KEY_CONTEXT_WINDOW = "context_window"
     private const val KEY_SYSTEM_PROMPT = "system_prompt"
     private const val KEY_ANTHROPIC_VERSION = "anthropic_version"
+    private const val KEY_GEMINI_API_VERSION = "gemini_api_version"
     private const val KEY_OPENAI_ENDPOINT_MODE = "openai_endpoint_mode"
     private const val KEY_HOSTED_WEB_SEARCH_ENABLED = "hosted_web_search_enabled"
     private const val KEY_TERMINAL_TOOLS = "terminal_tools"
@@ -251,6 +252,7 @@ internal object AgentRuntimeWire {
         request.config.contextWindow?.let { putInt(KEY_CONTEXT_WINDOW, it) }
         putString(KEY_SYSTEM_PROMPT, request.config.systemPrompt)
         putString(KEY_ANTHROPIC_VERSION, request.config.anthropicVersion)
+        putString(KEY_GEMINI_API_VERSION, request.config.geminiApiVersion)
         putString(KEY_OPENAI_ENDPOINT_MODE, request.config.openAiEndpointMode)
         putBoolean(KEY_HOSTED_WEB_SEARCH_ENABLED, request.config.hostedWebSearchEnabled)
         putBoolean(KEY_TERMINAL_TOOLS, request.config.terminalTools)
@@ -365,6 +367,8 @@ internal object AgentRuntimeWire {
                 systemPrompt = bundle.getString(KEY_SYSTEM_PROMPT).orEmpty(),
                 anthropicVersion = bundle.getString(KEY_ANTHROPIC_VERSION).orEmpty()
                     .ifBlank { io.github.mangi.eta.data.model.AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION },
+                geminiApiVersion = bundle.getString(KEY_GEMINI_API_VERSION).orEmpty()
+                    .ifBlank { io.github.mangi.eta.data.model.GeminiProviderSetting.DEFAULT_API_VERSION },
                 openAiEndpointMode = bundle.getString(KEY_OPENAI_ENDPOINT_MODE).orEmpty()
                     .ifBlank { io.github.mangi.eta.data.model.OpenAiEndpointMode.CHAT_COMPLETIONS },
                 hostedWebSearchEnabled = bundle.getBoolean(KEY_HOSTED_WEB_SEARCH_ENABLED, false),

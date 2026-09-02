@@ -55,6 +55,47 @@ internal object ReasoningCapabilityResolver {
                 else -> null
             }
 
+            ProviderSourceTypes.GEMINI -> when {
+                model.startsWith("gemini-3.7-flash") || model.startsWith("gemini-3.1-pro") ->
+                    ModelReasoningCapabilities(
+                        defaultEnabled = true,
+                        mandatory = true,
+                        canDisable = false,
+                        supportedEfforts = listOf(
+                            ReasoningEffort.LOW,
+                            ReasoningEffort.MEDIUM,
+                            ReasoningEffort.HIGH,
+                            ReasoningEffort.MAX,
+                        ),
+                        defaultEffort = ReasoningEffort.MEDIUM,
+                    )
+                model.startsWith("gemini-3.5-flash") ->
+                    ModelReasoningCapabilities(
+                        defaultEnabled = true,
+                        mandatory = false,
+                        canDisable = true,
+                        supportedEfforts = listOf(
+                            ReasoningEffort.OFF,
+                            ReasoningEffort.LOW,
+                            ReasoningEffort.MEDIUM,
+                            ReasoningEffort.HIGH,
+                        ),
+                        defaultEffort = ReasoningEffort.MEDIUM,
+                    )
+                model.startsWith("gemini-3.1-flash-lite") ->
+                    ModelReasoningCapabilities(
+                        defaultEnabled = false,
+                        mandatory = false,
+                        canDisable = true,
+                        supportedEfforts = listOf(
+                            ReasoningEffort.OFF,
+                            ReasoningEffort.LOW,
+                            ReasoningEffort.HIGH,
+                        ),
+                        defaultEffort = ReasoningEffort.OFF,
+                    )
+                else -> null
+            }
             ProviderSourceTypes.ANTHROPIC -> when (model) {
                 "claude-fable-5", "claude-opus-4-8", "claude-sonnet-5" ->
                     capabilities(
@@ -158,6 +199,65 @@ internal object ReasoningCapabilityResolver {
             ProviderSourceTypes.STEPFUN -> catalogCapabilities(sourceType, model)
 
             else -> null
+        }
+    }
+
+    private fun resolveGemini(model: String): ModelReasoningCapabilities? {
+        if (!model.contains("gemini")) return null
+        return when {
+            model.contains("3.7-flash") -> capabilities(
+                supported = listOf(
+                    ReasoningEffort.LOW,
+                    ReasoningEffort.MEDIUM,
+                    ReasoningEffort.HIGH,
+                    ReasoningEffort.MAX,
+                ),
+                defaultEffort = ReasoningEffort.MEDIUM,
+                mandatory = true,
+                canDisable = false,
+            )
+            model.contains("3.1-pro") -> capabilities(
+                supported = listOf(
+                    ReasoningEffort.LOW,
+                    ReasoningEffort.MEDIUM,
+                    ReasoningEffort.HIGH,
+                    ReasoningEffort.MAX,
+                ),
+                defaultEffort = ReasoningEffort.HIGH,
+                mandatory = true,
+                canDisable = false,
+            )
+            model.contains("3.5-flash") -> capabilities(
+                supported = listOf(
+                    ReasoningEffort.OFF,
+                    ReasoningEffort.LOW,
+                    ReasoningEffort.MEDIUM,
+                    ReasoningEffort.HIGH,
+                ),
+                defaultEffort = ReasoningEffort.MEDIUM,
+                mandatory = false,
+                canDisable = true,
+            )
+            model.contains("3.1-flash-lite") -> capabilities(
+                supported = listOf(
+                    ReasoningEffort.OFF,
+                    ReasoningEffort.LOW,
+                    ReasoningEffort.HIGH,
+                ),
+                defaultEffort = ReasoningEffort.OFF,
+                mandatory = false,
+                canDisable = true,
+            )
+            else -> capabilities(
+                supported = listOf(
+                    ReasoningEffort.LOW,
+                    ReasoningEffort.MEDIUM,
+                    ReasoningEffort.HIGH,
+                ),
+                defaultEffort = ReasoningEffort.MEDIUM,
+                mandatory = false,
+                canDisable = true,
+            )
         }
     }
 

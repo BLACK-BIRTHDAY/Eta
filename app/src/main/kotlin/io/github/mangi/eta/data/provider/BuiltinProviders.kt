@@ -1,6 +1,7 @@
 package io.github.mangi.eta.data.provider
 
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
+import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
 import io.github.mangi.eta.data.model.ProviderSetting
