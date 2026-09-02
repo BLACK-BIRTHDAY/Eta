@@ -94,7 +94,7 @@ data class AnthropicProviderSetting(
 
 @Serializable
 @SerialName(ProviderTypes.GEMINI)
-internal data class GeminiProviderSetting(
+data class GeminiProviderSetting(
     override val id: String,
     override val name: String,
     override val baseUrl: String = DEFAULT_BASE_URL,

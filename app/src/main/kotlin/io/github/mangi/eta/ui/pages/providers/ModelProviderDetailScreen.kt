@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.R as LucideR
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
+import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
