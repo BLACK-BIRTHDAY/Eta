@@ -6,6 +6,7 @@ import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.CustomProviderSetting
+import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
@@ -97,7 +98,7 @@ internal object RuntimeConfigRepository {
         val endpointMode = when (provider) {
             is OpenAiCompatibleProviderSetting -> provider.endpointMode
             is CustomProviderSetting -> provider.endpointMode
-            is AnthropicProviderSetting -> ""
+            is AnthropicProviderSetting, is GeminiProviderSetting -> ""
         }
         val inferOpenAiCatalog = sourceType == io.github.mangi.eta.data.model.ProviderSourceTypes.CUSTOM &&
             endpointMode == OpenAiEndpointMode.RESPONSES

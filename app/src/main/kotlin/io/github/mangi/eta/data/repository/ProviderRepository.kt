@@ -213,6 +213,14 @@ internal object ProviderRepository {
                 models = copiedModels,
             )
 
+            is GeminiProviderSetting -> copy(
+                id = id,
+                name = name,
+                sortOrder = sortOrder,
+                isBuiltIn = builtIn,
+                models = copiedModels,
+            )
+
             is CustomProviderSetting -> copy(
                 id = id,
                 name = name,
