@@ -3,6 +3,7 @@ package io.github.mangi.eta.data.repository
 import io.github.mangi.eta.agent.model.AgentHttpClient
 import io.github.mangi.eta.agent.model.CustomHeaderFilter
 import io.github.mangi.eta.agent.model.ProviderUrls
+import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.ModelReasoningCapabilities
@@ -33,6 +34,7 @@ internal object RemoteModelFetcher {
         withContext(Dispatchers.IO) {
             runCatching {
                 when (provider) {
+                    is GeminiProviderSetting -> fetchGemini(provider)
                     is AnthropicProviderSetting -> fetchAnthropic(provider)
                     else -> fetchOpenAiCompatible(provider)
                 }
@@ -48,6 +50,40 @@ internal object RemoteModelFetcher {
         return data.mapNotNull { element ->
             element.jsonObjectOrNull()?.toModel(defaultOwnedBy = null)
         }
+    }
+
+    internal fun parseGeminiModels(body: String): List<Model> {
+        val data = json.parseToJsonElement(body)
+            .jsonObjectOrNull()
+            ?.get("models")
+            ?.jsonArrayOrNull()
+            ?: return emptyList()
+        return data.mapNotNull { element ->
+            val obj = element.jsonObjectOrNull() ?: return@mapNotNull null
+            val rawName = obj["name"]?.jsonPrimitiveOrNull()?.contentOrNull ?: return@mapNotNull null
+            val id = rawName.removePrefix("models/")
+            val supportedMethods = obj["supportedGenerationMethods"]?.jsonArrayOrNull()?.mapNotNull {
+                it.jsonPrimitiveOrNull()?.contentOrNull
+            } ?: emptyList()
+            if ("generateContent" !in supportedMethods) return@mapNotNull null
+            val displayName = obj["displayName"]?.jsonPrimitiveOrNull()?.contentOrNull ?: id
+            Model(
+                id = id,
+                name = displayName,
+                ownedBy = "Google",
+                source = ModelSource.REMOTE,
+                modalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY)
+            )
+        }
+    }
+
+    private fun fetchGemini(provider: GeminiProviderSetting): List<Model> {
+        val url = ProviderUrls.geminiModelsUrl(provider.baseUrl, provider.apiKey)
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .build()
+        return OfficialModelCatalog.enrich(provider, executeJson(request, "获取 Gemini 模型失败").let(::parseGeminiModels))
     }
 
     internal fun parseAnthropicModels(body: String): List<Model> {

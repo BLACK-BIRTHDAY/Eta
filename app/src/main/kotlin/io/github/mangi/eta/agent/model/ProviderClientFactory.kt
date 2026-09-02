@@ -12,6 +12,7 @@ internal object ProviderClientFactory {
                 else -> OpenAiChatCompletionsProvider
             }
             ProviderTypes.ANTHROPIC -> AnthropicMessagesProvider
+            ProviderTypes.GEMINI -> GeminiGenerateContentProvider
             else -> error("不支持的 Provider 协议类型：${config.providerType}")
         }
 }

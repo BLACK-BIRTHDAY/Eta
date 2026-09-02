@@ -86,6 +86,38 @@ internal object OfficialModelCatalog {
                 contextWindow = 1_000_000,
             ),
         ),
+        ProviderSourceTypes.GEMINI to listOf(
+            officialModel(
+                id = "builtin-gemini-3.7-flash",
+                modelId = "gemini-3.7-flash",
+                displayName = "Gemini 3.7 Flash",
+                ownedBy = "google",
+                inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
+                toolCall = true,
+                reasoning = true,
+                contextWindow = 1_048_576,
+            ),
+            officialModel(
+                id = "builtin-gemini-3.7-flash-thinking",
+                modelId = "gemini-3.7-flash-thinking",
+                displayName = "Gemini 3.7 Flash Thinking",
+                ownedBy = "google",
+                inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
+                toolCall = true,
+                reasoning = true,
+                contextWindow = 1_048_576,
+            ),
+            officialModel(
+                id = "builtin-gemini-3.7-pro",
+                modelId = "gemini-3.7-pro",
+                displayName = "Gemini 3.7 Pro",
+                ownedBy = "google",
+                inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
+                toolCall = true,
+                reasoning = true,
+                contextWindow = 1_048_576,
+            ),
+        ),
         ProviderSourceTypes.BAILIAN to listOf(
             officialModel(
                 id = "builtin-bailian-qwen3-7-plus",

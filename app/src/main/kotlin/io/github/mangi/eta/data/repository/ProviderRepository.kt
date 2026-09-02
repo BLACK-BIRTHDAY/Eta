@@ -9,6 +9,7 @@ import io.github.mangi.eta.data.db.toEntity
 import io.github.mangi.eta.data.db.toModelEntities
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.CustomProviderSetting
+import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.ProviderSetting
@@ -214,6 +215,14 @@ internal object ProviderRepository {
             )
 
             is CustomProviderSetting -> copy(
+                id = id,
+                name = name,
+                sortOrder = sortOrder,
+                isBuiltIn = builtIn,
+                models = copiedModels,
+            )
+
+            is GeminiProviderSetting -> copy(
                 id = id,
                 name = name,
                 sortOrder = sortOrder,

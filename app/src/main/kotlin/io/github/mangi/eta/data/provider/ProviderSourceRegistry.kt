@@ -11,6 +11,7 @@ internal object ProviderSourceRegistry {
         ProviderSourceTypes.CUSTOM,
         ProviderSourceTypes.OPENAI,
         ProviderSourceTypes.ANTHROPIC,
+        ProviderSourceTypes.GEMINI,
         ProviderSourceTypes.BAILIAN,
         ProviderSourceTypes.DEEPSEEK,
         ProviderSourceTypes.MOONSHOT,
@@ -56,6 +57,7 @@ internal object ProviderSourceRegistry {
         when (providerId) {
             BuiltinProviders.OPENAI_ID -> ProviderSourceTypes.OPENAI
             BuiltinProviders.ANTHROPIC_ID -> ProviderSourceTypes.ANTHROPIC
+            BuiltinProviders.GEMINI_ID -> ProviderSourceTypes.GEMINI
             BuiltinProviders.BAILIAN_ID -> ProviderSourceTypes.BAILIAN
             BuiltinProviders.DEEPSEEK_ID -> ProviderSourceTypes.DEEPSEEK
             BuiltinProviders.KIMI_ID -> ProviderSourceTypes.MOONSHOT
@@ -72,6 +74,7 @@ internal object ProviderSourceRegistry {
         return when {
             httpUrl.host == "api.openai.com" -> ProviderSourceTypes.OPENAI
             httpUrl.host == "api.anthropic.com" -> ProviderSourceTypes.ANTHROPIC
+            httpUrl.host == "generativelanguage.googleapis.com" -> ProviderSourceTypes.GEMINI
             httpUrl.host == "api.deepseek.com" -> ProviderSourceTypes.DEEPSEEK
             httpUrl.host == "api.moonshot.cn" -> ProviderSourceTypes.MOONSHOT
             httpUrl.host == "api.moonshot.ai" -> ProviderSourceTypes.MOONSHOT

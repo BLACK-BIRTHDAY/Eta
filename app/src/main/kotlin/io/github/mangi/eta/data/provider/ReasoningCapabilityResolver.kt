@@ -64,6 +64,17 @@ internal object ReasoningCapabilityResolver {
                     )
                 else -> null
             }
+            ProviderSourceTypes.GEMINI -> when {
+                model.contains("gemini-2.5") || model.contains("gemini-3") ->
+                    capabilities(
+                        supported = emptyList(),
+                        canDisable = true,
+                        supportsBudget = true,
+                        maxBudgetTokens = 65_536,
+                    )
+                else -> null
+            }
+
 
             ProviderSourceTypes.BAILIAN -> when {
                 model.startsWith("qwen3.7-") -> capabilities(
@@ -77,6 +88,17 @@ internal object ReasoningCapabilityResolver {
                 model.startsWith("kimi-k2.6") -> capabilities(emptyList(), canDisable = true)
                 else -> null
             }
+            ProviderSourceTypes.GEMINI -> when {
+                model.contains("gemini-3.7") || model.contains("gemini-3.5") -> capabilities(
+                    supported = lowToMax,
+                    canDisable = true,
+                    supportsBudget = true,
+                    maxBudgetTokens = 65_536,
+                    defaultEffort = ReasoningEffort.HIGH,
+                )
+                else -> null
+            }
+
 
             ProviderSourceTypes.DEEPSEEK -> when {
                 model.startsWith("deepseek-v4-flash") ->

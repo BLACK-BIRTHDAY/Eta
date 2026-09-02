@@ -16,9 +16,20 @@ internal object ProviderUrls {
     fun anthropicMessagesUrl(baseUrl: String): String =
         appendPath(baseUrl, "v1/messages")
 
-    fun anthropicModelsUrl(baseUrl: String): String =
-        appendPath(baseUrl, "v1/models")
+   fun anthropicModelsUrl(baseUrl: String): String =
+       appendPath(baseUrl, "v1/models")
 
-    private fun appendPath(baseUrl: String, path: String): String =
+   fun geminiStreamGenerateContentUrl(baseUrl: String, model: String): String =
+       appendPath(baseUrl, "v1beta/models/$model:streamGenerateContent?alt=sse")
+
+   fun geminiModelsUrl(baseUrl: String): String =
+       appendPath(baseUrl, "v1beta/models")
+   fun geminiModelsUrl(baseUrl: String, apiKey: String): String {
+       val base = appendPath(baseUrl, "v1beta/models")
+       return if (apiKey.isNotBlank()) "$base?key=$apiKey" else base
+   }
+
+
+   private fun appendPath(baseUrl: String, path: String): String =
         "${normalizeBaseUrl(baseUrl)}/${path.trimStart('/')}"
 }

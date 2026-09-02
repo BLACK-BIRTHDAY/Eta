@@ -309,6 +309,7 @@ internal object ProviderReasoning {
         return when (sourceType) {
             ProviderSourceTypes.OPENAI -> model.startsWith("gpt-5") || model.startsWith("o")
             ProviderSourceTypes.ANTHROPIC -> model.startsWith("claude-")
+            ProviderSourceTypes.GEMINI -> model.contains("gemini-2.5") || model.contains("gemini-3")
             ProviderSourceTypes.BAILIAN ->
                 model.startsWith("qwen3.7-") ||
                     model.startsWith("qwen3.8-") ||

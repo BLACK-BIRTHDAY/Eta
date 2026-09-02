@@ -1,0 +1,565 @@
+{
+  "nodes": [
+    {
+      "id": "github_releasing",
+      "label": "Release Guide",
+      "file_type": "document",
+      "source_file": "D:\\AI\\Xposed\\ETA\\.github\\RELEASING.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "github_workflows_android_release",
+      "label": "GitHub Action: Android Release",
+      "file_type": "document",
+      "source_file": "D:\\AI\\Xposed\\ETA\\.github\\workflows\\android-release.yml",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_eta_project",
+      "label": "ETA (Enhanced Task Assistant)",
+      "file_type": "document",
+      "source_file": "D:\\AI\\Xposed\\ETA\\README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_architecture_overview",
+      "label": "ETA Architecture Overview",
+      "file_type": "rationale",
+      "source_file": "D:\\AI\\Xposed\\ETA\\README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_src_main_assets_builtin_skills_self_improving_agent_skill",
+      "label": "Built-in Skill: Self Improving Agent",
+      "file_type": "document",
+      "source_file": "D:\\AI\\Xposed\\ETA\\app\\src\\main\\assets\\builtin_skills\\self-improving-agent\\SKILL.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_src_main_assets_builtin_skills_skill_creator_skill",
+      "label": "Built-in Skill: Skill Creator",
+      "file_type": "document",
+      "source_file": "D:\\AI\\Xposed\\ETA\\app\\src\\main\\assets\\builtin_skills\\skill-creator\\SKILL.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "app_src_main_assets_builtin_skills_skill_installer_skill",
+      "label": "Built-in Skill: Skill Installer",
+      "file_type": "document",
+      "source_file": "D:\\AI\\Xposed\\ETA\\app\\src\\main\\assets\\builtin_skills\\skill-installer\\SKILL.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_agent_runtime",
+      "label": "Agent Runtime Architecture",
+      "file_type": "document",
+      "source_file": "D:\\AI\\Xposed\\ETA\\docs\\AGENT_RUNTIME.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_technical_architecture",
+      "label": "ETA Technical Specification",
+      "file_type": "document",
+      "source_file": "D:\\AI\\Xposed\\ETA\\docs\\TECHNICAL.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "doc:README_EN.md",
+      "label": "README_EN.md",
+      "node_type": "document",
+      "source_file": "README_EN.md",
+      "properties": {
+        "description": "# Eta\n\n[简体中文](README.md) | **English**\n\n<p><img src=\"https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white\" alt=\"Kotlin 2.4.10\"> <img src=\"https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white\" alt=\"AGP 9.3.2\"> <img src=\"https://img.shields.io/bad"
+      }
+    },
+    {
+      "id": "doc:docs/THIRD_PARTY_NOTICES.md",
+      "label": "THIRD_PARTY_NOTICES.md",
+      "node_type": "document",
+      "source_file": "docs/THIRD_PARTY_NOTICES.md",
+      "properties": {
+        "description": "# 第三方声明\n\n## Miuix\n\nEta 的应用界面使用 [Miuix](https://github.com/compose-miuix-ui/miuix)，其采用 [Apache License 2.0](https://github.com/compose-miuix-ui/miuix/blob/main/LICENSE)。\n\n## Android Hidden API Bypass\n\nEta 使用 [Android Hidden API Bypass](https://github.com/LSPosed/AndroidHiddenApiBypass) 应用用户选择的预测性返回设置"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_chatglm.webp",
+      "label": "model_logo_chatglm.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_chatglm.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_claude.webp",
+      "label": "model_logo_claude.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_claude.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_doubao.webp",
+      "label": "model_logo_doubao.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_doubao.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_gemini.webp",
+      "label": "model_logo_gemini.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_gemini.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_gemma.webp",
+      "label": "model_logo_gemma.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_gemma.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_grok.webp",
+      "label": "model_logo_grok.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_grok.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_hunyuan.webp",
+      "label": "model_logo_hunyuan.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_hunyuan.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_meta.webp",
+      "label": "model_logo_meta.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_meta.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_mistral.webp",
+      "label": "model_logo_mistral.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_mistral.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_qwen.webp",
+      "label": "model_logo_qwen.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_qwen.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_yi.webp",
+      "label": "model_logo_yi.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_yi.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_zai.webp",
+      "label": "model_logo_zai.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/model_logo_zai.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_anthropic.webp",
+      "label": "provider_logo_anthropic.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_anthropic.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_bailian.webp",
+      "label": "provider_logo_bailian.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_bailian.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_deepseek.webp",
+      "label": "provider_logo_deepseek.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_deepseek.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_gemini.webp",
+      "label": "provider_logo_gemini.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_gemini.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_kimi.webp",
+      "label": "provider_logo_kimi.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_kimi.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_mimo.webp",
+      "label": "provider_logo_mimo.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_mimo.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_minimax.webp",
+      "label": "provider_logo_minimax.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_minimax.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_openai.webp",
+      "label": "provider_logo_openai.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_openai.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_openrouter.webp",
+      "label": "provider_logo_openrouter.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_openrouter.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_siliconflow.webp",
+      "label": "provider_logo_siliconflow.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_siliconflow.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_stepfun.webp",
+      "label": "provider_logo_stepfun.webp",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/drawable-xxxhdpi/provider_logo_stepfun.webp",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "label": "ic_launcher.png",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/mipmap-hdpi/ic_launcher.png",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+      "label": "ic_launcher_round.png",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/mipmap-hdpi/ic_launcher_round.png",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "label": "ic_launcher.png",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/mipmap-mdpi/ic_launcher.png",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+      "label": "ic_launcher_round.png",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/mipmap-mdpi/ic_launcher_round.png",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "label": "ic_launcher.png",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/mipmap-xhdpi/ic_launcher.png",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+      "label": "ic_launcher_round.png",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "label": "ic_launcher.png",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/mipmap-xxhdpi/ic_launcher.png",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "label": "ic_launcher_round.png",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "label": "ic_launcher.png",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "label": "ic_launcher_round.png",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/docs/Screenshots/chat_breeno_analysis.jpg",
+      "label": "chat_breeno_analysis.jpg",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/docs/Screenshots/chat_breeno_analysis.jpg",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/docs/Screenshots/chat_device_direct.jpg",
+      "label": "chat_device_direct.jpg",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/docs/Screenshots/chat_device_direct.jpg",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/docs/Screenshots/chat_home.jpg",
+      "label": "chat_home.jpg",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/docs/Screenshots/chat_home.jpg",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/docs/Screenshots/demo_gui_agent.gif",
+      "label": "demo_gui_agent.gif",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/docs/Screenshots/demo_gui_agent.gif",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/docs/Screenshots/demo_tools.gif",
+      "label": "demo_tools.gif",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/docs/Screenshots/demo_tools.gif",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/docs/Screenshots/settings.jpg",
+      "label": "settings.jpg",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/docs/Screenshots/settings.jpg",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/docs/Screenshots/skills.jpg",
+      "label": "skills.jpg",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/docs/Screenshots/skills.jpg",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    },
+    {
+      "id": "image:D:/AI/Xposed/ETA/docs/Screenshots/tools.jpg",
+      "label": "tools.jpg",
+      "node_type": "image",
+      "source_file": "D:/AI/Xposed/ETA/docs/Screenshots/tools.jpg",
+      "properties": {
+        "kind": "drawable_or_screenshot"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "github_releasing",
+      "target": "github_workflows_android_release",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\AI\\Xposed\\ETA\\.github\\RELEASING.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "readme_architecture_overview",
+      "target": "readme_eta_project",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\AI\\Xposed\\ETA\\README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "app_src_main_assets_builtin_skills_self_improving_agent_skill",
+      "target": "docs_agent_runtime",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\AI\\Xposed\\ETA\\app\\src\\main\\assets\\builtin_skills\\self-improving-agent\\SKILL.md",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "app_src_main_assets_builtin_skills_skill_creator_skill",
+      "target": "docs_agent_runtime",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\AI\\Xposed\\ETA\\app\\src\\main\\assets\\builtin_skills\\skill-creator\\SKILL.md",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "app_src_main_assets_builtin_skills_skill_installer_skill",
+      "target": "docs_agent_runtime",
+      "relation": "conceptually_related_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "D:\\AI\\Xposed\\ETA\\app\\src\\main\\assets\\builtin_skills\\skill-installer\\SKILL.md",
+      "source_location": null,
+      "weight": 0.85
+    },
+    {
+      "source": "docs_agent_runtime",
+      "target": "docs_technical_architecture",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\AI\\Xposed\\ETA\\docs\\AGENT_RUNTIME.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "docs_technical_architecture",
+      "target": "readme_eta_project",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "D:\\AI\\Xposed\\ETA\\docs\\TECHNICAL.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [],
+  "input_tokens": 0,
+  "output_tokens": 0
+}
