@@ -105,6 +105,15 @@ internal fun ModelProviderListScreen(
                     },
                     onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Anthropic)) },
                 )
+                ProviderDivider()
+                ArrowPreference(
+                    title = stringResource(R.string.ui_new_gemini),
+                    summary = stringResource(R.string.ui_support_gemini_official_or_compatible_api),
+                    startAction = {
+                        ProviderBrandIcon(ProviderSourceTypes.GOOGLE)
+                    },
+                    onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Gemini)) },
+                )
             }
         }
 

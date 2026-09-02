@@ -42,6 +42,7 @@ import com.composables.icons.lucide.R as LucideR
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.CustomProviderSetting
+import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
 import io.github.mangi.eta.data.model.ProviderSetting
@@ -100,6 +101,7 @@ private data class ProviderConfigDraft(
                 is OpenAiCompatibleProviderSetting -> provider.endpointMode
                 is CustomProviderSetting -> provider.endpointMode
                 is AnthropicProviderSetting -> ""
+                is GeminiProviderSetting -> ""
             },
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,
             anthropicVersion = (provider as? AnthropicProviderSetting)?.anthropicVersion
@@ -134,6 +136,11 @@ internal fun ModelProviderDetailScreen(
                 id = "",
                 name = "",
                 baseUrl = "https://api.anthropic.com",
+            )
+            NewProviderType.Gemini -> GeminiProviderSetting(
+                id = "",
+                name = "",
+                baseUrl = "https://generativelanguage.googleapis.com",
             )
             null -> null
         }
@@ -297,7 +304,7 @@ private fun ProviderConfigTab(
                         )
                     }
                 }
-                if (provider !is AnthropicProviderSetting) {
+                if (provider !is AnthropicProviderSetting && provider !is GeminiProviderSetting) {
                     HorizontalDivider()
                     WindowSpinnerPreference(
                         items = listOf(
@@ -645,6 +652,13 @@ private fun buildUpdatedProvider(
             systemPrompt = prompt,
             isEnabled = isEnabled,
             anthropicVersion = anthropicVersion.trim().ifBlank { AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION },
+        )
+        is GeminiProviderSetting -> source.copy(
+            name = name.trim(),
+            baseUrl = baseUrl.trim(),
+            apiKey = apiKey.trim(),
+            systemPrompt = prompt,
+            isEnabled = isEnabled,
         )
     }
 }

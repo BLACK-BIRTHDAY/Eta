@@ -364,6 +364,8 @@
   <string name="ui_supports_files_and_folders_under_internal_storage_or_520786">Supports files and folders at any local absolute path</string>
   <string name="ui_support_thinking_5b9e4c">Supports reasoning</string>
   <string name="ui_new_anthropic_db6098">Add Anthropic provider</string>
+  <string name="ui_new_gemini">Add Google Gemini provider</string>
+  <string name="ui_support_gemini_official_api">Support Google Gemini 3.x / 2.5 official API</string>
   <string name="ui_added_openai_compatible_6bd471">Add OpenAI-compatible provider</string>
   <string name="ui_add_new_provider_74df54">Add new provider</string>
   <string name="ui_accessibility_enhancement_tools_8fd257">Accessibility enhancement tools</string>
