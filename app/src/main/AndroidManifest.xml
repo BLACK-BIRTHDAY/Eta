@@ -19,6 +19,10 @@
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <permission
         android:name="io.github.mangi.eta.permission.CONTROL_ACCESSIBILITY_PROTECTION"
@@ -116,7 +120,12 @@
         <service
             android:name=".agent.runtime.AgentRuntimeService"
             android:exported="true"
-            tools:ignore="ExportedService" />
+            android:foregroundServiceType="specialUse"
+            tools:ignore="ExportedService">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Agent runtime execution and live updates" />
+        </service>
 
         <service
             android:name=".agent.accessibility.AgentAccessibilityService"

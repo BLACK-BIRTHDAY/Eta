@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34">
   <img src="https://img.shields.io/badge/Gemini%203.x-Native%201M%20Context-4285F4?logo=google&amp;logoColor=white" alt="Gemini 3.x Native">
   <img src="https://img.shields.io/badge/Zero--Copy%20IPC-Pipe%202M%20Chars-FF6F00" alt="Zero-Copy IPC">
+  <img src="https://img.shields.io/badge/ColorOS%2016-Fluid%20Cloud%20LiveAlert-00C853" alt="ColorOS 16 Fluid Cloud">
   <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS">
 </p>
 
@@ -19,12 +20,14 @@ With Root and LSPosed, Eta crosses the app sandbox and works at the system layer
 > 🌟 **Key Enhancements in this Fork**
 > 1. **💎 Native Google Gemini 3.x Protocol Integration**: Full support for native `generateContent` endpoints with official branding; 1M ultra-long context window (`gemini-3.8-flash-tiered`), native adaptive thinking budget (`-1`, `0`, tiered steps), multimodal image generation with `inlineData` Base64 stream live-rendered into Markdown images, and dual authentication (`x-goog-api-key` for official endpoints + `Bearer` token for proxy gateways).
 > 2. **⚡ Zero-Copy Pipe IPC Architecture**: Completely breaks through Android's 1MB Binder transaction limit. Transcripts exceeding 32KB automatically stream over a kernel pipe (`ParcelFileDescriptor.createPipe()`), lifting context capacity up to 2,000,000 characters; atomic `user`-turn boundary truncation prevents orphaned tool-result syntax errors.
-> 3. **💳 ColorOS Double-Click Power Button for Wallet**: Deeply hooks ColorOS system input dispatch. Double-click the power button in any state (screen off, lock screen, or app in foreground) to instantly bring up Google Wallet or OnePlus Wallet.
+> 3. **🌊 ColorOS 16 / Android 16 Native Fluid Cloud (Live Updates)**: Full integration with Android 16 `POST_PROMOTED_NOTIFICATIONS` specifications and ColorOS 16 Pantanal LiveAlert architecture. As the agent plans, writes code, or runs terminal tests, a live breathing capsule animates beside the punch-hole camera; includes lockscreen frosted cards, AOD micro-badges, and tap-to-open ColorOS Freeform Floating Windows with 8s auto-dismiss upon completion.
+> 4. **💳 ColorOS Double-Click Power Button for Wallet**: Deeply hooks ColorOS system input dispatch. Double-click the power button in any state (screen off, lock screen, or app in foreground) to instantly bring up Google Wallet or OnePlus Wallet.
 
 ---
 
 - **Direct system APIs** — alarms, media, volume, Wi-Fi, and more, callable directly by the model
 - **Personal context** — photos, calendar, SMS, notifications, recordings, health summaries, ColorOS system memory, and recent QQ / WeChat chat images, read on demand
+- **Native ColorOS 16 Fluid Cloud** — real-time capsule animations for thinking, code modification, and terminal execution, seamlessly rendered across status bar, lockscreen, and AOD
 - **Native Google Gemini support** — native Google Gemini 3.x / GenAI protocol support (generateContent) with 1M context windows, adaptive thinking budget, and native multimodal image generation with Markdown streaming render
 - **Zero-Copy Pipe IPC** — Linux kernel pipe streaming bypasses Android's 1MB Binder transaction limit, easily powering 2,000,000-character context with atomic round-level truncation
 - **Built-in browser** — loads pages in the background, extracts content, and interacts with page elements; the user can take over when needed
@@ -119,6 +122,18 @@ This fork integrates Google Gemini alongside OpenAI and Anthropic as a first-cla
 Designed for quick mobile transit and tap-to-pay on ColorOS (OPPO / OnePlus):
 - From any state (**screen off, lock screen, home screen, or inside any app**), double-clicking the power button instantly launches **Google Wallet** or **OnePlus Wallet**.
 - Tap transit gates or payment terminals without unlocking or searching for apps.
+
+---
+
+### 4. Native ColorOS 16 / Android 16 Fluid Cloud & Live Updates
+
+Eliminating the need for fragile SystemUI decompilation, this fork natively harnesses Android 16's official Live Updates specifications while integrating with ColorOS 16's Pantanal Fluid Cloud engine:
+- **Official Privilege Declaration**: Declares Android 16's new `android.permission.POST_PROMOTED_NOTIFICATIONS` permission, legally registering Eta in the system's "Fluid Cloud Live Activities" roster.
+- **Google Maps-Grade Parameters**: Injects `setRequestPromotedOngoing(true)`, `FLAG_PROMOTED_ONGOING` (`0x40000`), and `ProgressStyle` templates under `CATEGORY_NAVIGATION` during foreground operations to trigger top-tier live capsule transitions.
+- **Compact Precision Typography & 500ms Damping**:
+  - Automatically formats the collapsed capsule state with concise verbs and file targets (`[🧠 Planning]`, `[📝 Writing: AuthService.kt (2/5)]`, `[🔨 Running: gradlew]`).
+  - Employs 500ms damping to ensure instant transitions on major milestones while preventing status-bar frame drops during heavy output.
+- **Lockscreen Cards, Freeform Windows & Elegant Dismissal**: Renders frosted translucent progress cards on the lockscreen; tapping the capsule instantly invokes Eta as a **ColorOS Freeform Floating Window** for seamless multitasking; gracefully auto-dismisses 8 seconds after completion.
 
 ---
 

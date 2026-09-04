@@ -101,12 +101,31 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     private var lastCompletedRunContext: CompletedRunContext? = null
     private val hideToken = Any()
 
+    private val cancelReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == EtaLiveUpdateManager.ACTION_CANCEL_RUN) {
+                val runId = intent.getStringExtra(EtaLiveUpdateManager.EXTRA_RUN_ID)
+                if (!runId.isNullOrBlank()) {
+                    cancelRun(runId)
+                }
+            }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         savedStateRegistryController.performRestore(null)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+
+        val filter = android.content.IntentFilter(EtaLiveUpdateManager.ACTION_CANCEL_RUN)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(cancelReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(cancelReceiver, filter)
+        }
+        EtaLiveUpdateManager.initChannel(this)
     }
 
     override fun onBind(intent: Intent): IBinder? {
@@ -153,6 +172,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         bubbleView?.let { view -> runCatching { windowManager?.removeView(view) } }
         orbView?.let { view -> runCatching { windowManager?.removeView(view) } }
         glowView?.let { view -> runCatching { windowManager?.removeView(view) } }
+        runCatching { unregisterReceiver(cancelReceiver) }
+        EtaLiveUpdateManager.dismiss()
         resultCardView = null
         bubbleView = null
         orbView = null
@@ -309,6 +330,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         )
         activeSession = session
         lastCompletedRunContext = null
+        EtaFluidCloudStateMapper.reset(request.runId)
+        EtaLiveUpdateManager.start(this, request.runId, request.prompt)
         runCatching {
             startService(Intent(this, AgentRuntimeService::class.java).setAction(ACTION_KEEP_ALIVE))
         }.onFailure { throwable ->
@@ -390,6 +413,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 hasExecutedForegroundTool = true
             }
             if (session.isTerminal) return@post
+            EtaFluidCloudStateMapper.onAgentEvent(session.runId, event)
             runCatching {
                 state.value = state.value.applyEvent(event)
                 if (revealsForegroundOperation && entrySurfaceReady) {
@@ -458,6 +482,12 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                         keepVisible = entrySurfaceGuard?.wasTriggered == true,
                     )
                 }
+                val summary = if (result.ok) {
+                    result.content.trim().ifBlank { state.value.detailText }
+                } else {
+                    result.error.orEmpty()
+                }
+                EtaLiveUpdateManager.finish(result.runId, result.ok, summary)
             }.onFailure { throwable ->
                 AndroidAgentLogger.warnThrottled("runtime_terminal_overlay_failed") {
                     "Agent runtime terminal overlay failed: type=${throwable.safeLogType()}"

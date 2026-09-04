@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34">
   <img src="https://img.shields.io/badge/Gemini%203.x-Native%201M%20Context-4285F4?logo=google&amp;logoColor=white" alt="Gemini 3.x Native">
   <img src="https://img.shields.io/badge/Zero--Copy%20IPC-Pipe%202M%20Chars-FF6F00" alt="Zero-Copy IPC">
+  <img src="https://img.shields.io/badge/ColorOS%2016-Fluid%20Cloud%20LiveAlert-00C853" alt="ColorOS 16 Fluid Cloud">
   <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS">
 </p>
 
@@ -19,12 +20,14 @@ Eta 借助 Root 与 LSPosed 越过 App 沙盒，直接进入系统底层：Hook 
 > 🌟 **本分支专属核心增强速览**
 > 1. **💎 Google Gemini 3.x 原生协议全要素支持**：直接对接原生 `generateContent` 端点；内置彩钻标识，支持 1M 超大上下文 (`gemini-3.8-flash-tiered`)、原生自适应 Thinking 预算控制（`-1`/`0`/阶梯）、多模态生图与 `inlineData` Base64 实时 Markdown 图片渲染、官方 Key + 代理网关 Bearer 双重认证。
 > 2. **⚡ 内核管道 Zero-Copy Pipe IPC**：彻底终结 Android 1MB Binder 事务物理限制。会话历史超 32KB 自动切换为 `ParcelFileDescriptor.createPipe()` 内核流式传输，支持高达 2,000,000 字符超长上下文；智能 `user` 轮次原子裁剪边界，杜绝断头 400 语法错误。
-> 3. **💳 ColorOS 双击电源键直达钱包**：深度 Hook ColorOS 系统输入分发，双击电源键无论在锁屏还是亮屏状态，瞬间拉起 Google 钱包或一加钱包，支付出行一触即达。
+> 3. **🌊 ColorOS 16 / Android 16 原生流体云与实时胶囊**：全面接入 Android 16 `POST_PROMOTED_NOTIFICATIONS` 规范与 ColorOS 16 官方实况架构。在 Agent 执行构思思考、代码编辑写入、终端命令测试时，状态栏挖孔旁实时升起动态呼吸胶囊；支持锁屏磨砂卡片、AOD 静态微标、点击以 ColorOS 自由小窗弹出交互，任务完成后 8 秒优雅自动收回。
+> 4. **💳 ColorOS 双击电源键直达钱包**：深度 Hook ColorOS 系统输入分发，双击电源键无论在锁屏还是亮屏状态，瞬间拉起 Google 钱包或一加钱包，支付出行一触即达。
 
 ---
 
 - **系统 API 直达**：闹钟、媒体、音量、Wi‑Fi 等系统能力，模型可直接调用
 - **个人上下文**：相册、日历、短信、通知、录音、健康摘要、ColorOS 系统记忆、QQ / 微信聊天图片等本机数据，模型按需读取
+- **ColorOS 16 原生流体云**：代码修改、终端执行与长思考全阶段胶囊动态流转，状态栏、锁屏与 AOD 无缝呈现，支持自由小窗交互
 - **Google Gemini 原生支持**：原生接入 Google Gemini 3.x / GenAI 协议，支持百万级上下文、自适应 Thinking 思考预算、原生多模态生图与图片 Markdown 实时渲染
 - **Zero-Copy Pipe 内核通信**：内核管道流式传输突破 Android 1MB Binder 物理限制，轻松承载 200 万字符超长上下文与原子级智能裁剪
 - **内置浏览器**：后台加载网页、提取正文、操作页面元素，需要时可由用户直接接管
@@ -120,6 +123,18 @@ Agent 不会问一句答一句就结束：模型发指令，Eta 执行，结果�
 针对 ColorOS（OPPO / 一加）用户日常高频的刷卡与支付痛点，利用 LSPosed 深度 Hook 系统底层按键分发逻辑：
 - 任意状态（**熄屏、锁屏密码界面、桌面或运行任意 App 期间**），只需双击电源键即可瞬间拉起 **Google 钱包** 或 **一加/欢太钱包**。
 - 地铁闸机、公交刷卡、便利店闪付不再需要在桌面上翻找 App，抬手即可完成挥卡。
+
+---
+
+### 4. ColorOS 16 / Android 16 原生流体云与实况胶囊深度适配
+
+无需重度反编译 SystemUI 带来系统崩溃隐患，本分支全面打通 Android 16 官方 Live Updates 规范并深度契合 ColorOS 16 潘塔纳尔流体云引擎：
+- **官方特权声明**：显式声明 Android 16 全新 `android.permission.POST_PROMOTED_NOTIFICATIONS` 权限，让 Eta 拥有合法资格出现在系统的“流体云显示实时活动”准入清单中。
+- **Google Maps 级原生通道参数**：在前台服务运行期间，注入 `setRequestPromotedOngoing(true)`、`FLAG_PROMOTED_ONGOING`（`0x40000`）及 `ProgressStyle` 模板，以 `CATEGORY_NAVIGATION` 唤醒系统最高级别的实况胶囊流。
+- **紧凑精细排版与 500ms 阻尼节流**：
+  - 胶囊收起态自动呈现精炼动词与核心文件名（例如 `[🧠 构思中]`、`[📝 写入: AuthService.kt (2/5)]`、`[🔨 执行: gradlew]`）。
+  - 内置 500ms 阻尼防抖，大阶段（思考/编码/测试）秒级跃迁，耗时阶段平滑更新，绝不引起状态栏帧率抖动。
+- **锁屏卡片、自由小窗与优雅退出**：锁屏呈现半透明实时进度卡片；点击胶囊直接以 **ColorOS 自由小窗** 原地呼出 Eta 进行交互与打断；任务成功后 8 秒自动优雅收回。
 
 ---
 
