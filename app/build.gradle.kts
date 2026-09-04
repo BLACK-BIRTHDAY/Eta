@@ -25,6 +25,7 @@ java {
 android {
     namespace = "io.github.mangi.eta"
     compileSdk = 37
+    compileSdkMinor = 1
 
     defaultConfig {
         applicationId = "io.github.mangi.eta"
@@ -36,13 +37,13 @@ android {
     }
 
     signingConfigs {
-        if (hasReleaseSigning) {
-            create("release") {
-                storeFile = file(requireNotNull(releaseStoreFile))
-                storePassword = releaseStorePassword
-                keyAlias = releaseKeyAlias
-                keyPassword = releaseKeyPassword
-            }
+        create("release") {
+            val defaultStore = "${System.getProperty("user.home")}/.android/debug.keystore"
+            val store = releaseStoreFile?.takeIf { it.isNotBlank() } ?: defaultStore
+            storeFile = file(store)
+            storePassword = releaseStorePassword?.takeIf { it.isNotBlank() } ?: "android"
+            keyAlias = releaseKeyAlias?.takeIf { it.isNotBlank() } ?: "androiddebugkey"
+            keyPassword = releaseKeyPassword?.takeIf { it.isNotBlank() } ?: "android"
         }
     }
 
@@ -52,7 +53,7 @@ android {
             isPseudoLocalesEnabled = true
         }
         release {
-            signingConfig = signingConfigs.findByName("release")
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -63,8 +64,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_25
-        targetCompatibility = JavaVersion.VERSION_25
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 
     buildFeatures {
