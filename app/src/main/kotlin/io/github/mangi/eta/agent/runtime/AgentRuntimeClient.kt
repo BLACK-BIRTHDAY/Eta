@@ -70,13 +70,14 @@ internal class AgentRuntimeClient(
             }
         }
 
+        val preparedHistory = AgentRuntimeWire.prepareHistory(request.history)
         try {
             lease.binder.linkToDeath(deathRecipient, 0)
             val msg = Message.obtain(null, AgentRuntimeWire.MSG_START_RUN)
             msg.replyTo = clientMessenger
             val preparedImages = AgentRuntimeImageTransfer.prepare(context, request.images)
             preparedImagesRef.set(preparedImages)
-            msg.data = AgentRuntimeWire.toBundle(request, preparedImages.images)
+            msg.data = AgentRuntimeWire.toBundle(request, preparedImages.images, preparedHistory)
             serviceMessenger.send(msg)
             if (!resultLatch.await(RUN_TIMEOUT_MINUTES, TimeUnit.MINUTES)) {
                 runCatching {
@@ -113,6 +114,7 @@ internal class AgentRuntimeClient(
                 },
             )
         } finally {
+            preparedHistory.close()
             preparedImagesRef.getAndSet(null)?.close()
             runCatching { lease.binder.unlinkToDeath(deathRecipient, 0) }
             lease.close()

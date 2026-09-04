@@ -13,6 +13,7 @@ import io.github.mangi.eta.data.model.ModelReasoningCapabilities
 import io.github.mangi.eta.data.model.ReasoningEffort
 import java.io.Closeable
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.thread
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -104,6 +105,7 @@ internal object AgentRuntimeWire {
     private const val KEY_CUSTOM_BODY_JSON = "custom_body_json"
     private const val KEY_IMAGES = "images"
     private const val KEY_HISTORY = "history"
+    const val KEY_HISTORY_FD = "history_fd"
     private const val KEY_CONTENT_JSON = "content_json"
     private const val KEY_TOOL_CALL_ID = "tool_call_id"
     private const val KEY_TOOL_CALLS_JSON = "tool_calls_json"
@@ -173,6 +175,18 @@ internal object AgentRuntimeWire {
         }
     }
 
+    class PreparedHistory(
+        val readFd: ParcelFileDescriptor?,
+        val inlineHistory: ArrayList<Bundle>?,
+    ) : Closeable {
+        private val closed = AtomicBoolean(false)
+
+        override fun close() {
+            if (!closed.compareAndSet(false, true)) return
+            runCatching { readFd?.close() }
+        }
+    }
+
     data class RunResult(
         val runId: String,
         val ok: Boolean,
@@ -203,7 +217,50 @@ internal object AgentRuntimeWire {
         encodeDefaults = false
     }
 
-    fun toBundle(request: RunRequest, images: List<WireImage>): Bundle {
+    fun prepareHistory(history: List<AgentModelClient.ConversationMessage>): PreparedHistory {
+        val ipcMessages = AgentConversationCodec.messagesForIpc(history)
+        val jsonBytes = json.encodeToString(ipcMessages).toByteArray(Charsets.UTF_8)
+        if (jsonBytes.size <= 32 * 1024) {
+            return PreparedHistory(
+                readFd = null,
+                inlineHistory = messagesToBundleList(ipcMessages),
+            )
+        }
+        val pipe = ParcelFileDescriptor.createPipe()
+        val readFd = pipe[0]
+        val writeFd = pipe[1]
+        thread(isDaemon = true, name = "eta-history-pipe-writer") {
+            runCatching {
+                ParcelFileDescriptor.AutoCloseOutputStream(writeFd).use { output ->
+                    output.write(jsonBytes)
+                    output.flush()
+                }
+            }.onFailure {
+                runCatching { writeFd.close() }
+            }
+        }
+        return PreparedHistory(readFd = readFd, inlineHistory = null)
+    }
+
+    private fun messagesToBundleList(
+        messages: List<AgentModelClient.ConversationMessage>,
+    ): ArrayList<Bundle> =
+        ArrayList(messages.map { message ->
+            Bundle().apply {
+                putString(KEY_ROLE, message.role)
+                putString(KEY_CONTENT, message.content)
+                putString(KEY_CONTENT_JSON, message.contentJson)
+                putString(KEY_TOOL_CALL_ID, message.toolCallId)
+                putString(KEY_REASONING_CONTENT, message.reasoningContent)
+                putString(KEY_TOOL_CALLS_JSON, message.toolCallsJson)
+            }
+        })
+
+    fun toBundle(
+        request: RunRequest,
+        images: List<WireImage>,
+        preparedHistory: PreparedHistory? = null,
+    ): Bundle {
         require(images.size == request.images.size) { "图片传输项与请求图片数量不一致" }
         val imageBundles = images.map { image ->
             require((image.remoteUrl == null) xor (image.fileDescriptor == null)) {
@@ -219,11 +276,11 @@ internal object AgentRuntimeWire {
                 putString(KEY_SOURCE, image.source)
             }
         }
-        return requestBundle(request, imageBundles)
+        return toBundle(request, imageBundles, preparedHistory)
     }
 
     /** 兼容旧客户端与协议测试；新请求不得通过 Binder 内联图片正文。 */
-    fun toLegacyBundle(request: RunRequest): Bundle = requestBundle(
+    fun toLegacyBundle(request: RunRequest): Bundle = toBundle(
         request = request,
         imageBundles = request.images.map { image ->
             Bundle().apply {
@@ -237,7 +294,12 @@ internal object AgentRuntimeWire {
         },
     )
 
-    private fun requestBundle(request: RunRequest, imageBundles: List<Bundle>): Bundle = Bundle().apply {
+    @JvmName("toBundleFromImageBundles")
+    fun toBundle(
+        request: RunRequest,
+        imageBundles: List<Bundle>,
+        preparedHistory: PreparedHistory? = null,
+    ): Bundle = Bundle().apply {
         putString(KEY_RUN_ID, request.runId)
         putString(KEY_PROMPT, request.prompt)
         putString(KEY_PROVIDER_ID, request.config.providerId)
@@ -267,22 +329,21 @@ internal object AgentRuntimeWire {
         putString(KEY_CUSTOM_HEADERS_JSON, json.encodeToString(request.config.customHeaders))
         putString(KEY_CUSTOM_BODY_JSON, json.encodeToString(request.config.customBody))
         request.handoff?.let { putBundle(KEY_HANDOFF, toBundle(it)) }
-        putParcelableArrayList(
-            KEY_HISTORY,
-            ArrayList(AgentConversationCodec.messagesForIpc(request.history).map { message ->
-                Bundle().apply {
-                    putString(KEY_ROLE, message.role)
-                    putString(KEY_CONTENT, message.content)
-                    putString(KEY_CONTENT_JSON, message.contentJson)
-                    putString(KEY_TOOL_CALL_ID, message.toolCallId)
-                    putString(KEY_REASONING_CONTENT, message.reasoningContent)
-                    putString(KEY_TOOL_CALLS_JSON, message.toolCallsJson)
-                }
-            })
-        )
+
+        if (preparedHistory?.readFd != null) {
+            putParcelable(KEY_HISTORY_FD, preparedHistory.readFd)
+        } else if (preparedHistory?.inlineHistory != null) {
+            putParcelableArrayList(KEY_HISTORY, preparedHistory.inlineHistory)
+        } else {
+            putParcelableArrayList(
+                KEY_HISTORY,
+                messagesToBundleList(AgentConversationCodec.messagesForIpc(request.history)),
+            )
+        }
+
         putParcelableArrayList(
             KEY_IMAGES,
-            ArrayList(imageBundles)
+            ArrayList(imageBundles),
         )
     }.also(::requireStartRequestWithinBinderBudget)
 
@@ -322,6 +383,7 @@ internal object AgentRuntimeWire {
             bundle?.getParcelableArrayList(KEY_IMAGES, Bundle::class.java).orEmpty().forEach { image ->
                 image.getParcelable(KEY_IMAGE_FD, ParcelFileDescriptor::class.java)?.close()
             }
+            bundle?.getParcelable(KEY_HISTORY_FD, ParcelFileDescriptor::class.java)?.close()
         }
     }
 
@@ -397,15 +459,27 @@ internal object AgentRuntimeWire {
                 customHeaders = decodeCustomHeaders(bundle.getString(KEY_CUSTOM_HEADERS_JSON)),
                 customBody = decodeCustomBody(bundle.getString(KEY_CUSTOM_BODY_JSON))
             ),
-            history = bundle.getParcelableArrayList(KEY_HISTORY, Bundle::class.java).orEmpty().map { message ->
-                AgentModelClient.ConversationMessage(
-                    role = message.getString(KEY_ROLE).orEmpty(),
-                    content = message.getString(KEY_CONTENT).orEmpty(),
-                    contentJson = message.getString(KEY_CONTENT_JSON).orEmpty(),
-                    toolCallId = message.getString(KEY_TOOL_CALL_ID).orEmpty(),
-                    reasoningContent = message.getString(KEY_REASONING_CONTENT).orEmpty(),
-                    toolCallsJson = message.getString(KEY_TOOL_CALLS_JSON).orEmpty(),
-                )
+            history = if (bundle.containsKey(KEY_HISTORY_FD)) {
+                val pfd = bundle.getParcelable(KEY_HISTORY_FD, ParcelFileDescriptor::class.java)
+                if (pfd != null) {
+                    ParcelFileDescriptor.AutoCloseInputStream(pfd).use { input ->
+                        val jsonString = input.bufferedReader(Charsets.UTF_8).readText()
+                        AgentConversationCodec.decodeTranscript(jsonString)
+                    }
+                } else {
+                    emptyList()
+                }
+            } else {
+                bundle.getParcelableArrayList(KEY_HISTORY, Bundle::class.java).orEmpty().map { message ->
+                    AgentModelClient.ConversationMessage(
+                        role = message.getString(KEY_ROLE).orEmpty(),
+                        content = message.getString(KEY_CONTENT).orEmpty(),
+                        contentJson = message.getString(KEY_CONTENT_JSON).orEmpty(),
+                        toolCallId = message.getString(KEY_TOOL_CALL_ID).orEmpty(),
+                        reasoningContent = message.getString(KEY_REASONING_CONTENT).orEmpty(),
+                        toolCallsJson = message.getString(KEY_TOOL_CALLS_JSON).orEmpty(),
+                    )
+                }
             },
             images = images,
             handoff = bundle.getBundle(KEY_HANDOFF)?.let(::entryHandoffFromBundle)

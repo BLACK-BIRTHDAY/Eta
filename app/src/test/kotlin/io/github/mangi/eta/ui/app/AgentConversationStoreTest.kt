@@ -257,7 +257,7 @@ class AgentConversationStoreTest {
     fun saveBoundsConversationCheckpointWithoutClippingDisplayedMessages() {
         val displayedContent = "展示消息-${"d".repeat(120_000)}"
         val history = buildList {
-            repeat(20) { index ->
+            repeat(110) { index ->
                 add(
                     AgentModelClient.ConversationMessage(
                         role = "assistant",

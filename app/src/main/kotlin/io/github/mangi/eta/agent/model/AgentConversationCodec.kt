@@ -8,10 +8,10 @@ import org.json.JSONTokener
 
 /** Provider JSON 与 Eta 稳定会话 DTO 之间的唯一转换和容量边界。 */
 internal object AgentConversationCodec {
-    internal const val MAX_IPC_TRANSCRIPT_CHARS = 96_000
+    internal const val MAX_IPC_TRANSCRIPT_CHARS = 2_000_000
     internal const val MAX_DRAIN_TRANSCRIPT_CHARS = 16_000
     internal const val MAX_STORAGE_TRANSCRIPT_CHARS = 1_000_000
-    internal const val MAX_CONVERSATION_CHECKPOINT_CHARS = 96_000
+    internal const val MAX_CONVERSATION_CHECKPOINT_CHARS = 2_000_000
 
     private const val MAX_CONTENT_CHARS = 64_000
     private const val MAX_REASONING_CHARS = 64_000
@@ -257,7 +257,9 @@ internal object AgentConversationCodec {
         )
         while (bounded.size > 1) {
             bounded.removeAt(0)
-            while (bounded.firstOrNull()?.role == "tool") bounded.removeAt(0)
+            while (bounded.size > 1 && bounded.first().role != "user") {
+                bounded.removeAt(0)
+            }
             encoded = json.encodeToString(listOf(notice) + bounded)
             if (encoded.length <= maxChars) return encoded
         }

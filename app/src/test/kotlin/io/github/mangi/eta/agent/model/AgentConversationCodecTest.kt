@@ -58,7 +58,7 @@ class AgentConversationCodecTest {
     @Test
     fun ipcTranscriptHasHardBudgetAndNeverStartsWithOrphanToolResult() {
         val messages = buildList {
-            repeat(20) { index ->
+            repeat(60) { index ->
                 add(
                     AgentModelClient.ConversationMessage(
                         role = "assistant",
@@ -89,7 +89,7 @@ class AgentConversationCodecTest {
     @Test
     fun conversationCheckpointHasHardBudgetAndKeepsNewestContext() {
         val messages = buildList {
-            repeat(20) { index ->
+            repeat(110) { index ->
                 add(
                     AgentModelClient.ConversationMessage(
                         role = "assistant",
