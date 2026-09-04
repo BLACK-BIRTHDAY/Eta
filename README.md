@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS">
 </p>
 
-**面向 Android 的第三方系统级 AI Agent（KurumiTokizaki 专属增强版）**
+**面向 Android 的第三方系统级 AI Agent（BLACK-BIRTHDAY 专属增强版）**
 
 Eta 借助 Root 与 LSPosed 越过 App 沙盒，直接进入系统底层：Hook 系统组件，接管电源键与厂商助手入口，读取原厂与第三方应用的私有数据。这些接近原厂、又比原厂更自由的能力，全部开放给你自己接入的模型（ChatGPT、Gemini 3.x、DeepSeek、Kimi 等，自带 API Key——BYOK）。
 

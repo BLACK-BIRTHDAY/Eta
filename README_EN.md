@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS">
 </p>
 
-**A third-party, system-level AI agent for Android (KurumiTokizaki Enhanced Edition)**
+**A third-party, system-level AI agent for Android (BLACK-BIRTHDAY Enhanced Edition)**
 
 With Root and LSPosed, Eta crosses the app sandbox and works at the system layer: hooking system components, taking over the power button and OEM assistant entries, and reading private data from OEM and third-party apps alike. These capabilities—close to an OEM assistant's, yet freer—are all open to the models you connect yourself (ChatGPT, Gemini 3.x, DeepSeek, Kimi, and more, with your own API keys—BYOK):
 
