@@ -10,10 +10,13 @@ With Root and LSPosed, Eta crosses the app sandbox and works at the system layer
 
 - **Direct system APIs** — alarms, media, volume, Wi-Fi, and more, callable directly by the model
 - **Personal context** — photos, calendar, SMS, notifications, recordings, health summaries, ColorOS system memory, and recent QQ / WeChat chat images, read on demand
+- **Native Google Gemini support** — native Google Gemini 3.x / GenAI protocol support (generateContent) with 1M context windows, adaptive thinking budget, and native multimodal image generation with Markdown streaming render
+- **Zero-Copy Pipe IPC** — Linux kernel pipe streaming bypasses Android's 1MB Binder transaction limit, easily powering 2,000,000-character context with atomic round-level truncation
 - **Built-in browser** — loads pages in the background, extracts content, and interacts with page elements; the user can take over when needed
 - **A redesigned terminal** — a terminal experience rethought for mobile: a persistent manual terminal with multiple sessions, an interactive PTY console, durable daemon tasks, shared folders, and Linux file browsing; choose either Alpine or Debian userland
 - **Built-in Kimi Code** — Kimi Code comes preinstalled in the Linux environment, and the mobile-friendly Kimi Web UI launches from the home screen in one tap—smooth Vibe Coding right on your phone
 - **GUI agent** — third-party apps exposing APIs or CLIs would be the ideal path, but the closed mobile ecosystem leaves most apps without any machine interface; and interfaces are designed for people, inherently unfriendly to models. The long tail without an interface is handled by watching the screen and acting on controls
+- **System shortcut enhancements** — double-click power button on ColorOS to directly launch Google Wallet or OnePlus Wallet
 
 Other third-party phone agents serve mainstream users, and mainstream users don't have Root—so their capabilities stay inside the app sandbox, while system entry points and data belong to the vendor. Desktop coding agents (Codex, Claude Code) or OpenClaw, when ported directly onto a phone, remain a lobster trapped in the sandbox: no complete system environment, no way to operate the real Android device. And OEM assistants, constrained by their own ecosystems, don't touch third-party app data.
 
@@ -51,6 +54,7 @@ Eta is not a one-shot chat wrapper: the model issues instructions, Eta executes 
 
 On top of that:
 
+- **Zero-Copy Pipe IPC:** eliminates Android's 1MB Binder transaction limit by automatically streaming conversation history over a `ParcelFileDescriptor.createPipe()` when payload exceeds 32KB; lifts context limit to 2,000,000 characters with atomic `user`-turn boundary truncation to prevent orphan tool-result syntax errors
 - **Long-term memory:** cross-conversation memory lives in one on-device `MEMORY.md`, injected on demand per task; Settings exposes usage, full editing, clearing, and an off switch
 - **Skills:** browse and install Skills from public GitHub repositories or import a local ZIP; the model reads them on demand, and installation never executes packaged scripts
 - **MCP tools:** connect remote Streamable HTTP servers and add individually enabled third-party tools to the Agent Loop; supports HTTP / HTTPS and an optional bearer token
@@ -103,6 +107,10 @@ Under **System assistant takeover** in Eta's Settings, the ColorOS long-press ta
 
 New installations default to Breeno; users who had enabled the former **Launch Gemini with the power button** option remain on Gemini. Automatic default-assistant configuration is a separate option and applies only to Gemini and Eta. If the selected target cannot start, that long press immediately falls back to Breeno. HyperOS power-button routing is not implemented yet.
 
+### ColorOS double-click power button for Wallet
+
+Hooks ColorOS system input dispatch via LSPosed / libxposed, enabling a double-click on the power button to instantly bring up Google Wallet or OnePlus Wallet from either the lock screen or unlocked state.
+
 ### Breeno and Super XiaoAI
 
 - **Breeno (ColorOS):** takes over the conversation entry point, inherits the current conversation's text context, parses image input, and hands the request to the shared Agent Runtime. BYOK is supported, and only requests beginning with `/agent` are claimed by default
@@ -119,8 +127,13 @@ Gemini unlock and Circle to Search were Eta's original Google enablement feature
 
 ## Models and BYOK
 
-- **Protocols:** OpenAI-compatible Chat Completions, Responses API, and Anthropic Messages, with SSE streaming, tool calls, image input, and reasoning content; Responses can show reasoning summaries and enable server-side web search per provider
-- **Built-in providers:** OpenAI, Anthropic, Alibaba Cloud Model Studio, DeepSeek, Kimi, Xiaomi MiMo, MiniMax, StepFun, SiliconFlow, and OpenRouter
+- **Protocols:** Google Gemini native GenerateContent, OpenAI-compatible Chat Completions, Responses API, and Anthropic Messages, with SSE streaming, tool calls (function calling), multimodal image input, and deep reasoning; Gemini supports native adaptive thinking budget and multimodal image generation with streaming Markdown rendering; Responses can show reasoning summaries and enable server-side web search per provider
+- **Built-in providers:** OpenAI, Anthropic, **Google Gemini**, Alibaba Cloud Model Studio, DeepSeek, Kimi, Xiaomi MiMo, MiniMax, StepFun, SiliconFlow, and OpenRouter
+- **Google Gemini 3.x Native Support:**
+  - **Native protocol & branding:** official Gemini diamond logo with native `generateContent` endpoints; auto-applies `x-goog-api-key` for official endpoints (`generativelanguage.googleapis.com`) and supports `Authorization: Bearer` for third-party gateways
+  - **1M context & forward compatibility:** curated models include `gemini-3.8-flash-tiered` (1M context window), `gemini-3.1-flash-image`, and `gemini-3-pro-image`; forward regex matching ensures instant compatibility with upcoming Gemini 4.x
+  - **Native Thinking budget control:** seamlessly integrated with Google's native thinking budget, supporting adaptive thinking (`-1`, default), disable (`0`), and tiered levels (Low 4096 / Medium 16384 / High 32768 / Max 65535)
+  - **Image generation & live rendering:** native image generation support, converting response `inlineData` Base64 into Markdown images for inline display while exempting image models from chat filters
 - **Custom providers:** HTTP/HTTPS base URL, API key, headers, and body JSON; plain HTTP transmits the API key, prompts, and model content without transport encryption
 - **Model management:** bundled official catalogs, remote list sync, custom models, and fuzzy search; context-length and reasoning-effort overrides always win over later remote syncs, and each provider remembers its last selected model
 - **Data backup:** Settings can export or import conversations, model provider configuration, and `MEMORY.md` for package-name changes or device migration; backup files contain provider API keys and should be stored securely

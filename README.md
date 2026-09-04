@@ -10,10 +10,13 @@ Eta 借助 Root 与 LSPosed 越过 App 沙盒，直接进入系统底层：Hook 
 
 - **系统 API 直达**：闹钟、媒体、音量、Wi‑Fi 等系统能力，模型可直接调用
 - **个人上下文**：相册、日历、短信、通知、录音、健康摘要、ColorOS 系统记忆、QQ / 微信聊天图片等本机数据，模型按需读取
+- **Google Gemini 原生支持**：原生接入 Google Gemini 3.x / GenAI 协议，支持百万级上下文、自适应 Thinking 思考预算、原生多模态生图与图片 Markdown 实时渲染
+- **Zero-Copy Pipe 内核通信**：内核管道流式传输突破 Android 1MB Binder 物理限制，轻松承载 200 万字符超长上下文与原子级智能裁剪
 - **内置浏览器**：后台加载网页、提取正文、操作页面元素，需要时可由用户直接接管
 - **全新终端**：为移动设备重新设计的终端体验——常驻手动终端、多会话切换、交互式 PTY 控制台、可持久化守护任务、共享文件夹与文件浏览；Linux 环境在 Alpine 与 Debian 之间二选一
 - **内置 Kimi Code**：Linux 环境预制 Kimi Code 安装，配合完美适配移动端的 Kimi Web UI 一键启动，手机上也能享受丝滑的 Vibe Coding
 - **GUI Agent**：第三方 App 直接开放 API / CLI 才是最理想的路径，但移动互联网生态封闭，绝大多数应用没有任何机器接口；界面又是为人设计的，对模型天生不友好。没有接口的长尾场景，只能由 Agent 看屏幕、找控件、执行操作
+- **系统快捷增强**：支持 ColorOS 双击电源键直接拉起 Google / 一加钱包，日常使用触手可得
 
 其他第三方手机 Agent 面向大众用户，大众用户没有 Root 权限，能力只能做在 App 沙盒里，系统入口和数据仍属于厂商；桌面端的 Coding Agent（Codex、Claude Code）或 OpenClaw 被直接搬进手机时，功能再全，也只是一只困在沙盒里的龙虾，没有完整的系统环境，无法操作真正的 Android 设备；原厂助手则受自家生态约束，不会触碰第三方应用的数据。
 
@@ -51,6 +54,7 @@ Agent 不会问一句答一句就结束：模型发指令，Eta 执行，结果�
 
 在此基础上：
 
+- **内核管道跨进程通信（Zero-Copy Pipe IPC）**：突破 Android 1MB Binder 事务大小限制，当会话历史超过 32KB 时自动启用 `ParcelFileDescriptor.createPipe()` 流式传输，直通核心 Service；支持高达 2,000,000 字符超大上下文容量，以 `user` 轮次为最小原子边界智能裁剪，彻底杜绝孤立 `model`/`tool` 截断造成的 400 语法错误
 - **长期记忆**：跨对话记忆保存在本机单一 `MEMORY.md`，按任务按需注入；设置页可查看用量、编辑、清空或关闭
 - **Skills**：可浏览并安装公开 GitHub 仓库的 Skill，或导入本地 ZIP；模型按需读取，安装不会自动执行包内脚本
 - **MCP 工具**：连接远程 Streamable HTTP 服务器，把用户逐项启用的第三方工具接入 Agent Loop；支持 HTTP / HTTPS 与可选 Bearer Token
@@ -103,6 +107,10 @@ Eta 通过 Android 标准 `VoiceInteractionService` 注册为可选数字助理�
 
 新安装默认保持小布；旧版已经开启“长按电源键唤起 Gemini”的用户会继续使用 Gemini。“自动设置默认助理”是独立开关，只对 Gemini 和 Eta 生效。当前目标无法启动时，本次长按会立即回退到小布；HyperOS 电源键入口尚未接入。
 
+### ColorOS 双击电源键直达钱包
+
+基于 LSPosed / libxposed Hook 系统输入分发，支持在 ColorOS 下双击电源键快速呼出 Google 钱包或一加钱包。无论在锁屏还是亮屏状态，均可瞬间调出支付或交通卡，告别在桌面翻找 App 的繁琐操作。
+
 ### 小布与超级小爱
 
 - **小布（ColorOS）**：接管小布对话入口，继承当前房间的文本上下文并解析图片输入，交给同一套 Agent Runtime 处理；支持 BYOK，默认只在 `/agent` 前缀下触发
@@ -119,8 +127,13 @@ Gemini 解锁与一圈即搜是 Eta 早期建立的 Google 能力解锁功能，
 
 ## 模型与 BYOK
 
-- **模型协议**：支持 OpenAI-compatible Chat Completions、Responses API 与 Anthropic Messages，覆盖 SSE 流式传输、工具调用、图片输入和推理内容；Responses 可展示推理摘要，并可按 Provider 开启服务端网页搜索
-- **内置提供商**：OpenAI、Anthropic、阿里百炼、DeepSeek、Kimi、MiMo、MiniMax、StepFun、硅基流动、OpenRouter
+- **模型协议**：支持 Google Gemini 原生 GenerateContent、OpenAI-compatible Chat Completions、Responses API 与 Anthropic Messages，全面覆盖 SSE 流式传输、工具调用（Function Calling）、多模态图片输入与深度推理；Responses 可展示推理摘要，并可按 Provider 开启服务端网页搜索
+- **内置提供商**：OpenAI、Anthropic、**Google Gemini**、阿里百炼、DeepSeek、Kimi、MiMo、MiniMax、StepFun、硅基流动、OpenRouter
+- **Google Gemini 3.x 原生支持**：
+  - **彩钻品牌与原生接口**：集成官方彩钻 Logo 与专属通道，原生对接 `generateContent` 端点；官方直连自动采用 `x-goog-api-key`，第三方代理网关智能兼容 `Authorization: Bearer` 双重认证
+  - **百万上下文与现代前向兼容**：预置精选核心模型 `gemini-3.8-flash-tiered`（1M 超大上下文窗口）、`gemini-3.1-flash-image` 与 `gemini-3-pro-image`；支持正则前向通配，自动适配后续 Gemini 4.x 家族
+  - **原生 Thinking 思考预算**：完整对接 Google 官方思考预算机制，支持自适应动态思考（`-1`，默认）、完全关闭（`0`）以及多阶梯自定义预算（Low 4096 / Medium 16384 / High 32768 / Max 65535）
+  - **多模态生图与实时渲染**：原生支持 Gemini 生图模型，自动解析响应中的 `inlineData` Base64 图像流并转换为标准 Markdown 图片实时渲染，自动加入生图模型白名单
 - **自定义提供商**：自定义 HTTP/HTTPS Base URL、API Key、请求头与 body JSON；HTTP 会明文传输 API Key、提示词与模型内容
 - **模型管理**：内置官方目录、远程拉取、自定义模型与模糊搜索；可覆盖上下文长度与思考档位，本地覆盖始终优先于后续远程同步；各提供商分别记忆上次选择的模型
 - **数据备份**：设置页可导出或导入对话、模型提供商配置与 `MEMORY.md`，用于更换包名或迁移设备；备份文件包含 Provider API Key，请妥善保管
