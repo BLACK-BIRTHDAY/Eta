@@ -1,7 +1,7 @@
 # Graph Report - ETA  (2026-09-04)
 
 ## Corpus Check
-- 462 files · ~2,604,841 words
+- 462 files · ~2,604,791 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -10,7 +10,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `5d6f0e53`
+- Built from commit: `456b9d01`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -101,7 +101,7 @@
 - SettingsScreen.kt
 - UserMessageUi
 - AgentChatUiState
-- AgentImageTools
+- HookRegistrar
 - AgentLogger
 - RemoteModelFetcher
 - BreenoRequestImages
@@ -127,7 +127,7 @@
 - SkillRecoveryJournalTest
 - NotificationHistoryRepository
 - HookSupport
-- ModelProviderDetailScreen.kt
+- MiuixScaffold
 - chatConversationCompositionKey
 - XiaoAiTurnTracker
 - ScrollEvidence
@@ -164,7 +164,7 @@
 - ansiToAnnotatedString
 - RootShellTerminalControllerCancellationTest
 - ModelReasoningCapabilities
-- MiuixScaffold
+- SkillLoader
 - ReasoningEffort
 - AndroidAgentLogger
 - McpServerEntity
@@ -201,9 +201,9 @@
 - BreenoHooks.kt
 - AgentSkillsScreen.kt
 - ScrollGestureContractTest
-- TextRequest
+- ModelProviderDetailScreen.kt
 - BrowserDomScripts
-- .persistChatHistory
+- TextRequest
 - toolDisplayName
 - ModuleMain.kt
 - McpToolDefinition
@@ -219,7 +219,7 @@
 - JSONObject
 - FileOutputStream
 - EtaLiveUpdateManager
-- SystemUiHooks.kt
+- .persistChatHistory
 - ProviderBranding.kt
 - DetachedTaskSupervisorTest
 - EtaDatabaseMigrationTest.kt
@@ -227,19 +227,19 @@
 - .mergeJsonElement
 - AgentRunCheckpointRecorder
 - SkillParser
-- BreenoStreamRenderer
+- AgentImageTools
 - GoogleAppHooks.kt
-- AlpineEnvironmentInstallerTest
+- BreenoStreamRenderer
 - LinuxFileExplorerTest
-- AccessibilityEnableResult
+- .injectCompletedRun
 - .extract
 - SkillContext
 - Agent Runtime
 - AgentStatusCard.kt
-- HookRegistrar
+- SystemUiHooks.kt
 - AccessibilityNodeIdentityTest
 - TextEditPlannerTest
-- .injectCompletedRun
+- EtaDatabase
 - SkillInstallToolCatalogTest
 - AgentRunCheckpointStoreTest
 - graphify reference: extra exports and benchmark
@@ -255,9 +255,9 @@
 - EtaScreenContextUiState
 - Outcome
 - JSONObject
-- SkillLoader
+- AlpineEnvironmentInstallerTest
 - AppearanceSettingsRepository
-- EtaDatabase
+- AccessibilityEnableResult
 - ConversationTimeLabels
 - AgentAccessibilityKeeperTest
 - AgentMemoryContextBuilderTest
@@ -709,9 +709,9 @@ Nodes (12): resolveFinalResultMessageIds(), AgentMessageUi, ToolActivityStatusUi
 Cohesion: 0.17
 Nodes (6): AgentConversationRevisionReducer, Boundary, AgentChatUiState, SystemNoticeMessageUi, AgentPendingResultRecoveryTest, AgentRuntimeHistoryReducerTest
 
-### Community 87 - "AgentImageTools"
-Cohesion: 0.28
-Nodes (5): AgentImageTools, ImageSourceKind, File, MediaUri, JSONObject
+### Community 87 - "HookRegistrar"
+Cohesion: 0.13
+Nodes (13): HookInstallation, HookRegistrar, ColorOsMemoryHooks, Bundle, ClassLoader, ContentProvider, XposedModule, GoogleEligibilityHooks (+5 more)
 
 ### Community 88 - "AgentLogger"
 Cohesion: 0.11
@@ -805,9 +805,9 @@ Nodes (9): AgentNotificationHistoryService, Context, Database, SQLiteDatabase, N
 Cohesion: 0.16
 Nodes (8): HookSupport, ClassLoader, Context, Executable, Field, Intent, Method, XposedModule
 
-### Community 113 - "ModelProviderDetailScreen.kt"
-Cohesion: 0.23
-Nodes (14): android, NewProviderType, Anthropic, Gemini, OpenAiCompatible, buildUpdatedProvider(), CoroutineScope, Dp (+6 more)
+### Community 113 - "MiuixScaffold"
+Cohesion: 0.15
+Nodes (17): AdaptiveTopAppBar(), Color, Modifier, ScrollBehavior, Modifier, MiuixPageBottomSpacer(), MiuixScaffold(), horizontalCutoutPadding() (+9 more)
 
 ### Community 114 - "chatConversationCompositionKey"
 Cohesion: 0.27
@@ -925,9 +925,9 @@ Nodes (3): JSONObject, NoOpLogger, RootShellTerminalControllerCancellationTest
 Cohesion: 0.23
 Nodes (3): ModelReasoningCapabilities, ReasoningCapabilityResolver, ReasoningCapabilityResolverTest
 
-### Community 150 - "MiuixScaffold"
-Cohesion: 0.15
-Nodes (17): AdaptiveTopAppBar(), Color, Modifier, ScrollBehavior, Modifier, MiuixPageBottomSpacer(), MiuixScaffold(), horizontalCutoutPadding() (+9 more)
+### Community 150 - "SkillLoader"
+Cohesion: 0.18
+Nodes (7): ResolvedSkillContext, AtomicSkillDirectoryMover, SkillDirectoryMover, SkillLoader, AgentLocalSkillInstallIntegrationTest, ByteArray, OkHttpClient
 
 ### Community 151 - "ReasoningEffort"
 Cohesion: 0.12
@@ -1049,7 +1049,11 @@ Nodes (9): extractResultCode(), ToolFinished, toSafeResultLogFields(), safeLogTy
 Cohesion: 0.28
 Nodes (9): AgentSkillsUiState, SkillItemUi, AgentSkillsScreen(), iconForSkill(), Modifier, SkillIcon(), SkillSwitchRow(), ZipImportIcon() (+1 more)
 
-### Community 188 - "TextRequest"
+### Community 188 - "ModelProviderDetailScreen.kt"
+Cohesion: 0.23
+Nodes (14): android, NewProviderType, Anthropic, Gemini, OpenAiCompatible, buildUpdatedProvider(), CoroutineScope, Dp (+6 more)
+
+### Community 190 - "TextRequest"
 Cohesion: 0.23
 Nodes (4): JSONArray, JSONObject, TextRequest, TextRequestPayload
 
@@ -1105,10 +1109,6 @@ Nodes (3): AgentImageCodecTest, ByteArray, FileOutputStream
 Cohesion: 0.31
 Nodes (5): EtaLiveUpdateManager, Context, Service, Notification, PendingIntent
 
-### Community 206 - "SystemUiHooks.kt"
-Cohesion: 0.36
-Nodes (5): ClassLoader, Context, Method, XposedModule, SystemUiHooks
-
 ### Community 207 - "ProviderBranding.kt"
 Cohesion: 0.22
 Nodes (5): modelBrandLogoRes(), ModelBrandRule, modelOrProviderBrandLogoRes(), providerBrandLogoRes(), ProviderBrandingTest
@@ -1125,13 +1125,13 @@ Nodes (4): JSONArray, JsonElement, JSONObject, RequestBodyMerge
 Cohesion: 0.18
 Nodes (4): ParsedSkillFile, SkillCompatibilityResult, SkillParser, SkillCompatibilityChecker
 
+### Community 214 - "AgentImageTools"
+Cohesion: 0.28
+Nodes (5): AgentImageTools, ImageSourceKind, File, MediaUri, JSONObject
+
 ### Community 215 - "GoogleAppHooks.kt"
 Cohesion: 0.33
 Nodes (4): GoogleAppHooks, Activity, ClassLoader, XposedModule
-
-### Community 218 - "AccessibilityEnableResult"
-Cohesion: 0.39
-Nodes (3): AccessibilityEnableResult, AgentAccessibilityKeeper, Context
 
 ### Community 219 - ".extract"
 Cohesion: 0.36
@@ -1149,9 +1149,13 @@ Nodes (10): Agent Runtime, Loop 语义, MCP 工具, Provider 协议, Skills 安�
 Cohesion: 0.24
 Nodes (10): AgentStatusCard(), Modifier, StatusIndicator(), ActiveRunSummaryUi, RunStatusUi, Cancelled, Failed, Running (+2 more)
 
-### Community 223 - "HookRegistrar"
-Cohesion: 0.13
-Nodes (13): HookInstallation, HookRegistrar, ColorOsMemoryHooks, Bundle, ClassLoader, ContentProvider, XposedModule, GoogleEligibilityHooks (+5 more)
+### Community 223 - "SystemUiHooks.kt"
+Cohesion: 0.36
+Nodes (5): ClassLoader, Context, Method, XposedModule, SystemUiHooks
+
+### Community 226 - "EtaDatabase"
+Cohesion: 0.24
+Nodes (3): EtaDatabase, Context, RoomDatabase
 
 ### Community 229 - "graphify reference: extra exports and benchmark"
 Cohesion: 0.22
@@ -1185,17 +1189,13 @@ Nodes (5): Outcome, FAILED, SUCCEEDED, TIMED_OUT, ShellActionOutcomePolicy
 Cohesion: 0.62
 Nodes (3): JSONArray, JSONObject, ResponsesEphemeralState
 
-### Community 242 - "SkillLoader"
-Cohesion: 0.18
-Nodes (7): ResolvedSkillContext, AtomicSkillDirectoryMover, SkillDirectoryMover, SkillLoader, AgentLocalSkillInstallIntegrationTest, ByteArray, OkHttpClient
-
 ### Community 243 - "AppearanceSettingsRepository"
 Cohesion: 0.43
 Nodes (3): AppearanceSettingsRepository, AppearanceSettings, Flow
 
-### Community 244 - "EtaDatabase"
-Cohesion: 0.24
-Nodes (3): EtaDatabase, Context, RoomDatabase
+### Community 244 - "AccessibilityEnableResult"
+Cohesion: 0.39
+Nodes (3): AccessibilityEnableResult, AgentAccessibilityKeeper, Context
 
 ### Community 251 - "AgentTokenUsage"
 Cohesion: 0.29
@@ -1293,11 +1293,11 @@ Nodes (3): AgentRunRecoveryCoordinator, Completed, Plan
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AgentModelClient` connect `AgentModelClient` to `AgentRuntimeHistoryReducer`, `RootShellDeviceController`, `AgentLocalTools.kt`, `AgentStructuredDeviceTools`, `AgentImageCodec`, `AgentLocalTools`, `ConversationDao`, `AgentTraceFormatter`, `AgentRuntimePolicyTest`, `EtaAssistantOverlayService`, `AgentAppState.kt`, `AgentRuntimeImageTransfer`, `AgentConversationCodec`, `AgentChatMessageUi`, `XiaoAiHooks`, `ReasoningEffort`, `AgentRuntimeWire`, `AgentRuntimeRunExecutor.kt`, `AgentRuntimePolicy`, `.collectFromJsonObject`, `AgentRuntimeService`, `ProviderSetting`, `AgentPrivateDatabaseTools`, `AgentAppState`, `RuntimeConfigRepository`, `BreenoConversationHistory`, `AgentProviderClient`, `AgentToolCallValidator`, `PendingSkillConflictCapabilityParserTest`, `AgentLocalSkillResourceToolTest`, `BreenoRequestImagesTest`, `OpenAiResponsesProvider`, `AgentPersonalDataTools`, `BreenoHooks.kt`, `TextRequest`, `.persistChatHistory`, `RuntimeRunDao`, `.launchConversationRun`, `McpToolDefinition`, `AgentRuntimeRequestConfigResolver`, `PendingSkillConflictCapability`, `AgentChatBody.kt`, `BreenoHooks`, `AgentRuntimeResultStoreTest`, `JSONObject`, `OpenAiChatCompletionsProvider`, `UserMessageUi`, `BreenoStreamRenderer`, `AgentImageTools`, `AgentChatUiState`, `AgentLogger`, `BreenoRequestImages`, `SkillContext`, `AgentModelClientLoopTest`, `AnthropicMessagesProvider`, `.injectCompletedRun`, `XiaoAiImages`, `AgentModelImageEncoder`, `AgentRunCheckpointStoreTest`, `AgentPersonalContextTools`, `McpToolExecutor`, `AgentExternalArchivePayload`, `NotificationHistoryRepository`, `SkillLoader`, `AgentLoop`, `SystemNoticeCode`, `AgentPromptBuilderTest`, `AgentColorOsMemoryTools`, `AgentTokenUsage`, `AgentRuntimeWireTest`?**
+- **Why does `AgentModelClient` connect `AgentModelClient` to `AgentRuntimeHistoryReducer`, `RootShellDeviceController`, `AgentLocalTools.kt`, `AgentStructuredDeviceTools`, `AgentImageCodec`, `AgentLocalTools`, `ConversationDao`, `AgentTraceFormatter`, `AgentRuntimePolicyTest`, `EtaAssistantOverlayService`, `AgentAppState.kt`, `AgentRuntimeImageTransfer`, `AgentConversationCodec`, `AgentChatMessageUi`, `XiaoAiHooks`, `SkillLoader`, `ReasoningEffort`, `AgentRuntimeWire`, `AgentRuntimeRunExecutor.kt`, `AgentRuntimePolicy`, `.collectFromJsonObject`, `AgentRuntimeService`, `ProviderSetting`, `AgentPrivateDatabaseTools`, `AgentAppState`, `RuntimeConfigRepository`, `BreenoConversationHistory`, `AgentProviderClient`, `AgentToolCallValidator`, `PendingSkillConflictCapabilityParserTest`, `AgentLocalSkillResourceToolTest`, `BreenoRequestImagesTest`, `OpenAiResponsesProvider`, `AgentPersonalDataTools`, `BreenoHooks.kt`, `TextRequest`, `RuntimeRunDao`, `.launchConversationRun`, `McpToolDefinition`, `AgentRuntimeRequestConfigResolver`, `PendingSkillConflictCapability`, `AgentChatBody.kt`, `BreenoHooks`, `AgentRuntimeResultStoreTest`, `JSONObject`, `OpenAiChatCompletionsProvider`, `.persistChatHistory`, `UserMessageUi`, `AgentImageTools`, `AgentChatUiState`, `BreenoStreamRenderer`, `AgentLogger`, `.injectCompletedRun`, `BreenoRequestImages`, `SkillContext`, `AgentModelClientLoopTest`, `AnthropicMessagesProvider`, `XiaoAiImages`, `AgentModelImageEncoder`, `AgentRunCheckpointStoreTest`, `AgentPersonalContextTools`, `McpToolExecutor`, `AgentExternalArchivePayload`, `NotificationHistoryRepository`, `AgentLoop`, `SystemNoticeCode`, `AgentPromptBuilderTest`, `AgentColorOsMemoryTools`, `AgentTokenUsage`, `AgentRuntimeWireTest`?**
   _High betweenness centrality (0.267) - this node is a cross-community bridge._
 - **Why does `AgentAccessibilityService` connect `AgentAccessibilityService` to `.captureScreenshotExcludingOverlays`, `RootShellDeviceController`, `AgentRuntimeService`, `GestureIndicator.kt`, `.validateNode`, `GestureDispatch`, `AgentAccessibilityService.kt`, `AccessibilityNodeInfo`, `ScrollEventObservationGate`, `PackageWindowVisibility`, `EtaAssistantOverlayService`, `AgentAppState.kt`, `ScrollDirection`, `SettingsScreen.kt`, `.runOnMainSync`, `NodeActionResult`?**
   _High betweenness centrality (0.068) - this node is a cross-community bridge._
-- **Why does `AndroidAgentLogger` connect `AndroidAgentLogger` to `EtaAssistantOverlayService`, `AgentAppState.kt`, `AgentRuntimeImageTransfer`, `TerminalScreenBuffer.kt`, `EtaApp`, `GoogleAppSystemizerInstaller`, `AgentAppRoot.kt`, `AgentRuntimeRunExecutor.kt`, `AlpineEnvironmentInstaller`, `AgentRuntimeService`, `DebianEnvironmentInstaller`, `VerifiedArtifact`, `AgentAppViewModel.kt`, `UserTerminalStore`, `EtaLiveUpdateManager`, `LinuxApkAnalysisInstaller`, `AgentLogger`, `AccessibilityEnableResult`, `ConsoleStore`, `AgentAccessibilityService.kt`, `LinuxEnvironmentScreen.kt`?**
+- **Why does `AndroidAgentLogger` connect `AndroidAgentLogger` to `EtaAssistantOverlayService`, `AgentAppState.kt`, `AgentRuntimeImageTransfer`, `TerminalScreenBuffer.kt`, `EtaApp`, `GoogleAppSystemizerInstaller`, `AgentAppRoot.kt`, `AgentRuntimeRunExecutor.kt`, `AlpineEnvironmentInstaller`, `AgentRuntimeService`, `DebianEnvironmentInstaller`, `VerifiedArtifact`, `AgentAppViewModel.kt`, `UserTerminalStore`, `EtaLiveUpdateManager`, `LinuxApkAnalysisInstaller`, `AgentLogger`, `ConsoleStore`, `AgentAccessibilityService.kt`, `AccessibilityEnableResult`, `LinuxEnvironmentScreen.kt`?**
   _High betweenness centrality (0.056) - this node is a cross-community bridge._
 - **Are the 5 inferred relationships involving `AgentAppState` (e.g. with `AgentRunEventCoalescer` and `AgentRunMessageProjector`) actually correct?**
   _`AgentAppState` has 5 INFERRED edges - model-reasoned connections that need verification._

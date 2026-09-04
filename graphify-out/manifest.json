@@ -3012,9 +3012,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/EtaLiveUpdateManager.kt": {
-    "mtime": 1788515634.4735613,
-    "seen": 1788517512.9690082,
-    "ast_hash": "bc09e349cdecacecc2d6006db81d61ce",
+    "mtime": 1788517632.1660228,
+    "seen": 1788517716.7653675,
+    "ast_hash": "5a724bd2b89430fc1d0c21dba1fe7bd5",
     "semantic_hash": ""
   }
 }

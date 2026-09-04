@@ -168,40 +168,29 @@ internal object EtaLiveUpdateManager {
             .setOngoing(isOngoing)
             .setOnlyAlertOnce(true)
             .setLocalOnly(true)
-            .setCategory(Notification.CATEGORY_NAVIGATION) // 对齐 Google Maps，触发 ColorOS 最高优先级的实况通道
+            .setCategory(Notification.CATEGORY_PROGRESS)
             .setContentIntent(createClickPendingIntent(context))
 
         if (isOngoing) {
             builder.addAction(createCancelAction(context, runId))
         }
 
-        // Android 16 (API 36+) 官方原生 Promoted Ongoing 与短文本
+        // Android 16 (API 36+) 官方原生 Promoted Ongoing 与实时胶囊规范
         if (Build.VERSION.SDK_INT >= 36) {
             builder.setRequestPromotedOngoing(true)
             builder.setShortCriticalText(shortText)
 
-            val style = Notification.ProgressStyle().apply {
-                val p = progress?.coerceIn(0, 100) ?: 0
-                setProgress(p)
-                setStyledByProgress(false) // 对齐 Google Maps 实测
+            if (progress != null) {
+                val style = Notification.ProgressStyle()
+                    .setProgress(progress.coerceIn(0, 100))
+                    .setStyledByProgress(true)
+                builder.setStyle(style)
             }
-            builder.setStyle(style)
         } else {
             builder.setStyle(Notification.BigTextStyle().bigText(detailText))
         }
 
-        // 注入 ColorOS 专属元数据扩展（增强在 ColorOS 16 上的兼容性与 App 图标染色）
-        builder.extras.apply {
-            putBoolean("android.requestPromotedOngoing", true)
-            putString("android.shortCriticalText", shortText)
-            putBoolean("oplus_smallicon_use_app_icon", true)
-            putString("android.template", "android.app.Notification\$ProgressStyle")
-        }
-
-        val notification = builder.build()
-        // 显式强制附加 FLAG_PROMOTED_ONGOING (0x40000 = 262144)，杜绝系统底层 builder 遗漏
-        notification.flags = notification.flags or 0x40000
-        return notification
+        return builder.build()
     }
 
     /**

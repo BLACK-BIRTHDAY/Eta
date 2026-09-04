@@ -600,10 +600,10 @@
     "semantic_hash": "0863aa9fc26f8e5313a8c688448da66e"
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentRuntimeService.kt": {
-    "mtime": 1788325274.2827003,
-    "seen": 1788326172.04033,
-    "ast_hash": "7004e31941ab5d2234e675fa0c399b72",
-    "semantic_hash": "7004e31941ab5d2234e675fa0c399b72"
+    "mtime": 1788514797.4909549,
+    "seen": 1788517512.968997,
+    "ast_hash": "36d30f326303a471f7a7822ae3c45faa",
+    "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentRuntimeSession.kt": {
     "mtime": 1788325274.2827003,
@@ -2658,15 +2658,15 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1788510811.5976722,
-    "seen": 1788510876.3837295,
-    "ast_hash": "ade73b63842e14fb72f888f1602eed39",
+    "mtime": 1788517434.481732,
+    "seen": 1788517512.969521,
+    "ast_hash": "6d3cff8424ae083d0bbaf774f1fd7de0",
     "semantic_hash": ""
   },
   "README_EN.md": {
-    "mtime": 1788510817.2458496,
-    "seen": 1788510876.3837314,
-    "ast_hash": "7606933e689cf4880211d8162526cde9",
+    "mtime": 1788517463.7262473,
+    "seen": 1788517512.9695232,
+    "ast_hash": "1333f207a91ac68aba4bebb4c5535fee",
     "semantic_hash": ""
   },
   "app/src/main/assets/builtin_skills/self-improving-agent/SKILL.md": {
@@ -3003,6 +3003,18 @@
     "mtime": 1788315067.2958112,
     "seen": 1788347874.995314,
     "ast_hash": "9378bd03d56baaf78bd738ab3848f142",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/EtaFluidCloudStateMapper.kt": {
+    "mtime": 1788514710.4295063,
+    "seen": 1788517512.9690065,
+    "ast_hash": "b9ee77a7df595d1c15117dd5b3d3f595",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/EtaLiveUpdateManager.kt": {
+    "mtime": 1788515634.4735613,
+    "seen": 1788517512.9690082,
+    "ast_hash": "bc09e349cdecacecc2d6006db81d61ce",
     "semantic_hash": ""
   }
 }
