@@ -42,4 +42,4 @@ google-services.json
 *.stackdump
 *.png
 .scratch/
-graphify-out/
+graphify-out/cache/
