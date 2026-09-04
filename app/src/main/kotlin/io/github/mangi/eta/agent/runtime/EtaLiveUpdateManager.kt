@@ -69,7 +69,7 @@ internal object EtaLiveUpdateManager {
         mainHandler.removeCallbacks(autoDismissRunnable)
         initChannel(service)
 
-        val shortText = "🧠 正在构思"
+        val shortText = "🧠 构思"
         val detail = initialPrompt.ifBlank { "正在执行任务..." }
         val notification = buildNotification(service, runId, shortText, detail, progress = null, isOngoing = true)
 
@@ -116,7 +116,7 @@ internal object EtaLiveUpdateManager {
         val service = boundService ?: return
         val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
-        val shortText = if (success) "✅ 完成" else "⚠️ 异常中断"
+        val shortText = if (success) "✅ 完成" else "⚠️ 异常"
         val detail = if (summary.isNotBlank()) summary else (if (success) "任务已完成" else "任务中断")
         val notification = buildNotification(service, runId, shortText, detail, progress = null, isOngoing = !success)
 

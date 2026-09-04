@@ -37,18 +37,18 @@ internal object EtaFluidCloudStateMapper {
 
         val (shortText, detailText, immediate) = when (event) {
             is AgentEvent.RoundStarted -> {
-                Triple("🧠 构思中", "正在规划第 ${event.round} 轮操作...", true)
+                Triple("🧠 构思", "正在规划第 ${event.round} 轮操作...", true)
             }
 
             is AgentEvent.ProviderRequestStarted -> {
-                Triple("🧠 模型思考", "正在等待模型生成回复...", false)
+                Triple("🧠 思考", "正在等待模型生成回复...", false)
             }
 
             is AgentEvent.AssistantBlockStart -> {
                 if (event.kind == AgentEvent.AssistantBlockKind.THINKING) {
-                    Triple("🧠 深度沉思", "正在深入思考任务方案...", true)
+                    Triple("🧠 沉思", "正在深入思考任务方案...", true)
                 } else if (event.kind == AgentEvent.AssistantBlockKind.TOOL_CALL) {
-                    Triple("⚡ 准备工具", "正在装配工具执行参数...", false)
+                    Triple("⚡ 装配", "正在装配工具执行参数...", false)
                 } else {
                     return
                 }
@@ -56,7 +56,7 @@ internal object EtaFluidCloudStateMapper {
 
             is AgentEvent.AssistantBlockDelta -> {
                 if (event.kind == AgentEvent.AssistantBlockKind.THINKING) {
-                    Triple("🧠 沉思中", "模型正在分析...", false)
+                    Triple("🧠 沉思", "模型正在分析...", false)
                 } else {
                     return
                 }
@@ -64,13 +64,12 @@ internal object EtaFluidCloudStateMapper {
 
             is AgentEvent.ToolStarted -> {
                 val toolName = event.name
-                val short = formatToolShortText(toolName, event.argsPreview, event.command)
-                val detail = "正在执行: $toolName"
+                val (short, detail) = formatToolTexts(toolName, event.argsPreview, event.command)
                 Triple(short, detail, true) // 工具切换属于大阶段跳跃，根据 Q2 决策即时触发
             }
 
             is AgentEvent.ToolFinished -> {
-                val short = "⚡ 完成操作"
+                val short = "⚡ 就绪"
                 Triple(short, event.resultSummary.take(60), false)
             }
 
@@ -80,24 +79,28 @@ internal object EtaFluidCloudStateMapper {
         emitThrottled(runId, shortText, detailText, immediate)
     }
 
-    private fun formatToolShortText(toolName: String, args: String, command: String?): String {
+    private fun formatToolTexts(toolName: String, args: String, command: String?): Pair<String, String> {
         return when (toolName) {
             "Edit", "Write" -> {
                 val fileName = extractFileName(args)
                 if (fileName.isNotBlank()) {
                     modifiedFiles.add(fileName)
-                    "📝 写入: $fileName (${modifiedFiles.size})"
+                    Pair("📝 写入", "正在写入: $fileName (第 ${modifiedFiles.size} 个文件)")
                 } else {
-                    "📝 代码修改 (${modifiedFiles.size})"
+                    Pair("📝 编写", "正在修改代码 (${modifiedFiles.size})")
                 }
             }
 
             "Read" -> {
                 val fileName = extractFileName(args)
-                if (fileName.isNotBlank()) "📖 读取: $fileName" else "📖 查看文件"
+                if (fileName.isNotBlank()) {
+                    Pair("📖 读取", "正在读取: $fileName")
+                } else {
+                    Pair("📖 查看", "正在查看文件")
+                }
             }
 
-            "Grep", "Glob" -> "🔍 搜索代码"
+            "Grep", "Glob" -> Pair("🔍 搜索", "正在搜索工程代码库...")
 
             "Bash" -> {
                 val cmdHeader = (command ?: extractCommand(args))
@@ -105,12 +108,12 @@ internal object EtaFluidCloudStateMapper {
                     .split("\\s+".toRegex())
                     .firstOrNull()
                     ?.let { File(it).name }
-                    ?.take(10)
+                    ?.take(8)
                     ?: "命令"
-                "🔨 执行: $cmdHeader"
+                Pair("🔨 $cmdHeader".take(5), "正在执行命令: ${command ?: extractCommand(args)}")
             }
 
-            else -> "⚡ 执行: $toolName"
+            else -> Pair("⚡ 执行", "正在执行工具: $toolName")
         }
     }
 
