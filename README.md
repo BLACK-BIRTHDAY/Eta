@@ -2,11 +2,26 @@
 
 **简体中文** | [English](README_EN.md)
 
-<p><img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10"> <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2"> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
+<p>
+  <img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10">
+  <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2">
+  <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34">
+  <img src="https://img.shields.io/badge/Gemini%203.x-Native%201M%20Context-4285F4?logo=google&amp;logoColor=white" alt="Gemini 3.x Native">
+  <img src="https://img.shields.io/badge/Zero--Copy%20IPC-Pipe%202M%20Chars-FF6F00" alt="Zero-Copy IPC">
+  <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS">
+</p>
 
-**面向 Android 的第三方系统级 AI Agent**
+**面向 Android 的第三方系统级 AI Agent（KurumiTokizaki 专属增强版）**
 
-Eta 借助 Root 与 LSPosed 越过 App 沙盒，直接进入系统底层：Hook 系统组件，接管电源键与厂商助手入口，读取原厂与第三方应用的私有数据。这些接近原厂、又比原厂更自由的能力，全部开放给你自己接入的模型（ChatGPT、DeepSeek、Kimi 等，自带 API Key——BYOK）：
+Eta 借助 Root 与 LSPosed 越过 App 沙盒，直接进入系统底层：Hook 系统组件，接管电源键与厂商助手入口，读取原厂与第三方应用的私有数据。这些接近原厂、又比原厂更自由的能力，全部开放给你自己接入的模型（ChatGPT、Gemini 3.x、DeepSeek、Kimi 等，自带 API Key——BYOK）。
+
+> [!TIP]
+> 🌟 **本分支专属核心增强速览**
+> 1. **💎 Google Gemini 3.x 原生协议全要素支持**：直接对接原生 `generateContent` 端点；内置彩钻标识，支持 1M 超大上下文 (`gemini-3.8-flash-tiered`)、原生自适应 Thinking 预算控制（`-1`/`0`/阶梯）、多模态生图与 `inlineData` Base64 实时 Markdown 图片渲染、官方 Key + 代理网关 Bearer 双重认证。
+> 2. **⚡ 内核管道 Zero-Copy Pipe IPC**：彻底终结 Android 1MB Binder 事务物理限制。会话历史超 32KB 自动切换为 `ParcelFileDescriptor.createPipe()` 内核流式传输，支持高达 2,000,000 字符超长上下文；智能 `user` 轮次原子裁剪边界，杜绝断头 400 语法错误。
+> 3. **💳 ColorOS 双击电源键直达钱包**：深度 Hook ColorOS 系统输入分发，双击电源键无论在锁屏还是亮屏状态，瞬间拉起 Google 钱包或一加钱包，支付出行一触即达。
+
+---
 
 - **系统 API 直达**：闹钟、媒体、音量、Wi‑Fi 等系统能力，模型可直接调用
 - **个人上下文**：相册、日历、短信、通知、录音、健康摘要、ColorOS 系统记忆、QQ / 微信聊天图片等本机数据，模型按需读取
@@ -59,6 +74,54 @@ Agent 不会问一句答一句就结束：模型发指令，Eta 执行，结果�
 - **Skills**：可浏览并安装公开 GitHub 仓库的 Skill，或导入本地 ZIP；模型按需读取，安装不会自动执行包内脚本
 - **MCP 工具**：连接远程 Streamable HTTP 服务器，把用户逐项启用的第三方工具接入 Agent Loop；支持 HTTP / HTTPS 与可选 Bearer Token
 - **会话与结果**：外部入口触发的运行结果归档到 App 会话，进程被杀也会尝试恢复；长按消息可复制、编辑或从该轮删除，最终回复可重新生成
+
+## 独家底层技术解析
+
+### 1. Zero-Copy Pipe 跨进程通信架构（击穿 1MB Binder 限制）
+
+在 Android 系统的底层架构中，跨进程通信（IPC）普遍依赖 Binder 驱动。然而 Binder 驱动拥有著名的物理硬伤——**单个进程所有正在进行的事务共享仅约 1MB 的内存缓冲区**。
+
+当 Agent 在手机上执行复杂的多步任务、累积了数十轮对话、或者输入包含超长终端执行日志与记忆上下文时，传统的 Binder Bundle 序列化极易触发致命的 `TransactionTooLargeException`，导致 Service 进程静默崩溃或断联。
+
+**本增强版的破局方案：内核管道双轨传输机制**
+- **双轨自适应**：消息序列化体量 $\le 32\text{KB}$ 时，继续走极速 Bundle 原生传输；一旦序列化字节超过 $32\text{KB}$，底层自动调用 Linux 内核管道 `ParcelFileDescriptor.createPipe()`。
+- **零拷贝异步流传输**：客户端利用后台守护线程将 UTF-8 字节流写入管道写入端，并将管道读取端通过 Binder 句柄传给目标 Service；服务端通过 `ParcelFileDescriptor.AutoCloseInputStream` 直接流式消费并解码。
+- **200 万超长容量**：会话上下文传输物理上限由原本的 9.6 万字符直接放宽至 **2,000,000 字符**，彻底释放现代大模型的长上下文威力。
+- **原子轮次裁剪防 400**：传统裁切算法由于按单条消息削减，极易把对话截断在孤立的 `tool` 或 `model` 消息处，导致发起请求时被大模型 API 判定为非法轮次并返回 400 语法错误。本分支重构了裁剪逻辑，**强制以 `user` 轮次为最小原子边界**，若发生超限压缩，始终保留语法完备的上下文开端。
+
+---
+
+### 2. Google Gemini 3.x 原生协议全要素实战指南
+
+本分支引入了与 OpenAI、Anthropic 并驾齐驱的 Google Gemini 官方原生渠道支持，带来极致的原生特性体验：
+
+- **官方彩钻 Logo 与专属通道**：
+  - 位于全局提供商第 2 顺位，原生直连 Google Gemini `v1beta/models/{model}:streamGenerateContent` 端点。
+  - **双重智能鉴权**：请求官方端点（`generativelanguage.googleapis.com`）时，自动采用 `x-goog-api-key` 请求头（避免 Bearer 认证被 Google 判定为 `ACCESS_TOKEN_TYPE_UNSUPPORTED`）；请求第三方代理网关（如 One API / New API / 自建反代）时，自动双向附加 `Authorization: Bearer`，无缝兼容任何中转服务。
+- **精选预置模型与前向通配**：
+  - `gemini-3.8-flash-tiered`：主力对话与 Coding 模型，拥有 **1,048,576 (1M)** 顶级上下文窗口，全面支持多模态输入与原生 Thinking。
+  - `gemini-3.1-flash-image` / `gemini-3-pro-image`：官方生图模型，自动加入白名单豁免，免遭文本对话过滤机制误杀。
+  - **前向通配规则**：内置 `MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})\..*""")`，自动为后续面世的 Gemini 4.x / 5.x 赋予超长窗口与多模态特权，无需等待版本更新。
+- **Google 原生 Thinking 思考预算支持**：
+  - 支持自适应思考、关闭思考以及分级阶梯控制：
+    - `自适应 (Default)`：预算传 `-1`，交由 Google 官方模型自主动态评估思考深度（推荐）。
+    - `关闭 (Off)`：预算传 `0`，零等待极速输出。
+    - `微念 / Low`：`4096` tokens
+    - `斟酌 / Medium`：`16384` tokens
+    - `沉思 / High`：`32768` tokens
+    - `极致 / Max`：`65535` tokens（严格规避 65536 溢出报错）
+- **多模态图像生成与 Markdown 实时渲染**：
+  - 对生图模型返回的 `inlineData` 数据结构提供无缝解析，自动将原始 Base64 转换为标准 Markdown 图片语法嵌入消息流中，在聊天界面直接无缝展现精美画作。
+
+---
+
+### 3. ColorOS 双击电源键直达钱包
+
+针对 ColorOS（OPPO / 一加）用户日常高频的刷卡与支付痛点，利用 LSPosed 深度 Hook 系统底层按键分发逻辑：
+- 任意状态（**熄屏、锁屏密码界面、桌面或运行任意 App 期间**），只需双击电源键即可瞬间拉起 **Google 钱包** 或 **一加/欢太钱包**。
+- 地铁闸机、公交刷卡、便利店闪付不再需要在桌面上翻找 App，抬手即可完成挥卡。
+
+---
 
 ## 为移动设备重新设计的终端
 
@@ -129,11 +192,6 @@ Gemini 解锁与一圈即搜是 Eta 早期建立的 Google 能力解锁功能，
 
 - **模型协议**：支持 Google Gemini 原生 GenerateContent、OpenAI-compatible Chat Completions、Responses API 与 Anthropic Messages，全面覆盖 SSE 流式传输、工具调用（Function Calling）、多模态图片输入与深度推理；Responses 可展示推理摘要，并可按 Provider 开启服务端网页搜索
 - **内置提供商**：OpenAI、Anthropic、**Google Gemini**、阿里百炼、DeepSeek、Kimi、MiMo、MiniMax、StepFun、硅基流动、OpenRouter
-- **Google Gemini 3.x 原生支持**：
-  - **彩钻品牌与原生接口**：集成官方彩钻 Logo 与专属通道，原生对接 `generateContent` 端点；官方直连自动采用 `x-goog-api-key`，第三方代理网关智能兼容 `Authorization: Bearer` 双重认证
-  - **百万上下文与现代前向兼容**：预置精选核心模型 `gemini-3.8-flash-tiered`（1M 超大上下文窗口）、`gemini-3.1-flash-image` 与 `gemini-3-pro-image`；支持正则前向通配，自动适配后续 Gemini 4.x 家族
-  - **原生 Thinking 思考预算**：完整对接 Google 官方思考预算机制，支持自适应动态思考（`-1`，默认）、完全关闭（`0`）以及多阶梯自定义预算（Low 4096 / Medium 16384 / High 32768 / Max 65535）
-  - **多模态生图与实时渲染**：原生支持 Gemini 生图模型，自动解析响应中的 `inlineData` Base64 图像流并转换为标准 Markdown 图片实时渲染，自动加入生图模型白名单
 - **自定义提供商**：自定义 HTTP/HTTPS Base URL、API Key、请求头与 body JSON；HTTP 会明文传输 API Key、提示词与模型内容
 - **模型管理**：内置官方目录、远程拉取、自定义模型与模糊搜索；可覆盖上下文长度与思考档位，本地覆盖始终优先于后续远程同步；各提供商分别记忆上次选择的模型
 - **数据备份**：设置页可导出或导入对话、模型提供商配置与 `MEMORY.md`，用于更换包名或迁移设备；备份文件包含 Provider API Key，请妥善保管
@@ -168,83 +226,3 @@ BYOK（Bring Your Own Key）意味着 Agent 能力跟随你选择的模型，而
 
 - **第三方集成限制**：Eta 无法获得原厂系统组件的全部私有权限，交互 UI、动画衔接和系统级一致性会弱于厂商内置助手
 - **版本兼容性**：系统入口 Hook 强依赖 ROM、系统组件和目标 App 的具体实现，系统或 App 大版本更新后可能需要重新适配
-
-## 为什么做 Eta：我对 AI 手机的判断
-
-### 与豆包手机助手的区别
-
-豆包手机助手证明了手机 AI 的方向：从聊天框走向系统级操作。但它是超级 App，有平台资源，也有平台约束——跨 App 接管会撞上第三方应用登录异常、人机验证和银行 App 风险提示。厂商要维护商业关系、支付安全和监管合规，天然被生态绑住手脚。
-
-本项目走第三方开发者路线：不代表手机厂商，不需要维护预装合作。用户愿意解锁、`root`、启用 Xposed 和无障碍，就应该能把自己的手机入口接给自己选择的 Agent。风险边界由用户决定，工具必须透明可见，敏感操作必须能随时停止和接管。
-
-我也不打算让 Agent 为了开个 Wi‑Fi、设个闹钟就在设置页面里来回找按钮。Android 已经有稳定接口的能力，Eta 就直接做成结构化工具交给模型：少一点截图、猜坐标和祈祷页面没改版，多一点真正可验证的系统执行。能直达系统，就没必要假装自己只会点屏幕。
-
-更重要的是，我把终端执行能力放进了 Agent Runtime。普通手机 AI 只会点屏幕，但 Agent 一旦能在用户授权下执行 shell 命令、读写文件、跑脚本、改配置，它就具备了和主流 Coding Agent 同类的“把意图转化为操作”的能力。GUI 是手机表层，终端才是完整计算环境。
-
-### 对 AI 手机与 Agentic OS 的展望
-
-> [!NOTE]
-> 本节描述 Eta 对未来 AI 手机的产品与架构判断，不是当前版本已经完整实现的功能清单。
-
-未来的 AI 手机不应只是预装一个更强的聊天助手，也不应把“替用户点击屏幕”当作终点；把电脑上的 Coding Agent 原样搬进手机，同样不等于理解了 AI 手机。它更可能从以 App 和 GUI 为中心的操作系统，逐步转向以用户意图、上下文和 Agent Runtime 为中心的 **Agentic OS**：用户表达目标，系统在授权边界内理解当前情境并完成规划，再选择合适的应用、服务、设备与硬件能力执行，验证结果后向用户交付。
-
-传统 GUI 通过一层层页面和菜单，把人的模糊需求收敛成机器能够处理的具体操作。当模型能够理解自然语言、屏幕、语音、环境和历史状态时，这个结构化过程可以更多地由系统承担。App 不会因此消失，而会逐渐从用户完成任务的唯一入口，转变为 Agent 背后的服务、数据和专业界面，并通过 API、CLI、MCP 等机器接口暴露能力；GUI 则继续承担信息展示、关键确认和用户接管。
-
-系统还可以成为模型的**上下文提供层**。普通 AI App 主要看到用户本轮主动输入的文字、图片和文件；系统级 Agent 则可以按任务读取当前屏幕与通知，以及相册、日程、联系人、通话、短信、便签、录音、订单、健康摘要、设备环境与应用活动等本机数据，再结合时间、位置、使用习惯、个人偏好和跨设备任务进度理解用户。Eta 已经实现其中一部分：模型可以调用职责明确的检索工具获得有界结果，并用独立的通用图片工具读取明确路径。它不做无差别全盘扫描，只在正确时机取回完成当前任务所需的上下文，让模型理解用户正在做什么、此前发生了什么以及下一步需要什么。更完整的原厂方案仍应提供敏感度分级、来源说明、使用记录与随时撤回能力。
-
-在执行层，Agentic OS 应根据权限、能力可用性、速度、稳定性和风险选择路径：
-
-1. **系统能力与数据直达**：系统 API、Provider、已验证的本机数据源和专用设备工具直接读取状态与任务上下文、控制硬件或完成系统动作，不必打开页面模拟点击。
-2. **第三方 App 结构化直达**：当应用或服务提供 API、CLI、MCP、AppFunctions 或其他机器接口时，模型可以直接读取业务状态并调用能力，不进入第三方 App 的 GUI。这是速度、稳定性和可验证性更好的理想路径。
-3. **GUI Agent 补齐未开放生态**：当第三方 App 没有提供任何可用的 API、CLI、MCP 或开放协议时，再通过截图、无障碍节点、视觉模型和坐标操作完成任务。GUI 原本是为人设计的，依赖页面布局和视觉识别，也不天然向模型提供稳定语义、状态与可验证结果，因此对模型并不友好，更适合作为长尾兼容和过渡方案。
-4. **Shell/Linux 扩展计算边界**：在用户明确授权下，Android Shell、文件系统与 Linux 工具可以承载系统诊断、脚本、开发和复杂计算任务，为 Agent 提供完整计算环境。
-
-> [!IMPORTANT]
-> API、CLI、MCP 都可以成为 Agent 直接操作第三方 App 或服务的机器接口，但前提是对方公开提供或通过生态合作授权。Root 可以让 Eta 读取用户设备上已存在、格式已经验证的 Provider 或文件数据，例如聊天图片缓存，但这不等于获得第三方 App 的业务 API，更不能自动理解私有协议。Eta 不开放任意数据库、URI 或 SQL 给模型；面对没有开放接口、也没有专门数据适配的第三方业务，仍需由 GUI Agent 操作。
-
-一套完整的 Agentic OS 可以被理解为以下连续链路：
-
-```mermaid
-flowchart LR
-    perception["感知<br/>语音 · 屏幕 · 通知 · 环境"] --> context["理解与记忆<br/>任务 · 偏好 · 历史 · 跨设备"]
-    context --> orchestrator["规划与编排<br/>意图 · 风险 · 工具路由"]
-    orchestrator --> execution["执行<br/>系统工具 · 第三方 API / CLI / MCP<br/>GUI Agent · Shell / Linux"]
-    execution --> outcome["验证与主动服务<br/>状态校验 · 失败恢复 · 提醒"]
-    outcome -. "反馈与记忆更新" .-> context
-```
-
-| 架构阶段     | 未来 Agentic OS                                                                | Eta 当前覆盖                                                                                                                                                                                                                                                    |
-| ------------ | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 感知与上下文 | 屏幕、语音、通知、日程、时间与位置、使用习惯、长期记忆与跨设备状态             | 图片输入与本机路径读取、屏幕观察、无障碍节点、时间与位置、设备环境、当前与授权后有限期保存的通知、应用活动与使用时长、闹钟与计时器、健康摘要、个人订单、相册、文件、日历、联系人、通话、短信、ColorOS 便签与录音、QQ / 微信聊天图片缓存、会话历史与按需长期记忆 |
-| 规划与编排   | 意图识别、任务规划、风险判断与模型调度                                         | Agent Loop、工具 Schema、系统约束、补充指令与取消                                                                                                                                                                                                               |
-| 能力路由     | 系统能力直接调用；第三方 App 通过 API、CLI、MCP 等接口直达，GUI 覆盖未开放生态 | Android 系统工具、系统与厂商 Provider、已验证的本机文件数据、GUI Agent、浏览器、Skills 与终端工具；不包含第三方 App 私有业务接口                                                                                                                                |
-| 执行环境     | App、系统服务、文件、传感器、算力单元与多设备                                  | Android user/root Shell、文件工具，以及用户选中的 Alpine Linux 或 Debian glibc Linux                                                                                                                                                                                                  |
-| 结果闭环     | 状态验证、失败恢复、按风险确认与主动服务                                       | 结构化工具结果、重新观察、状态等待、事件流、结果归档与用户接管                                                                                                                                                                                                  |
-
-对原厂 Agentic OS 而言，相比普通 AI App 的独特价值在于：在用户授权和数据治理边界内获得连续的系统上下文，维护可控的长期记忆，调度跨应用与跨设备能力，并把回答转化为经过验证的实际结果。主动服务也必须保持克制：上下文应按任务最小化注入，数据来源与用途应透明，持续感知应按需且可见，敏感能力应显式授权，高风险操作应结合用户指令和风险等级确认，执行过程应可停止、可接管，结果应能够校验和追溯。
-
-Eta 作为第三方项目，正在验证这条路线中可以在现有 Android、Root、无障碍和用户授权边界内实现的部分：以同一套 Agent Runtime 编排系统与个人数据工具、通用图片视觉、GUI、浏览器、Shell、Linux、Skills 与按需长期记忆，让 Android 能力直达、本机上下文读取和第三方 App 的通用界面操作互为补充。更完整的 Agentic OS 仍需要跨设备记忆与状态同步、端侧模型、硬件资源调度、数据治理和第三方生态共同演进。
-
-## 深入了解
-
-- [技术实现](docs/TECHNICAL.md)：Hook 链路、个人数据直达、文件视觉、浏览器、终端、长期记忆与无障碍保护细节
-- [Agent Runtime](docs/AGENT_RUNTIME.md)：Agent Loop、工具批次、steering 与 transcript 语义
-
-## 参考与致谢
-
-- [Pi Coding Agent](https://github.com/earendil-works/pi)：Eta Agent Runtime 的核心参考，包括 Agent Loop、工具调用、steering 与 transcript 状态管理
-- [OmniBot](https://github.com/omnimind-ai/OmniBot)：Android 端 AI Agent 方向的参考项目
-- [libxposed API](https://github.com/libxposed/api)：现代 Xposed API
-- [Miuix](https://github.com/compose-miuix-ui/miuix)：UI 组件库
-
-## 许可证
-
-Eta 的源代码公开，欢迎用于个人学习、研究、修改和非商业用途。完整条款请参阅 [PolyForm Noncommercial License 1.0.0](LICENSE)。
-
-未经作者书面授权，不得销售本项目、其源码、APK 或修改版本，也不得基于本项目提供付费分发、收费代装或其他商业服务。如需商业授权，请通过 GitHub 联系 [蛮吉（Mangi-11）](https://github.com/Mangi-11)。
-
-第三方依赖、图标和品牌素材适用各自的许可证，不由 Eta 的许可证重新授权，详情见[第三方声明](docs/THIRD_PARTY_NOTICES.md)。
-
-为确保项目能够统一授予商业许可，外部代码贡献需要在贡献者许可协议（CLA）流程建立后才能合并；在此之前欢迎通过 Issue 提交建议和问题。
-
-<sub>Community: <a href="https://linux.do">LINUX DO</a></sub>

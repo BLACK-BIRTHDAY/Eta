@@ -2,11 +2,26 @@
 
 [简体中文](README.md) | **English**
 
-<p><img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10"> <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2"> <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
+<p>
+  <img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10">
+  <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2">
+  <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34">
+  <img src="https://img.shields.io/badge/Gemini%203.x-Native%201M%20Context-4285F4?logo=google&amp;logoColor=white" alt="Gemini 3.x Native">
+  <img src="https://img.shields.io/badge/Zero--Copy%20IPC-Pipe%202M%20Chars-FF6F00" alt="Zero-Copy IPC">
+  <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS">
+</p>
 
-**A third-party, system-level AI agent for Android**
+**A third-party, system-level AI agent for Android (KurumiTokizaki Enhanced Edition)**
 
-With Root and LSPosed, Eta crosses the app sandbox and works at the system layer: hooking system components, taking over the power button and OEM assistant entries, and reading private data from OEM and third-party apps alike. These capabilities—close to an OEM assistant's, yet freer—are all open to the models you connect yourself (ChatGPT, DeepSeek, Kimi, and more, with your own API keys—BYOK):
+With Root and LSPosed, Eta crosses the app sandbox and works at the system layer: hooking system components, taking over the power button and OEM assistant entries, and reading private data from OEM and third-party apps alike. These capabilities—close to an OEM assistant's, yet freer—are all open to the models you connect yourself (ChatGPT, Gemini 3.x, DeepSeek, Kimi, and more, with your own API keys—BYOK):
+
+> [!TIP]
+> 🌟 **Key Enhancements in this Fork**
+> 1. **💎 Native Google Gemini 3.x Protocol Integration**: Full support for native `generateContent` endpoints with official branding; 1M ultra-long context window (`gemini-3.8-flash-tiered`), native adaptive thinking budget (`-1`, `0`, tiered steps), multimodal image generation with `inlineData` Base64 stream live-rendered into Markdown images, and dual authentication (`x-goog-api-key` for official endpoints + `Bearer` token for proxy gateways).
+> 2. **⚡ Zero-Copy Pipe IPC Architecture**: Completely breaks through Android's 1MB Binder transaction limit. Transcripts exceeding 32KB automatically stream over a kernel pipe (`ParcelFileDescriptor.createPipe()`), lifting context capacity up to 2,000,000 characters; atomic `user`-turn boundary truncation prevents orphaned tool-result syntax errors.
+> 3. **💳 ColorOS Double-Click Power Button for Wallet**: Deeply hooks ColorOS system input dispatch. Double-click the power button in any state (screen off, lock screen, or app in foreground) to instantly bring up Google Wallet or OnePlus Wallet.
+
+---
 
 - **Direct system APIs** — alarms, media, volume, Wi-Fi, and more, callable directly by the model
 - **Personal context** — photos, calendar, SMS, notifications, recordings, health summaries, ColorOS system memory, and recent QQ / WeChat chat images, read on demand
@@ -59,6 +74,53 @@ On top of that:
 - **Skills:** browse and install Skills from public GitHub repositories or import a local ZIP; the model reads them on demand, and installation never executes packaged scripts
 - **MCP tools:** connect remote Streamable HTTP servers and add individually enabled third-party tools to the Agent Loop; supports HTTP / HTTPS and an optional bearer token
 - **Sessions and results:** runs started from external entry points are archived into Eta conversations and recovered after process death; long-press a message to copy, edit, or delete from that turn, and regenerate any final response
+
+## Deep-Dive Architecture & Exclusive Tech
+
+### 1. Zero-Copy Pipe IPC Architecture (Overcoming 1MB Binder Limit)
+
+In Android's IPC design, cross-process communication relies on the Binder driver. However, Binder has an inherent architectural bottleneck: **all active transactions for an entire process share a single ~1MB memory buffer**.
+
+When an agent runs complex multi-step tasks with dozens of conversation rounds, or receives large terminal logs and memory payloads, traditional Binder bundle serialization triggers the dreaded `TransactionTooLargeException`, crashing the service or dropping connections.
+
+**The Solution: Dual-Track Kernel Streaming**
+- **Adaptive Dual-Track Routing**: Payloads $\le 32\text{KB}$ continue through fast in-memory Bundles. Payloads $> 32\text{KB}$ automatically switch to a Linux kernel pipe via `ParcelFileDescriptor.createPipe()`.
+- **Zero-Copy Asynchronous Streaming**: The client writes UTF-8 JSON bytes in a background daemon thread, while passing the read file descriptor across Binder. The service streams directly from `ParcelFileDescriptor.AutoCloseInputStream`.
+- **2,000,000-Character Capacity**: Transcript capacity is expanded from 96,000 chars to **2,000,000 characters**, unleashing modern long-context LLMs.
+- **Atomic User-Turn Truncation**: Simple message-count truncation risks cutting conversations off at an isolated `tool` or `model` message, causing a 400 Bad Request error from LLM APIs. This branch guarantees truncation always occurs strictly at a **`user` turn boundary**, preserving valid conversation structure.
+
+---
+
+### 2. Native Google Gemini 3.x Protocol Guide
+
+This fork integrates Google Gemini alongside OpenAI and Anthropic as a first-class citizen:
+
+- **Native Protocol & Brand Identity**:
+  - Positioned 2nd in global provider order, calling `v1beta/models/{model}:streamGenerateContent` directly.
+  - **Dual Smart Authentication**: Calls to official Google endpoints (`generativelanguage.googleapis.com`) use `x-goog-api-key` (preventing `ACCESS_TOKEN_TYPE_UNSUPPORTED` errors); calls to third-party gateways (e.g., One API, New API, custom reverse proxies) automatically inject `Authorization: Bearer`.
+- **Curated Models & Forward Compatibility**:
+  - `gemini-3.8-flash-tiered`: Flagship conversation and coding model with a massive **1,048,576 (1M)** context window, multimodal input, and native thinking.
+  - `gemini-3.1-flash-image` / `gemini-3-pro-image`: Native image generation models, automatically whitelisted from chat-capability filters.
+  - **Regex Forward Matching**: Matches `^gemini-(?:[3-9]|\d{2,})\..*`, granting future Gemini 4.x / 5.x releases instant 1M context privileges without app updates.
+- **Native Thinking Budget Control**:
+  - `Adaptive (Default)`: Passes `-1` to let Gemini dynamically assess reasoning depth.
+  - `Off`: Passes `0` for instantaneous responses without deliberation.
+  - `Low`: `4096` tokens
+  - `Medium`: `16384` tokens
+  - `High`: `32768` tokens
+  - `Max`: `65535` tokens (avoiding the 65536 overflow boundary)
+- **Multimodal Image Generation & Live Markdown Rendering**:
+  - Parses `inlineData` Base64 streams from image models into standard Markdown images for instant, inline rendering in chat.
+
+---
+
+### 3. ColorOS Double-Click Power Button for Wallet
+
+Designed for quick mobile transit and tap-to-pay on ColorOS (OPPO / OnePlus):
+- From any state (**screen off, lock screen, home screen, or inside any app**), double-clicking the power button instantly launches **Google Wallet** or **OnePlus Wallet**.
+- Tap transit gates or payment terminals without unlocking or searching for apps.
+
+---
 
 ## A terminal redesigned for mobile
 
@@ -129,11 +191,6 @@ Gemini unlock and Circle to Search were Eta's original Google enablement feature
 
 - **Protocols:** Google Gemini native GenerateContent, OpenAI-compatible Chat Completions, Responses API, and Anthropic Messages, with SSE streaming, tool calls (function calling), multimodal image input, and deep reasoning; Gemini supports native adaptive thinking budget and multimodal image generation with streaming Markdown rendering; Responses can show reasoning summaries and enable server-side web search per provider
 - **Built-in providers:** OpenAI, Anthropic, **Google Gemini**, Alibaba Cloud Model Studio, DeepSeek, Kimi, Xiaomi MiMo, MiniMax, StepFun, SiliconFlow, and OpenRouter
-- **Google Gemini 3.x Native Support:**
-  - **Native protocol & branding:** official Gemini diamond logo with native `generateContent` endpoints; auto-applies `x-goog-api-key` for official endpoints (`generativelanguage.googleapis.com`) and supports `Authorization: Bearer` for third-party gateways
-  - **1M context & forward compatibility:** curated models include `gemini-3.8-flash-tiered` (1M context window), `gemini-3.1-flash-image`, and `gemini-3-pro-image`; forward regex matching ensures instant compatibility with upcoming Gemini 4.x
-  - **Native Thinking budget control:** seamlessly integrated with Google's native thinking budget, supporting adaptive thinking (`-1`, default), disable (`0`), and tiered levels (Low 4096 / Medium 16384 / High 32768 / Max 65535)
-  - **Image generation & live rendering:** native image generation support, converting response `inlineData` Base64 into Markdown images for inline display while exempting image models from chat filters
 - **Custom providers:** HTTP/HTTPS base URL, API key, headers, and body JSON; plain HTTP transmits the API key, prompts, and model content without transport encryption
 - **Model management:** bundled official catalogs, remote list sync, custom models, and fuzzy search; context-length and reasoning-effort overrides always win over later remote syncs, and each provider remembers its last selected model
 - **Data backup:** Settings can export or import conversations, model provider configuration, and `MEMORY.md` for package-name changes or device migration; backup files contain provider API keys and should be stored securely
@@ -150,98 +207,21 @@ BYOK—Bring Your Own Key—means the agent follows the capabilities of the mode
 3. Enable native device tools, sensitive reads, sensitive device actions, and terminal/file tools as needed; remote MCP servers can be added under **Context & extensions**, where each tool is enabled individually; choose the terminal identity explicitly as `user` or `root`, and install the optional Linux environment for tools such as Git, with the Python toolchain installable on demand inside it.
 4. Enable Eta's accessibility service in Android Settings.
 5. Optional system entry points:
-   - Native digital assistant: open **Eta system assistant** on the Settings page and select Eta in Android's system picker
-   - ColorOS power-button routing, OEM-assistant takeover, ColorOS system memory, Gemini, and Circle to Search: activate the module in an LSPosed environment with libxposed API 102, select the scopes you need (`system`, SystemUI, Google App, ColorOS screen recognition, Breeno, ColorOS memory, Super XiaoAI), then reboot
+   - Eta as the native digital assistant: open **Eta system assistant** in Settings and select Eta in the Android system picker.
+   - ColorOS power-button routing, OEM assistant takeover, ColorOS system memory, Gemini, and Circle to Search: enable the module in an LSPosed environment with libxposed API 102, check scopes for `system`, SystemUI, Google App, Breeno screen recognition, Breeno, Breeno Memory, and Super XiaoAI as needed, then restart the phone.
 
 </details>
 
-## Security model
+## Permissions and security
 
-- Native device access, sensitive reads, sensitive device actions, terminal/file tools, browsing, and memory are independent switches, currently enabled by default and re-read by the Runtime before every execution—you can turn any of them off at any time
-- Tool arguments must pass the advertised schema and executor validation; core packages and security-critical settings remain protected regardless of model output
-- Verification codes, Wi-Fi passwords, notification bodies, logs, and personal-data search results are available only to the active run and are never written to persistent conversation history; after notification access is granted, Eta keeps at most 1,000 notification records on-device for seven days
-- Memory reads and writes likewise serve only the active run, persisted as redacted summaries; files referenced in chat contribute only a Root-validated path to model context—never an upload or copy of the original
-- Foreground GUI work shows an overlay with gesture feedback and can be interrupted or taken over at any time
+- Native device tools, sensitive reads, sensitive device actions, terminal and file access, browser control, and memory are individual options enabled by default; the Runtime rereads them before each run, and you can disable any of them at any time.
+- Tool calls validate arguments against the same JSON Schema the model sees; beyond that, Eta adds no permission prompts, dangerous-command blocklists, protected-package blocklists, or file-root boundaries.
+- SMS verification codes, Wi-Fi passwords, notification text, logs, and personal-data search results stay inside the current turn and are not saved to the conversation transcript; notification history is kept locally for 7 days up to 1,000 entries only after notification access is granted.
+- MCP tools default to off, and whole servers can be disabled; HTTP and HTTPS endpoints are both supported, bearer tokens are stored encrypted in the Android Keystore, and arguments or results are not written to long-term conversation history.
+- Memory reads and writes likewise serve only the current turn, while long-term transcripts store only sanitized summaries; files referenced in chat enter context using root-verified paths without copying or uploading the file itself.
+- Foreground GUI runs display an overlay and gesture indicator, allowing you to stop the agent or take over anytime.
 
-## Limitations
+## Boundaries and known limits
 
-- **Third-party integration limits:** Eta does not have every private permission available to OEM components. UI continuity, animations, and system-level polish may be weaker than a built-in assistant.
-- **Version sensitivity:** system-entry hooks depend on particular ROM, framework, and target-app implementations. Major OS or app updates can require a new adapter.
-
-## Why Eta: my take on the AI phone
-
-### Why Eta takes a different path
-
-Large commercial mobile assistants have already shown that phone AI can move beyond chat and act across the system. They also operate inside platform, partnership, payment, and compliance constraints: cross-app control can trigger login protection, human-verification challenges, or warnings from high-risk apps.
-
-Eta is built from a third-party, user-controlled perspective. It does not represent a phone vendor or depend on preinstallation agreements. A user who chooses to unlock and root a device, enable Xposed, and grant accessibility access should be able to connect the phone's assistant entry points to a model of their choice—with visible tools, revocable permissions, and an interaction the user can stop or take over.
-
-It also rejects the idea that every action must look like a person tapping through screens. If Android has a stable interface for Wi-Fi, alarms, media, or device state, Eta exposes a structured tool. GUI operation remains essential for the long tail of closed apps, but it should be the compatibility path rather than the entire architecture.
-
-Finally, Eta places terminal execution inside the Agent Runtime. A model that can run authorized shell commands, inspect files, execute scripts, and change configuration can turn intent into operations in the same way a coding agent does. The GUI is the phone's visible surface; the terminal is its general-purpose computing environment.
-
-### Toward an Agentic OS
-
-> [!NOTE]
-> This section describes Eta's product and architecture perspective. It is not a list of features already implemented in full.
-
-An AI-native phone should be more than a stronger chatbot, and “click the screen for the user” should not be the endpoint—and porting a desktop coding agent onto a phone does not answer what an AI phone should be, either. The operating system can evolve from an app-and-GUI-centric model toward an **Agentic OS** organized around user intent, context, and an Agent Runtime: the user states a goal, the system plans within an authorization boundary, selects the right apps, services, device capabilities, and hardware, verifies the outcome, and reports back.
-
-Apps would not disappear. They would increasingly serve as data, services, and specialized human interfaces behind the agent, exposing machine-readable capabilities through APIs, CLIs, the open-source [Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro), or Android [AppFunctions](https://developer.android.com/ai/appfunctions). The AppFunctions API is currently experimental; it gives authorized agents an on-device way to discover and invoke app-provided tools. GUI remains important for presentation, critical confirmation, user takeover, and apps that expose no machine interface.
-
-The operating system can also serve as a context layer for the model. A system-level agent can work with the active screen and notifications as well as photos, calendars, contacts, calls, messages, notes, recordings, and device state, then relate those signals to time, location, habits, preferences, and longer-running goals. Eta already implements part of this model: purpose-built search tools return bounded results, while a separate general-purpose image tool can inspect an explicit path. The goal is to retrieve the context that matters for the task, when it matters—not indiscriminate collection. A mature OEM implementation should go further with sensitivity classification, provenance, usage records, and revocation.
-
-An Agentic OS should route execution according to availability, speed, reliability, permissions, and risk:
-
-1. **Native system and on-device data:** use OS APIs, providers, verified local data sources, and dedicated tools for device state, task context, hardware, and system actions.
-2. **Structured third-party capabilities:** use public APIs, CLIs, MCP servers, AppFunctions, or other authorized interfaces when an app or service provides them.
-3. **GUI agents for closed ecosystems:** use screenshots, accessibility nodes, vision, and coordinates when no machine interface exists.
-4. **Shell and Linux for general computation:** use the file system, scripts, diagnostics, and development tools under explicit user authorization.
-
-> [!IMPORTANT]
-> APIs, CLIs, MCP, and AppFunctions can make third-party apps or services directly operable only when their owners expose or authorize those interfaces. Root can let Eta read data already present on the user's device through a verified provider or file layout, such as a chat image cache, but that is not the same as gaining access to an app's private business API or understanding an undocumented protocol. Eta does not expose arbitrary databases, URIs, or SQL to the model. Closed third-party workflows still require the GUI agent unless Eta has a dedicated data adapter.
-
-```mermaid
-flowchart LR
-    perception["Perception<br/>Voice · Screen · Notifications · Environment"] --> context["Context and memory<br/>Tasks · Preferences · History · Devices"]
-    context --> orchestrator["Planning and orchestration<br/>Intent · Risk · Tool routing"]
-    orchestrator --> execution["Execution<br/>System tools · Third-party API / CLI / MCP<br/>GUI agent · Shell / Linux"]
-    execution --> outcome["Verification and proactive service<br/>State checks · Recovery · Reminders"]
-    outcome -. "Feedback and memory updates" .-> context
-```
-
-| Architecture layer | A future Agentic OS | Eta today |
-| --- | --- | --- |
-| Perception and context | Screen, voice, notifications, calendar, time and location, habits, memory, and cross-device state | Image input and local-path reading, screen observation, accessibility nodes, time and location, device state, recent notifications, photos, files, calendars, contacts, calls, SMS, ColorOS notes and recordings, QQ and WeChat image caches, conversation history, and on-demand memory |
-| Planning and orchestration | Intent understanding, planning, risk assessment, and model routing | Agentic loop, tool schemas, system constraints, steering, and cancellation |
-| Capability routing | Native system calls; structured third-party APIs, CLIs, MCP, or AppFunctions; GUI coverage for closed apps | Android tools, system and OEM providers, verified local file data, GUI agent, browser, Skills, and terminal tools; no private third-party business APIs |
-| Execution environment | Apps, system services, files, sensors, compute units, and multiple devices | Android `user`/`root` shell, file tools, and the selected Alpine Linux or Debian glibc environment |
-| Outcome loop | State verification, recovery, risk-based confirmation, and proactive service | Structured tool results, renewed observation, state waits, event streams, result archiving, and user takeover |
-
-For an OEM Agentic OS, the advantage over an ordinary AI app goes beyond a stronger model: it can provide continuous but controlled system context, maintain governable memory, orchestrate capabilities across apps and devices, and turn answers into verified outcomes. That power requires restraint: task-scoped context, transparent data use, visible sensing, explicit sensitive permissions, risk-aware confirmation, interruptible execution, and auditable results.
-
-Eta is exploring the part of this direction that can be built today within Android, Root, accessibility, and user-granted boundaries. One Runtime coordinates system and personal-data tools, general image vision, GUI operation, the browser, Shell, Linux, Skills, and on-demand memory. Together, those layers connect Android capabilities, on-device context, and the long tail of app interfaces. A more complete Agentic OS will also require cross-device state, on-device models, hardware scheduling, stronger data governance, and a participating third-party ecosystem.
-
-## Going deeper
-
-- [Technical Implementation](docs/TECHNICAL.md) — hook chains, on-device data access, file vision, browser, terminal, memory, and accessibility protection internals (Chinese)
-- [Agent Runtime](docs/AGENT_RUNTIME.md) — loop, tool-batch, steering, and transcript semantics (Chinese)
-
-## References and acknowledgements
-
-- [Pi Coding Agent](https://github.com/earendil-works/pi), the main reference for Eta's agent loop, tool calling, steering, and transcript state model.
-- [OmniBot](https://github.com/omnimind-ai/OmniBot), a reference project for Android-based AI agents.
-- [libxposed API](https://github.com/libxposed/api) — modern Xposed API.
-- [Miuix](https://github.com/compose-miuix-ui/miuix) — UI component library.
-
-## License
-
-Eta's source code is available for personal learning, research, modification, and noncommercial use under the [PolyForm Noncommercial License 1.0.0](LICENSE).
-
-Without written permission from the author, you may not sell the project, its source code, APK, or modified versions, or use it for paid distribution, paid installation, or other commercial services. For commercial licensing, contact [Mangi (Mangi-11)](https://github.com/Mangi-11) through GitHub.
-
-Third-party dependencies, icons, and brand assets remain under their respective licenses and are not relicensed by Eta. See the [third-party notices](docs/THIRD_PARTY_NOTICES.md).
-
-To keep commercial licensing possible under a single grant, external code contributions can be merged only after a Contributor License Agreement process has been established. Until then, suggestions and bug reports are welcome through Issues.
-
-<sub>Community: <a href="https://linux.do">LINUX DO</a></sub>
+- **Third-party integration limits:** Eta cannot obtain the private permissions granted to built-in system components; UI polish, transition animations, and system-wide cohesion will not match an OEM assistant.
+- **Version compatibility:** system entry points hook ROM, system component, and target-app implementations, which may require updates after major OS or app upgrades.
