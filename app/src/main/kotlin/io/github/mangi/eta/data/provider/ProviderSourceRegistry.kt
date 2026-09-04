@@ -50,6 +50,9 @@ internal object ProviderSourceRegistry {
         if (providerType == ProviderTypes.ANTHROPIC) {
             return ProviderSourceTypes.ANTHROPIC
         }
+        if (providerType == ProviderTypes.GEMINI) {
+            return ProviderSourceTypes.GEMINI
+        }
         return ProviderSourceTypes.CUSTOM
     }
 

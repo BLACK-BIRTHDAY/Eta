@@ -1,6 +1,7 @@
 package io.github.mangi.eta.data.provider
 
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
+import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
 import io.github.mangi.eta.data.model.ProviderSetting
@@ -12,6 +13,7 @@ internal object BuiltinProviders {
 
     const val OPENAI_ID = "builtin-openai"
     const val ANTHROPIC_ID = "builtin-anthropic"
+    const val GEMINI_ID = "builtin-gemini"
     const val BAILIAN_ID = "builtin-dashscope"
     const val DEEPSEEK_ID = "builtin-deepseek"
     const val KIMI_ID = "builtin-kimi"
@@ -41,13 +43,22 @@ internal object BuiltinProviders {
             sortOrder = 1,
             systemPrompt = DEFAULT_SYSTEM_PROMPT,
         ),
+        GeminiProviderSetting(
+            id = GEMINI_ID,
+            name = "Google Gemini",
+            baseUrl = "https://generativelanguage.googleapis.com",
+            sourceType = ProviderSourceTypes.GEMINI,
+            isBuiltIn = true,
+            sortOrder = 2,
+            systemPrompt = DEFAULT_SYSTEM_PROMPT,
+        ),
         OpenAiCompatibleProviderSetting(
             id = BAILIAN_ID,
             name = "阿里百炼",
             baseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1",
             sourceType = ProviderSourceTypes.BAILIAN,
             isBuiltIn = true,
-            sortOrder = 2,
+            sortOrder = 3,
             systemPrompt = DEFAULT_SYSTEM_PROMPT,
         ),
         OpenAiCompatibleProviderSetting(
@@ -56,7 +67,7 @@ internal object BuiltinProviders {
             baseUrl = "https://api.deepseek.com",
             sourceType = ProviderSourceTypes.DEEPSEEK,
             isBuiltIn = true,
-            sortOrder = 3,
+            sortOrder = 4,
             systemPrompt = DEFAULT_SYSTEM_PROMPT,
         ),
         OpenAiCompatibleProviderSetting(
@@ -65,7 +76,7 @@ internal object BuiltinProviders {
             baseUrl = "https://api.moonshot.cn/v1",
             sourceType = ProviderSourceTypes.MOONSHOT,
             isBuiltIn = true,
-            sortOrder = 4,
+            sortOrder = 5,
             systemPrompt = DEFAULT_SYSTEM_PROMPT,
         ),
         OpenAiCompatibleProviderSetting(
@@ -74,7 +85,7 @@ internal object BuiltinProviders {
             baseUrl = "https://api.xiaomimimo.com/v1",
             sourceType = ProviderSourceTypes.MIMO,
             isBuiltIn = true,
-            sortOrder = 5,
+            sortOrder = 6,
             systemPrompt = DEFAULT_SYSTEM_PROMPT
         ),
         OpenAiCompatibleProviderSetting(
@@ -83,7 +94,7 @@ internal object BuiltinProviders {
             baseUrl = "https://api.minimaxi.com/v1",
             sourceType = ProviderSourceTypes.MINIMAX,
             isBuiltIn = true,
-            sortOrder = 6,
+            sortOrder = 7,
             systemPrompt = DEFAULT_SYSTEM_PROMPT
         ),
         OpenAiCompatibleProviderSetting(
@@ -92,7 +103,7 @@ internal object BuiltinProviders {
             baseUrl = "https://api.stepfun.com/v1",
             sourceType = ProviderSourceTypes.STEPFUN,
             isBuiltIn = true,
-            sortOrder = 7,
+            sortOrder = 8,
             systemPrompt = DEFAULT_SYSTEM_PROMPT
         ),
         OpenAiCompatibleProviderSetting(
@@ -101,7 +112,7 @@ internal object BuiltinProviders {
             baseUrl = "https://api.siliconflow.cn/v1",
             sourceType = ProviderSourceTypes.SILICONFLOW,
             isBuiltIn = true,
-            sortOrder = 8,
+            sortOrder = 9,
             systemPrompt = DEFAULT_SYSTEM_PROMPT
         ),
         OpenAiCompatibleProviderSetting(
@@ -110,7 +121,7 @@ internal object BuiltinProviders {
             baseUrl = "https://openrouter.ai/api/v1",
             sourceType = ProviderSourceTypes.OPENROUTER,
             isBuiltIn = true,
-            sortOrder = 9,
+            sortOrder = 10,
             systemPrompt = DEFAULT_SYSTEM_PROMPT
         )
     )

@@ -60,27 +60,50 @@ internal object RemoteModelFetcher {
             ?: return emptyList()
         return data.mapNotNull { element ->
             val obj = element.jsonObjectOrNull() ?: return@mapNotNull null
-            val rawName = obj["name"]?.jsonPrimitiveOrNull()?.contentOrNull ?: return@mapNotNull null
-            val id = rawName.removePrefix("models/")
-            val supportedMethods = obj["supportedGenerationMethods"]?.jsonArrayOrNull()?.mapNotNull {
-                it.jsonPrimitiveOrNull()?.contentOrNull
-            } ?: emptyList()
-            if ("generateContent" !in supportedMethods) return@mapNotNull null
-            val displayName = obj["displayName"]?.jsonPrimitiveOrNull()?.contentOrNull ?: id
+            val rawName = obj.string("name") ?: return@mapNotNull null
+            val modelId = rawName.removePrefix("models/")
+            val supportedMethods = obj.stringList("supportedGenerationMethods").orEmpty()
+            val isImageModel = modelId.contains("image", ignoreCase = true)
+            val isSupportedMethod = "generateContent" in supportedMethods || "generateImages" in supportedMethods
+            if (!isImageModel && !isSupportedMethod) return@mapNotNull null
+            val displayName = obj.string("displayName") ?: modelId
             Model(
-                id = id,
-                name = displayName,
-                ownedBy = "Google",
+                id = UUID.randomUUID().toString(),
+                modelId = modelId,
+                displayName = displayName,
+                ownedBy = "google",
                 source = ModelSource.REMOTE,
-                modalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY)
+                contextWindow = obj.positiveInt("inputTokenLimit"),
+                toolCall = !isImageModel,
+                inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
+                outputModalities = if (isImageModel) {
+                    listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY)
+                } else {
+                    listOf(Model.TEXT_MODALITY)
+                },
             )
         }
     }
 
     private fun fetchGemini(provider: GeminiProviderSetting): List<Model> {
         val url = ProviderUrls.geminiModelsUrl(provider.baseUrl, provider.apiKey)
+        val isOfficialGoogle = provider.baseUrl.contains("generativelanguage.googleapis.com")
         val request = Request.Builder()
             .url(url)
+            .headers(
+                okhttp3.Headers.Builder()
+                    .add("Accept", "application/json")
+                    .apply {
+                        if (provider.apiKey.isNotBlank()) {
+                            add("x-goog-api-key", provider.apiKey)
+                            if (!isOfficialGoogle) {
+                                add("Authorization", "Bearer ${provider.apiKey}")
+                            }
+                        }
+                        CustomHeaderFilter.mergeInto(this, provider.customHeaders)
+                    }
+                    .build()
+            )
             .get()
             .build()
         return OfficialModelCatalog.enrich(provider, executeJson(request, "获取 Gemini 模型失败").let(::parseGeminiModels))
@@ -153,12 +176,15 @@ internal object RemoteModelFetcher {
      * 无法参与 Agent 的文本工具调用循环，拉取时按 id 命名特征与输出模态过滤掉。
      */
     internal fun isChatCapableModel(model: Model): Boolean {
+        val id = model.modelId.lowercase()
+        if (id == "gemini-3.1-flash-image" || id == "gemini-3-pro-image" || (id.startsWith("gemini-") && id.contains("image"))) {
+            return true
+        }
         if (model.outputModalities.isNotEmpty() &&
             model.outputModalities.none { it.equals(Model.TEXT_MODALITY, ignoreCase = true) }
         ) {
             return false
         }
-        val id = model.modelId.lowercase()
         return NON_CHAT_MODEL_ID_MARKERS.none { it in id }
     }
 

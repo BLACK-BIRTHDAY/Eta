@@ -65,16 +65,15 @@ internal object ReasoningCapabilityResolver {
                 else -> null
             }
             ProviderSourceTypes.GEMINI -> when {
-                model.contains("gemini-2.5") || model.contains("gemini-3") ->
-                    capabilities(
-                        supported = emptyList(),
-                        canDisable = true,
-                        supportsBudget = true,
-                        maxBudgetTokens = 65_536,
-                    )
+                model.startsWith("gemini-") && !model.contains("image") -> capabilities(
+                    supported = lowToMax,
+                    canDisable = true,
+                    supportsBudget = true,
+                    maxBudgetTokens = 65_536,
+                    defaultEffort = ReasoningEffort.DEFAULT,
+                )
                 else -> null
             }
-
 
             ProviderSourceTypes.BAILIAN -> when {
                 model.startsWith("qwen3.7-") -> capabilities(
@@ -86,16 +85,6 @@ internal object ReasoningCapabilityResolver {
                 )
                 model.startsWith("kimi-k2.7-code") -> mandatoryDefault()
                 model.startsWith("kimi-k2.6") -> capabilities(emptyList(), canDisable = true)
-                else -> null
-            }
-            ProviderSourceTypes.GEMINI -> when {
-                model.contains("gemini-3.7") || model.contains("gemini-3.5") -> capabilities(
-                    supported = lowToMax,
-                    canDisable = true,
-                    supportsBudget = true,
-                    maxBudgetTokens = 65_536,
-                    defaultEffort = ReasoningEffort.HIGH,
-                )
                 else -> null
             }
 
@@ -173,6 +162,7 @@ internal object ReasoningCapabilityResolver {
                 else -> null
             }
 
+            ProviderSourceTypes.GEMINI,
             ProviderSourceTypes.DEEPSEEK,
             ProviderSourceTypes.MOONSHOT,
             ProviderSourceTypes.MIMO,

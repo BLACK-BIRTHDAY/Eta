@@ -29,7 +29,8 @@ internal data class ProviderCapabilities(
 internal enum class EndpointKind {
     CHAT_COMPLETIONS,
     RESPONSES,
-    ANTHROPIC_MESSAGES
+    ANTHROPIC_MESSAGES,
+    GEMINI_GENERATE_CONTENT
 }
 
 internal data class ProviderRequest(

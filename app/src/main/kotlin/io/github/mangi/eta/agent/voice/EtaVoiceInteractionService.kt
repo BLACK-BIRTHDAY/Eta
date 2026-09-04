@@ -11,9 +11,6 @@ class EtaVoiceInteractionService : VoiceInteractionService() {
     override fun onReady() {
         super.onReady()
         activeService = this
-        if (Build.VERSION.SDK_INT >= 37) {
-            setInvocationEffectEnabled(true)
-        }
     }
 
     override fun onShutdown() {

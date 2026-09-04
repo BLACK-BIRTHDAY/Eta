@@ -88,34 +88,37 @@ internal object OfficialModelCatalog {
         ),
         ProviderSourceTypes.GEMINI to listOf(
             officialModel(
-                id = "builtin-gemini-3.7-flash",
-                modelId = "gemini-3.7-flash",
-                displayName = "Gemini 3.7 Flash",
+                id = "builtin-gemini-3.8-flash-tiered",
+                modelId = "gemini-3.8-flash-tiered",
+                displayName = "Gemini 3.8 Flash Tiered",
                 ownedBy = "google",
-                inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
+                inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY, "audio", "video"),
+                outputModalities = listOf(Model.TEXT_MODALITY),
                 toolCall = true,
                 reasoning = true,
                 contextWindow = 1_048_576,
             ),
             officialModel(
-                id = "builtin-gemini-3.7-flash-thinking",
-                modelId = "gemini-3.7-flash-thinking",
-                displayName = "Gemini 3.7 Flash Thinking",
+                id = "builtin-gemini-3.1-flash-image",
+                modelId = "gemini-3.1-flash-image",
+                displayName = "Gemini 3.1 Flash Image",
                 ownedBy = "google",
                 inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
-                toolCall = true,
-                reasoning = true,
-                contextWindow = 1_048_576,
+                outputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
+                toolCall = false,
+                reasoning = false,
+                contextWindow = 128_000,
             ),
             officialModel(
-                id = "builtin-gemini-3.7-pro",
-                modelId = "gemini-3.7-pro",
-                displayName = "Gemini 3.7 Pro",
+                id = "builtin-gemini-3-pro-image",
+                modelId = "gemini-3-pro-image",
+                displayName = "Gemini 3 Pro Image",
                 ownedBy = "google",
                 inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
-                toolCall = true,
-                reasoning = true,
-                contextWindow = 1_048_576,
+                outputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY),
+                toolCall = false,
+                reasoning = false,
+                contextWindow = 128_000,
             ),
         ),
         ProviderSourceTypes.BAILIAN to listOf(
@@ -277,6 +280,8 @@ internal object OfficialModelCatalog {
         ),
     )
 
+    private val MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})\..*""", RegexOption.IGNORE_CASE)
+
     fun modelsForProvider(provider: ProviderSetting): List<Model> =
         modelsForCatalogId(catalogIdFor(provider))
             .map { it.withCatalogReasoningCapabilities(catalogIdFor(provider)) }
@@ -290,29 +295,43 @@ internal object OfficialModelCatalog {
         val officialById = modelsByCatalogId[catalogId]
             ?.associateBy { it.modelId.lowercase() }
             .orEmpty()
-        if (officialById.isEmpty()) return models
         return models.map { model ->
-            val official = officialById[model.modelId.lowercase()] ?: return@map model
-            model.copy(
-                displayName = model.displayName
-                    .takeUnless { it.isBlank() || it == model.modelId }
-                    ?: official.displayName,
-                ownedBy = model.ownedBy ?: official.ownedBy,
-                contextWindow = model.contextWindow ?: official.contextWindow,
-                inputModalities = model.inputModalities.ifEmpty { official.inputModalities },
-                outputModalities = model.outputModalities.ifEmpty { official.outputModalities },
-                attachment = model.attachment ?: official.attachment,
-                toolCall = model.toolCall ?: official.toolCall,
-                reasoning = model.reasoning ?: official.reasoning,
-                reasoningCapabilities = if (model.reasoning == false) {
-                    null
-                } else {
-                    model.reasoningCapabilities
-                        ?: official.withCatalogReasoningCapabilities(catalogId).reasoningCapabilities
-                },
-                structuredOutput = model.structuredOutput ?: official.structuredOutput,
-                supportsTemperature = model.supportsTemperature ?: official.supportsTemperature,
-            )
+            val official = officialById[model.modelId.lowercase()]
+            val enriched = if (official != null) {
+                model.copy(
+                    displayName = model.displayName
+                        .takeUnless { it.isBlank() || it == model.modelId }
+                        ?: official.displayName,
+                    ownedBy = model.ownedBy ?: official.ownedBy,
+                    contextWindow = model.contextWindow ?: official.contextWindow,
+                    inputModalities = model.inputModalities.ifEmpty { official.inputModalities },
+                    outputModalities = model.outputModalities.ifEmpty { official.outputModalities },
+                    attachment = model.attachment ?: official.attachment,
+                    toolCall = model.toolCall ?: official.toolCall,
+                    reasoning = model.reasoning ?: official.reasoning,
+                    reasoningCapabilities = if (model.reasoning == false) {
+                        null
+                    } else {
+                        model.reasoningCapabilities
+                            ?: official.withCatalogReasoningCapabilities(catalogId).reasoningCapabilities
+                    },
+                    structuredOutput = model.structuredOutput ?: official.structuredOutput,
+                    supportsTemperature = model.supportsTemperature ?: official.supportsTemperature,
+                )
+            } else {
+                model
+            }
+
+            if (MODERN_GEMINI_REGEX.matches(enriched.modelId) && !enriched.modelId.contains("image", ignoreCase = true)) {
+                enriched.copy(
+                    contextWindow = maxOf(enriched.contextWindow ?: 0, 1_048_576),
+                    toolCall = enriched.toolCall ?: true,
+                    inputModalities = (enriched.inputModalities + listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY, "audio", "video")).distinct(),
+                    outputModalities = enriched.outputModalities.ifEmpty { listOf(Model.TEXT_MODALITY) },
+                )
+            } else {
+                enriched
+            }
         }
     }
 
