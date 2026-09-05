@@ -9,6 +9,8 @@ internal object LinuxEnvironmentPaths {
     const val SANDBOX_MARKER = ".eta-sandbox-enabled"
     const val OVERLAY_BASE_PATH = "/data/local/tmp/eta/overlay"
     const val SANDBOX_FLAG_PATH = "/data/local/tmp/eta/.sandbox_enabled"
+    const val PREFS_NAME = "eta_terminal_prefs"
+    const val PREF_KEY_SANDBOX = "sandbox_enabled"
     const val ENV_SANDBOX = "ETA_SANDBOX"
     const val ENV_LINUX_SANDBOX = "ETA_LINUX_SANDBOX"
 
@@ -48,7 +50,7 @@ internal object LinuxEnvironmentPaths {
         mergedDir(distribution)
 
     fun sandboxMarkerFile(context: Context): File =
-        File(context.filesDir, "terminal/$SANDBOX_MARKER")
+        File(context.filesDir, SANDBOX_MARKER)
 
     fun isSandboxEnabled(context: Context): Boolean =
         isSandboxEnabledInternal(context)
@@ -73,10 +75,18 @@ internal object LinuxEnvironmentPaths {
             if (prop == "1" || prop.equals("true", ignoreCase = true)) return true
             if (prop == "0" || prop.equals("false", ignoreCase = true)) return false
         }
+        if (context != null) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            if (prefs.contains(PREF_KEY_SANDBOX)) {
+                return prefs.getBoolean(PREF_KEY_SANDBOX, false)
+            }
+        }
         if (File(SANDBOX_FLAG_PATH).isFile) return true
         if (File(OVERLAY_BASE_PATH, ".sandbox_enabled").isFile) return true
         if (File(OVERLAY_BASE_PATH, SANDBOX_MARKER).isFile) return true
         if (context != null && sandboxMarkerFile(context).isFile) return true
+        if (File("/data/data/io.github.mangi.eta/files/$SANDBOX_MARKER").isFile) return true
+        if (File("/data/user/0/io.github.mangi.eta/files/$SANDBOX_MARKER").isFile) return true
         if (File("/data/data/io.github.mangi.eta/files/terminal/$SANDBOX_MARKER").isFile) return true
         if (File("/data/user/0/io.github.mangi.eta/files/terminal/$SANDBOX_MARKER").isFile) return true
         return false
@@ -84,30 +94,37 @@ internal object LinuxEnvironmentPaths {
 
     fun setSandboxEnabled(context: Context, enabled: Boolean): Boolean {
         return runCatching {
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(PREF_KEY_SANDBOX, enabled)
+                .commit()
+
             val marker = sandboxMarkerFile(context)
-            marker.parentFile?.mkdirs()
+            val legacyMarker = File(context.filesDir, "terminal/$SANDBOX_MARKER")
             val flag = File(SANDBOX_FLAG_PATH)
             val overlayFlag = File(OVERLAY_BASE_PATH, ".sandbox_enabled")
             if (enabled) {
                 marker.createNewFile()
+                runCatching { legacyMarker.createNewFile() }
                 runCatching { flag.parentFile?.mkdirs(); flag.createNewFile() }
                 runCatching { overlayFlag.parentFile?.mkdirs(); overlayFlag.createNewFile() }
                 runCatching {
                     ProcessBuilder(
                         "su",
                         "-c",
-                        "mkdir -p '$OVERLAY_BASE_PATH' && touch '$SANDBOX_FLAG_PATH' '$OVERLAY_BASE_PATH/.sandbox_enabled' '$OVERLAY_BASE_PATH/$SANDBOX_MARKER' 2>/dev/null || true",
+                        "mkdir -p '$OVERLAY_BASE_PATH' && touch '$SANDBOX_FLAG_PATH' '$OVERLAY_BASE_PATH/.sandbox_enabled' '$OVERLAY_BASE_PATH/$SANDBOX_MARKER' '${marker.absolutePath}' 2>/dev/null || true",
                     ).start().waitFor()
                 }
             } else {
                 marker.delete()
+                runCatching { legacyMarker.delete() }
                 runCatching { flag.delete() }
                 runCatching { overlayFlag.delete() }
                 runCatching {
                     ProcessBuilder(
                         "su",
                         "-c",
-                        "rm -f '$SANDBOX_FLAG_PATH' '$OVERLAY_BASE_PATH/.sandbox_enabled' '$OVERLAY_BASE_PATH/$SANDBOX_MARKER' 2>/dev/null || true",
+                        "rm -f '$SANDBOX_FLAG_PATH' '$OVERLAY_BASE_PATH/.sandbox_enabled' '$OVERLAY_BASE_PATH/$SANDBOX_MARKER' '${marker.absolutePath}' '${legacyMarker.absolutePath}' 2>/dev/null || true",
                     ).start().waitFor()
                 }
             }
