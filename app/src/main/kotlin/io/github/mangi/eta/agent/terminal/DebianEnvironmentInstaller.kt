@@ -240,6 +240,17 @@ internal class DebianEnvironmentInstaller(
             chmod 0755 /usr/local/bin/eta-apt
             /usr/local/bin/eta-apt install $packages || exit 70
             if command -v fdfind >/dev/null 2>&1; then ln -sf /usr/bin/fdfind /usr/local/bin/fd; fi
+            mkdir -p /etc/profile.d
+            cat > /etc/profile.d/00-eta-env.sh <<'ETA_PROFILE_EOF'
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:${'$'}PATH"
+for extra_dir in "/opt/eta/uv-tools/*/bin" "/opt/eta/node/*/bin" "/root/.local/bin" "/root/.cargo/bin" "/root/go/bin"; do
+  for p in ${'$'}extra_dir; do
+    [ -d "${'$'}p" ] && case ":${'$'}PATH:" in *":${'$'}p:"*) ;; *) PATH="${'$'}PATH:${'$'}p" ;; esac
+  done
+done
+export PATH
+ETA_PROFILE_EOF
+            chmod 0644 /etc/profile.d/00-eta-env.sh
             cat > /${COMMON_TOOLS_MARKER} <<'ETA_TOOLSET_EOF'
             debian=$DEBIAN_VERSION
             toolset=$TOOLSET_REVISION

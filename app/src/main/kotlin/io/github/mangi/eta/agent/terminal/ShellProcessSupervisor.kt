@@ -300,26 +300,20 @@ internal class ShellProcessSupervisor(
             eta_parent="${'$'}{eta_rootfs%/*}"
             eta_distro="${'$'}{eta_parent##*/}"
             [ -n "${'$'}eta_distro" ] || eta_distro="default"
-            eta_overlay_dir="/data/local/tmp/eta/overlay/${'$'}eta_distro"
             eta_sandbox_flag=0
-            if [ -f /data/local/tmp/eta/.sandbox_enabled ] || [ -f /data/local/tmp/eta/.eta-sandbox-enabled ] || [ -f "${'$'}eta_rootfs/../.sandbox_enabled" ] || [ -f "${'$'}eta_rootfs/../.eta-sandbox-enabled" ] || [ -f "${'$'}eta_rootfs/../../.sandbox_enabled" ] || [ -f "${'$'}eta_rootfs/../../.eta-sandbox-enabled" ] || [ -f "${'$'}eta_rootfs/../../../.eta-sandbox-enabled" ] || [ -f "${'$'}eta_overlay_dir/../.sandbox_enabled" ] || [ -f "${'$'}eta_overlay_dir/../.eta-sandbox-enabled" ] || [ -f "${'$'}eta_overlay_dir/.sandbox_enabled" ] || [ -f "${'$'}eta_overlay_dir/.eta-sandbox-enabled" ] || [ "${'$'}ETA_SANDBOX" = "1" ] || [ "${'$'}ETA_SANDBOX" = "true" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "1" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "true" ]; then
+            if [ -f /data/local/tmp/eta/.eta-sandbox-enabled ] || [ -f "${'$'}eta_rootfs/../.eta-sandbox-enabled" ] || [ -f "${'$'}eta_rootfs/../../.eta-sandbox-enabled" ] || [ -f "${'$'}eta_rootfs/../../../.eta-sandbox-enabled" ] || [ "${'$'}ETA_SANDBOX" = "1" ] || [ "${'$'}ETA_SANDBOX" = "true" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "1" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "true" ]; then
               eta_sandbox_flag=1
             fi
             if [ "${'$'}eta_sandbox_flag" = "1" ]; then
               eta_sandbox_rootfs="${'$'}eta_parent/sandbox_rootfs"
               if [ -d "${'$'}eta_sandbox_rootfs" ] && [ -f "${'$'}eta_sandbox_rootfs/.eta-environment-ready" ]; then
                 eta_rootfs="${'$'}eta_sandbox_rootfs"
-              else
-                "${'$'}eta_busybox" mkdir -p "${'$'}eta_overlay_dir/upper" "${'$'}eta_overlay_dir/work" "${'$'}eta_overlay_dir/merged" 2>/dev/null || true
-                if "${'$'}eta_busybox" mount -t overlay overlay -o lowerdir="${'$'}eta_rootfs",upperdir="${'$'}eta_overlay_dir/upper",workdir="${'$'}eta_overlay_dir/work" "${'$'}eta_overlay_dir/merged" 2>/dev/null; then
-                  eta_rootfs="${'$'}eta_overlay_dir/merged"
-                elif [ -d "${'$'}eta_rootfs" ]; then
-                  rm -rf "${'$'}eta_sandbox_rootfs" 2>/dev/null || true
-                  mkdir -p "${'$'}eta_sandbox_rootfs" 2>/dev/null || true
-                  if cp -al "${'$'}eta_rootfs/." "${'$'}eta_sandbox_rootfs/" 2>/dev/null; then
-                    touch "${'$'}eta_sandbox_rootfs/.eta-environment-ready" 2>/dev/null || true
-                    eta_rootfs="${'$'}eta_sandbox_rootfs"
-                  fi
+              elif [ -d "${'$'}eta_rootfs" ]; then
+                rm -rf "${'$'}eta_sandbox_rootfs" 2>/dev/null || true
+                mkdir -p "${'$'}eta_sandbox_rootfs" 2>/dev/null || true
+                if cp -al "${'$'}eta_rootfs/." "${'$'}eta_sandbox_rootfs/" 2>/dev/null; then
+                  touch "${'$'}eta_sandbox_rootfs/.eta-environment-ready" 2>/dev/null || true
+                  eta_rootfs="${'$'}eta_sandbox_rootfs"
                 fi
               fi
             fi
@@ -342,26 +336,22 @@ internal class ShellProcessSupervisor(
                 exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /usr/bin/env -i \
                   HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType NO_COLOR=1 \
                   LANG=C.UTF-8 LC_ALL=C.UTF-8 \
-                  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games \
                   /bin/sh -lc "${'$'}eta_payload"
               fi
               exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /bin/busybox env -i \
                 HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType NO_COLOR=1 \
                 LANG=C.UTF-8 LC_ALL=C.UTF-8 \
-                PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games \
                 /bin/sh -lc "${'$'}eta_payload"
             fi
             if [ -x "${'$'}eta_rootfs/usr/bin/env" ]; then
               exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /usr/bin/env -i \
                 HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType \
                 LANG=C.UTF-8 LC_ALL=C.UTF-8 \
-                PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games \
                 /bin/sh
             fi
             exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /bin/busybox env -i \
               HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType \
               LANG=C.UTF-8 LC_ALL=C.UTF-8 \
-              PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games \
               /bin/sh
         """.trimIndent()
         val innerScript = if (mountsBlock.isEmpty()) {

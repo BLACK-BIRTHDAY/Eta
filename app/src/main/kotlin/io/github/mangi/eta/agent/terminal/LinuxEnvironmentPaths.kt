@@ -7,8 +7,6 @@ import java.io.File
 internal object LinuxEnvironmentPaths {
     const val READY_MARKER = ".eta-environment-ready"
     const val SANDBOX_MARKER = ".eta-sandbox-enabled"
-    const val OVERLAY_BASE_PATH = "/data/local/tmp/eta/overlay"
-    const val SANDBOX_FLAG_PATH = "/data/local/tmp/eta/.sandbox_enabled"
     const val PREFS_NAME = "eta_terminal_prefs"
     const val PREF_KEY_SANDBOX = "sandbox_enabled"
     const val ENV_SANDBOX = "ETA_SANDBOX"
@@ -57,30 +55,6 @@ internal object LinuxEnvironmentPaths {
         }.getOrDefault(false)
     }
 
-    fun overlayDir(distribution: LinuxDistribution): File =
-        File(OVERLAY_BASE_PATH, distribution.wireName)
-
-    fun overlayDir(context: Context, distribution: LinuxDistribution): File =
-        overlayDir(distribution)
-
-    fun upperDir(distribution: LinuxDistribution): File =
-        File(overlayDir(distribution), "upper")
-
-    fun upperDir(context: Context, distribution: LinuxDistribution): File =
-        upperDir(distribution)
-
-    fun workDir(distribution: LinuxDistribution): File =
-        File(overlayDir(distribution), "work")
-
-    fun workDir(context: Context, distribution: LinuxDistribution): File =
-        workDir(distribution)
-
-    fun mergedDir(distribution: LinuxDistribution): File =
-        File(overlayDir(distribution), "merged")
-
-    fun mergedDir(context: Context, distribution: LinuxDistribution): File =
-        mergedDir(distribution)
-
     fun sandboxMarkerFile(context: Context): File =
         File(context.filesDir, SANDBOX_MARKER)
 
@@ -113,9 +87,6 @@ internal object LinuxEnvironmentPaths {
                 return prefs.getBoolean(PREF_KEY_SANDBOX, false)
             }
         }
-        if (File(SANDBOX_FLAG_PATH).isFile) return true
-        if (File(OVERLAY_BASE_PATH, ".sandbox_enabled").isFile) return true
-        if (File(OVERLAY_BASE_PATH, SANDBOX_MARKER).isFile) return true
         if (context != null && sandboxMarkerFile(context).isFile) return true
         if (File("/data/data/io.github.mangi.eta/files/$SANDBOX_MARKER").isFile) return true
         if (File("/data/user/0/io.github.mangi.eta/files/$SANDBOX_MARKER").isFile) return true
@@ -133,39 +104,30 @@ internal object LinuxEnvironmentPaths {
 
             val marker = sandboxMarkerFile(context)
             val legacyMarker = File(context.filesDir, "terminal/$SANDBOX_MARKER")
-            val flag = File(SANDBOX_FLAG_PATH)
-            val overlayFlag = File(OVERLAY_BASE_PATH, ".sandbox_enabled")
             if (enabled) {
                 marker.createNewFile()
                 runCatching { legacyMarker.createNewFile() }
-                runCatching { flag.parentFile?.mkdirs(); flag.createNewFile() }
-                runCatching { overlayFlag.parentFile?.mkdirs(); overlayFlag.createNewFile() }
                 runCatching {
                     ProcessBuilder(
                         "su",
                         "-c",
-                        "mkdir -p '$OVERLAY_BASE_PATH' && touch '$SANDBOX_FLAG_PATH' '$OVERLAY_BASE_PATH/.sandbox_enabled' '$OVERLAY_BASE_PATH/$SANDBOX_MARKER' '${marker.absolutePath}' 2>/dev/null || true",
+                        "touch '${marker.absolutePath}' 2>/dev/null || true",
                     ).start().waitFor()
                 }
             } else {
                 marker.delete()
                 runCatching { legacyMarker.delete() }
-                runCatching { flag.delete() }
-                runCatching { overlayFlag.delete() }
                 runCatching {
                     ProcessBuilder(
                         "su",
                         "-c",
-                        "rm -f '$SANDBOX_FLAG_PATH' '$OVERLAY_BASE_PATH/.sandbox_enabled' '$OVERLAY_BASE_PATH/$SANDBOX_MARKER' '${marker.absolutePath}' '${legacyMarker.absolutePath}' 2>/dev/null || true",
+                        "rm -f '${marker.absolutePath}' '${legacyMarker.absolutePath}' 2>/dev/null || true",
                     ).start().waitFor()
                 }
             }
             true
         }.getOrDefault(false)
     }
-
-    fun resetSandbox(distribution: LinuxDistribution): Boolean =
-        resetSandboxInternal(overlayDir(distribution))
 
     fun commitSandbox(context: Context, distribution: LinuxDistribution): Boolean {
         val sandboxDir = sandboxRootfsDir(context, distribution)
@@ -175,66 +137,44 @@ internal object LinuxEnvironmentPaths {
         return runCatching {
             val src = sandboxDir.absolutePath
             val dst = sourceDir.absolutePath
-            // 固化逻辑：把 sandbox 中的新文件与改动同步进底包，然后让 sandbox 与底包重新硬链接对齐
             val backup = File(environmentDir(context, distribution), "rootfs_backup_${System.currentTimeMillis()}").absolutePath
-            val cmd = "mv '$dst' '$backup' && mv '$src' '$dst' && mkdir -p '$src' && cp -al '$dst/.' '$src/' 2>/dev/null && touch '$dst/$READY_MARKER' '$src/$READY_MARKER' && rm -rf '$backup' 2>/dev/null || true"
+            val garbage = File("/data/local/tmp/.garbage_commit_${System.currentTimeMillis()}").absolutePath
+            // 异步脱钩原子固化：将旧底包秒级移至待清理目录，将当前沙盒提拔为新底包，再克隆出新沙盒
+            val cmd = """
+                mv '$dst' '$backup' && \
+                mv '$src' '$dst' && \
+                mkdir -p '$src' && \
+                cp -al '$dst/.' '$src/' 2>/dev/null && \
+                touch '$dst/$READY_MARKER' '$src/$READY_MARKER' && \
+                (mkdir -p '$garbage' && mv '$backup' '$garbage/' && rm -rf '$garbage' >/dev/null 2>&1 &) || true
+            """.trimIndent()
             val process = ProcessBuilder("su", "-c", cmd).start()
-            process.waitFor(60, java.util.concurrent.TimeUnit.SECONDS)
+            process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
             File(sourceDir, READY_MARKER).isFile && File(sandboxDir, READY_MARKER).isFile
         }.getOrDefault(false)
     }
 
     fun resetSandbox(context: Context, distribution: LinuxDistribution): Boolean {
-        val overlayOk = resetSandboxInternal(overlayDir(context, distribution))
         val sandboxDir = sandboxRootfsDir(context, distribution)
         val sourceDir = rootfsDir(context, distribution)
-        val hardlinkOk = runCatching {
+        return runCatching {
             val dst = sandboxDir.absolutePath
             val src = sourceDir.absolutePath
-            val cmd = "rm -rf '$dst' && mkdir -p '$dst' && cp -al '$src/.' '$dst/' 2>/dev/null && touch '$dst/$READY_MARKER' || true"
+            val garbage = File("/data/local/tmp/.garbage_reset_${System.currentTimeMillis()}").absolutePath
+            // 异步脱钩瞬时重置：秒级移除沙盒，秒级克隆底包，后台静默销毁垃圾
+            val cmd = """
+                if [ -d '$dst' ]; then
+                    mkdir -p '$garbage' 2>/dev/null
+                    mv '$dst' '$garbage/' 2>/dev/null || rm -rf '$dst' 2>/dev/null
+                fi
+                mkdir -p '$dst' && \
+                cp -al '$src/.' '$dst/' 2>/dev/null && \
+                touch '$dst/$READY_MARKER' && \
+                (rm -rf '$garbage' >/dev/null 2>&1 &) || true
+            """.trimIndent()
             val process = ProcessBuilder("su", "-c", cmd).start()
-            process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
+            process.waitFor(15, java.util.concurrent.TimeUnit.SECONDS)
             File(sandboxDir, READY_MARKER).isFile
         }.getOrDefault(false)
-        return overlayOk || hardlinkOk
-    }
-
-    private fun resetSandboxInternal(baseDir: File): Boolean {
-        val upper = File(baseDir, "upper")
-        val work = File(baseDir, "work")
-        val merged = File(baseDir, "merged")
-
-        var javaDeleted = true
-        if (upper.exists()) {
-            javaDeleted = upper.deleteRecursively() && javaDeleted
-        }
-        if (work.exists()) {
-            javaDeleted = work.deleteRecursively() && javaDeleted
-        }
-        if (merged.exists()) {
-            merged.deleteRecursively()
-        }
-
-        if (upper.exists() || work.exists()) {
-            runCatching {
-                val upperPath = upper.absolutePath
-                val workPath = work.absolutePath
-                val mergedPath = merged.absolutePath
-                val cmd = "rm -rf '$upperPath' '$workPath' '$mergedPath' 2>/dev/null || true"
-                val process = ProcessBuilder("su", "-c", cmd).start()
-                process.waitFor(2, java.util.concurrent.TimeUnit.SECONDS)
-            }
-        }
-
-        val success = (!upper.exists() || upper.list().isNullOrEmpty()) &&
-            (!work.exists() || work.list().isNullOrEmpty())
-
-        runCatching {
-            upper.mkdirs()
-            work.mkdirs()
-            merged.mkdirs()
-        }
-
-        return success
     }
 }
