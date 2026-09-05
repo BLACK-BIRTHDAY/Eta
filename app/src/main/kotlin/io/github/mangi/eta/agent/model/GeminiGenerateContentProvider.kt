@@ -200,38 +200,25 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         }
 
         val generationConfig = JSONObject()
-        val isModern = isModernGemini(config.model)
         val thinkingConfig = JSONObject()
         if (config.thinkingEnabled) {
             thinkingConfig.put("includeThoughts", true)
-            if (isModern) {
-                val level = when (config.effectiveReasoningEffort) {
-                    ReasoningEffort.OFF -> "low"
-                    ReasoningEffort.LOW -> "low"
-                    ReasoningEffort.MEDIUM, ReasoningEffort.DEFAULT -> "medium"
-                    ReasoningEffort.HIGH, ReasoningEffort.XHIGH, ReasoningEffort.MAX -> "high"
-                    else -> "medium"
-                }
-                thinkingConfig.put("thinkingLevel", level)
-            } else {
-                val budget = when (config.effectiveReasoningEffort) {
-                    ReasoningEffort.OFF -> 0
-                    ReasoningEffort.DEFAULT -> -1 // Google 官方原生自适应思考预算
-                    ReasoningEffort.LOW -> 4096
-                    ReasoningEffort.MEDIUM -> 16384
-                    ReasoningEffort.HIGH -> 32768
-                    ReasoningEffort.XHIGH, ReasoningEffort.MAX -> 65535
-                    else -> -1
-                }
-                thinkingConfig.put("thinkingBudget", budget)
+            // 精准对齐 Antigravity Manager 网关的 variant_mapping 阈值：
+            // b < 2000 -> Low (0.25)
+            // 2000 <= b < 7000 -> Medium (0.50)
+            // b >= 7000 -> High (1.00)
+            val budget = when (config.effectiveReasoningEffort) {
+                ReasoningEffort.OFF -> 0
+                ReasoningEffort.LOW -> 1024
+                ReasoningEffort.MEDIUM -> 4096
+                ReasoningEffort.DEFAULT -> 4096
+                ReasoningEffort.HIGH, ReasoningEffort.XHIGH, ReasoningEffort.MAX -> 16384
+                else -> 4096
             }
+            thinkingConfig.put("thinkingBudget", budget)
         } else {
             thinkingConfig.put("includeThoughts", false)
-            if (isModern) {
-                thinkingConfig.put("thinkingLevel", "low")
-            } else {
-                thinkingConfig.put("thinkingBudget", 0)
-            }
+            thinkingConfig.put("thinkingBudget", 0)
         }
         generationConfig.put("thinkingConfig", thinkingConfig)
         // 若是生图模型（modelId 含 image 或包含图片输出模态）：
