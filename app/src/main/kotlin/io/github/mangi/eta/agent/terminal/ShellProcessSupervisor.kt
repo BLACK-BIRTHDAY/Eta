@@ -301,7 +301,7 @@ internal class ShellProcessSupervisor(
             eta_distro="${'$'}{eta_parent##*/}"
             [ -n "${'$'}eta_distro" ] || eta_distro="default"
             eta_overlay_dir="/data/local/tmp/eta/overlay/${'$'}eta_distro"
-            if [ -f /data/local/tmp/eta/.sandbox_enabled ] || [ -f "${'$'}eta_rootfs/../.sandbox_enabled" ] || [ -f "${'$'}eta_rootfs/../../.sandbox_enabled" ] || [ -f "${'$'}eta_overlay_dir/../.sandbox_enabled" ] || [ -f "${'$'}eta_overlay_dir/.sandbox_enabled" ] || [ "${'$'}ETA_SANDBOX" = "1" ] || [ "${'$'}ETA_SANDBOX" = "true" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "1" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "true" ]; then
+            if [ -f /data/local/tmp/eta/.sandbox_enabled ] || [ -f /data/local/tmp/eta/.eta-sandbox-enabled ] || [ -f "${'$'}eta_rootfs/../.sandbox_enabled" ] || [ -f "${'$'}eta_rootfs/../.eta-sandbox-enabled" ] || [ -f "${'$'}eta_rootfs/../../.sandbox_enabled" ] || [ -f "${'$'}eta_rootfs/../../.eta-sandbox-enabled" ] || [ -f "${'$'}eta_overlay_dir/../.sandbox_enabled" ] || [ -f "${'$'}eta_overlay_dir/../.eta-sandbox-enabled" ] || [ -f "${'$'}eta_overlay_dir/.sandbox_enabled" ] || [ -f "${'$'}eta_overlay_dir/.eta-sandbox-enabled" ] || [ "${'$'}ETA_SANDBOX" = "1" ] || [ "${'$'}ETA_SANDBOX" = "true" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "1" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "true" ]; then
               "${'$'}eta_busybox" mkdir -p "${'$'}eta_overlay_dir/upper" "${'$'}eta_overlay_dir/work" "${'$'}eta_overlay_dir/merged" 2>/dev/null || true
               if "${'$'}eta_busybox" mount -t overlay overlay -o lowerdir="${'$'}eta_rootfs",upperdir="${'$'}eta_overlay_dir/upper",workdir="${'$'}eta_overlay_dir/work" "${'$'}eta_overlay_dir/merged" 2>/dev/null; then
                 eta_rootfs="${'$'}eta_overlay_dir/merged"

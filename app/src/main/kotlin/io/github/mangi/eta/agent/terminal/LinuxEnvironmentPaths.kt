@@ -75,7 +75,10 @@ internal object LinuxEnvironmentPaths {
         }
         if (File(SANDBOX_FLAG_PATH).isFile) return true
         if (File(OVERLAY_BASE_PATH, ".sandbox_enabled").isFile) return true
+        if (File(OVERLAY_BASE_PATH, SANDBOX_MARKER).isFile) return true
         if (context != null && sandboxMarkerFile(context).isFile) return true
+        if (File("/data/data/io.github.mangi.eta/files/terminal/$SANDBOX_MARKER").isFile) return true
+        if (File("/data/user/0/io.github.mangi.eta/files/terminal/$SANDBOX_MARKER").isFile) return true
         return false
     }
 
@@ -89,10 +92,24 @@ internal object LinuxEnvironmentPaths {
                 marker.createNewFile()
                 runCatching { flag.parentFile?.mkdirs(); flag.createNewFile() }
                 runCatching { overlayFlag.parentFile?.mkdirs(); overlayFlag.createNewFile() }
+                runCatching {
+                    ProcessBuilder(
+                        "su",
+                        "-c",
+                        "mkdir -p '$OVERLAY_BASE_PATH' && touch '$SANDBOX_FLAG_PATH' '$OVERLAY_BASE_PATH/.sandbox_enabled' '$OVERLAY_BASE_PATH/$SANDBOX_MARKER' 2>/dev/null || true",
+                    ).start().waitFor()
+                }
             } else {
                 marker.delete()
                 runCatching { flag.delete() }
                 runCatching { overlayFlag.delete() }
+                runCatching {
+                    ProcessBuilder(
+                        "su",
+                        "-c",
+                        "rm -f '$SANDBOX_FLAG_PATH' '$OVERLAY_BASE_PATH/.sandbox_enabled' '$OVERLAY_BASE_PATH/$SANDBOX_MARKER' 2>/dev/null || true",
+                    ).start().waitFor()
+                }
             }
             true
         }.getOrDefault(false)
