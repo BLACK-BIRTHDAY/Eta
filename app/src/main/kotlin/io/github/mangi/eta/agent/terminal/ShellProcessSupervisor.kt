@@ -342,26 +342,26 @@ internal class ShellProcessSupervisor(
                 exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /usr/bin/env -i \
                   HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType NO_COLOR=1 \
                   LANG=C.UTF-8 LC_ALL=C.UTF-8 \
-                  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+                  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games \
                   /bin/sh -lc "${'$'}eta_payload"
               fi
               exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /bin/busybox env -i \
                 HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType NO_COLOR=1 \
                 LANG=C.UTF-8 LC_ALL=C.UTF-8 \
-                PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+                PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games \
                 /bin/sh -lc "${'$'}eta_payload"
             fi
             if [ -x "${'$'}eta_rootfs/usr/bin/env" ]; then
               exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /usr/bin/env -i \
                 HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType \
                 LANG=C.UTF-8 LC_ALL=C.UTF-8 \
-                PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+                PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games \
                 /bin/sh
             fi
             exec "${'$'}eta_busybox" chroot "${'$'}eta_rootfs" /bin/busybox env -i \
               HOME=/root USER=root LOGNAME=root SHELL=/bin/sh TERM=$termType \
               LANG=C.UTF-8 LC_ALL=C.UTF-8 \
-              PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+              PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games \
               /bin/sh
         """.trimIndent()
         val innerScript = if (mountsBlock.isEmpty()) {

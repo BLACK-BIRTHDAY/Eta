@@ -72,6 +72,7 @@ internal object AgentPromptBuilder {
                         "准确告知用户先到设置安装对应的 Linux 工具环境，不要把 Android 缺少命令误报成设备不支持。" +
                         "若 Linux 基础命令不存在，准确告知用户先在 Linux 工具环境页面完成“安装基础工具”；Python/uv、Node.js、SSH 与 APK 分析都在当前选中的发行版中分别按需安装。不要在 Android 环境冒充或自行下载工具。" +
                         "在 Linux (Debian/Alpine) 中使用 pip 安装 Python 包时，由于系统开启了 PEP 668 外部环境保护，首选带上 --break-system-packages 参数（例如 pip install --break-system-packages <pkg>），或使用虚拟环境，避免因 externally-managed-environment 报错。" +
+                        "Debian 的 games 命令目录位于 /usr/games，执行像 cowsay 等命令时系统 PATH 已包含该路径，也可直接用绝对路径或符号链接。" +
                         "Linux 环境默认在 /workspace 工作，该目录与 Android 的 /data/local/tmp/eta 对应；" +
                         "共享存储可通过 /sdcard 使用，Linux 环境不能直接假定其他 Android 受保护路径可见。" +
                         "用户配置的共享文件夹挂载在 Linux 环境 /workspace/mounts/ 下，每个子目录对应一个 Android 目录；" +
