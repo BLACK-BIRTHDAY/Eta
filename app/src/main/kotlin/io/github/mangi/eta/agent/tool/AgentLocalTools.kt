@@ -103,7 +103,7 @@ internal class AgentLocalTools(
         linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(context).absolutePath,
         linuxRootfsPathProvider = { environment ->
             environment.linuxDistribution?.let { distribution ->
-                LinuxEnvironmentPaths.rootfsDir(context, distribution).absolutePath
+                LinuxEnvironmentPaths.effectiveRootfsDir(context, distribution).absolutePath
             }
         },
         detachedSupervisor = DetachedTaskSupervisor(
@@ -112,7 +112,7 @@ internal class AgentLocalTools(
             linuxRootfsPath = AlpineEnvironmentPaths.rootfsDir(context).absolutePath,
             linuxRootfsPathProvider = { environment ->
                 environment.linuxDistribution?.let { distribution ->
-                    LinuxEnvironmentPaths.rootfsDir(context, distribution).absolutePath
+                    LinuxEnvironmentPaths.effectiveRootfsDir(context, distribution).absolutePath
                 }
             },
             linuxSharedMountsProvider = { SharedFolderMounts.current() },

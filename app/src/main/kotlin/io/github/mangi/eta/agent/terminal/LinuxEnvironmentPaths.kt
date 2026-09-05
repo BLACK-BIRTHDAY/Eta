@@ -25,6 +25,38 @@ internal object LinuxEnvironmentPaths {
         return File(rootfsPath, READY_MARKER).isFile
     }
 
+    fun sandboxRootfsDir(context: Context, distribution: LinuxDistribution): File =
+        File(environmentDir(context, distribution), "sandbox_rootfs")
+
+    fun effectiveRootfsDir(context: Context, distribution: LinuxDistribution): File {
+        val rootfs = rootfsDir(context, distribution)
+        if (!isSandboxEnabled(context) || !rootfsReady(rootfs.absolutePath)) {
+            return rootfs
+        }
+        val sandboxDir = sandboxRootfsDir(context, distribution)
+        val sandboxReadyMarker = File(sandboxDir, READY_MARKER)
+        if (!sandboxReadyMarker.isFile) {
+            prepareSandboxRootfs(context, distribution)
+        }
+        return if (sandboxReadyMarker.isFile) sandboxDir else rootfs
+    }
+
+    fun prepareSandboxRootfs(context: Context, distribution: LinuxDistribution): Boolean {
+        val sourceDir = rootfsDir(context, distribution)
+        val targetDir = sandboxRootfsDir(context, distribution)
+        if (!rootfsReady(sourceDir.absolutePath)) return false
+
+        return runCatching {
+            targetDir.mkdirs()
+            val src = sourceDir.absolutePath
+            val dst = targetDir.absolutePath
+            val cmd = "rm -rf '$dst' && mkdir -p '$dst' && cp -al '$src/.' '$dst/' 2>/dev/null && touch '$dst/$READY_MARKER' || true"
+            val process = ProcessBuilder("su", "-c", cmd).start()
+            process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
+            File(targetDir, READY_MARKER).isFile
+        }.getOrDefault(false)
+    }
+
     fun overlayDir(distribution: LinuxDistribution): File =
         File(OVERLAY_BASE_PATH, distribution.wireName)
 
@@ -135,8 +167,20 @@ internal object LinuxEnvironmentPaths {
     fun resetSandbox(distribution: LinuxDistribution): Boolean =
         resetSandboxInternal(overlayDir(distribution))
 
-    fun resetSandbox(context: Context, distribution: LinuxDistribution): Boolean =
-        resetSandboxInternal(overlayDir(context, distribution))
+    fun resetSandbox(context: Context, distribution: LinuxDistribution): Boolean {
+        val overlayOk = resetSandboxInternal(overlayDir(context, distribution))
+        val sandboxDir = sandboxRootfsDir(context, distribution)
+        val sourceDir = rootfsDir(context, distribution)
+        val hardlinkOk = runCatching {
+            val dst = sandboxDir.absolutePath
+            val src = sourceDir.absolutePath
+            val cmd = "rm -rf '$dst' && mkdir -p '$dst' && cp -al '$src/.' '$dst/' 2>/dev/null && touch '$dst/$READY_MARKER' || true"
+            val process = ProcessBuilder("su", "-c", cmd).start()
+            process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)
+            File(sandboxDir, READY_MARKER).isFile
+        }.getOrDefault(false)
+        return overlayOk || hardlinkOk
+    }
 
     private fun resetSandboxInternal(baseDir: File): Boolean {
         val upper = File(baseDir, "upper")

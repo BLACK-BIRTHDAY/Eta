@@ -380,9 +380,9 @@ internal fun LinuxEnvironmentScreen(
                         .padding(bottom = 12.dp),
                 ) {
                     SwitchPreference(
-                        title = "沙盒保护模式 (OverlayFS)",
+                        title = "沙盒保护模式",
                         summary = if (sandboxEnabled) {
-                            "已开启：基础底包只读保护，修改写入独立差异层，可随时秒级还原"
+                            "已开启：基础底包只读保护，修改写入独立沙盒副本，可随时秒级还原"
                         } else {
                             "已关闭：命令与软件包直接写入底层环境"
                         },
@@ -390,6 +390,11 @@ internal fun LinuxEnvironmentScreen(
                         onCheckedChange = { enabled ->
                             LinuxEnvironmentPaths.setSandboxEnabled(appContext, enabled)
                             sandboxEnabled = enabled
+                            if (enabled) {
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    LinuxEnvironmentPaths.prepareSandboxRootfs(appContext, selectedDistribution)
+                                }
+                            }
                         },
                     )
                     if (sandboxEnabled) {
