@@ -18,10 +18,12 @@ Eta 借助 Root 与 LSPosed 越过 App 沙盒，直接进入系统底层：Hook 
 
 > [!TIP]
 > 🌟 **本分支专属核心增强速览**
-> 1. **💎 Google Gemini 3.x 原生协议全要素支持**：直接对接原生 `generateContent` 端点；内置彩钻标识，支持 1M 超大上下文 (`gemini-3.8-flash-tiered`)、原生自适应 Thinking 预算控制（`-1`/`0`/阶梯）、多模态生图与 `inlineData` Base64 实时 Markdown 图片渲染、官方 Key + 代理网关 Bearer 双重认证。
+> 1. **💎 Google Gemini 3.x 原生协议全要素支持**：直接对接原生 `generateContent` 端点；内置彩钻标识，支持 1M 超大上下文 (`gemini-3.8-flash-tiered`)、原生自适应 Thinking 预算控制（对齐 Antigravity Manager / Cherry Studio 精准阶梯）、多模态生图与 `inlineData` Base64 实时 Markdown 图片渲染、官方 Key + 代理网关 Bearer 双重认证。
 > 2. **⚡ 内核管道 Zero-Copy Pipe IPC**：彻底终结 Android 1MB Binder 事务物理限制。会话历史超 32KB 自动切换为 `ParcelFileDescriptor.createPipe()` 内核流式传输，支持高达 2,000,000 字符超长上下文；智能 `user` 轮次原子裁剪边界，杜绝断头 400 语法错误。
 > 3. **🌊 ColorOS 16 / Android 16 原生流体云与实时胶囊**：全面接入 Android 16 `POST_PROMOTED_NOTIFICATIONS` 规范与 ColorOS 16 官方实况架构。在 Agent 执行构思思考、代码编辑写入、终端命令测试时，状态栏挖孔旁实时升起动态呼吸胶囊；支持锁屏磨砂卡片、AOD 静态微标、点击以 ColorOS 自由小窗弹出交互，任务完成后 8 秒优雅自动收回。
-> 4. **💳 ColorOS 双击电源键直达钱包**：深度 Hook ColorOS 系统输入分发，双击电源键无论在锁屏还是亮屏状态，瞬间拉起 Google 钱包或一加钱包，支付出行一触即达。
+> 4. **🔀 多会话真正并发与屏幕排他锁 (方案 B)**：服务端解绑单例会话，升级为并发会话池；纯代码编辑、终端构建与模型思考任务完全并发狂飙，多会话互不打扰；物理屏幕操作自动接入单例互斥锁，排队防冲突。
+> 5. **🛡️ Linux 容器 OverlayFS 只读金标底包与 Tmpfs 动态内存盘**：底包环境永久只读保护，所有测试变更写入独立差异层，搞崩 0.1 秒秒级还原出厂；容器 `/tmp` 挂载 512M 动态 tmpfs 内存盘，编译提速且不常驻占用内存；Agent 自动感知沙盒并在任务结束主动询问是否固化到底包。
+> 6. **💳 ColorOS 双击电源键直达钱包**：深度 Hook ColorOS 系统输入分发，双击电源键无论在锁屏还是亮屏状态，瞬间拉起 Google 钱包或一加钱包，支付出行一触即达。
 
 ---
 

@@ -297,6 +297,16 @@ internal class ShellProcessSupervisor(
               "${'$'}eta_busybox" mkdir -p "${'$'}eta_target" 2>/dev/null || return 0
               "${'$'}eta_busybox" mount -o "${'$'}eta_options" "${'$'}eta_source" "${'$'}eta_target" 2>/dev/null || true
             }
+            eta_parent="${'$'}{eta_rootfs%/*}"
+            eta_distro="${'$'}{eta_parent##*/}"
+            [ -n "${'$'}eta_distro" ] || eta_distro="default"
+            eta_overlay_dir="/data/local/tmp/eta/overlay/${'$'}eta_distro"
+            if [ -f /data/local/tmp/eta/.sandbox_enabled ] || [ -f "${'$'}eta_rootfs/../.sandbox_enabled" ] || [ -f "${'$'}eta_rootfs/../../.sandbox_enabled" ] || [ -f "${'$'}eta_overlay_dir/../.sandbox_enabled" ] || [ -f "${'$'}eta_overlay_dir/.sandbox_enabled" ] || [ "${'$'}ETA_SANDBOX" = "1" ] || [ "${'$'}ETA_SANDBOX" = "true" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "1" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "true" ]; then
+              "${'$'}eta_busybox" mkdir -p "${'$'}eta_overlay_dir/upper" "${'$'}eta_overlay_dir/work" "${'$'}eta_overlay_dir/merged" 2>/dev/null || true
+              if "${'$'}eta_busybox" mount -t overlay overlay -o lowerdir="${'$'}eta_rootfs",upperdir="${'$'}eta_overlay_dir/upper",workdir="${'$'}eta_overlay_dir/work" "${'$'}eta_overlay_dir/merged" 2>/dev/null; then
+                eta_rootfs="${'$'}eta_overlay_dir/merged"
+              fi
+            fi
             "${'$'}eta_busybox" mount -t proc proc "${'$'}eta_rootfs/proc" || exit 125
             eta_mount_required /dev "${'$'}eta_rootfs/dev" rbind
             eta_mount_optional /sys "${'$'}eta_rootfs/sys" rbind
@@ -307,6 +317,8 @@ internal class ShellProcessSupervisor(
             eta_mount_required /data/local/tmp "${'$'}eta_rootfs/data/local/tmp" bind
             "${'$'}eta_busybox" mkdir -p /data/local/tmp/eta || exit 125
             eta_mount_required /data/local/tmp/eta "${'$'}eta_rootfs/workspace" bind
+            "${'$'}eta_busybox" mkdir -p "${'$'}eta_rootfs/tmp" 2>/dev/null || true
+            "${'$'}eta_busybox" mount -t tmpfs -o size=512M,mode=1777 tmpfs "${'$'}eta_rootfs/tmp" 2>/dev/null || true
         """.trimIndent()
         val innerScriptTail = """
             if [ "${'$'}eta_mode" = command ]; then

@@ -46,6 +46,7 @@ import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.ModuleConfig
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.concurrent.thread
 import kotlinx.coroutines.runBlocking
 import top.yukonga.miuix.kmp.squircle.LocalSquircleEnabled
@@ -70,13 +71,10 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     private val mainHandler = Handler(Looper.getMainLooper())
     private val serviceMessenger = Messenger(IncomingHandler())
 
-    @Volatile
-    private var activeSession: AgentRuntimeSession? = null
-    private var startRequestGeneration = 0L
-    private var pendingStartRequest: PendingStartRequest? = null
+    private val activeSessions = ConcurrentHashMap<String, AgentRuntimeSession>()
+    private val pendingStartRequests = ConcurrentHashMap<String, PendingStartRequest>()
 
     private data class PendingStartRequest(
-        val generation: Long,
         val incoming: AgentRuntimeWire.IncomingRunRequest,
         val replyTo: Messenger?,
     )
@@ -134,14 +132,14 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action != ACTION_KEEP_ALIVE || activeSession == null) {
+        if (intent?.action != ACTION_KEEP_ALIVE || activeSessions.isEmpty()) {
             stopSelf(startId)
         }
         return START_NOT_STICKY
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
-        if (activeSession?.isTerminal == false) {
+        if (activeSessions.values.any { !it.isTerminal }) {
             AndroidAgentLogger.debug {
                 "Agent runtime client unbound while run is active; detached run continues"
             }
@@ -150,8 +148,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     }
 
     override fun onDestroy() {
-        startRequestGeneration++
-        pendingStartRequest?.let { pending ->
+        pendingStartRequests.values.forEach { pending ->
             pending.incoming.close()
             sendRequestIngestedTo(pending.replyTo, pending.incoming.request.runId)
             sendResultTo(
@@ -164,9 +161,9 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 ),
             )
         }
-        pendingStartRequest = null
-        activeSession?.cancel("Agent Runtime 服务已停止")
-        activeSession = null
+        pendingStartRequests.clear()
+        activeSessions.values.forEach { it.cancel("Agent Runtime 服务已停止") }
+        activeSessions.clear()
         mainHandler.removeCallbacksAndMessages(null)
         resultCardView?.let { view -> runCatching { windowManager?.removeView(view) } }
         bubbleView?.let { view -> runCatching { windowManager?.removeView(view) } }
@@ -254,23 +251,23 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         incoming: AgentRuntimeWire.IncomingRunRequest,
         replyTo: Messenger?,
     ) {
-        val generation = ++startRequestGeneration
-        pendingStartRequest?.let { previous ->
+        val runId = incoming.request.runId
+        val pending = PendingStartRequest(incoming, replyTo)
+        pendingStartRequests[runId]?.let { previous ->
             previous.incoming.close()
-            sendRequestIngestedTo(previous.replyTo, previous.incoming.request.runId)
+            sendRequestIngestedTo(previous.replyTo, runId)
             sendResultTo(
                 previous.replyTo,
                 AgentRuntimeWire.RunResult(
-                    runId = previous.incoming.request.runId,
+                    runId = runId,
                     ok = false,
                     content = "",
                     error = "已被新的 Agent 任务替换",
                 ),
             )
         }
-        val pending = PendingStartRequest(generation, incoming, replyTo)
-        pendingStartRequest = pending
-        thread(name = "agent-runtime-image-ingest") {
+        pendingStartRequests[runId] = pending
+        thread(name = "agent-runtime-image-ingest-$runId") {
             val prepared = runCatching {
                 val request = AgentRuntimeImageTransfer.materialize(incoming)
                 if (!AgentRuntimeRequestConfigResolver.requiresRuntimeConfig(request)) {
@@ -283,8 +280,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 }
             }
             mainHandler.post {
-                if (generation != startRequestGeneration || pendingStartRequest !== pending) return@post
-                pendingStartRequest = null
+                if (pendingStartRequests.remove(runId) !== pending) return@post
                 sendRequestIngestedTo(replyTo, incoming.request.runId)
                 prepared.fold(
                     onSuccess = { request ->
@@ -322,13 +318,12 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         request: AgentRuntimeWire.RunRequest,
         replyTo: Messenger? = null,
     ) {
-        activeSession?.cancel("已被新的 Agent 任务替换")
         val session = AgentRuntimeSession(
             runId = request.runId,
             eventSink = { event -> sendEventTo(replyTo, event) },
             resultSink = { result -> sendResultTo(replyTo, result) },
         )
-        activeSession = session
+        activeSessions[request.runId] = session
         lastCompletedRunContext = null
         EtaFluidCloudStateMapper.reset(request.runId)
         EtaLiveUpdateManager.start(this, request.runId, request.prompt)
@@ -356,7 +351,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             }
         }
 
-        thread(name = "agent-runtime") { executeRun(session, request) }
+        thread(name = "agent-runtime-${request.runId}") { executeRun(session, request) }
     }
 
     private fun executeRun(
@@ -372,7 +367,10 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             },
             persistArtifacts = ::persistRunArtifacts,
         ).execute(session, request)
-        if (!outcome.shouldUpdateHost) return
+        if (!outcome.shouldUpdateHost) {
+            activeSessions.remove(session.runId)
+            return
+        }
         postTerminalOverlay(
             session = session,
             result = outcome.result,
@@ -393,7 +391,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         event: AgentEvent,
         entrySurfaceGuard: EntrySurfaceGuard?,
     ) {
-        if (activeSession !== session) return
+        if (activeSessions[session.runId] !== session) return
         val revealsForegroundOperation = AgentOverlayVisibilityPolicy.shouldRevealFor(event)
         val requiresEntrySurfaceDismissal =
             AgentOverlayVisibilityPolicy.shouldDismissEntrySurfaceFor(event)
@@ -403,7 +401,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             true
         }
         mainHandler.post {
-            if (activeSession !== session) return@post
+            if (activeSessions[session.runId] !== session) return@post
             if (
                 AgentOverlayVisibilityPolicy.shouldRecordForegroundExecution(
                     event,
@@ -455,9 +453,9 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         completedContext: CompletedRunContext? = null,
     ) {
         mainHandler.post {
-            if (activeSession !== session) return@post
+            if (activeSessions[session.runId] !== session) return@post
             lastCompletedRunContext = completedContext
-            activeSession = null
+            activeSessions.remove(session.runId)
             runCatching {
                 if (result.ok) {
                     enterFinalState(
@@ -558,7 +556,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     private fun sendActiveRun(replyTo: Messenger?) {
         runCatching {
             val msg = Message.obtain(null, AgentRuntimeWire.MSG_QUERY_ACTIVE_RUN_RESPONSE)
-            msg.data = AgentRuntimeWire.ackBundle(activeSession?.runId.orEmpty())
+            val latestRunId = activeSessions.values.lastOrNull { !it.isTerminal }?.runId.orEmpty()
+            msg.data = AgentRuntimeWire.ackBundle(latestRunId)
             replyTo?.send(msg)
         }.onFailure { throwable ->
             AndroidAgentLogger.warnThrottled("runtime_active_run_delivery_failed") {
@@ -568,10 +567,10 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     }
 
     private fun attachRun(runId: String, replyTo: Messenger?) {
-        val session = activeSession
+        val session = activeSessions[runId]
         val attached = replyTo != null &&
             runId.isNotBlank() &&
-            session?.runId == runId &&
+            session != null &&
             session.attach(
                 eventSink = { event -> sendEventTo(replyTo, event) },
                 resultSink = { result -> sendResultTo(replyTo, result) },
@@ -642,7 +641,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             replyTo,
             AgentRuntimeWire.RunResult(runId = "", ok = false, content = "", error = message),
         )
-        if (activeSession != null) return
+        if (activeSessions.isNotEmpty()) return
         enterFinalState(
             AgentOverlayState(
                 phase = AgentOverlayPhase.FAILED,
@@ -653,7 +652,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     }
 
     private fun requestStop() {
-        val session = activeSession
+        val session = activeSessions.values.lastOrNull { !it.isTerminal }
         if (session == null) {
             dismissAndStop()
             return
@@ -663,9 +662,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
 
     private fun cancelRun(runId: String) {
         if (runId.isBlank()) return
-        pendingStartRequest?.takeIf { pending -> pending.incoming.request.runId == runId }?.let { pending ->
-            startRequestGeneration++
-            pendingStartRequest = null
+        pendingStartRequests.remove(runId)?.let { pending ->
             pending.incoming.close()
             sendRequestIngestedTo(pending.replyTo, runId)
             sendResultTo(
@@ -679,18 +676,14 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             )
             return
         }
-        val session = activeSession ?: return
-        if (runId != session.runId) {
-            AndroidAgentLogger.debug { "Agent runtime ignored stale cancel request" }
-            return
-        }
+        val session = activeSessions[runId] ?: return
         if (session.cancel("已停止")) {
             state.value = state.value.copy(status = AgentOverlayStatus.Stopping)
         }
     }
 
     private fun requestPause() {
-        activeSession?.controller?.pause()
+        activeSessions.values.lastOrNull { !it.isTerminal }?.controller?.pause()
         state.value = state.value.copy(
             phase = AgentOverlayPhase.PAUSED,
             status = AgentOverlayStatus.Paused,
@@ -698,7 +691,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     }
 
     private fun requestResume() {
-        activeSession?.controller?.resume()
+        activeSessions.values.lastOrNull { !it.isTerminal }?.controller?.resume()
         state.value = state.value.copy(
             phase = AgentOverlayPhase.RUNNING,
             status = AgentOverlayStatus.Continuing,
@@ -709,7 +702,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         val supplementText = text.trim()
         if (supplementText.isBlank()) return
         setBubbleInputMode(focusable = false)
-        activeSession?.let { session ->
+        activeSessions.values.lastOrNull { !it.isTerminal }?.let { session ->
             val event = session.steer(supplementText) {
                 recordSupplementEvent(supplementText)
             }
@@ -1011,7 +1004,11 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             windowManager?.let(::showResultCard)
             mainHandler.removeCallbacksAndMessages(hideToken)
         } else {
-            dismissAndStop()
+            if (activeSessions.isEmpty()) {
+                dismissAndStop()
+            } else {
+                removeAmbientWindows()
+            }
         }
     }
 
@@ -1041,7 +1038,9 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         orbParams = null
         glowParams = null
         windowManager = null
-        stopSelf()
+        if (activeSessions.isEmpty()) {
+            stopSelf()
+        }
     }
 
     private fun isMessageSenderAllowed(msg: Message): Boolean {

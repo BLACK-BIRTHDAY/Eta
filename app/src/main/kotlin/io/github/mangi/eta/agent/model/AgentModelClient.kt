@@ -5,6 +5,7 @@ import io.github.mangi.eta.agent.runtime.AgentRunCancelledException
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.skill.SkillContext
+import io.github.mangi.eta.agent.terminal.LinuxEnvironmentPaths
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.CustomBody
@@ -91,6 +92,7 @@ internal object AgentModelClient {
         skillContext: SkillContext = SkillContext.EMPTY,
         memoryContext: AgentMemoryContext = AgentMemoryContext.DISABLED,
         additionalTools: JSONArray = JSONArray(),
+        sandboxEnabled: Boolean = LinuxEnvironmentPaths.isSandboxEnabled(),
         onEvent: (AgentEvent) -> Unit = {}
     ): ModelResponse.Text {
         config.validate()
@@ -101,6 +103,7 @@ internal object AgentModelClient {
             history,
             skillContext,
             memoryContext,
+            sandboxEnabled = sandboxEnabled,
         )
         val transcriptStartIndex = messages.length()
         val tools = AgentToolCatalog.build(

@@ -65,6 +65,27 @@ class ShellProcessSupervisorTest {
     }
 
     @Test
+    fun linuxPayloadMountsTmpfsAndConfiguresOverlayFsSandbox() {
+        val supervisor = ShellProcessSupervisor()
+
+        val payload = supervisor.buildLinuxPayload(
+            rootfsPath = "/data/user/0/io.github.mangi.eta/files/terminal/alpine/rootfs",
+            command = "uptime",
+        )
+
+        // tmpfs mount to /tmp
+        assertTrue(payload.contains("mkdir -p \"\$eta_rootfs/tmp\""))
+        assertTrue(payload.contains("mount -t tmpfs -o size=512M,mode=1777 tmpfs \"\$eta_rootfs/tmp\""))
+
+        // OverlayFS configuration
+        assertTrue(payload.contains("eta_overlay_dir=\"/data/local/tmp/eta/overlay/\$eta_distro\""))
+        assertTrue(payload.contains(".sandbox_enabled"))
+        assertTrue(payload.contains("ETA_SANDBOX"))
+        assertTrue(payload.contains("mount -t overlay overlay -o lowerdir=\"\$eta_rootfs\",upperdir=\"\$eta_overlay_dir/upper\",workdir=\"\$eta_overlay_dir/work\" \"\$eta_overlay_dir/merged\""))
+        assertTrue(payload.contains("eta_rootfs=\"\$eta_overlay_dir/merged\""))
+    }
+
+    @Test
     fun ptyLauncherWrapsPayloadWithScriptAndSetsSize() {
         val supervisor = ShellProcessSupervisor()
         val launcher = supervisor.buildTrackedShellLauncher(

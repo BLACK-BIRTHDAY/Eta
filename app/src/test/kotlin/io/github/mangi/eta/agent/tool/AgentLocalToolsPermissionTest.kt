@@ -222,6 +222,74 @@ class AgentLocalToolsPermissionTest {
         tools.close()
     }
 
+    @Test
+    fun guiToolAcquiresScreenMutexDuringExecution() {
+        var lockHeldDuringExecution = false
+        val tools = tools(
+            screenObservationProvider = { _ ->
+                lockHeldDuringExecution = AgentLocalTools.screenMutex.isHeldByCurrentThread
+                observation(observationId = "o-lock", screenshotRequested = false)
+            },
+        )
+
+        assertFalse(AgentLocalTools.screenMutex.isLocked)
+        tools.execute(
+            AgentModelClient.ToolCall(
+                id = "call-obs",
+                name = "observe_screen",
+                argumentsJson = "{}",
+            ),
+        )
+        assertTrue(lockHeldDuringExecution)
+        assertFalse(AgentLocalTools.screenMutex.isLocked)
+        tools.close()
+    }
+
+    @Test
+    fun nonGuiToolDoesNotAcquireScreenMutex() {
+        var lockHeldDuringExecution = true
+        val tools = tools(
+            beforeToolExecution = {
+                lockHeldDuringExecution = AgentLocalTools.screenMutex.isHeldByCurrentThread
+                ToolExecutionDecision.Allow
+            },
+        )
+
+        assertFalse(AgentLocalTools.screenMutex.isLocked)
+        tools.execute(
+            AgentModelClient.ToolCall(
+                id = "call-ctx",
+                name = "get_current_context",
+                argumentsJson = "{}",
+            ),
+        )
+        assertFalse(lockHeldDuringExecution)
+        assertFalse(AgentLocalTools.screenMutex.isLocked)
+        tools.close()
+    }
+
+    @Test
+    fun guiToolNamesSetContainsAllRequiredPhysicalScreenTools() {
+        val expected = setOf(
+            "observe_screen",
+            "tap",
+            "tap_area",
+            "tap_element",
+            "long_press",
+            "long_press_element",
+            "swipe",
+            "scroll",
+            "scroll_element",
+            "input_text",
+            "replace_text",
+            "clear_text",
+            "paste_text",
+            "press_key",
+            "open_system_panel",
+        )
+        assertEquals(expected, AgentLocalTools.GUI_TOOL_NAMES)
+    }
+
     private fun tools(
         terminalEnabled: () -> Boolean = { false },
         browserEnabled: () -> Boolean = { false },

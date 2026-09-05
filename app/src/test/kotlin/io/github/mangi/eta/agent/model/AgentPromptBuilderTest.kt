@@ -118,6 +118,42 @@ class AgentPromptBuilderTest {
     }
 
     @Test
+    fun sandboxPromptInjectedWhenSandboxIsEnabled() {
+        val messagesWithSandbox = AgentPromptBuilder.buildInitialMessages(
+            config = modelConfig(
+                systemPrompt = "",
+                terminalTools = true,
+                browserTools = false,
+            ),
+            prompt = "测试沙盒",
+            images = emptyList(),
+            history = emptyList(),
+            skillContext = SkillContext.EMPTY,
+            sandboxEnabled = true,
+        )
+
+        val contents = messagesWithSandbox.systemContents()
+        assertTrue(contents.any { it.contains("[Linux 终端环境提示] 当前终端运行在只读底包 + OverlayFS 临时沙盒保护中") })
+        assertTrue(contents.any { it.contains("询问用户是否需要将安装的包固化到底包") })
+
+        val messagesWithoutSandbox = AgentPromptBuilder.buildInitialMessages(
+            config = modelConfig(
+                systemPrompt = "",
+                terminalTools = true,
+                browserTools = false,
+            ),
+            prompt = "测试无沙盒",
+            images = emptyList(),
+            history = emptyList(),
+            skillContext = SkillContext.EMPTY,
+            sandboxEnabled = false,
+        )
+
+        val noSandboxContents = messagesWithoutSandbox.systemContents()
+        assertFalse(noSandboxContents.any { it.contains("[Linux 终端环境提示]") })
+    }
+
+    @Test
     fun localImageReferenceCannotLeakIntoProviderRequest() {
         val image = AgentModelClient.ModelImage(
             reference = "content://example.test/image/1",

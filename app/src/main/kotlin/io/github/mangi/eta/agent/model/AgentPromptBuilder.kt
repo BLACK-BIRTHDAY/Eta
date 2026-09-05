@@ -2,11 +2,17 @@ package io.github.mangi.eta.agent.model
 
 import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.skill.SkillContext
+import io.github.mangi.eta.agent.terminal.LinuxEnvironmentPaths
 import org.json.JSONArray
 import org.json.JSONObject
 
 /** 组装每次 run 的系统约束、历史与当前用户输入。 */
 internal object AgentPromptBuilder {
+    const val LINUX_SANDBOX_PROMPT =
+        "[Linux 终端环境提示] 当前终端运行在只读底包 + OverlayFS 临时沙盒保护中。" +
+            "你可以正常执行 apt/apk/pip 安装命令并在本任务中运行。" +
+            "如果在任务执行期间安装了新的软件或工具，请在任务最终回复时主动告知用户，并询问用户是否需要将安装的包固化到底包。"
+
     fun buildInitialMessages(
         config: AgentModelClient.ModelConfig,
         prompt: String,
@@ -14,6 +20,7 @@ internal object AgentPromptBuilder {
         history: List<AgentModelClient.ConversationMessage>,
         skillContext: SkillContext,
         memoryContext: AgentMemoryContext = AgentMemoryContext.DISABLED,
+        sandboxEnabled: Boolean = LinuxEnvironmentPaths.isSandboxEnabled(),
     ): JSONArray {
         val messages = JSONArray()
         if (config.systemPrompt.isNotBlank()) {
@@ -81,6 +88,9 @@ internal object AgentPromptBuilder {
                         "必须等待当前图片返回并观察内容，再在下一轮调用下一张，禁止在同一轮并行或批量调用多个 read_image。"
                 )
             )
+        }
+        if (sandboxEnabled) {
+            messages.put(systemMessage(LINUX_SANDBOX_PROMPT))
         }
         if (config.browserTools) {
             messages.put(
