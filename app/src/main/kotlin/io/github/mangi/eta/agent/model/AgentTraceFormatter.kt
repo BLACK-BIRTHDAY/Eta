@@ -51,10 +51,20 @@ internal class AgentTraceFormatter {
             else -> {
                 val label = DEVICE_ACTION_LABELS[toolCall.name]
                 when {
-                    label == null -> "准备执行"
-                    toolCall.name.startsWith("search_") ->
+                    label != null && toolCall.name.startsWith("search_") ->
                         summarizeQueryArguments(label, toolCall.argumentsJson)
-                    else -> label
+                    label != null -> label
+                    else -> {
+                        val argsObj = runCatching { JSONObject(toolCall.argumentsJson) }.getOrNull()
+                        val query = argsObj?.optString("query")?.takeIf { it.isNotBlank() }
+                            ?: argsObj?.optString("q")?.takeIf { it.isNotBlank() }
+                            ?: argsObj?.optString("keyword")?.takeIf { it.isNotBlank() }
+                        if (query != null) {
+                            "${toolCall.name} · ${sanitizeSummaryValue(query, MAX_QUERY_SUMMARY_CHARS)}"
+                        } else {
+                            toolCall.name
+                        }
+                    }
                 }
             }
         }
@@ -506,7 +516,7 @@ internal class AgentTraceFormatter {
 
     private companion object {
         const val BROWSER_TOOL_NAME = "browser_use"
-        const val MAX_DISPLAY_COMMAND_CHARS = 4_000
+        const val MAX_DISPLAY_COMMAND_CHARS = 64_000
         const val MAX_QUERY_SUMMARY_CHARS = 30
         const val MAX_LISTED_APP_NAMES = 3
         const val MAX_TERMINAL_PREVIEW_LINES = 3

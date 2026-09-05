@@ -104,6 +104,32 @@ class AgentToolCallValidatorTest {
         assertNotNull(validator.validate(call("""{"blocked":1}""")))
     }
 
+    @Test
+    fun normalizeAliasesAutomaticallyFixesCommonDriftKeys() {
+        val validator = validator(
+            JSONObject(
+                """
+                {
+                  "type": "object",
+                  "properties": {
+                    "query": {"type": "string"}
+                  },
+                  "required": ["query"]
+                }
+                """.trimIndent()
+            )
+        )
+
+        // 传入 "q" 或 "keyword"，自动规整为 "query" 并通过校验
+        val normalizedFromQ = validator.normalize(call("""{"q":"小红书"}"""))
+        assertNull(validator.validate(normalizedFromQ))
+        org.junit.Assert.assertEquals("小红书", JSONObject(normalizedFromQ.argumentsJson).optString("query"))
+
+        val normalizedFromKeyword = validator.normalize(call("""{"keyword":"快速排序"}"""))
+        assertNull(validator.validate(normalizedFromKeyword))
+        org.junit.Assert.assertEquals("快速排序", JSONObject(normalizedFromKeyword.argumentsJson).optString("query"))
+    }
+
     private fun validator(parameters: JSONObject): AgentToolCallValidator =
         AgentToolCallValidator(
             JSONArray().put(

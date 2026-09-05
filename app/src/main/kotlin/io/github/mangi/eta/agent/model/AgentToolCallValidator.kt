@@ -20,11 +20,21 @@ internal class AgentToolCallValidator(tools: JSONArray) {
         }
     }
 
+    fun normalize(call: AgentModelClient.ToolCall): AgentModelClient.ToolCall {
+        val toolSchema = schemasByName[call.name] ?: return call
+        val raw = call.argumentsJson.trim()
+        if (raw.isEmpty() || raw == "{}") return call
+        val arguments = runCatching { JSONObject(raw) }.getOrNull() ?: return call
+        val changed = normalizeAliases(arguments, toolSchema.parameters)
+        return if (changed) call.copy(argumentsJson = arguments.toString()) else call
+    }
+
     fun validate(call: AgentModelClient.ToolCall): String? {
         val toolSchema = schemasByName[call.name]
             ?: return "工具未在本次运行的能力目录中声明"
         val arguments = runCatching { JSONObject(call.argumentsJson.ifBlank { "{}" }) }
             .getOrElse { return "参数不是有效的 JSON object" }
+        normalizeAliases(arguments, toolSchema.parameters)
         return validateValue(
             value = arguments,
             schema = toolSchema.parameters,
@@ -344,5 +354,67 @@ internal class AgentToolCallValidator(tools: JSONArray) {
 
     private companion object {
         const val MAX_SCHEMA_DEPTH = 256
+
+        fun normalizeAliases(arguments: JSONObject, schema: JSONObject?): Boolean {
+            if (schema == null) return false
+            val properties = schema.optJSONObject("properties")
+            val required = schema.optJSONArray("required")
+            var changed = false
+
+            fun needs(key: String): Boolean {
+                val isProp = properties?.has(key) == true
+                val isReq = required?.hasKey(key) == true
+                return (isProp || isReq) && !arguments.has(key)
+            }
+
+            // 1. query 别名映射（解决大模型传 q / keyword / search 等导致的必填 query 校验失败）
+            if (needs("query")) {
+                val candidate = listOf("q", "keyword", "keywords", "search", "search_query", "text", "content", "prompt", "input")
+                    .firstOrNull { arguments.has(it) && arguments.optString(it).isNotBlank() }
+                if (candidate != null) {
+                    arguments.put("query", arguments.opt(candidate))
+                    changed = true
+                }
+            }
+
+            // 2. package_name 别名映射
+            if (needs("package_name")) {
+                val candidate = listOf("packageName", "pkg", "package", "appPackage")
+                    .firstOrNull { arguments.has(it) && arguments.optString(it).isNotBlank() }
+                if (candidate != null) {
+                    arguments.put("package_name", arguments.opt(candidate))
+                    changed = true
+                }
+            }
+
+            // 3. command 别名映射
+            if (needs("command")) {
+                val candidate = listOf("cmd", "script", "shell", "exec")
+                    .firstOrNull { arguments.has(it) && arguments.optString(it).isNotBlank() }
+                if (candidate != null) {
+                    arguments.put("command", arguments.opt(candidate))
+                    changed = true
+                }
+            }
+
+            // 4. url 别名映射
+            if (needs("url")) {
+                val candidate = listOf("uri", "link", "address", "href")
+                    .firstOrNull { arguments.has(it) && arguments.optString(it).isNotBlank() }
+                if (candidate != null) {
+                    arguments.put("url", arguments.opt(candidate))
+                    changed = true
+                }
+            }
+
+            return changed
+        }
+
+        private fun JSONArray.hasKey(key: String): Boolean {
+            for (i in 0 until length()) {
+                if (optString(i) == key) return true
+            }
+            return false
+        }
     }
 }

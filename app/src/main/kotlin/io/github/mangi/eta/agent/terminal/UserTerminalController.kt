@@ -25,7 +25,7 @@ internal class UserTerminalController(
     private companion object {
         const val DEFAULT_CWD = "/data/local/tmp/eta"
         const val LINUX_DEFAULT_CWD = "/workspace"
-        const val MAX_COMMAND_CHARS = 16_000
+        const val MAX_COMMAND_CHARS = 64_000
         const val MAX_SESSIONS = 6
         const val STREAM_MAX_BYTES = 1024 * 1024
         const val POLL_INTERVAL_MS = 50L

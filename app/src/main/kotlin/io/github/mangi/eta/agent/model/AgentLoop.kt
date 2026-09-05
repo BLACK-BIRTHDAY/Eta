@@ -169,10 +169,11 @@ internal class AgentLoop(
         toolCall: AgentModelClient.ToolCall,
     ): ToolOutcome {
         runController.throwIfCancelled()
-        toolCallValidator.validate(toolCall)?.let { validationError ->
+        val normalizedCall = toolCallValidator.normalize(toolCall)
+        toolCallValidator.validate(normalizedCall)?.let { validationError ->
             return rejectedToolOutcome(
                 round = round,
-                toolCall = toolCall,
+                toolCall = normalizedCall,
                 code = "INVALID_TOOL_ARGUMENTS",
                 message = validationError,
             )
@@ -180,15 +181,15 @@ internal class AgentLoop(
         onEvent(
             AgentEvent.ToolStarted(
                 round = round,
-                toolCallId = toolCall.id,
-                name = toolCall.name,
-                argsPreview = traceFormatter.summarizeArguments(toolCall),
-                command = traceFormatter.displayCommand(toolCall),
+                toolCallId = normalizedCall.id,
+                name = normalizedCall.name,
+                argsPreview = traceFormatter.summarizeArguments(normalizedCall),
+                command = traceFormatter.displayCommand(normalizedCall),
             )
         )
 
         val result = try {
-            toolExecutor.execute(toolCall)
+            toolExecutor.execute(normalizedCall)
         } catch (throwable: Exception) {
             runController.throwIfCancelled()
             AgentModelClient.ToolResult(
@@ -199,13 +200,13 @@ internal class AgentLoop(
                     .toString(),
             )
         }
-        if (result.sensitive || AgentSensitiveToolPolicy.isSensitive(toolCall.name)) {
-            sensitiveToolCallIds += toolCall.id
+        if (result.sensitive || AgentSensitiveToolPolicy.isSensitive(normalizedCall.name)) {
+            sensitiveToolCallIds += normalizedCall.id
         }
 
         runController.throwIfCancelled()
-        emitToolFinished(round, toolCall, result)
-        return ToolOutcome(toolCall, result)
+        emitToolFinished(round, normalizedCall, result)
+        return ToolOutcome(normalizedCall, result)
     }
 
     private fun rejectedToolOutcome(

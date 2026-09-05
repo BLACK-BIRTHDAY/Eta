@@ -200,20 +200,40 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         }
 
         val generationConfig = JSONObject()
+        val isModern = isModernGemini(config.model)
+        val thinkingConfig = JSONObject()
         if (config.thinkingEnabled) {
-            val budget = when (config.effectiveReasoningEffort) {
-                ReasoningEffort.OFF -> 0
-                ReasoningEffort.DEFAULT -> -1 // Google 官方原生自适应思考预算
-                ReasoningEffort.LOW -> 4096
-                ReasoningEffort.MEDIUM -> 16384
-                ReasoningEffort.HIGH -> 32768
-                ReasoningEffort.XHIGH, ReasoningEffort.MAX -> 65535
-                else -> -1
+            thinkingConfig.put("includeThoughts", true)
+            if (isModern) {
+                val level = when (config.effectiveReasoningEffort) {
+                    ReasoningEffort.OFF -> "low"
+                    ReasoningEffort.LOW -> "low"
+                    ReasoningEffort.MEDIUM, ReasoningEffort.DEFAULT -> "medium"
+                    ReasoningEffort.HIGH, ReasoningEffort.XHIGH, ReasoningEffort.MAX -> "high"
+                    else -> "medium"
+                }
+                thinkingConfig.put("thinkingLevel", level)
+            } else {
+                val budget = when (config.effectiveReasoningEffort) {
+                    ReasoningEffort.OFF -> 0
+                    ReasoningEffort.DEFAULT -> -1 // Google 官方原生自适应思考预算
+                    ReasoningEffort.LOW -> 4096
+                    ReasoningEffort.MEDIUM -> 16384
+                    ReasoningEffort.HIGH -> 32768
+                    ReasoningEffort.XHIGH, ReasoningEffort.MAX -> 65535
+                    else -> -1
+                }
+                thinkingConfig.put("thinkingBudget", budget)
             }
-            generationConfig.put("thinkingConfig", JSONObject().put("thinkingBudget", budget))
         } else {
-            generationConfig.put("thinkingConfig", JSONObject().put("thinkingBudget", 0))
+            thinkingConfig.put("includeThoughts", false)
+            if (isModern) {
+                thinkingConfig.put("thinkingLevel", "low")
+            } else {
+                thinkingConfig.put("thinkingBudget", 0)
+            }
         }
+        generationConfig.put("thinkingConfig", thinkingConfig)
         // 若是生图模型（modelId 含 image 或包含图片输出模态）：
         if (config.model.contains("image", ignoreCase = true)) {
             generationConfig.put("responseModalities", JSONArray().put("TEXT").put("IMAGE"))
@@ -502,4 +522,11 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         replace('\n', ' ')
             .replace('\r', ' ')
             .let { if (it.length > MAX_ERROR_CHARS) it.take(MAX_ERROR_CHARS) + "..." else it }
+
+    private val MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})\..*""", RegexOption.IGNORE_CASE)
+
+    private fun isModernGemini(model: String): Boolean {
+        val lower = model.lowercase()
+        return MODERN_GEMINI_REGEX.matches(lower) || lower.contains("gemini-3")
+    }
 }
