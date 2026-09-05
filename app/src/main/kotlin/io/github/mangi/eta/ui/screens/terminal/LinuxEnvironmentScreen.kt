@@ -51,9 +51,11 @@ import io.github.mangi.eta.agent.terminal.SharedFolderMounts
 import io.github.mangi.eta.agent.terminal.terminalEnvironment
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
+import android.widget.Toast
 import io.github.mangi.eta.ui.app.KimiWebLaunchResult
 import io.github.mangi.eta.ui.app.KimiWebLauncher
 import io.github.mangi.eta.ui.components.IconTintGreen
+import io.github.mangi.eta.ui.components.IconTintOrange
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.navigation.AppRoute
 import com.composables.icons.lucide.R as LucideR
@@ -67,6 +69,7 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.RadioButtonPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 private enum class InstallTarget {
     BASE,
@@ -167,6 +170,9 @@ internal fun LinuxEnvironmentScreen(
         mutableStateOf(apkAnalysisInstaller.isReady())
     }
     var apkAnalysisProgress by remember { mutableStateOf<ApkAnalysisInstallProgress?>(null) }
+    var sandboxEnabled by remember {
+        mutableStateOf(LinuxEnvironmentPaths.isSandboxEnabled(appContext))
+    }
     var kimiWebLaunching by remember { mutableStateOf(false) }
     val kimiWebLauncher = remember(appContext) {
         KimiWebLauncher(
@@ -363,6 +369,53 @@ internal fun LinuxEnvironmentScreen(
                         },
                         onClick = { onNavigate(AppRoute.LinuxFiles(selectedDistribution.wireName)) },
                     )
+                }
+            }
+
+            item(key = "sandbox-title") { SmallTitle("环境安全与沙盒") }
+            item(key = "sandbox-card") {
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                ) {
+                    SwitchPreference(
+                        title = "沙盒保护模式 (OverlayFS)",
+                        summary = if (sandboxEnabled) {
+                            "已开启：基础底包只读保护，修改写入独立差异层，可随时秒级还原"
+                        } else {
+                            "已关闭：命令与软件包直接写入底层环境"
+                        },
+                        checked = sandboxEnabled,
+                        onCheckedChange = { enabled ->
+                            LinuxEnvironmentPaths.setSandboxEnabled(appContext, enabled)
+                            sandboxEnabled = enabled
+                        },
+                    )
+                    if (sandboxEnabled) {
+                        ArrowPreference(
+                            title = "重置沙盒环境",
+                            summary = "清空临时差异层，0.1 秒秒级还原为初始干净底包",
+                            startAction = {
+                                TintedIcon(
+                                    icon = LucideR.drawable.lucide_ic_refresh_cw,
+                                    tint = IconTintOrange,
+                                )
+                            },
+                            onClick = {
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    val ok = LinuxEnvironmentPaths.resetSandbox(appContext, selectedDistribution)
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(
+                                            appContext,
+                                            if (ok) "沙盒已秒级重置，已恢复干净底包" else "重置失败",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                }
+                            },
+                        )
+                    }
                 }
             }
         }
