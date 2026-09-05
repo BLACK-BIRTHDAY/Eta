@@ -53,6 +53,7 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         AgentMemoryRepository.init(this)
         ProviderRepository.init(this)
         McpServerRepository.init(this)
+        io.github.mangi.eta.agent.runtime.EtaLiveUpdateManager.init(this)
         XposedServiceHelper.registerListener(this)
         applicationScope.launch {
             LinuxEnvironmentSettingsRepository.initialize(this@EtaApp)

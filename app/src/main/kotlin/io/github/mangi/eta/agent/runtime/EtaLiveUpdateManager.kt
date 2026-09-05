@@ -1,5 +1,7 @@
 package io.github.mangi.eta.agent.runtime
 
+import android.app.Activity
+import android.app.Application
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -10,6 +12,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.drawable.Icon
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import io.github.mangi.eta.R
@@ -19,10 +22,11 @@ import io.github.mangi.eta.ui.MainActivity
 /**
  * Android 16 (API 36+) / ColorOS 16 官方流体云与状态栏实况胶囊管理器。
  *
- * 遵循 Promoted Ongoing Notification 规范，无需逆向 SystemUI，
- * 直接利用系统级通道在状态栏展示 Agent 思考、代码修改、终端构建测试等实时进度。
+ * 遵循 Promoted Ongoing Notification 规范，无需逆向 SystemUI。
+ * 智能感知前后台：当用户在前台看着对话框时，保持完全静默（零横幅、零通知打扰）；
+ * 仅当用户切换到后台（桌面、其他应用、锁屏）时，才升起流体云状态栏胶囊与锁屏实时卡片。
  */
-internal object EtaLiveUpdateManager {
+internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
 
     private const val CHANNEL_ID = "eta_live_status_v2"
     private const val CHANNEL_NAME = "Eta 实时流体云与状态栏胶囊"
@@ -37,8 +41,24 @@ internal object EtaLiveUpdateManager {
     private var currentRunId: String? = null
     private var isPromoted = false
 
+    // 前后台感知状态
+    @Volatile
+    var isAppInForeground = false
+        private set
+    private var startedActivityCount = 0
+
+    // 缓存最新进度，以便从前台切到后台时瞬间恢复流体云
+    private var latestShortText = "🧠 构思"
+    private var latestDetailText = "正在执行任务..."
+    private var latestProgress: Int? = null
+
     private val autoDismissRunnable = Runnable {
         dismiss()
+    }
+
+    fun init(application: Application) {
+        application.registerActivityLifecycleCallbacks(this)
+        initChannel(application)
     }
 
     fun initChannel(context: Context) {
@@ -59,8 +79,40 @@ internal object EtaLiveUpdateManager {
         }
     }
 
+    override fun onActivityStarted(activity: Activity) {
+        startedActivityCount++
+        checkForegroundState(startedActivityCount > 0)
+    }
+
+    override fun onActivityStopped(activity: Activity) {
+        startedActivityCount = maxOf(0, startedActivityCount - 1)
+        checkForegroundState(startedActivityCount > 0)
+    }
+
+    override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+    override fun onActivityResumed(activity: Activity) {}
+    override fun onActivityPaused(activity: Activity) {}
+    override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+    override fun onActivityDestroyed(activity: Activity) {}
+
+    @Synchronized
+    private fun checkForegroundState(foreground: Boolean) {
+        if (isAppInForeground == foreground) return
+        isAppInForeground = foreground
+
+        if (foreground) {
+            // 用户回到前台看着对话框：立即撤销通知栏与胶囊，保持前台视觉纯净
+            hideNotificationOnly()
+        } else {
+            // 用户切到后台（桌面、其他应用、锁屏）：若当前有运行任务，立即升起流体云胶囊
+            if (currentRunId != null) {
+                showNotification(latestShortText, latestDetailText, latestProgress)
+            }
+        }
+    }
+
     /**
-     * 在前台服务启动时建立流体云胶囊
+     * 在前台服务启动时注册任务
      */
     @Synchronized
     fun start(service: Service, runId: String, initialPrompt: String) {
@@ -69,24 +121,15 @@ internal object EtaLiveUpdateManager {
         mainHandler.removeCallbacks(autoDismissRunnable)
         initChannel(service)
 
-        val shortText = "🧠 构思"
-        val detail = initialPrompt.ifBlank { "正在执行任务..." }
-        val notification = buildNotification(service, runId, shortText, detail, progress = null, isOngoing = true)
+        latestShortText = "🧠 构思"
+        latestDetailText = initialPrompt.ifBlank { "正在执行任务..." }
+        latestProgress = null
 
-        try {
-            if (Build.VERSION.SDK_INT >= 34) {
-                service.startForeground(
-                    NOTIFICATION_ID,
-                    notification,
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-                )
-            } else {
-                service.startForeground(NOTIFICATION_ID, notification)
-            }
-            isPromoted = true
-            AndroidAgentLogger.info("EtaLiveUpdateManager: startForeground with Promoted Ongoing Capsule")
-        } catch (t: Throwable) {
-            AndroidAgentLogger.error("EtaLiveUpdateManager: Failed to start foreground capsule: ${t.message}")
+        // 仅在用户处于后台时才挂载流体云通知；若用户正在看对话框，保持完全静默
+        if (!isAppInForeground) {
+            showNotification(latestShortText, latestDetailText, latestProgress)
+        } else {
+            AndroidAgentLogger.debug { "EtaLiveUpdateManager: App in foreground, suppressing live notification" }
         }
     }
 
@@ -96,15 +139,14 @@ internal object EtaLiveUpdateManager {
     @Synchronized
     fun update(runId: String, shortText: String, detailText: String, progress: Int? = null) {
         if (currentRunId != null && currentRunId != runId) return
-        val service = boundService ?: return
-        val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        latestShortText = shortText
+        latestDetailText = detailText
+        latestProgress = progress
 
-        val notification = buildNotification(service, runId, shortText, detailText, progress, isOngoing = true)
-        runCatching {
-            nm.notify(NOTIFICATION_ID, notification)
-        }.onFailure {
-            AndroidAgentLogger.warn("EtaLiveUpdateManager: update notify failed: ${it.message}")
-        }
+        // 若用户在前台看着对话框，绝不发送通知打扰
+        if (isAppInForeground) return
+
+        showNotification(shortText, detailText, progress)
     }
 
     /**
@@ -113,6 +155,14 @@ internal object EtaLiveUpdateManager {
     @Synchronized
     fun finish(runId: String, success: Boolean, summary: String) {
         if (currentRunId != null && currentRunId != runId) return
+
+        // 若用户在前台看着对话框，用户已直接看到界面回答，彻底静默并不留任何通知
+        if (isAppInForeground) {
+            dismiss()
+            return
+        }
+
+        // 若用户在后台，弹出终态通知：成功则 8 秒后自动收回，失败则常驻
         val service = boundService ?: return
         val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
@@ -125,10 +175,53 @@ internal object EtaLiveUpdateManager {
         }
 
         if (success) {
-            // 成功时根据 Q3 决策，8 秒后自动优雅收回
             mainHandler.removeCallbacks(autoDismissRunnable)
             mainHandler.postDelayed(autoDismissRunnable, SUCCESS_DISMISS_DELAY_MS)
         }
+    }
+
+    private fun showNotification(shortText: String, detailText: String, progress: Int?) {
+        val service = boundService ?: return
+        val runId = currentRunId ?: return
+        val notification = buildNotification(service, runId, shortText, detailText, progress, isOngoing = true)
+
+        try {
+            if (!isPromoted) {
+                if (Build.VERSION.SDK_INT >= 34) {
+                    service.startForeground(
+                        NOTIFICATION_ID,
+                        notification,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                    )
+                } else {
+                    service.startForeground(NOTIFICATION_ID, notification)
+                }
+                isPromoted = true
+            } else {
+                val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+                nm?.notify(NOTIFICATION_ID, notification)
+            }
+        } catch (t: Throwable) {
+            val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            runCatching { nm?.notify(NOTIFICATION_ID, notification) }
+        }
+    }
+
+    private fun hideNotificationOnly() {
+        val service = boundService
+        if (service != null && isPromoted) {
+            runCatching {
+                if (Build.VERSION.SDK_INT >= 34) {
+                    service.stopForeground(Service.STOP_FOREGROUND_REMOVE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    service.stopForeground(true)
+                }
+            }
+            isPromoted = false
+        }
+        val nm = service?.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        nm?.cancel(NOTIFICATION_ID)
     }
 
     /**
@@ -137,18 +230,7 @@ internal object EtaLiveUpdateManager {
     @Synchronized
     fun dismiss() {
         mainHandler.removeCallbacks(autoDismissRunnable)
-        val service = boundService
-        if (service != null && isPromoted) {
-            runCatching {
-                service.stopForeground(ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-            }.onFailure {
-                runCatching { service.stopForeground(true) }
-            }
-        }
-        val context = service ?: return
-        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
-        nm?.cancel(NOTIFICATION_ID)
-        isPromoted = false
+        hideNotificationOnly()
         currentRunId = null
     }
 
