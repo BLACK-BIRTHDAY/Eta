@@ -80,4 +80,11 @@ class LinuxEnvironmentPathsTest {
         assertTrue(workDir.exists())
         assertEquals(0, workDir.list()?.size ?: -1)
     }
+
+    @Test
+    fun commitSandboxMethodExists() {
+        // Assert commitSandbox contract method availability
+        val method = LinuxEnvironmentPaths::class.java.methods.find { it.name == "commitSandbox" }
+        org.junit.Assert.assertNotNull(method)
+    }
 }

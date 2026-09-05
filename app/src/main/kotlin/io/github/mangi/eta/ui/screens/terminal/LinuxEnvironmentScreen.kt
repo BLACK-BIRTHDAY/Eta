@@ -56,6 +56,7 @@ import io.github.mangi.eta.ui.app.KimiWebLaunchResult
 import io.github.mangi.eta.ui.app.KimiWebLauncher
 import io.github.mangi.eta.ui.components.IconTintGreen
 import io.github.mangi.eta.ui.components.IconTintOrange
+import io.github.mangi.eta.ui.components.PrefDivider
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.navigation.AppRoute
 import com.composables.icons.lucide.R as LucideR
@@ -398,6 +399,29 @@ internal fun LinuxEnvironmentScreen(
                         },
                     )
                     if (sandboxEnabled) {
+                        ArrowPreference(
+                            title = "固化到基础底包",
+                            summary = "将沙盒中安装的工具与配置永久写入底层环境",
+                            startAction = {
+                                TintedIcon(
+                                    icon = LucideR.drawable.lucide_ic_hard_drive,
+                                    tint = IconTintGreen,
+                                )
+                            },
+                            onClick = {
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    val ok = LinuxEnvironmentPaths.commitSandbox(appContext, selectedDistribution)
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(
+                                            appContext,
+                                            if (ok) "固化成功！已成为底层系统一部分" else "固化失败",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                }
+                            },
+                        )
+                        PrefDivider()
                         ArrowPreference(
                             title = "重置沙盒环境",
                             summary = "清空临时差异层，0.1 秒秒级还原为初始干净底包",

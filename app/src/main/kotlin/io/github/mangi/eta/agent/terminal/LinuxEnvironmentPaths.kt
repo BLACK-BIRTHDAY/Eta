@@ -167,6 +167,23 @@ internal object LinuxEnvironmentPaths {
     fun resetSandbox(distribution: LinuxDistribution): Boolean =
         resetSandboxInternal(overlayDir(distribution))
 
+    fun commitSandbox(context: Context, distribution: LinuxDistribution): Boolean {
+        val sandboxDir = sandboxRootfsDir(context, distribution)
+        val sourceDir = rootfsDir(context, distribution)
+        if (!sandboxDir.isDirectory || !sourceDir.isDirectory) return false
+
+        return runCatching {
+            val src = sandboxDir.absolutePath
+            val dst = sourceDir.absolutePath
+            // 固化逻辑：把 sandbox 中的新文件与改动同步进底包，然后让 sandbox 与底包重新硬链接对齐
+            val backup = File(environmentDir(context, distribution), "rootfs_backup_${System.currentTimeMillis()}").absolutePath
+            val cmd = "mv '$dst' '$backup' && mv '$src' '$dst' && mkdir -p '$src' && cp -al '$dst/.' '$src/' 2>/dev/null && touch '$dst/$READY_MARKER' '$src/$READY_MARKER' && rm -rf '$backup' 2>/dev/null || true"
+            val process = ProcessBuilder("su", "-c", cmd).start()
+            process.waitFor(60, java.util.concurrent.TimeUnit.SECONDS)
+            File(sourceDir, READY_MARKER).isFile && File(sandboxDir, READY_MARKER).isFile
+        }.getOrDefault(false)
+    }
+
     fun resetSandbox(context: Context, distribution: LinuxDistribution): Boolean {
         val overlayOk = resetSandboxInternal(overlayDir(context, distribution))
         val sandboxDir = sandboxRootfsDir(context, distribution)
