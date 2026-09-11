@@ -184,4 +184,102 @@ class SkillRuntimeTest {
         assertTrue(externalMarker.isFile)
         assertEquals("external content must survive", externalMarker.readText())
     }
+
+    @Test
+    fun saveSkillContentOverridesBuiltinAndMarksOverriddenThenResets() {
+        val skillsRoot = temporaryFolder.newFolder("override-skills")
+        val service = SkillIndexService(
+            context = RuntimeEnvironment.getApplication(),
+            skillsRoot = skillsRoot,
+        )
+        service.seedBuiltinSkillsIfNeeded()
+
+        val initial = service.listSkillsForManagement(forceRefresh = true)
+            .first { it.id == "self-improving-agent" }
+        assertFalse(initial.isOverridden)
+
+        val modifiedContent = """
+            ---
+            name: self-improving-agent
+            description: Custom overridden description.
+            ---
+
+            # Overridden Body
+        """.trimIndent()
+
+        val saveSuccess = service.saveSkillContent("self-improving-agent", modifiedContent)
+        assertTrue(saveSuccess)
+
+        val overridden = service.listSkillsForManagement(forceRefresh = true)
+            .first { it.id == "self-improving-agent" }
+        assertTrue(overridden.isOverridden)
+        assertEquals("Custom overridden description.", overridden.description)
+
+        val defaultContent = service.getBuiltinSkillContent("self-improving-agent")
+        assertTrue(defaultContent != null && defaultContent.isNotBlank())
+        assertTrue(service.isBuiltinSkillOverridden("self-improving-agent"))
+
+        // Reset back to builtin
+        service.installBuiltinSkill("self-improving-agent")
+        val reset = service.listSkillsForManagement(forceRefresh = true)
+            .first { it.id == "self-improving-agent" }
+        assertFalse(reset.isOverridden)
+        assertFalse(service.isBuiltinSkillOverridden("self-improving-agent"))
+    }
+
+    @Test
+    fun saveSkillContentRejectsInvalidFormatOrMissingName() {
+        val skillsRoot = temporaryFolder.newFolder("invalid-save-skills")
+        val service = SkillIndexService(
+            context = RuntimeEnvironment.getApplication(),
+            skillsRoot = skillsRoot,
+        )
+
+        // Missing frontmatter name
+        val noName = """
+            ---
+            description: Missing name.
+            ---
+            Content
+        """.trimIndent()
+        assertFalse(service.saveSkillContent("no-name-skill", noName))
+
+        // Blank name
+        val blankName = """
+            ---
+            name:
+            description: Blank name.
+            ---
+        """.trimIndent()
+        assertFalse(service.saveSkillContent("blank-name-skill", blankName))
+    }
+
+    @Test
+    fun saveUserSkillContentCreatesAndIndexesNewSkill() {
+        val skillsRoot = temporaryFolder.newFolder("user-save-skills")
+        val service = SkillIndexService(
+            context = RuntimeEnvironment.getApplication(),
+            skillsRoot = skillsRoot,
+        )
+
+        val userSkillContent = """
+            ---
+            name: user-custom-skill
+            description: A brand new user skill.
+            ---
+
+            # User Skill
+        """.trimIndent()
+
+        val saved = service.saveSkillContent("user-custom-skill", userSkillContent)
+        assertTrue(saved)
+
+        val found = service.listSkillsForManagement(forceRefresh = true)
+            .firstOrNull { it.id == "user-custom-skill" }
+        assertTrue(found != null)
+        assertEquals("user-custom-skill", found?.name)
+        assertEquals("A brand new user skill.", found?.description)
+        assertEquals("user", found?.source)
+        assertFalse(found?.isOverridden ?: true)
+    }
 }

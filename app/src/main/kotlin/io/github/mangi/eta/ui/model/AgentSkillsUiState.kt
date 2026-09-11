@@ -35,7 +35,11 @@ data class SkillItemUi(
     val enabled: Boolean,
     val installed: Boolean,
     val capabilities: List<String>,
+    val isOverridden: Boolean = false,
 )
 
 internal val SkillItemUi.canDeleteUserSkill: Boolean
     get() = installed && source == "user"
+
+internal val SkillItemUi.canResetBuiltin: Boolean
+    get() = installed && source == "builtin" && isOverridden

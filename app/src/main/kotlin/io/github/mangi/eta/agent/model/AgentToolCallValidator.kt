@@ -367,10 +367,12 @@ internal class AgentToolCallValidator(tools: JSONArray) {
                 return (isProp || isReq) && !arguments.has(key)
             }
 
-            // 1. query 别名映射（解决大模型传 q / keyword / search 等导致的必填 query 校验失败）
+            // 1. query 别名映射（解决大模型传 q / keyword / search / search_term 等导致的必填 query 校验失败）
             if (needs("query")) {
-                val candidate = listOf("q", "keyword", "keywords", "search", "search_query", "text", "content", "prompt", "input")
-                    .firstOrNull { arguments.has(it) && arguments.optString(it).isNotBlank() }
+                val candidate = listOf(
+                    "q", "keyword", "keywords", "search", "search_query", "search_term",
+                    "searchTerm", "text", "content", "prompt", "input", "term", "query_str"
+                ).firstOrNull { arguments.has(it) && arguments.optString(it).isNotBlank() }
                 if (candidate != null) {
                     arguments.put("query", arguments.opt(candidate))
                     changed = true
@@ -402,7 +404,67 @@ internal class AgentToolCallValidator(tools: JSONArray) {
                 val candidate = listOf("uri", "link", "address", "href")
                     .firstOrNull { arguments.has(it) && arguments.optString(it).isNotBlank() }
                 if (candidate != null) {
-                    arguments.put("url", arguments.opt(candidate))
+                    val rawVal = arguments.opt(candidate)
+                    // 若传的是单元素数组，解包为单字符串
+                    if (rawVal is JSONArray && rawVal.length() > 0) {
+                        arguments.put("url", rawVal.opt(0))
+                    } else {
+                        arguments.put("url", rawVal)
+                    }
+                    changed = true
+                }
+            }
+
+            // 5. uris / urls 别名映射与单数标量包装（解决大模型传 url / uri 或单数字符串导致的 uris / urls 必填校验失败）
+            if (needs("uris") || needs("urls")) {
+                val targetKey = if (needs("uris")) "uris" else "urls"
+                val otherKey = if (targetKey == "uris") "urls" else "uris"
+                if (arguments.has(otherKey)) {
+                    val otherVal = arguments.opt(otherKey)
+                    if (otherVal is JSONArray) {
+                        arguments.put(targetKey, otherVal)
+                        changed = true
+                    } else if (otherVal is String && otherVal.isNotBlank()) {
+                        arguments.put(targetKey, JSONArray().put(otherVal))
+                        changed = true
+                    }
+                } else {
+                    val candidate = listOf("uri", "url", "link", "address", "path", "file_path", "target")
+                        .firstOrNull { arguments.has(it) }
+                    if (candidate != null) {
+                        val value = arguments.opt(candidate)
+                        if (value is JSONArray) {
+                            arguments.put(targetKey, value)
+                            changed = true
+                        } else if (value is String && value.isNotBlank()) {
+                            arguments.put(targetKey, JSONArray().put(value))
+                            changed = true
+                        }
+                    }
+                }
+            }
+
+            // 6. uri 别名映射（解决模型传 url / path / target 导致必填 uri 校验失败）
+            if (needs("uri")) {
+                val candidate = listOf("url", "path", "file_path", "target", "link", "address", "href")
+                    .firstOrNull { arguments.has(it) && arguments.optString(it).isNotBlank() }
+                if (candidate != null) {
+                    val rawVal = arguments.opt(candidate)
+                    if (rawVal is JSONArray && rawVal.length() > 0) {
+                        arguments.put("uri", rawVal.opt(0))
+                    } else {
+                        arguments.put("uri", rawVal)
+                    }
+                    changed = true
+                }
+            }
+
+            // 7. content 别名映射（解决大模型传 text / body / data 等导致的必填 content 校验失败）
+            if (needs("content")) {
+                val candidate = listOf("text", "body", "data", "message", "contents", "fileContent")
+                    .firstOrNull { arguments.has(it) && arguments.optString(it).isNotBlank() }
+                if (candidate != null) {
+                    arguments.put("content", arguments.opt(candidate))
                     changed = true
                 }
             }

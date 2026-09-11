@@ -35,7 +35,9 @@ import io.github.mangi.eta.agent.runtime.AgentRuntimeClient
 import io.github.mangi.eta.agent.runtime.AgentRuntimeWire
 import io.github.mangi.eta.agent.runtime.AgentTokenUsage
 import io.github.mangi.eta.agent.runtime.AgentUiHandoffPayload
+import io.github.mangi.eta.agent.skill.SkillParser
 import io.github.mangi.eta.agent.skill.SkillRuntime
+import java.io.File
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
@@ -1420,6 +1422,7 @@ internal class AgentAppState(
                     enabled = entry.enabled,
                     installed = entry.installed,
                     capabilities = capabilities,
+                    isOverridden = entry.isOverridden,
                 )
             }
             withContext(Dispatchers.Main) {
@@ -1764,6 +1767,80 @@ internal class AgentAppState(
                 )
             }
             if (succeeded) refreshSkills()
+        }
+    }
+
+    fun loadSkillFileContent(skillId: String): String? {
+        val indexService = SkillRuntime.createIndexService(appContext)
+        val entry = indexService.listSkillsForManagement().firstOrNull { it.id == skillId }
+        if (entry != null) {
+            val file = File(entry.skillFilePath)
+            if (file.isFile) {
+                val text = runCatching { file.readText() }.getOrNull()
+                if (text != null) return text
+            }
+        }
+        val directFile = appContext.filesDir.resolve("skills/$skillId/SKILL.md")
+        if (directFile.isFile) {
+            val text = runCatching { directFile.readText() }.getOrNull()
+            if (text != null) return text
+        }
+        return indexService.getBuiltinSkillContent(skillId)
+    }
+
+    suspend fun saveSkillFileContent(skillId: String, newContent: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val parsed = SkillParser.parseSkillContent(newContent)
+                ?: throw IllegalArgumentException("SKILL.md 格式错误")
+            val skillName = parsed.frontmatter["name"]?.trim()
+            if (skillName.isNullOrBlank()) {
+                throw IllegalArgumentException("SKILL.md frontmatter 缺少必要的 'name' 字段")
+            }
+            val indexService = SkillRuntime.createIndexService(appContext)
+            val success = indexService.saveSkillContent(skillId, newContent)
+            if (!success) {
+                throw IllegalStateException("保存技能文件失败")
+            }
+            withContext(Dispatchers.Main) {
+                refreshSkills()
+            }
+        }
+    }
+
+    suspend fun resetBuiltinSkill(skillId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        runCatching {
+            val indexService = SkillRuntime.createIndexService(appContext)
+            indexService.installBuiltinSkill(skillId)
+            withContext(Dispatchers.Main) {
+                refreshSkills()
+            }
+        }
+    }
+
+    fun resetBuiltin(skillId: String) {
+        if (skillsState.isImporting || skillsState.busySkillId != null) return
+        val skillName = skillsState.skills.firstOrNull { it.id == skillId }?.name?.safeSkillDisplayName() ?: skillId
+        skillsState = skillsState.copy(busySkillId = skillId, notice = null)
+        scope.launch(Dispatchers.IO) {
+            val result = resetBuiltinSkill(skillId)
+            withContext(Dispatchers.Main) {
+                skillsState = skillsState.copy(
+                    busySkillId = null,
+                    notice = if (result.isSuccess) {
+                        newSkillNotice(
+                            title = "恢复默认版本成功",
+                            message = "技能「$skillName」已恢复为默认版本",
+                            isError = false,
+                        )
+                    } else {
+                        newSkillNotice(
+                            title = appContext.getString(R.string.state_unable_to_restore_skills_6b3d23),
+                            message = appContext.getString(R.string.state_the_built_in_skills_have_not_changed_please_try_agai_34e5e3),
+                            isError = true,
+                        )
+                    },
+                )
+            }
         }
     }
 

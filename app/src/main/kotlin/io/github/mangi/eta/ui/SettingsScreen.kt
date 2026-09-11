@@ -426,10 +426,6 @@ internal fun SettingsScreen(
                             },
                             enabled = prefs != null,
                         )
-                                )
-                            },
-                            enabled = prefs != null,
-                        )
 
                         SwitchPref(
                             context = context,

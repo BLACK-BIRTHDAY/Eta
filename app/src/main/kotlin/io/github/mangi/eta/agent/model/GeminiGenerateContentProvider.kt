@@ -92,6 +92,17 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         val contents = JSONArray()
         val systemParts = mutableListOf<String>()
 
+        if (config.thinkingEnabled) {
+            systemParts.add(
+                """
+                [Execution & Output Protocol]
+                1. 内部思考流：所有的逻辑推导、故障排查、参数规划均在内部思考（Thinking）中完成，不要将长篇分析草稿直接输出给用户。
+                2. 动作前简报：调用工具前，若需向用户说明意图，保持简短清晰的中文（例如：“正在检查小红书后端与 Cookie 状态”），不要输出多余的分析废话。
+                3. 对客答复：面向用户的意图说明与最终总结汇报，全程必须使用自然流畅的【简体中文】。
+                """.trimIndent()
+            )
+        }
+
         // 1. Build toolNamesById from all assistant messages
         val toolNamesById = mutableMapOf<String, String>()
         for (i in 0 until messages.length()) {
@@ -282,12 +293,13 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                 val name = function.optString("name")
                 if (name.isBlank()) continue
                 val args = parseJsonObject(function.optString("arguments"))
-                parts.put(
-                    JSONObject().put(
-                        "functionCall",
-                        JSONObject().put("name", name).put("args", args)
-                    )
-                )
+                val fnCallObj = JSONObject().put("name", name).put("args", args)
+                val signature = toolCall.optString("thought_signature")
+                    .ifBlank { "skip_thought_signature_validator" }
+                val partObj = JSONObject()
+                    .put("functionCall", fnCallObj)
+                    .put("thought_signature", signature)
+                parts.put(partObj)
             }
         }
         return parts
@@ -442,6 +454,19 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                         closeCurrentBlock()
                         val name = functionCall.optString("name")
                         val argsObj = functionCall.optJSONObject("args") ?: JSONObject()
+                        var thoughtSig = part.optString("thoughtSignature")
+                            .ifBlank { part.optString("thought_signature") }
+                        if (thoughtSig.isBlank()) {
+                            for (sp in 0 until parts.length()) {
+                                val item = parts.optJSONObject(sp) ?: continue
+                                val candidate = item.optString("thoughtSignature")
+                                    .ifBlank { item.optString("thought_signature") }
+                                if (candidate.isNotBlank()) {
+                                    thoughtSig = candidate
+                                    break
+                                }
+                            }
+                        }
                         val toolCallId = "call_${toolCalls.length()}_${System.currentTimeMillis()}"
                         val toolCall = JSONObject()
                             .put("id", toolCallId)
@@ -451,7 +476,11 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                                 JSONObject()
                                     .put("name", name)
                                     .put("arguments", argsObj.toString())
-                            )
+                            ).also { obj ->
+                                if (thoughtSig.isNotBlank()) {
+                                    obj.put("thought_signature", thoughtSig)
+                                }
+                            }
                         toolCalls.put(toolCall)
                         onEvent(ProviderEvent.BlockStart(kind = AssistantBlockKind.TOOL_CALL, index = blockIndex, blockId = toolCallId, name = name))
                         onEvent(ProviderEvent.BlockEnd(kind = AssistantBlockKind.TOOL_CALL, index = blockIndex, blockId = toolCallId, name = name, content = argsObj.toString()))

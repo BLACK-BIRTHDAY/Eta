@@ -154,16 +154,19 @@ internal object LinuxEnvironmentPaths {
         return runCatching {
             val src = sandboxDir.absolutePath
             val dst = sourceDir.absolutePath
-            val backup = File(environmentDir(context, distribution), "rootfs_backup_${System.currentTimeMillis()}").absolutePath
             val garbage = File("/data/local/tmp/.garbage_commit_${System.currentTimeMillis()}").absolutePath
-            // 异步脱钩原子固化：将旧底包秒级移至待清理目录，将当前沙盒提拔为新底包，再克隆出新沙盒
+            // 原地增量固化：底包目录 Inode 绝对恒定不变，通过 cp -a 保留所有软链接增量合入，彻底杜绝外部常驻守护发生幽灵挂载
             val cmd = """
-                mv '$dst' '$backup' && \
-                mv '$src' '$dst' && \
+                cp -a '$src/.' '$dst/' 2>/dev/null && \
+                touch '$dst/$READY_MARKER' && \
+                if [ -d '$src' ]; then
+                    mkdir -p '$garbage' 2>/dev/null
+                    mv '$src' '$garbage/' 2>/dev/null || rm -rf '$src' 2>/dev/null
+                fi
                 mkdir -p '$src' && \
                 cp -al '$dst/.' '$src/' 2>/dev/null && \
-                touch '$dst/$READY_MARKER' '$src/$READY_MARKER' && \
-                (mkdir -p '$garbage' && mv '$backup' '$garbage/' && rm -rf '$garbage' >/dev/null 2>&1 &) || true
+                touch '$src/$READY_MARKER' && \
+                (rm -rf '$garbage' >/dev/null 2>&1 &) || true
             """.trimIndent()
             val process = ProcessBuilder("su", "-c", cmd).start()
             process.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)

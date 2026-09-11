@@ -8,6 +8,7 @@ import io.github.mangi.eta.ui.components.chatConversationCompositionKey
 import io.github.mangi.eta.ui.model.AgentChatHomeUiState
 import io.github.mangi.eta.ui.model.AgentHomeAction
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
+import io.github.mangi.eta.ui.model.SkillItemUi
 
 /**
  * AgentChatHome：首屏为聊天主舞台。
@@ -21,6 +22,7 @@ internal fun AgentHomeScreen(
     modelPickerState: AgentModelPickerUiState,
     conversationKey: String?,
     onAction: (AgentHomeAction) -> Unit,
+    availableSkills: List<SkillItemUi> = emptyList(),
     isDrawerOpen: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -54,6 +56,7 @@ internal fun AgentHomeScreen(
             },
             onRunTraceClick = { onAction(AgentHomeAction.ExpandRunTrace) },
             onOpenBrowser = { onAction(AgentHomeAction.OpenBrowser) },
+            availableSkills = availableSkills,
             isDrawerOpen = isDrawerOpen,
             modifier = modifier,
         )

@@ -120,6 +120,8 @@ fun AgentSkillsScreen(
                             onToggle = { enabled ->
                                 onAction(AgentSkillsAction.ToggleSkill(skill.id, enabled))
                             },
+                            onEditSkill = { onAction(AgentSkillsAction.EditSkill(skill.id)) },
+                            onResetBuiltin = { onAction(AgentSkillsAction.ResetBuiltin(skill.id)) },
                         )
                     }
                 }
@@ -141,6 +143,7 @@ fun AgentSkillsScreen(
                             onToggle = { enabled ->
                                 onAction(AgentSkillsAction.ToggleSkill(skill.id, enabled))
                             },
+                            onEditSkill = { onAction(AgentSkillsAction.EditSkill(skill.id)) },
                             onDelete = { deleteTarget = skill },
                         )
                     }

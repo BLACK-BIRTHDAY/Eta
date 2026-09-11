@@ -148,6 +148,13 @@ private class BuiltinSkillAssetStore(
     fun findBuiltin(skillId: String): BuiltinSkillAsset? =
         listBuiltins().firstOrNull { it.id == skillId }
 
+    fun getBuiltinSkillContent(skillId: String): String? {
+        val builtin = findBuiltin(skillId) ?: return null
+        return runCatching {
+            context.assets.open("${builtin.assetPath}/SKILL.md").bufferedReader().use { it.readText() }
+        }.getOrNull()
+    }
+
     fun seedMissingBuiltins(registryStore: SkillRegistryStore) {
         val registry = registryStore.read()
         var changed = false
@@ -377,6 +384,51 @@ class SkillIndexService(
         }
     }
 
+    fun getBuiltinSkillContent(skillId: String): String? =
+        builtinStore.getBuiltinSkillContent(skillId)
+
+    fun isBuiltinSkillOverridden(skillId: String): Boolean {
+        val defaultContent = builtinStore.getBuiltinSkillContent(skillId) ?: return false
+        val skillFile = File(skillsRoot, "$skillId/SKILL.md")
+        if (!skillFile.exists() || !skillFile.isFile) return false
+        val currentContent = runCatching { skillFile.readText() }.getOrNull() ?: return false
+        return defaultContent.trim() != currentContent.trim()
+    }
+
+    fun saveSkillContent(skillId: String, newContent: String): Boolean = withMutationLock {
+        synchronized(indexLock) {
+            val parsed = SkillParser.parseSkillContent(newContent) ?: return@synchronized false
+            val skillName = parsed.frontmatter["name"]?.trim()
+            if (skillName.isNullOrBlank()) return@synchronized false
+
+            val isBuiltin = isBuiltinSkillId(skillId)
+            val targetDir = File(skillsRoot, skillId)
+            if (isBuiltin && !isSafeBuiltinSkillInstallation(targetDir)) {
+                val builtin = builtinStore.findBuiltin(skillId)
+                if (builtin != null) {
+                    builtinStore.installBuiltin(skillId, registryStore)
+                }
+            }
+            if (!targetDir.exists()) {
+                targetDir.mkdirs()
+            }
+            val targetFile = File(targetDir, "SKILL.md")
+            targetFile.writeText(newContent)
+
+            val registry = registryStore.readStrict()
+            val current = registry[skillId]
+            val source = if (isBuiltin) BUILTIN_SOURCE else (current?.source ?: USER_SOURCE)
+            registry[skillId] = SkillRegistryEntry(
+                enabled = current?.enabled ?: true,
+                source = source,
+                installState = INSTALL_STATE_INSTALLED,
+            )
+            registryStore.write(registry)
+            invalidateIndexLocked()
+            true
+        }
+    }
+
     /** 文件提交成功后，以单次 Room 事务登记用户 Skill，并同步清除索引缓存。 */
     internal fun registerInstalledUserSkills(skillIds: List<String>) {
         withMutationLock {
@@ -514,6 +566,12 @@ class SkillIndexService(
         val metadata = frontmatter["metadata"]?.let { SkillParser.parseIndentedBlock(it) } ?: emptyMap()
         val registryState = registry[id]
         val builtinAsset = builtinAssets[id]
+        val isOverridden = if (builtinAsset != null) {
+            val defaultContent = builtinStore.getBuiltinSkillContent(id)
+            defaultContent != null && defaultContent.trim() != skillFile.readText().trim()
+        } else {
+            false
+        }
         return SkillIndexEntry(
             id = id,
             name = frontmatter["name"]?.ifBlank { id } ?: id,
@@ -530,6 +588,7 @@ class SkillIndexService(
             source = registryState?.source?.ifBlank { null }
                 ?: if (builtinAsset != null) BUILTIN_SOURCE else USER_SOURCE,
             installed = true,
+            isOverridden = isOverridden,
         )
     }
 
@@ -552,6 +611,7 @@ class SkillIndexService(
             enabled = registryState?.enabled ?: false,
             source = BUILTIN_SOURCE,
             installed = false,
+            isOverridden = false,
         )
     }
 

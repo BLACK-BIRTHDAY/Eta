@@ -117,7 +117,7 @@ class AgentTraceFormatterTest {
                 AgentModelClient.ToolCall(
                     "oversized",
                     "run_command",
-                    """{"command":"${"x".repeat(4_001)}"}""",
+                    """{"command":"${"x".repeat(64_001)}"}""",
                 )
             )
         )

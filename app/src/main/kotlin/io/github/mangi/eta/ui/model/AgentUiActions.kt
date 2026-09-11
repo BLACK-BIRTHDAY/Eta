@@ -57,7 +57,7 @@ sealed interface AgentToolsAction {
     data object OpenBrowser : AgentToolsAction
 }
 
-sealed interface AgentSkillsAction {
+interface AgentSkillsAction {
     data object NavigateBack : AgentSkillsAction
     data class ImportZip(val uri: String) : AgentSkillsAction
     data object ConfirmZipReplacement : AgentSkillsAction
@@ -66,6 +66,8 @@ sealed interface AgentSkillsAction {
     data class ToggleSkill(val skillId: String, val enabled: Boolean) : AgentSkillsAction
     data class DeleteSkill(val skillId: String) : AgentSkillsAction
     data class ReinstallBuiltin(val skillId: String) : AgentSkillsAction
+    data class EditSkill(val skillId: String) : AgentSkillsAction
+    data class ResetBuiltin(val skillId: String) : AgentSkillsAction
 }
 
 sealed interface AgentSystemEnhanceAction {

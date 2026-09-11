@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -17,16 +18,21 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -39,6 +45,7 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -64,8 +71,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,6 +85,7 @@ import io.github.mangi.eta.ui.model.AgentContextUsageUi
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
+import io.github.mangi.eta.ui.model.SkillItemUi
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.Icon
@@ -122,6 +133,7 @@ internal fun AgentChatInputBar(
     onAttachFilePath: (String) -> Unit,
     onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
+    availableSkills: List<SkillItemUi> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
@@ -131,6 +143,17 @@ internal fun AgentChatInputBar(
     val canSend = textFieldState.text.isNotBlank() ||
         pendingImages.isNotEmpty() ||
         pendingFileReferences.isNotEmpty()
+    val slashTrigger = remember(textFieldState.text, textFieldState.selection) {
+        detectSlashCommandTrigger(textFieldState.text, textFieldState.selection)
+    }
+    val isSlashTriggerActive = slashTrigger != null && !isStreaming
+    val candidateSkills = remember(slashTrigger, availableSkills) {
+        if (slashTrigger != null) {
+            filterCandidateSkills(availableSkills, slashTrigger.query)
+        } else {
+            emptyList()
+        }
+    }
     val density = LocalDensity.current
     val statusBarTopPx = WindowInsets.statusBars.getTop(density)
     var inputContainerTopPx by remember { mutableIntStateOf(0) }
@@ -201,6 +224,32 @@ internal fun AgentChatInputBar(
                 style = MiuixTheme.textStyles.body2,
                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 modifier = Modifier.padding(start = 8.dp, bottom = 6.dp),
+            )
+        }
+
+        AnimatedVisibility(
+            visible = isSlashTriggerActive && candidateSkills.isNotEmpty(),
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            AgentSlashCommandPopup(
+                candidateSkills = candidateSkills,
+                onSelectSkill = { skill ->
+                    val trigger = slashTrigger ?: return@AgentSlashCommandPopup
+                    textFieldState.edit {
+                        val replacement = "/${skill.id} "
+                        val textBuffer = asCharSequence()
+                        var replaceEnd = trigger.tokenEndIndex
+                        while (replaceEnd < length && !textBuffer[replaceEnd].isWhitespace()) {
+                            replaceEnd++
+                        }
+                        if (replaceEnd < length && textBuffer[replaceEnd] == ' ') {
+                            replaceEnd++
+                        }
+                        replace(trigger.tokenStartIndex, replaceEnd, replacement)
+                        selection = TextRange(trigger.tokenStartIndex + replacement.length)
+                    }
+                },
             )
         }
 
@@ -514,3 +563,144 @@ private fun PendingImageStrip(
         }
     }
 }
+
+private val SLASH_COMMAND_TRIGGER_REGEX = Regex("""(?:^|\s)/([^\s]*)$""")
+
+internal data class SlashCommandTrigger(
+    val query: String,
+    val tokenStartIndex: Int,
+    val tokenEndIndex: Int,
+)
+
+internal fun detectSlashCommandTrigger(
+    text: CharSequence,
+    selection: TextRange,
+): SlashCommandTrigger? {
+    if (!selection.collapsed) return null
+    val cursor = selection.end
+    if (cursor !in 0..text.length) return null
+    val textBeforeCursor = text.subSequence(0, cursor).toString()
+    val match = SLASH_COMMAND_TRIGGER_REGEX.find(textBeforeCursor) ?: return null
+    val query = match.groupValues[1]
+    val tokenStartIndex = cursor - query.length - 1
+    return SlashCommandTrigger(
+        query = query,
+        tokenStartIndex = tokenStartIndex,
+        tokenEndIndex = cursor,
+    )
+}
+
+internal fun filterCandidateSkills(
+    skills: List<SkillItemUi>,
+    query: String,
+): List<SkillItemUi> {
+    return skills.filter { skill ->
+        skill.enabled && (
+            skill.name.contains(query, ignoreCase = true) ||
+            skill.id.contains(query, ignoreCase = true) ||
+            skill.description.contains(query, ignoreCase = true)
+        )
+    }
+}
+
+@Composable
+internal fun AgentSlashCommandPopup(
+    candidateSkills: List<SkillItemUi>,
+    onSelectSkill: (SkillItemUi) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp)
+            .dropShadow(
+                shape = shape,
+                shadow = Shadow(
+                    radius = 12.dp,
+                    color = Color.Black,
+                    alpha = 0.12f,
+                ),
+            )
+            .squircleSurface(
+                color = MiuixTheme.colorScheme.surfaceContainer,
+                cornerRadius = 16.dp,
+            )
+            .squircleBorder(
+                width = 0.5.dp,
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
+                cornerRadius = 16.dp,
+            )
+            .heightIn(max = 200.dp),
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(vertical = 4.dp),
+        ) {
+            items(
+                items = candidateSkills,
+                key = { it.id },
+            ) { skill ->
+                SlashCommandItem(
+                    skill = skill,
+                    onClick = { onSelectSkill(skill) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SlashCommandItem(
+    skill: SkillItemUi,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(MiuixTheme.colorScheme.surfaceContainerHigh),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Extension,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MiuixTheme.colorScheme.primary,
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = skill.name,
+                style = MiuixTheme.textStyles.body1,
+                fontWeight = FontWeight.Medium,
+                color = MiuixTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (skill.description.isNotBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = skill.description,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+    }
+}
+

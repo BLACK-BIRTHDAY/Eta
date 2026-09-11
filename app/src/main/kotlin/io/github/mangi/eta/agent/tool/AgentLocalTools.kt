@@ -247,7 +247,6 @@ internal class AgentLocalTools(
             }
         }
     }
-    }
 
     private fun deviceToolPermissionError(
         toolName: String,

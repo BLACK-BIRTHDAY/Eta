@@ -128,6 +128,68 @@ class AgentToolCallValidatorTest {
         val normalizedFromKeyword = validator.normalize(call("""{"keyword":"快速排序"}"""))
         assertNull(validator.validate(normalizedFromKeyword))
         org.junit.Assert.assertEquals("快速排序", JSONObject(normalizedFromKeyword.argumentsJson).optString("query"))
+
+        val normalizedFromSearchTerm = validator.normalize(call("""{"search_term":"BanG Dream"}"""))
+        assertNull(validator.validate(normalizedFromSearchTerm))
+        org.junit.Assert.assertEquals("BanG Dream", JSONObject(normalizedFromSearchTerm.argumentsJson).optString("query"))
+    }
+
+    @Test
+    fun normalizeAliasesWrapsSingleUriIntoUrisArray() {
+        val validator = validator(
+            JSONObject(
+                """
+                {
+                  "type": "object",
+                  "properties": {
+                    "uris": {
+                      "type": "array",
+                      "items": {"type": "string"}
+                    }
+                  },
+                  "required": ["uris"]
+                }
+                """.trimIndent()
+            )
+        )
+
+        // 传入单数 uri 字符串，自动规整并包装为 uris: ["https://example.com"]
+        val normalizedFromUri = validator.normalize(call("""{"uri":"https://example.com"}"""))
+        assertNull(validator.validate(normalizedFromUri))
+        val urisArray = JSONObject(normalizedFromUri.argumentsJson).optJSONArray("uris")
+        org.junit.Assert.assertNotNull(urisArray)
+        org.junit.Assert.assertEquals(1, urisArray?.length())
+        org.junit.Assert.assertEquals("https://example.com", urisArray?.optString(0))
+
+        // 传入 urls 别名
+        val normalizedFromUrls = validator.normalize(call("""{"urls":["https://a.com","https://b.com"]}"""))
+        assertNull(validator.validate(normalizedFromUrls))
+        org.junit.Assert.assertEquals(2, JSONObject(normalizedFromUrls.argumentsJson).optJSONArray("uris")?.length())
+    }
+
+    @Test
+    fun normalizeAliasesFixesUriAndContentForWriteTools() {
+        val validator = validator(
+            JSONObject(
+                """
+                {
+                  "type": "object",
+                  "properties": {
+                    "uri": {"type": "string"},
+                    "content": {"type": "string"}
+                  },
+                  "required": ["uri", "content"]
+                }
+                """.trimIndent()
+            )
+        )
+
+        // 模型传入 path 和 text，自动规整为 uri 和 content
+        val normalized = validator.normalize(call("""{"path":"viking://test.md","text":"hello world"}"""))
+        assertNull(validator.validate(normalized))
+        val args = JSONObject(normalized.argumentsJson)
+        org.junit.Assert.assertEquals("viking://test.md", args.optString("uri"))
+        org.junit.Assert.assertEquals("hello world", args.optString("content"))
     }
 
     private fun validator(parameters: JSONObject): AgentToolCallValidator =

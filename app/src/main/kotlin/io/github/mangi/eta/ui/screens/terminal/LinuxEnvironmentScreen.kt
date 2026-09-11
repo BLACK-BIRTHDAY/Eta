@@ -402,14 +402,15 @@ internal fun LinuxEnvironmentScreen(
                     )
                 }
             }
+        }
 
-            item(key = "sandbox-title") { SmallTitle("环境安全与沙盒") }
-            item(key = "sandbox-card") {
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
-                ) {
+        item(key = "sandbox-title") { SmallTitle("环境安全与沙盒") }
+        item(key = "sandbox-card") {
+            Card(
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .padding(bottom = 12.dp),
+            ) {
                     SwitchPreference(
                         title = "沙盒保护模式",
                         summary = if (sandboxEnabled) {
@@ -470,7 +471,6 @@ internal fun LinuxEnvironmentScreen(
                     }
                 }
             }
-        }
 
         if (selectedToolsReady) {
             item(key = "optional-tools-title") { SmallTitle(stringResource(R.string.ui_optional_tools_3097d6)) }

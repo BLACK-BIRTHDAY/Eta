@@ -21,6 +21,7 @@ data class SkillIndexEntry(
     val enabled: Boolean = true,
     val source: String = "user",
     val installed: Boolean = true,
+    val isOverridden: Boolean = false,
 )
 
 /**

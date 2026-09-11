@@ -16,7 +16,13 @@ internal object SkillParser {
      */
     fun parseSkillFile(skillFile: File): ParsedSkillFile? {
         if (!skillFile.exists() || !skillFile.isFile) return null
-        val raw = skillFile.readText()
+        return parseSkillContent(skillFile.readText())
+    }
+
+    /**
+     * 解析 SKILL.md 字符串内容，返回 frontmatter map + body string。
+     */
+    fun parseSkillContent(raw: String): ParsedSkillFile? {
         if (!raw.startsWith("---")) {
             return ParsedSkillFile(frontmatter = emptyMap(), body = raw.trim())
         }

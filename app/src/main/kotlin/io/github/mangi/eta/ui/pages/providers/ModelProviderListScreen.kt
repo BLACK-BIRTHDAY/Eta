@@ -105,7 +105,7 @@ internal fun ModelProviderListScreen(
                     },
                     onClick = { onNavigate(AppRoute.ModelProviderNew(NewProviderType.Anthropic)) },
                 )
-                ProviderDivider()
+
                 ArrowPreference(
                     title = stringResource(R.string.ui_new_gemini),
                     summary = stringResource(R.string.ui_support_gemini_official_api),

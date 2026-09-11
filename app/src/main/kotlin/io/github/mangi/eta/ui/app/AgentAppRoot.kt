@@ -48,6 +48,7 @@ import io.github.mangi.eta.ui.model.AgentChatAction
 import io.github.mangi.eta.ui.model.AgentHomeAction
 import io.github.mangi.eta.ui.model.AgentMemoryAction
 import io.github.mangi.eta.ui.model.AgentSkillsAction
+import io.github.mangi.eta.ui.screens.skills.SkillEditorScreen
 import io.github.mangi.eta.ui.model.AgentSystemEnhanceAction
 import io.github.mangi.eta.ui.model.AgentToolsAction
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
@@ -242,6 +243,7 @@ fun AgentAppRoot(
                     AgentHomeScreen(
                         state = agentState.homeState,
                         modelPickerState = agentState.modelPickerState,
+                        availableSkills = agentState.skillsState.skills,
                         conversationKey = agentState.conversationPaneState.selectedConversationId,
                         onAction = { action ->
                             when (action) {
@@ -290,6 +292,7 @@ fun AgentAppRoot(
                     AgentChatScreen(
                         state = agentState.homeState,
                         modelPickerState = agentState.modelPickerState,
+                        availableSkills = agentState.skillsState.skills,
                         conversationKey = agentState.conversationPaneState.selectedConversationId,
                         onAction = { action ->
                             when (action) {
@@ -371,8 +374,17 @@ fun AgentAppRoot(
                             is AgentSkillsAction.ToggleSkill -> agentState.toggleSkill(action.skillId, action.enabled)
                             is AgentSkillsAction.DeleteSkill -> agentState.deleteSkill(action.skillId)
                             is AgentSkillsAction.ReinstallBuiltin -> agentState.reinstallBuiltin(action.skillId)
+                            is AgentSkillsAction.EditSkill -> pushRoute(AppRoute.SkillEditor(action.skillId))
+                            is AgentSkillsAction.ResetBuiltin -> agentState.resetBuiltin(action.skillId)
                         }
                     },
+                )
+            }
+            entry<AppRoute.SkillEditor>(swipeDismiss = swipeDismiss) { route ->
+                SkillEditorScreen(
+                    skillId = route.skillId,
+                    agentState = agentState,
+                    onBack = { popRoute() },
                 )
             }
             entry<AppRoute.Permissions>(swipeDismiss = swipeDismiss) {

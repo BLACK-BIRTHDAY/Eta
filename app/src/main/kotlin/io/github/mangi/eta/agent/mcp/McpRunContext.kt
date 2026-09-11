@@ -32,6 +32,7 @@ internal class McpRunSnapshot(
                 tool.definition.description.trim().takeIf { it.isNotBlank() }?.let {
                     append("。 ").append(it)
                 }
+                append("。 注意：必须严格按照 parameters 要求传参，严禁省略必填字段。")
             }
             destination.put(
                 JSONObject()
@@ -113,19 +114,50 @@ internal class McpToolExecutor(
         )
         val arguments = runCatching { JSONObject(toolCall.argumentsJson.ifBlank { "{}" }) }
             .getOrElse { return failure("INVALID_ARGUMENT", "MCP 工具参数不是 JSON object") }
-        return runCatching {
-            val client = synchronized(lifecycleLock) {
-                if (closed) return failure("MCP_EXECUTOR_CLOSED", "MCP 工具执行器已关闭")
-                clients[tool.server.id] ?: McpHttpClient(
-                    server = tool.server,
-                    bearerToken = tool.bearerToken,
-                ).also { clients[tool.server.id] = it }
-            }
-            adaptResult(tool, client.callTool(tool.definition, arguments))
-        }.getOrElse {
-            failure("MCP_CALL_FAILED", "MCP 工具调用失败")
-        }
+        return executeWithRetry(tool, arguments)
     }
+
+    private fun executeWithRetry(tool: McpRunTool, arguments: JSONObject): AgentModelClient.ToolResult {
+        var lastThrowable: Throwable? = null
+        for (attempt in 1..2) {
+            try {
+                val client = synchronized(lifecycleLock) {
+                    if (closed) return failure("MCP_EXECUTOR_CLOSED", "MCP 工具执行器已关闭")
+                    clients[tool.server.id] ?: McpHttpClient(
+                        server = tool.server,
+                        bearerToken = tool.bearerToken,
+                    ).also { clients[tool.server.id] = it }
+                }
+                return adaptResult(tool, client.callTool(tool.definition, arguments))
+            } catch (throwable: Throwable) {
+                lastThrowable = throwable
+                // 仅对首轮失败且属于网络 IO / 容器冷启动抖动时进行延迟重试
+                if (attempt == 1 && isRetryableNetworkError(throwable)) {
+                    synchronized(lifecycleLock) {
+                        clients.remove(tool.server.id)?.runCatching { close() }
+                    }
+                    try {
+                        Thread.sleep(1500)
+                    } catch (_: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                        break
+                    }
+                    continue
+                }
+                break
+            }
+        }
+        val safeMsg = lastThrowable?.message?.takeIf { it.isNotBlank() } ?: "MCP 工具调用失败"
+        return failure("MCP_CALL_FAILED", safeMsg)
+    }
+
+    private fun isRetryableNetworkError(throwable: Throwable): Boolean =
+        throwable is java.io.IOException ||
+            throwable.javaClass.simpleName.contains("Socket", ignoreCase = true) ||
+            throwable.javaClass.simpleName.contains("Timeout", ignoreCase = true) ||
+            (throwable.message?.contains("502", ignoreCase = true) == true) ||
+            (throwable.message?.contains("503", ignoreCase = true) == true) ||
+            (throwable.message?.contains("504", ignoreCase = true) == true)
 
     fun contains(toolName: String): Boolean = snapshot.resolve(toolName) != null
 

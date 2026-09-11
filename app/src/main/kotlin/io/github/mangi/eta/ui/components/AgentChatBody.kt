@@ -84,6 +84,7 @@ import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 import io.github.mangi.eta.ui.model.MessageEditUiState
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
+import io.github.mangi.eta.ui.model.SkillItemUi
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
@@ -148,6 +149,7 @@ internal fun AgentChatBody(
     onSuggestionClick: (String) -> Unit,
     onRunTraceClick: () -> Unit,
     onOpenBrowser: () -> Unit,
+    availableSkills: List<SkillItemUi> = emptyList(),
     isDrawerOpen: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
@@ -244,6 +246,7 @@ internal fun AgentChatBody(
         onRunTraceClick = onRunTraceClick,
         onOpenBrowser = onOpenBrowser,
         currentBrowserMessageId = currentBrowserMessageId,
+        availableSkills = availableSkills,
         modifier = modifier,
     )
 }
@@ -284,6 +287,7 @@ private fun AgentChatScaffold(
     onRunTraceClick: () -> Unit,
     onOpenBrowser: () -> Unit,
     currentBrowserMessageId: String?,
+    availableSkills: List<SkillItemUi> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     val surfaceColor = MiuixTheme.colorScheme.surface
@@ -327,6 +331,7 @@ private fun AgentChatScaffold(
                 onAttachFilePath = onAttachFilePath,
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
+                availableSkills = availableSkills,
             )
         },
     ) { innerPadding ->
@@ -825,6 +830,7 @@ private fun AgentChatBottomBar(
     onAttachFilePath: (String) -> Unit,
     onRemoveFileReference: (String) -> Unit,
     onCancelMessageEdit: () -> Unit,
+    availableSkills: List<SkillItemUi> = emptyList(),
 ) {
     Column(
         modifier = Modifier
@@ -907,6 +913,7 @@ private fun AgentChatBottomBar(
                 onAttachFilePath = onAttachFilePath,
                 onRemoveFileReference = onRemoveFileReference,
                 onCancelMessageEdit = onCancelMessageEdit,
+                availableSkills = availableSkills,
                 modifier = Modifier.fillMaxWidth(),
             )
         }

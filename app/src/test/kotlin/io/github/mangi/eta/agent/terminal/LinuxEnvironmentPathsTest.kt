@@ -36,4 +36,11 @@ class LinuxEnvironmentPathsTest {
         val method = LinuxEnvironmentPaths::class.java.methods.find { it.name == "commitSandbox" }
         org.junit.Assert.assertNotNull(method)
     }
+
+    @Test
+    fun resetSandboxMethodExists() {
+        // Assert resetSandbox contract method availability
+        val method = LinuxEnvironmentPaths::class.java.methods.find { it.name == "resetSandbox" }
+        org.junit.Assert.assertNotNull(method)
+    }
 }

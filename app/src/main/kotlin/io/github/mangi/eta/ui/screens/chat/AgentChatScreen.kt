@@ -8,6 +8,7 @@ import io.github.mangi.eta.ui.components.chatConversationCompositionKey
 import io.github.mangi.eta.ui.model.AgentChatAction
 import io.github.mangi.eta.ui.model.AgentChatUiState
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
+import io.github.mangi.eta.ui.model.SkillItemUi
 
 /**
  * 独立对话页：与首页聊天主舞台共用同一套消息/输入组件，
@@ -19,6 +20,7 @@ internal fun AgentChatScreen(
     modelPickerState: AgentModelPickerUiState,
     conversationKey: String?,
     onAction: (AgentChatAction) -> Unit,
+    availableSkills: List<SkillItemUi> = emptyList(),
     modifier: Modifier = Modifier,
 ) {
     key(chatConversationCompositionKey(conversationKey)) {
@@ -51,6 +53,7 @@ internal fun AgentChatScreen(
             },
             onRunTraceClick = { /* 对话页暂不做 Run trace 展开 */ },
             onOpenBrowser = { onAction(AgentChatAction.OpenBrowser) },
+            availableSkills = availableSkills,
             modifier = modifier,
         )
     }
