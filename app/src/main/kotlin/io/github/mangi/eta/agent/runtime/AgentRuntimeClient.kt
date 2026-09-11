@@ -79,19 +79,8 @@ internal class AgentRuntimeClient(
             preparedImagesRef.set(preparedImages)
             msg.data = AgentRuntimeWire.toBundle(request, preparedImages.images, preparedHistory)
             serviceMessenger.send(msg)
-            if (!resultLatch.await(RUN_TIMEOUT_MINUTES, TimeUnit.MINUTES)) {
-                runCatching {
-                    val cancelMessage = Message.obtain(null, AgentRuntimeWire.MSG_CANCEL)
-                    cancelMessage.data = AgentRuntimeWire.ackBundle(request.runId)
-                    serviceMessenger.send(cancelMessage)
-                }
-                return AgentRuntimeWire.RunResult(
-                    runId = request.runId,
-                    ok = false,
-                    content = "",
-                    error = "Agent Runtime 执行超时",
-                )
-            }
+            // 最终结果或 Binder 断连负责唤醒；正常长任务不因客户端等待时长被取消。
+            resultLatch.await()
             return resultRef.get() ?: AgentRuntimeWire.RunResult("", false, "", "Agent Runtime 未返回结果")
         } catch (interrupted: InterruptedException) {
             Thread.currentThread().interrupt()
@@ -191,31 +180,39 @@ internal class AgentRuntimeClient(
         }
     }
 
-    /** 重新订阅一个仍存活的 run；Service 会先重放安全事件，再继续推送实时事件。 */
+    /** 历史一次性交给 onReplay；未指定时沿用 onEvent。后续新增事件始终交给 onEvent。 */
     fun attachRun(
         runId: String,
+        onReplay: ((List<AgentEvent>) -> Unit)? = null,
         onEvent: (AgentEvent) -> Unit,
     ): AttachOutcome {
         if (runId.isBlank()) return AttachOutcome.NotActive
         val terminalLatch = CountDownLatch(1)
+        val attachLatch = CountDownLatch(1)
         val attachedRef = AtomicReference<Boolean?>(null)
         val resultRef = AtomicReference<AgentRuntimeWire.RunResult?>()
         val clientMessenger = Messenger(
             AttachHandler(
+                onReplay = onReplay,
                 onEvent = onEvent,
                 onAttachResponse = { attached ->
                     attachedRef.set(attached)
+                    attachLatch.countDown()
                     if (!attached) terminalLatch.countDown()
                 },
                 onResult = { result ->
                     resultRef.set(result)
+                    attachLatch.countDown()
                     terminalLatch.countDown()
                 },
             )
         )
         val lease = AgentRuntimeConnection.acquire(context, logger)
             ?: return AttachOutcome.Unavailable
-        val deathRecipient = IBinder.DeathRecipient { terminalLatch.countDown() }
+        val deathRecipient = IBinder.DeathRecipient {
+            attachLatch.countDown()
+            terminalLatch.countDown()
+        }
 
         try {
             lease.binder.linkToDeath(deathRecipient, 0)
@@ -223,9 +220,10 @@ internal class AgentRuntimeClient(
             msg.replyTo = clientMessenger
             msg.data = AgentRuntimeWire.ackBundle(runId)
             lease.messenger.send(msg)
-            if (!terminalLatch.await(RUN_TIMEOUT_MINUTES, TimeUnit.MINUTES)) {
+            if (!attachLatch.await(RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 return AttachOutcome.Unavailable
             }
+            terminalLatch.await()
             resultRef.get()?.let { return AttachOutcome.Completed(it) }
             return if (attachedRef.get() == false) {
                 AttachOutcome.NotActive
@@ -300,24 +298,31 @@ internal class AgentRuntimeClient(
     }
 
     private class AttachHandler(
-        private val onEvent: (AgentEvent) -> Unit,
-        private val onAttachResponse: (Boolean) -> Unit,
-        private val onResult: (AgentRuntimeWire.RunResult) -> Unit,
+        onReplay: ((List<AgentEvent>) -> Unit)?,
+        onEvent: (AgentEvent) -> Unit,
+        onAttachResponse: (Boolean) -> Unit,
+        onResult: (AgentRuntimeWire.RunResult) -> Unit,
     ) : Handler(Looper.getMainLooper()) {
+        private val delivery = AgentRuntimeAttachDelivery(
+            onReplay = onReplay,
+            onEvent = onEvent,
+            onAttachResponse = onAttachResponse,
+            onResult = onResult,
+        )
+
         override fun handleMessage(msg: Message) {
             when (msg.what) {
                 AgentRuntimeWire.MSG_EVENT ->
-                    AgentRuntimeWire.eventFromBundle(msg.data ?: return)?.let(onEvent)
+                    AgentRuntimeWire.eventFromBundle(msg.data ?: return)?.let(delivery::event)
                 AgentRuntimeWire.MSG_RESULT ->
-                    onResult(AgentRuntimeWire.runResultFromBundle(msg.data ?: return))
+                    delivery.result(AgentRuntimeWire.runResultFromBundle(msg.data ?: return))
                 AgentRuntimeWire.MSG_ATTACH_RUN_RESPONSE ->
-                    onAttachResponse(AgentRuntimeWire.attachRunSucceeded(msg.data ?: return))
+                    delivery.attachResponse(AgentRuntimeWire.attachRunSucceeded(msg.data ?: return))
             }
         }
     }
 
     private companion object {
         const val RESPONSE_TIMEOUT_SECONDS = 8L
-        const val RUN_TIMEOUT_MINUTES = 30L
     }
 }

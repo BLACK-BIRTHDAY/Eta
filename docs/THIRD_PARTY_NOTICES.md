@@ -1,8 +1,40 @@
 # 第三方声明
 
+## 终端原生组件
+
+Eta 的免 Root Linux 后端以独立进程运行 [PRoot](https://github.com/termux/proot)，并静态链接 [talloc](https://talloc.samba.org/) 与 [libandroid-shmem](https://github.com/termux/libandroid-shmem)。PRoot 源码采用 GPL-2.0-or-later；talloc 采用 LGPL-3.0-or-later；libandroid-shmem 采用 BSD-3-Clause。附带的组合 PRoot 可执行程序按 GPL-3.0-or-later 分发，各组件版权与许可证保留。
+
+APK 的 `assets/native-sources` 附带校验过的原始源码，以及从实际构建入口自动生成的脚本、PTY 源码和补丁包；`assets/licenses` 附带许可证全文。构建脚本与说明位于 [终端原生组件](TERMINAL_NATIVE.md)。这些独立第三方程序保持其开源许可权利，不受 Eta 主项目非商业许可证的附加限制。
+
 ## Miuix
 
 Eta 的应用界面使用 [Miuix](https://github.com/compose-miuix-ui/miuix)，其采用 [Apache License 2.0](https://github.com/compose-miuix-ui/miuix/blob/main/LICENSE)。
+
+## Material Icons
+
+Eta 的功能图标使用 AndroidX Compose Material Icons 的 Rounded 系列，通过 `material-icons-extended` 依赖提供。图标及其 AndroidX 实现采用 [Apache License 2.0](https://github.com/androidx/androidx/blob/androidx-main/LICENSE.txt)，来源见 [Material Design Icons](https://github.com/google/material-design-icons)。
+
+## Lucide Atom
+
+思考图标使用 [Lucide Atom](https://github.com/lucide-icons/lucide/blob/main/icons/atom.svg)，以本地 VectorDrawable 资源保存，不依赖 Lucide 图标库。该图标采用 ISC License：
+
+```text
+ISC License
+
+Copyright (c) 2026 Lucide Icons and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
 
 ## Android Hidden API Bypass
 

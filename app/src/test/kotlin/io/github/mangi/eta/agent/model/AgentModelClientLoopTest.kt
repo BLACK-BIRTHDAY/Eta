@@ -2,6 +2,7 @@ package io.github.mangi.eta.agent.model
 
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentRunController
+import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import java.util.concurrent.atomic.AtomicInteger
 import org.json.JSONArray
 import org.json.JSONObject
@@ -12,6 +13,48 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AgentModelClientLoopTest {
+    @Test
+    fun eachRoundUsesOneCapabilitySnapshotForDeclarationValidationAndPrompt() {
+        var root = true
+        var captures = 0
+        val executed = mutableListOf<String>()
+        val provider = ScriptedProvider(listOf(
+            { request, _ ->
+                assertTrue(request.tools.toString().contains("set_setting"))
+                assertTrue(request.messages.toString().contains("相关应用私有文件与数据库"))
+                assistant(finishReason = "tool_calls", toolCalls = listOf(toolCall("first", "get_current_context", "{}")))
+            },
+            { request, _ ->
+                assertFalse(request.tools.toString().contains("set_setting"))
+                assertFalse(request.messages.toString().contains("相关应用私有文件与数据库"))
+                assertTrue(request.messages.toString().contains("identity=user"))
+                assistant(finishReason = "tool_calls", toolCalls = listOf(
+                    toolCall("stale", "terminal", "{\"action\":\"open\",\"identity\":\"root\"}"),
+                ))
+            },
+            { request, _ ->
+                assertTrue(request.messages.toString().contains("INVALID_TOOL_ARGUMENTS"))
+                assistant(content = "完成", finishReason = "stop")
+            },
+        ))
+        AgentModelClient.complete(
+            config = modelConfig().copy(terminalTools = true, deviceSensitiveActionTools = true),
+            prompt = "开始",
+            provider = provider,
+            capabilitiesProvider = {
+                captures++
+                AgentToolCapabilities(rootAvailable = root)
+            },
+            toolExecutor = AgentModelClient.ToolExecutor {
+                executed += it.id
+                root = false
+                AgentModelClient.ToolResult("{\"ok\":true}")
+            },
+        )
+        assertEquals(listOf("first"), executed)
+        assertEquals(4, captures)
+    }
+
     @Test
     fun textOnlyRunReturnsIncrementalTranscript() {
         val provider = ScriptedProvider(
@@ -518,6 +561,63 @@ class AgentModelClientLoopTest {
         assertEquals("完成", result.content)
         assertEquals(toolRounds, executions)
         assertEquals(toolRounds + 1, provider.requests.size)
+    }
+
+    @Test
+    fun retryPreservesToolResultsAndImagesWithoutReplayingToolsOrFailedReasoning() {
+        val requests = mutableListOf<String>()
+        val events = mutableListOf<AgentEvent>()
+        var executions = 0
+        val provider = object : AgentProviderClient by ScriptedProvider(emptyList()) {
+            override fun complete(
+                request: ProviderRequest,
+                runController: AgentRunController,
+                onEvent: (ProviderEvent) -> Unit,
+            ): ProviderResponse {
+                requests += request.messages.toString()
+                onEvent(ProviderEvent.RequestStarted)
+                return when (requests.size) {
+                    1 -> ProviderResponse(assistant(
+                        finishReason = "tool_calls",
+                        reasoning = "先观察",
+                        toolCalls = listOf(toolCall("observe-1", "get_current_context", "{}")),
+                    ))
+                    2 -> {
+                        onEvent(ProviderEvent.BlockDelta(AssistantBlockKind.THINKING, 0, "失败的思考"))
+                        onEvent(ProviderEvent.BlockDelta(AssistantBlockKind.TEXT, 1, "半截回答"))
+                        onEvent(ProviderEvent.BlockDelta(AssistantBlockKind.TOOL_CALL, 2, "半截参数"))
+                        throw java.net.SocketTimeoutException("timeout")
+                    }
+                    else -> ProviderResponse(assistant(content = "完成", finishReason = "stop", reasoning = "观察成功"))
+                }
+            }
+        }
+        val messages = JSONArray().put(AgentConversationCodec.userTextMessage("开始"))
+        val loop = AgentLoop(
+            config = modelConfig(), messages = messages,
+            tools = AgentToolCatalog.build(terminalTools = false, browserTools = false),
+            provider = provider,
+            toolExecutor = AgentModelClient.ToolExecutor {
+                executions++
+                AgentModelClient.ToolResult(
+                    content = "观察结果",
+                    images = listOf(AgentModelClient.ModelImage("data:image/png;base64,dGVzdA==", "image/png", 4)),
+                )
+            },
+            runController = AgentRunController(), traceFormatter = AgentTraceFormatter(),
+            onEvent = events::add, modelRetry = AgentModelRetry { _, _ -> },
+        )
+        val result = loop.run()
+        assertEquals(1, executions)
+        assertEquals(3, requests.size)
+        assertEquals(requests[1], requests[2])
+        assertTrue(requests[2].contains("data:image/png"))
+        assertFalse(messages.toString().contains("data:image/png"))
+        assertFalse(messages.toString().contains("半截"))
+        assertEquals("先观察观察成功", result.reasoningContent)
+        assertEquals(listOf(1, 2, 3), events.filterIsInstance<AgentEvent.RoundStarted>().map { it.round })
+        assertEquals(2, events.filterIsInstance<AgentEvent.ModelRetryScheduled>().single().round)
+        assertEquals(1, events.filterIsInstance<AgentEvent.ToolStarted>().size)
     }
 
     private class ScriptedProvider(

@@ -29,6 +29,7 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
+import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.media.AgentImageCodec
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.overlay.AgentHapticFeedback
@@ -323,6 +324,22 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             eventSink = { event -> sendEventTo(replyTo, event) },
             resultSink = { result -> sendResultTo(replyTo, result) },
         )
+        // Root 入口保留原有绑定服务生命周期；新增 FGS 不能成为厂商后台入口的新前置权限。
+        val allowBoundFallback = RootAccess.isGranted
+        val executionHeld = AgentExecutionService.acquire(
+            this, "run:${request.runId}", allowBoundFallback = allowBoundFallback,
+        ) { session.cancel("已停止") }
+        if (!executionHeld && !allowBoundFallback) {
+            session.complete(
+                AgentRuntimeWire.RunResult(
+                    runId = request.runId,
+                    ok = false,
+                    content = "",
+                    error = "无法启动后台执行服务，请返回 Eta 后重试",
+                )
+            ) {}
+            return
+        }
         activeSessions[request.runId] = session
         lastCompletedRunContext = null
         EtaFluidCloudStateMapper.reset(request.runId)
@@ -351,7 +368,13 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             }
         }
 
-        thread(name = "agent-runtime-${request.runId}") { executeRun(session, request) }
+        thread(name = "agent-runtime-${request.runId}") {
+            try {
+                executeRun(session, request)
+            } finally {
+                AgentExecutionService.release("run:${request.runId}")
+            }
+        }
     }
 
     private fun executeRun(
@@ -574,7 +597,12 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             session.attach(
                 eventSink = { event -> sendEventTo(replyTo, event) },
                 resultSink = { result -> sendResultTo(replyTo, result) },
+                onReplayComplete = { sendAttachRunResponse(runId, replyTo, attached = true) },
             )
+        if (!attached) sendAttachRunResponse(runId, replyTo, attached = false)
+    }
+
+    private fun sendAttachRunResponse(runId: String, replyTo: Messenger?, attached: Boolean) {
         runCatching {
             val msg = Message.obtain(null, AgentRuntimeWire.MSG_ATTACH_RUN_RESPONSE)
             msg.data = AgentRuntimeWire.attachRunResponseBundle(runId, attached)

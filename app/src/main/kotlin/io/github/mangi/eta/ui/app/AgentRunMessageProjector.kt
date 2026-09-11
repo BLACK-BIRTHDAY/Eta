@@ -4,14 +4,57 @@ import android.os.SystemClock
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
+import io.github.mangi.eta.ui.model.SystemNoticeCode
+import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityStatusUi
+import io.github.mangi.eta.ui.model.UserMessageUi
 
 internal class AgentRunMessageProjector(
     private val nowElapsedRealtime: () -> Long = { SystemClock.elapsedRealtime() },
 ) {
     private val thinkingStartedAt = mutableMapOf<String, Long>()
+
+    /** 回放从该 run 的空轨迹重建；仅重排有回放事件的补充输入，旧 handoff 独有的输入必须保留。 */
+    fun resetForReplay(
+        runId: String,
+        messages: List<AgentChatMessageUi>,
+        replaySupplementIndexes: Set<Int> = emptySet(),
+    ): List<AgentChatMessageUi> {
+        if (runId.isBlank()) return messages
+        clearRun(runId)
+        val replaySupplementIds = replaySupplementIndexes.mapTo(mutableSetOf()) { index ->
+            AgentPendingResultRecovery.supplementMessageId(runId, index)
+        }
+        return messages.filterNot { message ->
+            when (message) {
+                is AgentMessageUi -> isAssistantMessageForRun(message.id, runId)
+                is ThinkingMessageUi -> message.id.startsWith("$runId-thinking-")
+                is ToolActivityMessageUi -> message.id.startsWith("$runId-tool-")
+                is SystemNoticeMessageUi ->
+                    isAssistantMessageForRun(message.id, runId) || message.id == "interrupted-$runId"
+                is UserMessageUi -> message.id in replaySupplementIds
+                else -> false
+            }
+        }
+    }
+
+    fun scheduleModelRetry(
+        runId: String,
+        event: AgentEvent.ModelRetryScheduled,
+        messages: List<AgentChatMessageUi>,
+    ): List<AgentChatMessageUi> {
+        val finalized = finalizeTextRound(
+            runId, event.round, finalizeThinkingRound(runId, event.round, messages),
+        )
+        val notice = SystemNoticeMessageUi(
+            id = "assistant-$runId-retry-${event.round}",
+            code = SystemNoticeCode.ModelRetry,
+            detail = event.displayMessage,
+        )
+        return finalized.filterNot { it.id == notice.id } + notice
+    }
 
     fun startAssistantBlock(
         runId: String,
@@ -144,6 +187,20 @@ internal class AgentRunMessageProjector(
             }
         }
 
+    /** 终态不依赖各块结束事件全部到齐；缺少工具结果时只能标为未知，不能推断执行成功。 */
+    fun finalizeRun(runId: String, messages: List<AgentChatMessageUi>): List<AgentChatMessageUi> =
+        finalizeText(runId, finalizeThinking(runId, messages)).map { message ->
+            if (
+                message is ToolActivityMessageUi &&
+                message.id.startsWith("$runId-tool-") &&
+                message.status == ToolActivityStatusUi.Running
+            ) {
+                message.copy(status = ToolActivityStatusUi.Unknown)
+            } else {
+                message
+            }
+        }
+
     fun finalizeThinkingRound(
         runId: String,
         round: Int,
@@ -180,7 +237,7 @@ internal class AgentRunMessageProjector(
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> =
         messages.map { message ->
-            if (message is AgentMessageUi && message.id.startsWith(assistantMessagePrefix(runId))) {
+            if (message is AgentMessageUi && isAssistantMessageForRun(message.id, runId)) {
                 message.copy(
                     content = message.content.trimEnd(),
                     isStreaming = false,
@@ -421,9 +478,6 @@ internal class AgentRunMessageProjector(
     private fun assistantMessageId(runId: String, round: Int, index: Int): String =
         "${assistantMessagePrefix(runId)}$round-$index"
 
-    private fun assistantMessagePrefix(runId: String): String =
-        "assistant-$runId-"
-
     private fun thinkingMessageId(runId: String, round: Int, index: Int): String =
         "$runId-thinking-$round-$index"
 
@@ -442,6 +496,44 @@ internal class AgentRunMessageProjector(
 
     private fun toolActivityMessageId(runId: String, round: Int, toolCallId: String): String =
         "$runId-tool-$round-${toolCallId.ifBlank { "unknown" }}"
+
+    companion object {
+        /** 终态只能补全最后一次重试之后的回答，不能覆盖已标记失败的半截输出。 */
+        fun resultTargetIndex(
+            runId: String,
+            messages: List<AgentChatMessageUi>,
+            includeNotices: Boolean = false,
+        ): Int {
+            val retryIndex = lastRetryIndex(runId, messages)
+            return messages.indices.lastOrNull { index ->
+                val message = messages[index]
+                index > retryIndex &&
+                    (message is AgentMessageUi || includeNotices && message is SystemNoticeMessageUi) &&
+                    isAssistantMessageForRun(message.id, runId)
+            } ?: -1
+        }
+
+        fun resultFallbackId(runId: String, messages: List<AgentChatMessageUi>): String {
+            val retry = messages.getOrNull(lastRetryIndex(runId, messages))
+            if (retry == null) return "assistant-$runId-1"
+            val round = retry.id.substringAfterLast('-').toIntOrNull()?.plus(1) ?: 1
+            return "assistant-$runId-$round-result"
+        }
+
+        private fun lastRetryIndex(runId: String, messages: List<AgentChatMessageUi>): Int =
+            messages.indexOfLast {
+                it is SystemNoticeMessageUi && it.code == SystemNoticeCode.ModelRetry &&
+                    it.id.startsWith("assistant-$runId-retry-")
+            }
+
+        private fun assistantMessagePrefix(runId: String): String =
+            "assistant-$runId-"
+
+        private fun isAssistantMessageForRun(messageId: String, runId: String): Boolean =
+            messageId == "assistant-$runId" ||
+                messageId.startsWith(assistantMessagePrefix(runId))
+    }
+
 }
 
 private const val MAX_TOOL_RESULT_PREVIEW_CHARS = 48
