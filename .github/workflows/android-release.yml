@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: android-build-${{ github.ref }}
@@ -115,3 +117,28 @@ jobs:
           archive: false
           if-no-files-found: error
           retention-days: 14
+
+      - name: 发布或更新 GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEBUG_APK: ${{ steps.apk.outputs.debug_path }}
+          RELEASE_APK: ${{ steps.apk.outputs.release_path }}
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            VERSION_NAME=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -n 1)
+            TAG="v$VERSION_NAME"
+          fi
+
+          echo "==> 目标 Release Tag: $TAG"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "==> Release $TAG 已存在，覆盖更新 APK 资产..."
+            gh release upload "$TAG" "$RELEASE_APK" "$DEBUG_APK" --clobber
+          else
+            echo "==> 创建全新 GitHub Release: $TAG 并上传 APK..."
+            gh release create "$TAG" "$RELEASE_APK" "$DEBUG_APK" \
+              --title "Eta $TAG" \
+              --generate-notes
+          fi

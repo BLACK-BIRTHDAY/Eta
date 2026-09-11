@@ -1,0 +1,113 @@
+name: Sync Upstream Release
+
+on:
+  schedule:
+    # 每天 UTC 0:00 和 12:00（北京时间 8:00 和 20:00）自动检查上游新版本
+    - cron: '0 0,12 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-and-sync:
+    name: 检查上游 Release 并提 PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出下游代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 检测上游 Release
+        id: sync
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPSTREAM_REPO: "Mangi-11/Eta"
+        run: |
+          set -e
+          echo "==> 正在查询上游 $UPSTREAM_REPO 最新 Release..."
+          LATEST_JSON=$(gh release view --repo "$UPSTREAM_REPO" --json tagName,name,body,url)
+          TAG_NAME=$(echo "$LATEST_JSON" | jq -r .tagName)
+          RELEASE_NAME=$(echo "$LATEST_JSON" | jq -r .name)
+          RELEASE_URL=$(echo "$LATEST_JSON" | jq -r .url)
+
+          echo "上游最新 Tag: $TAG_NAME ($RELEASE_NAME)"
+
+          # 配置并拉取上游 Tag
+          git remote add upstream "https://github.com/$UPSTREAM_REPO.git" || git remote set-url upstream "https://github.com/$UPSTREAM_REPO.git"
+          git fetch upstream tag "$TAG_NAME" --no-tags
+
+          TAG_COMMIT=$(git rev-parse "refs/tags/$TAG_NAME")
+          echo "Tag Commit: $TAG_COMMIT"
+
+          # 检查 main 分支是否已合并该 Release
+          if git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+            echo "✅ 上游 $TAG_NAME 已经合并至 main 分支，跳过同步。"
+            echo "has_update=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # 检查是否已有开放的 PR
+          PR_BRANCH="sync/upstream-$TAG_NAME"
+          EXISTING_PR=$(gh pr list --head "$PR_BRANCH" --base main --state open --json number -q '.[0].number')
+          if [ -n "$EXISTING_PR" ]; then
+            echo "ℹ️ 已存在待处理的 PR (#$EXISTING_PR)，无需重复创建。"
+            echo "has_update=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "has_update=true" >> $GITHUB_OUTPUT
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
+          echo "pr_branch=$PR_BRANCH" >> $GITHUB_OUTPUT
+
+          # 生成安全 PR 描述内容
+          {
+            echo "## 🚀 检测到上游发布新版本：\`$TAG_NAME\` ($RELEASE_NAME)"
+            echo ""
+            echo "> **上游 Release 链接**：[$RELEASE_NAME ($TAG_NAME)]($RELEASE_URL)"
+            echo ""
+            echo "### 📝 更新说明"
+            echo ""
+            echo "$LATEST_JSON" | jq -r .body
+            echo ""
+            echo "---"
+            echo ""
+            echo "### 🛠️ 合并指引"
+            echo "- **无冲突**：直接在网页端点击 **Merge pull request** 即可合并。"
+            echo "- **有冲突**：可在本地终端运行以下命令解决冲突："
+            echo '```bash'
+            echo "git fetch origin"
+            echo "git checkout main"
+            echo "git merge origin/$PR_BRANCH -m \"chore: merge upstream release $TAG_NAME into main\""
+            echo "# 解决冲突后推送"
+            echo "git push origin main"
+            echo '```'
+            echo ""
+            echo "*🤖 由 GitHub Actions 定时任务自动检测并提交*"
+          } > pr_body.md
+
+      - name: 推送分支并创建 PR
+        if: steps.sync.outputs.has_update == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.sync.outputs.tag_name }}
+          PR_BRANCH: ${{ steps.sync.outputs.pr_branch }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # 基于上游 Tag 建立分支并推送
+          git checkout -B "$PR_BRANCH" "refs/tags/$TAG_NAME"
+          git push origin "$PR_BRANCH" --force
+
+          # 创建 PR
+          gh pr create \
+            --title "chore: merge upstream release $TAG_NAME into main" \
+            --body-file pr_body.md \
+            --base main \
+            --head "$PR_BRANCH"
