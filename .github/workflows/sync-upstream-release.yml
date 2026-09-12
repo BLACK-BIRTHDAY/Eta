@@ -36,11 +36,11 @@ jobs:
 
           echo "上游最新 Tag: $TAG_NAME ($RELEASE_NAME)"
 
-          # 配置并拉取上游 Tag
+          # 配置并拉取上游 Tag 至独立引用空间，避免与本地 Tag 命名冲突
           git remote add upstream "https://github.com/$UPSTREAM_REPO.git" || git remote set-url upstream "https://github.com/$UPSTREAM_REPO.git"
-          git fetch upstream tag "$TAG_NAME" --no-tags
+          git fetch upstream "+refs/tags/$TAG_NAME:refs/remotes/upstream/tags/$TAG_NAME" --no-tags
 
-          TAG_COMMIT=$(git rev-parse "refs/tags/$TAG_NAME")
+          TAG_COMMIT=$(git rev-parse "refs/remotes/upstream/tags/$TAG_NAME")
           echo "Tag Commit: $TAG_COMMIT"
 
           # 检查 main 分支是否已合并该 Release
@@ -102,7 +102,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # 基于上游 Tag 建立分支并推送
-          git checkout -B "$PR_BRANCH" "refs/tags/$TAG_NAME"
+          git checkout -B "$PR_BRANCH" "refs/remotes/upstream/tags/$TAG_NAME"
           git push origin "$PR_BRANCH" --force
 
           # 创建 PR

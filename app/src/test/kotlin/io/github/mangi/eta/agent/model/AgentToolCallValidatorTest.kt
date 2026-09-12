@@ -192,6 +192,43 @@ class AgentToolCallValidatorTest {
         org.junit.Assert.assertEquals("hello world", args.optString("content"))
     }
 
+    @Test
+    fun normalizeUnwrapsOuterArgsAndHandlesBareString() {
+        val validator = validator(
+            JSONObject(
+                """
+                {
+                  "type": "object",
+                  "properties": {
+                    "query": {"type": "string"}
+                  },
+                  "required": ["query"]
+                }
+                """.trimIndent()
+            )
+        )
+
+        // 1. 测试外层多余包裹 {"args": {"query": "Pixel 11"}} 自动解包
+        val fromOuterArgs = validator.normalize(call("""{"args":{"query":"Pixel 11"}}"""))
+        assertNull(validator.validate(fromOuterArgs))
+        org.junit.Assert.assertEquals("Pixel 11", JSONObject(fromOuterArgs.argumentsJson).optString("query"))
+
+        // 2. 测试 searchQuery 驼峰命名
+        val fromCamelCase = validator.normalize(call("""{"searchQuery":"Pixel 11"}"""))
+        assertNull(validator.validate(fromCamelCase))
+        org.junit.Assert.assertEquals("Pixel 11", JSONObject(fromCamelCase.argumentsJson).optString("query"))
+
+        // 3. 测试未知键名但单字符串兜底
+        val fromUnknownKey = validator.normalize(call("""{"custom_input":"Pixel 11"}"""))
+        assertNull(validator.validate(fromUnknownKey))
+        org.junit.Assert.assertEquals("Pixel 11", JSONObject(fromUnknownKey.argumentsJson).optString("query"))
+
+        // 4. 测试裸字符串自动包裹
+        val fromBareString = validator.normalize(call("Pixel 11"))
+        assertNull(validator.validate(fromBareString))
+        org.junit.Assert.assertEquals("Pixel 11", JSONObject(fromBareString.argumentsJson).optString("query"))
+    }
+
     private fun validator(parameters: JSONObject): AgentToolCallValidator =
         AgentToolCallValidator(
             JSONArray().put(

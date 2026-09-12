@@ -33,9 +33,9 @@ fi
 
 echo "==> 目标 Release Tag: $TARGET_TAG"
 echo "==> 拉取上游 Tag 引用..."
-git fetch upstream tag "$TARGET_TAG" --no-tags
+git fetch upstream "+refs/tags/$TARGET_TAG:refs/remotes/upstream/tags/$TARGET_TAG" --no-tags
 
-TAG_COMMIT=$(git rev-parse "refs/tags/$TARGET_TAG")
+TAG_COMMIT=$(git rev-parse "refs/remotes/upstream/tags/$TARGET_TAG")
 echo "==> Tag Commit: $TAG_COMMIT"
 
 if git merge-base --is-ancestor "$TAG_COMMIT" HEAD; then

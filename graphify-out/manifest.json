@@ -2640,9 +2640,9 @@
     "semantic_hash": ""
   },
   ".github/workflows/android-release.yml": {
-    "mtime": 1789124613.0411105,
-    "seen": 1789124632.0582123,
-    "ast_hash": "4b6503757bd3919443df4839b0c35014",
+    "mtime": 1789124857.7943454,
+    "seen": 1789124873.4274483,
+    "ast_hash": "22cd0c5cac9c5428496541b75022488d",
     "semantic_hash": ""
   },
   "AGENTS.md": {
@@ -3513,6 +3513,84 @@
     "mtime": 1789095021.9708948,
     "seen": 1789096177.76949,
     "ast_hash": "51201671cb1a45f3e0d46548299a6c7d",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/ui/screens/skills/SkillEditorScreen.kt": {
+    "mtime": 1789124613.0521083,
+    "seen": 1789124873.4272373,
+    "ast_hash": "8852fc73fab9ca89b924c4b028537755",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/agent/skill/SkillParserTest.kt": {
+    "mtime": 1789124613.054108,
+    "seen": 1789124873.427317,
+    "ast_hash": "83e4d3769f61f573da7fec49ac6dabe2",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/ui/components/AgentSlashCommandTriggerTest.kt": {
+    "mtime": 1789124613.055107,
+    "seen": 1789124873.4274163,
+    "ast_hash": "eec76378059af1c7cf8c68386fd60520",
+    "semantic_hash": ""
+  },
+  "scripts/sync-upstream-release.sh": {
+    "mtime": 1789124613.1536322,
+    "seen": 1789124873.4274359,
+    "ast_hash": "c5748361a423e06b453a73518d2f2a44",
+    "semantic_hash": ""
+  },
+  ".github/workflows/sync-upstream-release.yml": {
+    "mtime": 1789124613.0411105,
+    "seen": 1789124873.427449,
+    "ast_hash": "d06df9f0c644e9e9e627a992375502f4",
+    "semantic_hash": ""
+  },
+  "CONTEXT.md": {
+    "mtime": 1789124613.0421076,
+    "seen": 1789124873.427451,
+    "ast_hash": "f5f08ae08ef98ed3535c1e88ebc0a26b",
+    "semantic_hash": ""
+  },
+  "docs/wayfinder/MAP.md": {
+    "mtime": 1789124613.055107,
+    "seen": 1789124873.4274669,
+    "ast_hash": "8550930aff369daf40581a424d003432",
+    "semantic_hash": ""
+  },
+  "docs/wayfinder/tickets/001-slash-command-autocomplete-state.md": {
+    "mtime": 1789124613.0561092,
+    "seen": 1789124873.4274676,
+    "ast_hash": "eb76519cda4e87f0acfe0ef09f5b5c60",
+    "semantic_hash": ""
+  },
+  "docs/wayfinder/tickets/002-slash-command-popup-ui.md": {
+    "mtime": 1789124613.0561092,
+    "seen": 1789124873.4274683,
+    "ast_hash": "8641e9acf9b9a483372832021518311e",
+    "semantic_hash": ""
+  },
+  "docs/wayfinder/tickets/003-skill-override-storage-mechanism.md": {
+    "mtime": 1789124613.0561092,
+    "seen": 1789124873.4274693,
+    "ast_hash": "067df5d24f2f54e97ba45256ba1aacb0",
+    "semantic_hash": ""
+  },
+  "docs/wayfinder/tickets/004-skill-editor-screen-implementation.md": {
+    "mtime": 1789124613.0571094,
+    "seen": 1789124873.4274697,
+    "ast_hash": "ec74d282b95a123f7623b423e6f451ab",
+    "semantic_hash": ""
+  },
+  "docs/wayfinder/tickets/005-skill-list-entry-integration.md": {
+    "mtime": 1789124613.0571094,
+    "seen": 1789124873.4274707,
+    "ast_hash": "1194f89e7ec7a431e443c1f76acb6f6e",
+    "semantic_hash": ""
+  },
+  "docs/wayfinder/tickets/006-integration-build-verification.md": {
+    "mtime": 1789124613.0571094,
+    "seen": 1789124873.4274714,
+    "ast_hash": "95bc1719f596b77808a4807aabbc3dfd",
     "semantic_hash": ""
   }
 }

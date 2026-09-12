@@ -176,6 +176,11 @@ internal class AgentLoop(
         runController.throwIfCancelled()
         val normalizedCall = toolCallValidator.normalize(toolCall)
         toolCallValidator.validate(normalizedCall)?.let { validationError ->
+            runCatching {
+                io.github.mangi.eta.core.AndroidAgentLogger.warn(
+                    "Tool validation rejected [${normalizedCall.name}]: $validationError, raw args: '${toolCall.argumentsJson}', normalized: '${normalizedCall.argumentsJson}'"
+                )
+            }
             return rejectedToolOutcome(
                 round = round,
                 toolCall = normalizedCall,
@@ -229,11 +234,20 @@ internal class AgentLoop(
                 command = traceFormatter.displayCommand(toolCall),
             )
         )
+        val detailMessage = buildString {
+            append(message)
+            val keys = runCatching { JSONObject(toolCall.argumentsJson).keys().asSequence().toList() }.getOrNull()
+            if (!keys.isNullOrEmpty()) {
+                append("（实际传入字段: ${keys.joinToString(", ")}）")
+            } else if (toolCall.argumentsJson.isBlank() || toolCall.argumentsJson == "{}") {
+                append("（未传入任何参数对象 {}）")
+            }
+        }
         val result = AgentModelClient.ToolResult(
             content = JSONObject()
                 .put("ok", false)
                 .put("code", code)
-                .put("message", message)
+                .put("message", detailMessage)
                 .toString(),
             sensitive = AgentSensitiveToolPolicy.isSensitive(toolCall.name),
         )

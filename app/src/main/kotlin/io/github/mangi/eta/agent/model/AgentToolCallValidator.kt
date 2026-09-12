@@ -24,7 +24,25 @@ internal class AgentToolCallValidator(tools: JSONArray) {
         val toolSchema = schemasByName[call.name] ?: return call
         val raw = call.argumentsJson.trim()
         if (raw.isEmpty() || raw == "{}") return call
-        val arguments = runCatching { JSONObject(raw) }.getOrNull() ?: return call
+        val arguments = runCatching { JSONObject(raw) }.getOrElse {
+            // 如果大模型返回的不是 JSON 对象，而是一个直接的裸字符串（如 "pixel 11"）
+            if (raw.startsWith("\"") && raw.endsWith("\"") || !raw.startsWith("{")) {
+                val bare = raw.removeSurrounding("\"").trim()
+                if (bare.isNotBlank()) {
+                    val targetKey = when {
+                        toolSchema.parameters.optJSONArray("required")?.hasKey("query") == true -> "query"
+                        toolSchema.parameters.optJSONArray("required")?.hasKey("command") == true -> "command"
+                        toolSchema.parameters.optJSONArray("required")?.hasKey("url") == true -> "url"
+                        toolSchema.parameters.optJSONArray("required")?.hasKey("uri") == true -> "uri"
+                        else -> null
+                    }
+                    if (targetKey != null) {
+                        return call.copy(argumentsJson = JSONObject().put(targetKey, bare).toString())
+                    }
+                }
+            }
+            return call
+        }
         val changed = normalizeAliases(arguments, toolSchema.parameters)
         return if (changed) call.copy(argumentsJson = arguments.toString()) else call
     }
@@ -357,9 +375,24 @@ internal class AgentToolCallValidator(tools: JSONArray) {
 
         fun normalizeAliases(arguments: JSONObject, schema: JSONObject?): Boolean {
             if (schema == null) return false
+            var changed = false
+
+            // 0. 解包外层多余包裹（如大模型传 {"args": {"query": "..."}} 或 {"parameters": {...}} / {"input": {...}}）
+            val outerWrapperKey = listOf("args", "parameters", "params", "input", "arguments")
+                .firstOrNull { arguments.has(it) && arguments.optJSONObject(it) != null }
+            if (outerWrapperKey != null) {
+                val innerObj = arguments.optJSONObject(outerWrapperKey)
+                if (innerObj != null) {
+                    arguments.remove(outerWrapperKey)
+                    for (k in innerObj.keys()) {
+                        arguments.put(k, innerObj.opt(k))
+                    }
+                    changed = true
+                }
+            }
+
             val properties = schema.optJSONObject("properties")
             val required = schema.optJSONArray("required")
-            var changed = false
 
             fun needs(key: String): Boolean {
                 val isProp = properties?.has(key) == true
@@ -367,15 +400,27 @@ internal class AgentToolCallValidator(tools: JSONArray) {
                 return (isProp || isReq) && !arguments.has(key)
             }
 
-            // 1. query 别名映射（解决大模型传 q / keyword / search / search_term 等导致的必填 query 校验失败）
+            // 1. query 别名映射（解决大模型传 q / keyword / search / search_term / searchQuery 等导致的必填 query 校验失败）
             if (needs("query")) {
                 val candidate = listOf(
                     "q", "keyword", "keywords", "search", "search_query", "search_term",
-                    "searchTerm", "text", "content", "prompt", "input", "term", "query_str"
+                    "searchTerm", "searchQuery", "text", "content", "prompt", "input", "term",
+                    "query_str", "queryString", "query_string", "queries", "question",
+                    "topic", "message", "value", "arg", "key", "find"
                 ).firstOrNull { arguments.has(it) && arguments.optString(it).isNotBlank() }
                 if (candidate != null) {
                     arguments.put("query", arguments.opt(candidate))
                     changed = true
+                } else {
+                    // 宽松兜底：若 arguments 中没有任何已知 query 别名，但存在任意非 properties 声明的非空字符串属性，自动作为 query
+                    val fallbackKey = arguments.keys().asSequence().firstOrNull { key ->
+                        val v = arguments.opt(key)
+                        v is String && v.isNotBlank() && (properties == null || !properties.has(key))
+                    }
+                    if (fallbackKey != null) {
+                        arguments.put("query", arguments.optString(fallbackKey))
+                        changed = true
+                    }
                 }
             }
 

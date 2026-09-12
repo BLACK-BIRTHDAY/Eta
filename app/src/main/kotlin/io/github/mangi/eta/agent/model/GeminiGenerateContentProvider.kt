@@ -97,7 +97,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                 """
                 [Execution & Output Protocol]
                 1. 内部思考流：所有的逻辑推导、故障排查、参数规划均在内部思考（Thinking）中完成，不要将长篇分析草稿直接输出给用户。
-                2. 动作前简报：调用工具前，若需向用户说明意图，保持简短清晰的中文（例如：“正在检查小红书后端与 Cookie 状态”），不要输出多余的分析废话。
+                2. 动作前意图说明：调用工具前，若需向用户说明意图，用自然简明的一句话直接说明即可。
                 3. 对客答复：面向用户的意图说明与最终总结汇报，全程必须使用自然流畅的【简体中文】。
                 """.trimIndent()
             )
@@ -330,15 +330,26 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             val function = item.optJSONObject("function") ?: continue
             val name = function.optString("name")
             if (name.isBlank()) continue
+            val rawParams = function.optJSONObject("parameters")
+            val sanitizedParams = rawParams?.let(::sanitizeGeminiParameters)
+                ?: JSONObject().put("type", "object")
             declarations.put(
                 JSONObject()
                     .put("name", name)
                     .put("description", function.optString("description"))
-                    .put("parameters", function.optJSONObject("parameters") ?: JSONObject().put("type", "object"))
+                    .put("parameters", sanitizedParams)
             )
         }
         if (declarations.length() == 0) return null
         return JSONObject().put("functionDeclarations", declarations)
+    }
+
+    private fun sanitizeGeminiParameters(source: JSONObject): JSONObject {
+        val copy = JSONObject(source.toString())
+        copy.remove("${'$'}schema")
+        copy.remove("${'$'}id")
+        copy.remove("additionalProperties")
+        return copy
     }
 
     private fun readStreamingAssistantMessage(
