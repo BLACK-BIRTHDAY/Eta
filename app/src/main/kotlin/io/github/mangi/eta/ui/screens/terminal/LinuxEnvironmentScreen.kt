@@ -180,9 +180,6 @@ internal fun LinuxEnvironmentScreen(
         mutableStateOf(apkAnalysisInstaller.isReady())
     }
     var apkAnalysisProgress by remember { mutableStateOf<ApkAnalysisInstallProgress?>(null) }
-    var sandboxEnabled by remember {
-        mutableStateOf(LinuxEnvironmentPaths.isSandboxEnabled(appContext))
-    }
     var kimiWebLaunching by remember { mutableStateOf(false) }
     var kimiWebRunning by remember(selectedDistribution, backend) { mutableStateOf(false) }
     val kimiWebLauncher = remember(appContext) {
@@ -403,74 +400,6 @@ internal fun LinuxEnvironmentScreen(
                 }
             }
         }
-
-        item(key = "sandbox-title") { SmallTitle("环境安全与沙盒") }
-        item(key = "sandbox-card") {
-            Card(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .padding(bottom = 12.dp),
-            ) {
-                    SwitchPreference(
-                        title = "沙盒保护模式",
-                        summary = if (sandboxEnabled) {
-                            "已开启：基础底包只读保护，修改写入独立沙盒副本，可随时秒级还原"
-                        } else {
-                            "已关闭：命令与软件包直接写入底层环境"
-                        },
-                        checked = sandboxEnabled,
-                        onCheckedChange = { enabled ->
-                            LinuxEnvironmentPaths.setSandboxEnabled(appContext, enabled)
-                            sandboxEnabled = enabled
-                            if (enabled) {
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    LinuxEnvironmentPaths.prepareSandboxRootfs(appContext, selectedDistribution)
-                                }
-                            }
-                        },
-                    )
-                    if (sandboxEnabled) {
-                        ArrowPreference(
-                            title = "固化到基础底包",
-                            summary = "将沙盒中安装的工具与配置永久写入底层环境",
-                            startAction = {
-                                PreferenceIcon(icon = Icons.Rounded.Save)
-                            },
-                            onClick = {
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    val ok = LinuxEnvironmentPaths.commitSandbox(appContext, selectedDistribution)
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(
-                                            appContext,
-                                            if (ok) "固化成功！已成为底层系统一部分" else "固化失败",
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
-                                    }
-                                }
-                            },
-                        )
-                        ArrowPreference(
-                            title = "重置沙盒环境",
-                            summary = "清空临时差异层，0.1 秒秒级还原为初始干净底包",
-                            startAction = {
-                                PreferenceIcon(icon = Icons.Rounded.Refresh)
-                            },
-                            onClick = {
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    val ok = LinuxEnvironmentPaths.resetSandbox(appContext, selectedDistribution)
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(
-                                            appContext,
-                                            if (ok) "沙盒已秒级重置，已恢复干净底包" else "重置失败",
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
-                                    }
-                                }
-                            },
-                        )
-                    }
-                }
-            }
 
         if (selectedToolsReady) {
             item(key = "optional-tools-title") { SmallTitle(stringResource(R.string.ui_optional_tools_3097d6)) }

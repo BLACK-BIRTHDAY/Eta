@@ -13,34 +13,11 @@ class LinuxEnvironmentPathsTest {
     val tempFolder = TemporaryFolder()
 
     @Test
-    fun sandboxStatusReflectsSystemProperty() {
-        val originalProp = System.getProperty("eta.sandbox")
-        try {
-            System.setProperty("eta.sandbox", "true")
-            assertTrue(LinuxEnvironmentPaths.isSandboxEnabled())
+    fun rootfsReadyChecksMarkerFile() {
+        val root = tempFolder.newFolder("rootfs")
+        assertFalse(LinuxEnvironmentPaths.rootfsReady(root.absolutePath))
 
-            System.setProperty("eta.sandbox", "false")
-            assertFalse(LinuxEnvironmentPaths.isSandboxEnabled())
-        } finally {
-            if (originalProp != null) {
-                System.setProperty("eta.sandbox", originalProp)
-            } else {
-                System.clearProperty("eta.sandbox")
-            }
-        }
-    }
-
-    @Test
-    fun commitSandboxMethodExists() {
-        // Assert commitSandbox contract method availability
-        val method = LinuxEnvironmentPaths::class.java.methods.find { it.name == "commitSandbox" }
-        org.junit.Assert.assertNotNull(method)
-    }
-
-    @Test
-    fun resetSandboxMethodExists() {
-        // Assert resetSandbox contract method availability
-        val method = LinuxEnvironmentPaths::class.java.methods.find { it.name == "resetSandbox" }
-        org.junit.Assert.assertNotNull(method)
+        File(root, LinuxEnvironmentPaths.READY_MARKER).createNewFile()
+        assertTrue(LinuxEnvironmentPaths.rootfsReady(root.absolutePath))
     }
 }

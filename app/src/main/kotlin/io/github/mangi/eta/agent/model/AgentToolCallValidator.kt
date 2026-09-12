@@ -391,6 +391,12 @@ internal class AgentToolCallValidator(tools: JSONArray) {
                 }
             }
 
+            // 0.1 清理历史会话遗留的 redacted 标记
+            if (arguments.has("redacted")) {
+                arguments.remove("redacted")
+                changed = true
+            }
+
             val properties = schema.optJSONObject("properties")
             val required = schema.optJSONArray("required")
 

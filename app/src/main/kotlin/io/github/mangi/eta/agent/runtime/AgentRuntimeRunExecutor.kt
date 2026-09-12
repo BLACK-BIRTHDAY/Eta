@@ -199,7 +199,6 @@ internal class AgentRuntimeRunExecutor(
                 skillContext = skillContext,
                 memoryContext = memoryContext,
                 additionalTools = mcpTools,
-                sandboxEnabled = LinuxEnvironmentPaths.isSandboxEnabled(appContext),
             ) { event ->
                 timing.accept(event)
                 acceptEvent(

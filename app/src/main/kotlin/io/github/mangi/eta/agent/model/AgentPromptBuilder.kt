@@ -8,12 +8,6 @@ import org.json.JSONObject
 
 /** 组装每次 run 的系统约束、历史与当前用户输入。 */
 internal object AgentPromptBuilder {
-    const val LINUX_SANDBOX_PROMPT =
-        "[Linux 终端环境提示] 当前终端运行在只读底包 + OverlayFS 临时沙盒保护中。\n" +
-            "1. 你可以正常执行任何 apt、apk、pip 等软件安装或运行命令（使用 pip 时必须附带 --break-system-packages 参数以兼容 PEP 668 规范）；\n" +
-            "2. 本次任务产生的所有写入与安装仅保存在临时沙盒层中，未修改底层系统；\n" +
-            "3. 如果你在本任务中执行了安装软件包或修改系统的操作，在任务最终答复时必须明确告知用户本次修改仅在临时沙盒中生效，未修改底层系统，并询问用户是否需要将安装的包固化到底包，或者告知用户可随时点击“重置沙盒环境”一键还原初始状态。"
-
     fun buildInitialMessages(
         config: AgentModelClient.ModelConfig,
         prompt: String,
@@ -22,14 +16,12 @@ internal object AgentPromptBuilder {
         skillContext: SkillContext,
         memoryContext: AgentMemoryContext = AgentMemoryContext.DISABLED,
         rootAvailable: Boolean = false,
-        sandboxEnabled: Boolean = LinuxEnvironmentPaths.isSandboxEnabled(),
     ): JSONArray {
         val messages = buildSystemMessages(
             config = config,
             skillContext = skillContext,
             memoryContext = memoryContext,
             rootAvailable = rootAvailable,
-            sandboxEnabled = sandboxEnabled,
         )
         history.forEach { item ->
             runCatching { AgentConversationCodec.toJsonObject(item) }.getOrNull()?.let(messages::put)
@@ -43,7 +35,6 @@ internal object AgentPromptBuilder {
         skillContext: SkillContext,
         memoryContext: AgentMemoryContext,
         rootAvailable: Boolean = false,
-        sandboxEnabled: Boolean = LinuxEnvironmentPaths.isSandboxEnabled(),
     ): JSONArray {
         val messages = JSONArray()
         if (config.systemPrompt.isNotBlank()) {
@@ -128,9 +119,6 @@ internal object AgentPromptBuilder {
                         "必须等待当前图片返回并观察内容，再在下一轮调用下一张，禁止在同一轮并行或批量调用多个 read_image。"
                 )
             )
-        }
-        if (sandboxEnabled) {
-            messages.put(systemMessage(LINUX_SANDBOX_PROMPT))
         }
         if (config.browserTools) {
             messages.put(

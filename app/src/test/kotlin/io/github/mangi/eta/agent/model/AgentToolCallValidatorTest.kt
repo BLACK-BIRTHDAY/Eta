@@ -227,6 +227,12 @@ class AgentToolCallValidatorTest {
         val fromBareString = validator.normalize(call("Pixel 11"))
         assertNull(validator.validate(fromBareString))
         org.junit.Assert.assertEquals("Pixel 11", JSONObject(fromBareString.argumentsJson).optString("query"))
+
+        // 5. 测试历史脱敏遗留的 redacted 标记清洗与别名解析
+        val fromRedactedWithKeyword = validator.normalize(call("""{"redacted":true,"keyword":"Pixel 11"}"""))
+        assertNull(validator.validate(fromRedactedWithKeyword))
+        org.junit.Assert.assertFalse(JSONObject(fromRedactedWithKeyword.argumentsJson).has("redacted"))
+        org.junit.Assert.assertEquals("Pixel 11", JSONObject(fromRedactedWithKeyword.argumentsJson).optString("query"))
     }
 
     private fun validator(parameters: JSONObject): AgentToolCallValidator =

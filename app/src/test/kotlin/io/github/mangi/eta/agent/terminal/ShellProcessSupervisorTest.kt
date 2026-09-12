@@ -65,7 +65,7 @@ class ShellProcessSupervisorTest {
     }
 
     @Test
-    fun linuxPayloadMountsTmpfsAndConfiguresOverlayFsSandbox() {
+    fun linuxPayloadMountsTmpfsAndProc() {
         val supervisor = ShellProcessSupervisor()
 
         val payload = supervisor.buildLinuxPayload(
@@ -76,13 +76,6 @@ class ShellProcessSupervisorTest {
         // tmpfs mount to /tmp
         assertTrue(payload.contains("mkdir -p \"\$eta_rootfs/tmp\""))
         assertTrue(payload.contains("mount -t tmpfs -o size=512M,mode=1777 tmpfs \"\$eta_rootfs/tmp\""))
-
-        // OverlayFS configuration
-        assertTrue(payload.contains("eta_overlay_dir=\"/data/local/tmp/eta/overlay/\$eta_distro\""))
-        assertTrue(payload.contains(".sandbox_enabled"))
-        assertTrue(payload.contains("ETA_SANDBOX"))
-        assertTrue(payload.contains("mount -t overlay overlay -o lowerdir=\"\$eta_rootfs\",upperdir=\"\$eta_overlay_dir/upper\",workdir=\"\$eta_overlay_dir/work\" \"\$eta_overlay_dir/merged\""))
-        assertTrue(payload.contains("eta_rootfs=\"\$eta_overlay_dir/merged\""))
     }
 
     @Test

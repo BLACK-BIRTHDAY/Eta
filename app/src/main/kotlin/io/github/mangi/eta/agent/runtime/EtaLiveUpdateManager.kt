@@ -162,21 +162,31 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
             return
         }
 
-        // 若用户在后台，弹出终态通知：成功则 8 秒后自动收回，失败则常驻
+        // 若用户在后台，弹出终态通知并常驻通知栏，待用户点击或划除
         val service = boundService ?: return
         val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
+        // 任务已终态，解绑前台服务附着（STOP_FOREGROUND_DETACH），保留通知供用户查看
+        if (isPromoted) {
+            runCatching {
+                if (Build.VERSION.SDK_INT >= 34) {
+                    service.stopForeground(Service.STOP_FOREGROUND_DETACH)
+                } else {
+                    @Suppress("DEPRECATION")
+                    service.stopForeground(false)
+                }
+            }
+            isPromoted = false
+        }
+
+        mainHandler.removeCallbacks(autoDismissRunnable)
+
         val shortText = if (success) "✅ 完成" else "⚠️ 异常"
         val detail = if (summary.isNotBlank()) summary else (if (success) "任务已完成" else "任务中断")
-        val notification = buildNotification(service, runId, shortText, detail, progress = null, isOngoing = !success)
+        val notification = buildNotification(service, runId, shortText, detail, progress = null, isOngoing = false)
 
         runCatching {
             nm.notify(NOTIFICATION_ID, notification)
-        }
-
-        if (success) {
-            mainHandler.removeCallbacks(autoDismissRunnable)
-            mainHandler.postDelayed(autoDismissRunnable, SUCCESS_DISMISS_DELAY_MS)
         }
     }
 
@@ -248,9 +258,10 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
             .setContentText(detailText)
             .setSubText("Eta Agent")
             .setOngoing(isOngoing)
+            .setAutoCancel(!isOngoing)
             .setOnlyAlertOnce(true)
             .setLocalOnly(true)
-            .setCategory(Notification.CATEGORY_PROGRESS)
+            .setCategory(if (isOngoing) Notification.CATEGORY_PROGRESS else Notification.CATEGORY_STATUS)
             .setContentIntent(createClickPendingIntent(context))
 
         if (isOngoing) {

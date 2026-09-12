@@ -300,15 +300,15 @@
     "semantic_hash": "d26ab9a03bdc34d3c4642e492d5939c3"
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentModelClient.kt": {
-    "mtime": 1789196348.0244813,
-    "seen": 1789196510.8335853,
-    "ast_hash": "49c42077bc621f175306df9b1e7eea36",
+    "mtime": 1789095087.7901726,
+    "seen": 1789096177.7686656,
+    "ast_hash": "5173635661b927eb5e255a2ebc4ce2da",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentPromptBuilder.kt": {
-    "mtime": 1789196342.3300629,
-    "seen": 1789196510.8335903,
-    "ast_hash": "03cb2f7840afb763e63a001f1c2e5ec9",
+    "mtime": 1789194472.5621393,
+    "seen": 1789194583.077742,
+    "ast_hash": "719fba422eda8a74a54cbb5332dc6af8",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentProvider.kt": {
@@ -594,9 +594,9 @@
     "semantic_hash": "8d2f656940fa9cafe2551bccdf097fad"
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentRuntimeRunExecutor.kt": {
-    "mtime": 1789196352.5579932,
-    "seen": 1789196510.8336473,
-    "ast_hash": "061f8e3c6fe874342b37bb18575754fa",
+    "mtime": 1789095021.821074,
+    "seen": 1789096177.7687602,
+    "ast_hash": "3990764927c982ebd732b236b393f9ff",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentRuntimeService.kt": {
@@ -738,9 +738,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/terminal/LinuxEnvironmentPaths.kt": {
-    "mtime": 1789196303.0964508,
-    "seen": 1789196510.833678,
-    "ast_hash": "587853a8ed2b5d8c20f6f9d3fab8e1a2",
+    "mtime": 1789124613.0441074,
+    "seen": 1789124632.05775,
+    "ast_hash": "2fabe271e3b617d1524e4ae53ad4444f",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/terminal/LinuxFileExplorer.kt": {
@@ -780,9 +780,9 @@
     "semantic_hash": "41e76e86c864d089e467e32689056981"
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/terminal/ShellProcessSupervisor.kt": {
-    "mtime": 1789196327.2179184,
-    "seen": 1789196510.8336883,
-    "ast_hash": "479376486da1745f94f16ef0faf46595",
+    "mtime": 1789095021.8591428,
+    "seen": 1789096177.768825,
+    "ast_hash": "0e83ade968fe8b3a8eb7f7d6ee2a940d",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/terminal/TerminalEnvironment.kt": {
@@ -1764,9 +1764,9 @@
     "semantic_hash": "93c4709ea13c660156e8b92b51edbfea"
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/terminal/LinuxEnvironmentScreen.kt": {
-    "mtime": 1789196319.4319713,
-    "seen": 1789196510.833898,
-    "ast_hash": "75f4b26e9b407499f7e4b2a262e7185a",
+    "mtime": 1789124613.0521083,
+    "seen": 1789124632.0580053,
+    "ast_hash": "d17b404ef89072614fa688ea17bb3848",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/terminal/LinuxFilesScreen.kt": {
@@ -1968,9 +1968,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentPromptBuilderTest.kt": {
-    "mtime": 1789196370.9270744,
-    "seen": 1789196510.8339405,
-    "ast_hash": "113c1ef4155daa35da703edf307cea55",
+    "mtime": 1789095021.954438,
+    "seen": 1789096177.7692132,
+    "ast_hash": "23ef473e5252b3d5cad9ac7f1a77de94",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentScreenObservationContractTest.kt": {
@@ -2220,9 +2220,9 @@
     "semantic_hash": "d7da2532ac52478f4b46650ad6171673"
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/terminal/ShellProcessSupervisorTest.kt": {
-    "mtime": 1789196365.1585746,
-    "seen": 1789196510.8339994,
-    "ast_hash": "7a8bb321273e2dd5a99556fbe2a54447",
+    "mtime": 1788596966.0080502,
+    "seen": 1788597363.3917556,
+    "ast_hash": "365f2c1fa9de63e3036f660f39bf9f44",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/terminal/TerminalScreenBufferTest.kt": {
@@ -3012,9 +3012,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/terminal/LinuxEnvironmentPathsTest.kt": {
-    "mtime": 1789196358.7218156,
-    "seen": 1789196510.8339858,
-    "ast_hash": "1b839aba4e076715fe3e49889b08a6d1",
+    "mtime": 1789124613.054108,
+    "seen": 1789124632.0580962,
+    "ast_hash": "8f5c44d74ae5d1355ce9814bedd11177",
     "semantic_hash": ""
   },
   "app/src/main/cpp/eta_pty.c": {

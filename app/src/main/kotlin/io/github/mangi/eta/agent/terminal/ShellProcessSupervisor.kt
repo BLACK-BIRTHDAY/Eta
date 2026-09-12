@@ -324,23 +324,6 @@ internal class ShellProcessSupervisor(
             eta_parent="${'$'}{eta_rootfs%/*}"
             eta_distro="${'$'}{eta_parent##*/}"
             [ -n "${'$'}eta_distro" ] || eta_distro="default"
-            eta_sandbox_flag=0
-            if [ -f /data/local/tmp/eta/.eta-sandbox-enabled ] || [ -f "${'$'}eta_rootfs/../.eta-sandbox-enabled" ] || [ -f "${'$'}eta_rootfs/../../.eta-sandbox-enabled" ] || [ -f "${'$'}eta_rootfs/../../../.eta-sandbox-enabled" ] || [ "${'$'}ETA_SANDBOX" = "1" ] || [ "${'$'}ETA_SANDBOX" = "true" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "1" ] || [ "${'$'}ETA_LINUX_SANDBOX" = "true" ]; then
-              eta_sandbox_flag=1
-            fi
-            if [ "${'$'}eta_sandbox_flag" = "1" ]; then
-              eta_sandbox_rootfs="${'$'}eta_parent/sandbox_rootfs"
-              if [ -d "${'$'}eta_sandbox_rootfs" ] && [ -f "${'$'}eta_sandbox_rootfs/.eta-environment-ready" ]; then
-                eta_rootfs="${'$'}eta_sandbox_rootfs"
-              elif [ -d "${'$'}eta_rootfs" ]; then
-                rm -rf "${'$'}eta_sandbox_rootfs" 2>/dev/null || true
-                mkdir -p "${'$'}eta_sandbox_rootfs" 2>/dev/null || true
-                if cp -al "${'$'}eta_rootfs/." "${'$'}eta_sandbox_rootfs/" 2>/dev/null; then
-                  touch "${'$'}eta_sandbox_rootfs/.eta-environment-ready" 2>/dev/null || true
-                  eta_rootfs="${'$'}eta_sandbox_rootfs"
-                fi
-              fi
-            fi
             "${'$'}eta_busybox" mount -t proc proc "${'$'}eta_rootfs/proc" || exit 125
             eta_mount_required /dev "${'$'}eta_rootfs/dev" rbind
             eta_mount_optional /sys "${'$'}eta_rootfs/sys" rbind

@@ -94,7 +94,6 @@ internal object AgentModelClient {
         memoryContext: AgentMemoryContext = AgentMemoryContext.DISABLED,
         additionalTools: JSONArray = JSONArray(),
         capabilitiesProvider: () -> AgentToolCapabilities = { AgentToolCapabilities(rootAvailable = false) },
-        sandboxEnabled: Boolean = LinuxEnvironmentPaths.isSandboxEnabled(),
         onEvent: (AgentEvent) -> Unit = {}
     ): ModelResponse.Text {
         config.validate()
@@ -107,7 +106,6 @@ internal object AgentModelClient {
             skillContext,
             memoryContext,
             rootAvailable = initialCapabilities.rootAvailable,
-            sandboxEnabled = sandboxEnabled,
         )
         val transcriptStartIndex = messages.length()
         fun toolsFor(capabilities: AgentToolCapabilities): JSONArray {
