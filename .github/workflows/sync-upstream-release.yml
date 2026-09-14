@@ -113,9 +113,21 @@ jobs:
           # 推送分支并创建 PR
           git push origin "$PR_BRANCH" --force
 
-          # 创建 PR
-          gh pr create \
+          # 尝试通过 GitHub CLI 创建 PR
+          if PR_URL=$(gh pr create \
             --title "chore: merge upstream release $TAG_NAME into main" \
             --body-file pr_body.md \
             --base main \
-            --head "$PR_BRANCH"
+            --head "$PR_BRANCH" 2>&1); then
+            echo "✅ 成功创建 Pull Request: $PR_URL"
+            echo "### 🚀 上游发布新版本 $TAG_NAME" >> $GITHUB_STEP_SUMMARY
+            echo "已自动创建 PR 并推送分支：$PR_URL" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::warning::分支 $PR_BRANCH 已推送，但自动提 PR 失败（通常因仓库未开启 Actions 提 PR 权限）。"
+            echo "### 🚀 上游发布新版本 $TAG_NAME" >> $GITHUB_STEP_SUMMARY
+            echo "分支 \`$PR_BRANCH\` 已成功推送到仓库！" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "👉 [点击此处一键直接创建/查看 Pull Request](https://github.com/$GITHUB_REPOSITORY/pull/new/$PR_BRANCH)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> 💡 **提示**：若需全自动提 PR，请在仓库 **Settings** → **Actions** → **General** → **Workflow permissions** 勾选 **Allow GitHub Actions to create and approve pull requests**。" >> $GITHUB_STEP_SUMMARY
+          fi
