@@ -24,18 +24,14 @@ internal class AgentToolCallValidator(tools: JSONArray) {
         val toolSchema = schemasByName[call.name] ?: return call
         val raw = call.argumentsJson.trim()
         if (raw.isEmpty() || raw == "{}") return call
+
+        // 解析 JSON 或裸字符串
         val arguments = runCatching { JSONObject(raw) }.getOrElse {
-            // 如果大模型返回的不是 JSON 对象，而是一个直接的裸字符串（如 "pixel 11"）
+            // 如果大模型返回的不是 JSON 对象，而是一个直接的裸字符串
             if (raw.startsWith("\"") && raw.endsWith("\"") || !raw.startsWith("{")) {
                 val bare = raw.removeSurrounding("\"").trim()
                 if (bare.isNotBlank()) {
-                    val targetKey = when {
-                        toolSchema.parameters.optJSONArray("required")?.hasKey("query") == true -> "query"
-                        toolSchema.parameters.optJSONArray("required")?.hasKey("command") == true -> "command"
-                        toolSchema.parameters.optJSONArray("required")?.hasKey("url") == true -> "url"
-                        toolSchema.parameters.optJSONArray("required")?.hasKey("uri") == true -> "uri"
-                        else -> null
-                    }
+                    val targetKey = resolveSingleStringKey(toolSchema.parameters)
                     if (targetKey != null) {
                         return call.copy(argumentsJson = JSONObject().put(targetKey, bare).toString())
                     }
@@ -371,7 +367,37 @@ internal class AgentToolCallValidator(tools: JSONArray) {
     private fun isJsonNull(value: Any?): Boolean = value == null || value == JSONObject.NULL
 
     private companion object {
-        const val MAX_SCHEMA_DEPTH = 256
+        private const val MAX_SCHEMA_DEPTH = 256
+
+        /**
+         * 动态从工具 Schema 中解析唯一的目标字符串参数名（纯 Schema 驱动，非硬编码）：
+         * 1. 若 Schema 显式声明了唯一必填项，且该项类型为 string
+         * 2. 若 Schema properties 中仅定义了单一属性且类型为 string
+         * 若工具拥有多个必填参数（如 from, to），则返回 null，避免无依据猜测。
+         */
+        fun resolveSingleStringKey(parameters: JSONObject): String? {
+            val properties = parameters.optJSONObject("properties") ?: return null
+            val required = parameters.optJSONArray("required")
+
+            if (required != null && required.length() == 1) {
+                val reqKey = required.optString(0)
+                val type = properties.optJSONObject(reqKey)?.optString("type")
+                if (type.isNullOrBlank() || type == "string") {
+                    return reqKey
+                }
+            }
+
+            val propKeys = properties.keys().asSequence().toList()
+            if (propKeys.size == 1) {
+                val singleKey = propKeys.first()
+                val type = properties.optJSONObject(singleKey)?.optString("type")
+                if (type.isNullOrBlank() || type == "string") {
+                    return singleKey
+                }
+            }
+
+            return null
+        }
 
         fun normalizeAliases(arguments: JSONObject, schema: JSONObject?): Boolean {
             if (schema == null) return false
@@ -417,16 +443,20 @@ internal class AgentToolCallValidator(tools: JSONArray) {
                 if (candidate != null) {
                     arguments.put("query", arguments.opt(candidate))
                     changed = true
-                } else {
-                    // 宽松兜底：若 arguments 中没有任何已知 query 别名，但存在任意非 properties 声明的非空字符串属性，自动作为 query
-                    val fallbackKey = arguments.keys().asSequence().firstOrNull { key ->
-                        val v = arguments.opt(key)
-                        v is String && v.isNotBlank() && (properties == null || !properties.has(key))
-                    }
-                    if (fallbackKey != null) {
-                        arguments.put("query", arguments.optString(fallbackKey))
-                        changed = true
-                    }
+                }
+            }
+
+            // 1.1 动态属性映射：若工具只有一个必须的字符串属性（通过 resolveSingleStringKey 动态推导），
+            // 且模型传入了任意单一未在 properties 中声明的非空字符串属性，动态映射到该必填属性
+            val singleTargetKey = resolveSingleStringKey(schema)
+            if (singleTargetKey != null && needs(singleTargetKey)) {
+                val fallbackKey = arguments.keys().asSequence().firstOrNull { key ->
+                    val v = arguments.opt(key)
+                    v is String && v.isNotBlank() && (properties == null || !properties.has(key))
+                }
+                if (fallbackKey != null) {
+                    arguments.put(singleTargetKey, arguments.optString(fallbackKey))
+                    changed = true
                 }
             }
 
@@ -522,12 +552,12 @@ internal class AgentToolCallValidator(tools: JSONArray) {
 
             return changed
         }
-
-        private fun JSONArray.hasKey(key: String): Boolean {
-            for (i in 0 until length()) {
-                if (optString(i) == key) return true
-            }
-            return false
-        }
     }
+}
+
+private fun JSONArray.hasKey(key: String): Boolean {
+    for (i in 0 until length()) {
+        if (optString(i) == key) return true
+    }
+    return false
 }

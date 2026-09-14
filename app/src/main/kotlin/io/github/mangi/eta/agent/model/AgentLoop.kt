@@ -369,5 +369,4 @@ internal class AgentLoop(
             AssistantBlockKind.THINKING -> AgentEvent.AssistantBlockKind.THINKING
             AssistantBlockKind.TOOL_CALL -> AgentEvent.AssistantBlockKind.TOOL_CALL
         }
-
 }

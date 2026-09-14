@@ -68,8 +68,8 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                 onEvent(ProviderEvent.ResponseHeaders(response.code))
                 runController.throwIfCancelled()
                 if (!response.isSuccessful) {
-                    val errorBody = response.body.string()
-                    error("Gemini 接口返回 HTTP ${response.code}：${errorBody.compactError()}")
+                    val errorBody = response.peekBody(16_384).string()
+                    throw AgentModelFailure.http(response.code, errorBody)
                 }
                 val assistant = readStreamingAssistantMessage(response.body.byteStream(), runController, onEvent)
                 onEvent(ProviderEvent.Completed(assistant.optString("finish_reason").ifBlank { null }))
@@ -346,9 +346,21 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
 
     private fun sanitizeGeminiParameters(source: JSONObject): JSONObject {
         val copy = JSONObject(source.toString())
-        copy.remove("${'$'}schema")
-        copy.remove("${'$'}id")
-        copy.remove("additionalProperties")
+        fun clean(obj: JSONObject) {
+            obj.remove("${'$'}schema")
+            obj.remove("${'$'}id")
+            obj.remove("additionalProperties")
+            val properties = obj.optJSONObject("properties")
+            if (properties != null) {
+                for (k in properties.keys()) {
+                    val p = properties.optJSONObject(k)
+                    if (p != null) clean(p)
+                }
+            }
+            val items = obj.optJSONObject("items")
+            if (items != null) clean(items)
+        }
+        clean(copy)
         return copy
     }
 
@@ -464,7 +476,25 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     if (functionCall != null) {
                         closeCurrentBlock()
                         val name = functionCall.optString("name")
-                        val argsObj = functionCall.optJSONObject("args") ?: JSONObject()
+                        val rawArgs = functionCall.opt("args")
+                            ?: functionCall.opt("arguments")
+                            ?: functionCall.opt("parameters")
+                            ?: functionCall.opt("input")
+                            ?: functionCall.opt("params")
+                        val argsObj: JSONObject = when (rawArgs) {
+                            is JSONObject -> rawArgs
+                            is String -> runCatching { JSONObject(rawArgs) }.getOrElse {
+                                val trimmed = rawArgs.trim()
+                                if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                                    JSONObject()
+                                } else if (trimmed.isNotBlank()) {
+                                    JSONObject().put("query", trimmed.removeSurrounding("\""))
+                                } else {
+                                    JSONObject()
+                                }
+                            }
+                            else -> JSONObject()
+                        }
                         var thoughtSig = part.optString("thoughtSignature")
                             .ifBlank { part.optString("thought_signature") }
                         if (thoughtSig.isBlank()) {

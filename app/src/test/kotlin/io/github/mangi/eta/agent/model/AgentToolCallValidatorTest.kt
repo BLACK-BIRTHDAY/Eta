@@ -233,6 +233,46 @@ class AgentToolCallValidatorTest {
         assertNull(validator.validate(fromRedactedWithKeyword))
         org.junit.Assert.assertFalse(JSONObject(fromRedactedWithKeyword.argumentsJson).has("redacted"))
         org.junit.Assert.assertEquals("Pixel 11", JSONObject(fromRedactedWithKeyword.argumentsJson).optString("query"))
+
+        // 6. 测试完全空对象 {} 严格校验失败并提示缺失必填 query，交由 AgentLoop 反馈给模型自我纠错
+        val fromEmptyArgs = validator.normalize(call("{}"))
+        org.junit.Assert.assertEquals("arguments 缺少必填字段 query", validator.validate(fromEmptyArgs))
+
+        // 7. 测试非 query 字段（如 path）的 Schema 驱动裸字符串动态包裹，验证非硬编码
+        val pathValidator = validator(
+            JSONObject(
+                """
+                {
+                  "type": "object",
+                  "properties": {
+                    "path": {"type": "string"}
+                  },
+                  "required": ["path"]
+                }
+                """.trimIndent()
+            )
+        )
+        val fromPathBareString = pathValidator.normalize(call("app/src/main/AndroidManifest.xml"))
+        assertNull(pathValidator.validate(fromPathBareString))
+        org.junit.Assert.assertEquals("app/src/main/AndroidManifest.xml", JSONObject(fromPathBareString.argumentsJson).optString("path"))
+
+        // 8. 测试多参数 Schema（如 required: [from, to]）传入裸字符串时不盲目推断，严格校验报错
+        val multiParamValidator = validator(
+            JSONObject(
+                """
+                {
+                  "type": "object",
+                  "properties": {
+                    "from": {"type": "string"},
+                    "to": {"type": "string"}
+                  },
+                  "required": ["from", "to"]
+                }
+                """.trimIndent()
+            )
+        )
+        val fromMultiBareString = multiParamValidator.normalize(call("some_value"))
+        org.junit.Assert.assertNotNull(multiParamValidator.validate(fromMultiBareString))
     }
 
     private fun validator(parameters: JSONObject): AgentToolCallValidator =
