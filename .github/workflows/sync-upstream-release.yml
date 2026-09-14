@@ -9,6 +9,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  workflows: write
 
 jobs:
   check-and-sync:
@@ -101,8 +102,16 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 基于上游 Tag 建立分支并推送
+          # 基于上游 Tag 建立分支
           git checkout -B "$PR_BRANCH" "refs/remotes/upstream/tags/$TAG_NAME"
+
+          # 保留下游仓库自定义的工作流，避免冲掉发版与自动同步 CI
+          git checkout origin/main -- .github/workflows/
+          if ! git diff --cached --quiet || ! git diff --quiet; then
+            git commit -m "chore: retain downstream custom workflows" || true
+          fi
+
+          # 推送分支并创建 PR
           git push origin "$PR_BRANCH" --force
 
           # 创建 PR
