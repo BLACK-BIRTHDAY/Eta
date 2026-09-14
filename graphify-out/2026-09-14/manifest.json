@@ -288,9 +288,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentLoop.kt": {
-    "mtime": 1789367668.7474446,
-    "seen": 1789367896.0487108,
-    "ast_hash": "3a20dd95f4ad42bb46392a1c86402c39",
+    "mtime": 1789369459.8196998,
+    "seen": 1789369545.1135032,
+    "ast_hash": "e503694399122445c767ffe1a768eab2",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentMemoryToolCatalog.kt": {
@@ -348,9 +348,9 @@
     "semantic_hash": "f9da007b130a3357e4533ff10afef51b"
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentToolCallValidator.kt": {
-    "mtime": 1789367778.8251886,
-    "seen": 1789367896.0487328,
-    "ast_hash": "48347f5930b6e833ccd4955ebdca546d",
+    "mtime": 1789369486.8947694,
+    "seen": 1789369545.1135294,
+    "ast_hash": "71153ef0e5983126dfb736aa3519efe0",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentToolCatalog.kt": {
@@ -1986,9 +1986,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentToolCallValidatorTest.kt": {
-    "mtime": 1789367677.0980003,
-    "seen": 1789367896.0493093,
-    "ast_hash": "16ca2ebf91489481dd8bf74c25c1d61b",
+    "mtime": 1789369493.212855,
+    "seen": 1789369545.1138701,
+    "ast_hash": "3c0b872a9e436a22bf6d5ee3ec2f4e35",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentToolCatalogTest.kt": {
