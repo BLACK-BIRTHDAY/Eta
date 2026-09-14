@@ -12,8 +12,12 @@ permissions:
 
 jobs:
   check-and-sync:
-    name: 检查上游 Release 并提 PR
+    name: 检查上游 Release 并智能合并
     runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.sync.outputs.should_build }}
+      tag_name: ${{ steps.sync.outputs.tag_name }}
+      release_name: ${{ steps.sync.outputs.release_name }}
     steps:
       - name: 检出下游代码
         uses: actions/checkout@v4
@@ -21,7 +25,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 检测上游 Release
+      - name: 探测并智能合并上游 Release
         id: sync
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,27 +50,60 @@ jobs:
           # 检查 main 分支是否已合并该 Release
           if git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
             echo "✅ 上游 $TAG_NAME 已经合并至 main 分支，跳过同步。"
-            echo "has_update=false" >> $GITHUB_OUTPUT
+            echo "should_build=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # 检查是否已有开放的 PR
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          echo "==> 尝试将上游 $TAG_NAME 自动合并入 main 分支..."
+          git checkout main
+
+          # 尝试自动合并
+          if git merge --no-edit "$TAG_COMMIT" -m "chore: auto-merge upstream release $TAG_NAME into main"; then
+            echo "🎉 无代码冲突！自动合并成功。"
+
+            # 保留本地发版与同步工作流
+            git checkout origin/main -- .github/workflows/
+            if ! git diff --cached --quiet || ! git diff --quiet; then
+              git commit --amend --no-edit || true
+            fi
+
+            # 推送合并后的 main 分支
+            git push origin main
+
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
+
+            {
+              echo "### 🚀 上游发布新版本 \`$TAG_NAME\` ($RELEASE_NAME)"
+              echo "✅ **检测无冲突**：已全自动合并至 \`main\` 分支，正在启动正式版 APK 自动构建与发布！"
+            } >> $GITHUB_STEP_SUMMARY
+            exit 0
+          else
+            echo "⚠️ 检测到代码冲突，终止自动合并，转入安全 PR 流程。"
+            git merge --abort || true
+          fi
+
+          # ====== 冲突降级处理：创建 PR 供人工/AI审查 ======
           PR_BRANCH="sync/upstream-$TAG_NAME"
-          EXISTING_PR=$(gh pr list --head "$PR_BRANCH" --base main --state open --json number -q '.[0].number')
+          EXISTING_PR=$(gh pr list --head "$PR_BRANCH" --base main --state open --json number -q '.[0].number' || true)
           if [ -n "$EXISTING_PR" ]; then
-            echo "ℹ️ 已存在待处理的 PR (#$EXISTING_PR)，无需重复创建。"
-            echo "has_update=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ 已存在待处理的冲突 PR (#$EXISTING_PR)，跳过重复创建。"
+            echo "should_build=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          echo "has_update=true" >> $GITHUB_OUTPUT
+          echo "should_build=false" >> $GITHUB_OUTPUT
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
           echo "release_name=$RELEASE_NAME" >> $GITHUB_OUTPUT
           echo "pr_branch=$PR_BRANCH" >> $GITHUB_OUTPUT
 
-          # 生成安全 PR 描述内容
+          # 生成安全 PR 说明
           {
-            echo "## 🚀 检测到上游发布新版本：\`$TAG_NAME\` ($RELEASE_NAME)"
+            echo "## ⚠️ 上游新版本与定制代码存在冲突：\`$TAG_NAME\` ($RELEASE_NAME)"
             echo ""
             echo "> **上游 Release 链接**：[$RELEASE_NAME ($TAG_NAME)]($RELEASE_URL)"
             echo ""
@@ -76,30 +113,18 @@ jobs:
             echo ""
             echo "---"
             echo ""
-            echo "### 🛠️ 合并指引"
-            echo "- **无冲突**：直接在网页端点击 **Merge pull request** 即可合并。"
-            echo "- **有冲突**：可在本地终端运行以下命令解决冲突："
+            echo "### 🛠️ 冲突解决指引"
+            echo "由于定制功能与上游重构触及了相同核心文件，请在本地终端运行以下命令解决冲突："
             echo '```bash'
             echo "git fetch origin"
             echo "git checkout main"
             echo "git merge origin/$PR_BRANCH -m \"chore: merge upstream release $TAG_NAME into main\""
-            echo "# 解决冲突后推送"
+            echo "# 解决冲突后提交并推送，将自动触发正式版 APK 构建"
             echo "git push origin main"
             echo '```'
             echo ""
-            echo "*🤖 由 GitHub Actions 定时任务自动检测并提交*"
+            echo "*🤖 由 GitHub Actions 智能同步工作流自动生成*"
           } > pr_body.md
-
-      - name: 推送分支并创建 PR
-        if: steps.sync.outputs.has_update == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ steps.sync.outputs.tag_name }}
-          PR_BRANCH: ${{ steps.sync.outputs.pr_branch }}
-        run: |
-          set -e
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # 基于上游 Tag 建立分支
           git checkout -B "$PR_BRANCH" "refs/remotes/upstream/tags/$TAG_NAME"
@@ -113,21 +138,133 @@ jobs:
           # 推送分支并创建 PR
           git push origin "$PR_BRANCH" --force
 
-          # 尝试通过 GitHub CLI 创建 PR
           if PR_URL=$(gh pr create \
-            --title "chore: merge upstream release $TAG_NAME into main" \
+            --title "chore: merge upstream release $TAG_NAME into main (needs conflict resolution)" \
             --body-file pr_body.md \
             --base main \
             --head "$PR_BRANCH" 2>&1); then
             echo "✅ 成功创建 Pull Request: $PR_URL"
-            echo "### 🚀 上游发布新版本 $TAG_NAME" >> $GITHUB_STEP_SUMMARY
-            echo "已自动创建 PR 并推送分支：$PR_URL" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "### ⚠️ 上游发布新版本 $TAG_NAME（存在代码冲突）"
+              echo "已自动创建安全 PR 供解决冲突：$PR_URL"
+            } >> $GITHUB_STEP_SUMMARY
           else
-            echo "::warning::分支 $PR_BRANCH 已推送，但自动提 PR 失败（通常因仓库未开启 Actions 提 PR 权限）。"
-            echo "### 🚀 上游发布新版本 $TAG_NAME" >> $GITHUB_STEP_SUMMARY
-            echo "分支 \`$PR_BRANCH\` 已成功推送到仓库！" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "👉 [点击此处一键直接创建/查看 Pull Request](https://github.com/$GITHUB_REPOSITORY/pull/new/$PR_BRANCH)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "> 💡 **提示**：若需全自动提 PR，请在仓库 **Settings** → **Actions** → **General** → **Workflow permissions** 勾选 **Allow GitHub Actions to create and approve pull requests**。" >> $GITHUB_STEP_SUMMARY
+            echo "::warning::分支 $PR_BRANCH 已推送，但自动提 PR 失败。"
+            {
+              echo "### ⚠️ 上游发布新版本 $TAG_NAME（存在代码冲突）"
+              echo "分支 \`$PR_BRANCH\` 已推送到仓库。"
+              echo ""
+              echo "👉 [点击此处查看/创建 Pull Request](https://github.com/$GITHUB_REPOSITORY/pull/new/$PR_BRANCH)"
+            } >> $GITHUB_STEP_SUMMARY
+          fi
+
+  build-release-apk:
+    name: 自动构建与发布正式版 APK
+    needs: check-and-sync
+    if: needs.check-and-sync.outputs.should_build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: 配置 JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: 配置 Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      - name: 配置 Android SDK 工具
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ""
+          log-accepted-android-sdk-licenses: false
+
+      - name: 安装 Android SDK 37
+        run: sdkmanager --channel=3 "platforms;android-37.0"
+
+      - name: 还原发布证书
+        env:
+          ETA_RELEASE_KEYSTORE_BASE64: ${{ secrets.ETA_RELEASE_KEYSTORE_BASE64 }}
+          ETA_RELEASE_STORE_PASSWORD: ${{ secrets.ETA_RELEASE_STORE_PASSWORD }}
+          ETA_RELEASE_KEY_ALIAS: ${{ secrets.ETA_RELEASE_KEY_ALIAS }}
+          ETA_RELEASE_KEY_PASSWORD: ${{ secrets.ETA_RELEASE_KEY_PASSWORD }}
+        run: |
+          if [[ -z "$ETA_RELEASE_KEYSTORE_BASE64" ||
+                -z "$ETA_RELEASE_STORE_PASSWORD" ||
+                -z "$ETA_RELEASE_KEY_ALIAS" ||
+                -z "$ETA_RELEASE_KEY_PASSWORD" ]]; then
+            echo "::error::缺少 Release 签名 Secrets，请检查仓库的 Actions Secrets。"
+            exit 1
+          fi
+          printf '%s' "$ETA_RELEASE_KEYSTORE_BASE64" \
+            | base64 --decode \
+            > "$RUNNER_TEMP/eta-release.jks"
+
+      - name: 构建 Release 正式版 APK
+        env:
+          ETA_RELEASE_STORE_FILE: ${{ runner.temp }}/eta-release.jks
+          ETA_RELEASE_STORE_PASSWORD: ${{ secrets.ETA_RELEASE_STORE_PASSWORD }}
+          ETA_RELEASE_KEY_ALIAS: ${{ secrets.ETA_RELEASE_KEY_ALIAS }}
+          ETA_RELEASE_KEY_PASSWORD: ${{ secrets.ETA_RELEASE_KEY_PASSWORD }}
+        run: >-
+          ./gradlew --no-daemon --no-configuration-cache
+          :app:assembleRelease
+
+      - name: 验证并整理 APK
+        id: apk
+        run: |
+          release_apk="app/build/outputs/apk/release/app-release.apk"
+          output_dir="$RUNNER_TEMP/apks"
+          apksigner_path="$(find "$ANDROID_HOME/build-tools" \
+            -type f -name apksigner | sort -V | tail -n 1)"
+
+          if [[ ! -f "$release_apk" ]]; then
+            echo "::error::未找到 Release APK。"
+            exit 1
+          fi
+          if [[ -z "$apksigner_path" ]]; then
+            echo "::error::未找到 apksigner。"
+            exit 1
+          fi
+
+          "$apksigner_path" verify "$release_apk"
+          mkdir -p "$output_dir"
+          cp "$release_apk" "$output_dir/app-release.apk"
+          echo "release_path=$output_dir/app-release.apk" >> "$GITHUB_OUTPUT"
+
+      - name: 上传 Release APK 工件
+        uses: actions/upload-artifact@v4
+        with:
+          path: ${{ steps.apk.outputs.release_path }}
+          archive: false
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: 发布或更新 GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_APK: ${{ steps.apk.outputs.release_path }}
+          TAG_NAME: ${{ needs.check-and-sync.outputs.tag_name }}
+          RELEASE_NAME: ${{ needs.check-and-sync.outputs.release_name }}
+        run: |
+          TAG="${TAG_NAME:-v$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -n 1)}"
+          echo "==> 目标 Release Tag: $TAG"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "==> Release $TAG 已存在，覆盖更新 APK 资产..."
+            gh release upload "$TAG" "$RELEASE_APK" --clobber
+          else
+            echo "==> 创建全新 GitHub Release: $TAG 并上传 APK..."
+            gh release create "$TAG" "$RELEASE_APK" \
+              --title "Eta $TAG ($RELEASE_NAME)" \
+              --generate-notes
           fi
