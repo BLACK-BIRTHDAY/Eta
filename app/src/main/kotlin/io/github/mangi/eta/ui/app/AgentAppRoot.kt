@@ -239,6 +239,11 @@ fun AgentAppRoot(
         ),
     ) {
             entry<AppRoute.Home>(swipeDismiss = swipeDismiss) {
+                LaunchedEffect(Unit) {
+                    if (agentState.skillsState.skills.isEmpty()) {
+                        agentState.refreshSkills()
+                    }
+                }
                 RoutedShell(route = AppRoute.Home) {
                     AgentHomeScreen(
                         state = agentState.homeState,
@@ -288,6 +293,11 @@ fun AgentAppRoot(
                 }
             }
             entry<AppRoute.Chat>(swipeDismiss = swipeDismiss) {
+                LaunchedEffect(Unit) {
+                    if (agentState.skillsState.skills.isEmpty()) {
+                        agentState.refreshSkills()
+                    }
+                }
                 RoutedShell(route = AppRoute.Chat) {
                     AgentChatScreen(
                         state = agentState.homeState,

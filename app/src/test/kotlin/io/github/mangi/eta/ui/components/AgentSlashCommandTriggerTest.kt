@@ -75,6 +75,24 @@ class AgentSlashCommandTriggerTest {
     }
 
     @Test
+    fun testDetectSlashTriggerWithFullWidthSlash() {
+        val trigger = detectSlashCommandTrigger("／web", TextRange(4))
+        assertNotNull(trigger)
+        assertEquals("web", trigger?.query)
+        assertEquals(0, trigger?.tokenStartIndex)
+        assertEquals(4, trigger?.tokenEndIndex)
+    }
+
+    @Test
+    fun testDetectSlashTriggerAfterChineseCharacters() {
+        val trigger = detectSlashCommandTrigger("帮我/code", TextRange(7))
+        assertNotNull(trigger)
+        assertEquals("code", trigger?.query)
+        assertEquals(2, trigger?.tokenStartIndex)
+        assertEquals(7, trigger?.tokenEndIndex)
+    }
+
+    @Test
     fun testDetectSlashTriggerIgnoresSpaceAfterSlash() {
         val trigger = detectSlashCommandTrigger("/web search", TextRange(11))
         assertNull(trigger)

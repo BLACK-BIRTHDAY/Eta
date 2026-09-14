@@ -157,6 +157,7 @@ internal class AgentAppState(
     init {
         refreshConversationSummaries()
         observeRuntimeSelection()
+        refreshSkills()
         scope.launch {
             RootAccess.state.collectLatest { refreshPermissionHealth() }
         }

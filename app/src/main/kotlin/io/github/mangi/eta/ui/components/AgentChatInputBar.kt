@@ -564,7 +564,7 @@ private fun PendingImageStrip(
     }
 }
 
-private val SLASH_COMMAND_TRIGGER_REGEX = Regex("""(?:^|\s)/([^\s]*)$""")
+private val SLASH_COMMAND_TRIGGER_REGEX = Regex("""(?:^|\s|[，。！？、；：“”‘’（）()\[\]一-龥])[/／]([^\s/／]*)$""")
 
 internal data class SlashCommandTrigger(
     val query: String,
@@ -595,7 +595,7 @@ internal fun filterCandidateSkills(
     query: String,
 ): List<SkillItemUi> {
     return skills.filter { skill ->
-        skill.enabled && (
+        skill.installed && skill.enabled && (
             skill.name.contains(query, ignoreCase = true) ||
             skill.id.contains(query, ignoreCase = true) ||
             skill.description.contains(query, ignoreCase = true)
