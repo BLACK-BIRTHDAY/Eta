@@ -66,6 +66,8 @@ import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.repository.ModelRepository
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.components.EtaCard
+import io.github.mangi.eta.ui.components.EtaCardDefaults
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.StatusError
@@ -75,8 +77,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Checkbox
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
@@ -579,7 +579,7 @@ private fun ModelListGroupItem(
 ) {
     val surfaceColor = MiuixTheme.colorScheme.surfaceContainer
     val contentColor = MiuixTheme.colorScheme.onSurfaceContainer
-    val cornerRadius = CardDefaults.CornerRadius
+    val cornerRadius = EtaCardDefaults.CornerRadius
     val surfaceModifier = if (isFirst || isLast) {
         Modifier.squircleSurface(
             color = surfaceColor,
@@ -615,7 +615,7 @@ private fun ModelSelectionBar(
     onExit: () -> Unit,
 ) {
     val context = LocalContext.current
-    Card(
+    EtaCard(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
@@ -905,7 +905,7 @@ private fun ModelEditDialog(
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
                 )
-                Card(modifier = Modifier.fillMaxWidth()) {
+                EtaCard(modifier = Modifier.fillMaxWidth()) {
                     SwitchPreference(
                         checked = reasoningEnabled,
                         onCheckedChange = { enabled ->

@@ -34,6 +34,7 @@ import io.github.mangi.eta.data.model.McpProtocolMode
 import io.github.mangi.eta.data.model.McpServerSetting
 import io.github.mangi.eta.data.model.McpToolDefinition
 import io.github.mangi.eta.data.repository.McpServerRepository
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
@@ -42,7 +43,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -84,7 +84,7 @@ internal fun McpServersScreen(
     ) {
         item(key = "servers") {
             SmallTitle(stringResource(R.string.mcp_configured_servers, servers.size))
-            Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp)) {
                 if (servers.isEmpty()) {
                     ListEmptyState(
                         title = stringResource(R.string.mcp_empty_title),
@@ -271,7 +271,7 @@ internal fun McpServerDetailScreen(
         }
         item(key = "server") {
             SmallTitle(stringResource(R.string.mcp_server_settings))
-            Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp)) {
                 SwitchPreference(
                     title = stringResource(R.string.mcp_enable_server),
                     summary = server.url,
@@ -298,7 +298,7 @@ internal fun McpServerDetailScreen(
         }
         item(key = "tools") {
             SmallTitle(stringResource(R.string.mcp_tools_count, server.tools.size))
-            Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp)) {
                 if (server.tools.isEmpty()) {
                     ListEmptyState(
                         title = stringResource(R.string.mcp_no_tools),
@@ -326,7 +326,7 @@ internal fun McpServerDetailScreen(
             }
         }
         item(key = "delete") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp)) {
                 BasicComponent(
                     title = stringResource(R.string.mcp_delete_server),
                     summary = stringResource(R.string.mcp_delete_server_summary),

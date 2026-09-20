@@ -24,6 +24,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.repository.EtaBackupSummary
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import java.io.InputStream
@@ -34,7 +35,6 @@ import java.util.Locale
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -104,7 +104,7 @@ internal fun DataBackupScreen(
         onBack = onBack,
     ) {
         item(key = "warning") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                 BasicComponent(
                     title = stringResource(R.string.data_backup_warning_title),
                     summary = stringResource(R.string.data_backup_warning_summary),
@@ -115,7 +115,7 @@ internal fun DataBackupScreen(
             SmallTitle(stringResource(R.string.data_backup_actions))
         }
         item(key = "actions-card") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                 ArrowPreference(
                     title = stringResource(R.string.data_backup_export),
                     summary = if (busy) {

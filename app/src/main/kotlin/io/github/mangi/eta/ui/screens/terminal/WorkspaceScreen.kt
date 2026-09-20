@@ -30,13 +30,13 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.app.WorkspaceEntry
 import io.github.mangi.eta.ui.app.WorkspaceFileStore
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 
@@ -110,7 +110,7 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
             )
         }
         item(key = "actions") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                 ArrowPreference(
                     title = stringResource(R.string.capability_workspace_import),
                     enabled = !busy,
@@ -139,7 +139,7 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
         }
         if (path.isNotBlank()) {
             item(key = "parent") {
-                Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+                EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
                     ArrowPreference(
                         title = stringResource(R.string.capability_workspace_parent),
                         startAction = { PreferenceIcon(Icons.Rounded.FolderOpen) },
@@ -157,7 +157,7 @@ internal fun WorkspaceScreen(onBack: () -> Unit) {
             }
         }
         items(entries, key = { it.path }) { entry ->
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
                 ArrowPreference(
                     title = entry.name,
                     summary = if (entry.directory) stringResource(R.string.capability_workspace_directory)

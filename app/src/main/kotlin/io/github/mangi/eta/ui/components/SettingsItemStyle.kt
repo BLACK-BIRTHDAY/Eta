@@ -16,7 +16,6 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.ui.app.LocalAppearanceSettings
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.Text
@@ -51,9 +50,8 @@ internal fun SettingsPageTheme(content: @Composable () -> Unit) {
 
 @Composable
 internal fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
-    Card(
+    EtaCard(
         modifier = Modifier.padding(horizontal = SettingsItemLayout.SidePadding).padding(bottom = 16.dp),
-        cornerRadius = 24.dp,
         content = content,
     )
 }

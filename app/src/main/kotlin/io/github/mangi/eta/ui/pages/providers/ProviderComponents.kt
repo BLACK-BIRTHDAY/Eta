@@ -22,9 +22,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.data.model.ProviderSetting
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.providerBrandLogoRes as sharedProviderBrandLogoRes
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -40,7 +40,7 @@ internal fun ProviderSection(
         if (title != null) {
             SmallTitle(title)
         }
-        Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        EtaCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
             content()
         }
     }

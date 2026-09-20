@@ -1,6 +1,4 @@
 package io.github.mangi.eta.ui.screens.memory
-import io.github.mangi.eta.R
-import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,16 +20,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
+import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffold
 import io.github.mangi.eta.ui.layout.horizontalCutoutPadding
 import io.github.mangi.eta.ui.model.AgentMemoryAction
 import io.github.mangi.eta.ui.model.AgentMemoryUiState
+import java.text.NumberFormat
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -41,7 +42,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 import top.yukonga.miuix.kmp.window.WindowDialog
-import java.text.NumberFormat
 
 @Composable
 internal fun AgentMemoryScreen(
@@ -76,7 +76,7 @@ internal fun AgentMemoryScreen(
             ) {
                 item(key = "status-title") { SmallTitle(stringResource(R.string.ui_memory_b55ff5)) }
                 item(key = "status-card") {
-                    Card(
+                    EtaCard(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
                             .padding(bottom = 12.dp),
@@ -103,7 +103,7 @@ internal fun AgentMemoryScreen(
                     .navigationBarsPadding(),
             ) {
                 SmallTitle("MEMORY.md")
-                Card(
+                EtaCard(
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 12.dp),

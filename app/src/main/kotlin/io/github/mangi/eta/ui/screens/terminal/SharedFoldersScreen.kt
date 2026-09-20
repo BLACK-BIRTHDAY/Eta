@@ -42,13 +42,13 @@ import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.agent.terminal.TerminalRuntime
 import io.github.mangi.eta.agent.terminal.runOneShotShell
 import io.github.mangi.eta.agent.terminal.shellQuote
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
@@ -106,7 +106,7 @@ internal fun SharedFoldersScreen(
         onBack = onBack,
     ) {
         item(key = "mounts-card") {
-            Card(
+            EtaCard(
                 modifier = Modifier
                     .padding(horizontal = 12.dp)
                     .padding(bottom = 12.dp),
@@ -172,7 +172,7 @@ internal fun SharedFoldersScreen(
         }
         notice?.let { message ->
             item(key = "notice-card") {
-                Card(
+                EtaCard(
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(top = 12.dp),

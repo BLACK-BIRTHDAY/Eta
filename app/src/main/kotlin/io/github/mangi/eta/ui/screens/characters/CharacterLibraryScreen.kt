@@ -20,11 +20,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.ui.app.CharacterLibraryStore
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.navigation.AppRoute
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
@@ -130,7 +130,7 @@ internal fun CharacterLibraryScreen(
             }
         }
         items(store.filteredCharacters, key = { it.id }) { profile ->
-            Card(
+            EtaCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = CharacterCardPadding, vertical = 6.dp),
@@ -160,7 +160,7 @@ internal fun CharacterLibraryScreen(
         }
         item(key = "persona-title") { SmallTitle("我的") }
         item(key = "persona") {
-            Card(
+            EtaCard(
                 modifier = Modifier
                     .padding(horizontal = CharacterCardPadding)
                     .padding(bottom = 12.dp),

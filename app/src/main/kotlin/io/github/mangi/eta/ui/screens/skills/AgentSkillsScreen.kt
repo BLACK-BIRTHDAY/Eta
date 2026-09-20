@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.ListEmptyState
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
@@ -28,7 +29,6 @@ import io.github.mangi.eta.ui.model.SkillItemUi
 import io.github.mangi.eta.ui.model.canDeleteUserSkill
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -72,7 +72,7 @@ fun AgentSkillsScreen(
 
         item(key = "zip-import-title") { SmallTitle(stringResource(R.string.ui_install_087db6)) }
         item(key = "zip-import-card") {
-            Card(
+            EtaCard(
                 modifier = Modifier
                     .padding(horizontal = CardHorizontalPadding)
                     .padding(bottom = CardBottomPadding),
@@ -108,7 +108,7 @@ fun AgentSkillsScreen(
         if (builtinInstalled.isNotEmpty()) {
             item(key = "builtin-title") { SmallTitle(stringResource(R.string.ui_built_in_skills_1ceedf)) }
             item(key = "builtin-card") {
-                Card(
+                EtaCard(
                     modifier = Modifier
                         .padding(horizontal = CardHorizontalPadding)
                         .padding(bottom = CardBottomPadding),
@@ -129,7 +129,7 @@ fun AgentSkillsScreen(
         if (userInstalled.isNotEmpty()) {
             item(key = "user-title") { SmallTitle(stringResource(R.string.ui_user_skills_748e7f)) }
             item(key = "user-card") {
-                Card(
+                EtaCard(
                     modifier = Modifier
                         .padding(horizontal = CardHorizontalPadding)
                         .padding(bottom = CardBottomPadding),
@@ -151,7 +151,7 @@ fun AgentSkillsScreen(
         if (removed.isNotEmpty()) {
             item(key = "removed-title") { SmallTitle(stringResource(R.string.ui_removed_4e5c49)) }
             item(key = "removed-card") {
-                Card(
+                EtaCard(
                     modifier = Modifier
                         .padding(horizontal = CardHorizontalPadding)
                         .padding(bottom = CardBottomPadding),

@@ -54,6 +54,7 @@ import io.github.mangi.eta.ui.app.launchForegroundExecution
 import io.github.mangi.eta.ui.app.message
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
 import io.github.mangi.eta.ui.app.rememberExecutionNotificationRequest
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.navigation.AppRoute
@@ -61,7 +62,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TextButton
@@ -368,7 +368,7 @@ internal fun LinuxEnvironmentScreen(
         }
         item(key = "files-title") { SmallTitle(stringResource(R.string.linux_environment_files)) }
         item(key = "files-card") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                 ArrowPreference(
                     title = stringResource(R.string.capability_workspace),
                     summary = stringResource(R.string.capability_workspace_summary),
@@ -395,7 +395,7 @@ internal fun LinuxEnvironmentScreen(
         if (selectedToolsReady) {
             item(key = "optional-tools-title") { SmallTitle(stringResource(R.string.ui_optional_tools_3097d6)) }
             item(key = "optional-tools-card") {
-                Card(
+                EtaCard(
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
                         .padding(bottom = 12.dp),

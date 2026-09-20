@@ -77,13 +77,14 @@ import androidx.core.net.toUri
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.browser.AgentBrowserSession
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
+import io.github.mangi.eta.ui.components.EtaCard
+import io.github.mangi.eta.ui.components.EtaCardDefaults
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.StatusError
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -280,7 +281,7 @@ private fun BrowserWindow(
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
+    EtaCard(
         modifier = modifier,
         insideMargin = PaddingValues(0.dp),
         colors = CardDefaults.defaultColors(
@@ -311,8 +312,8 @@ private fun BrowserWindow(
                 // 普通 clip 走 clipToOutline，硬件裁剪对 WebView 安全。
                 .clip(
                     RoundedCornerShape(
-                        bottomStart = CardDefaults.CornerRadius,
-                        bottomEnd = CardDefaults.CornerRadius,
+                        bottomStart = EtaCardDefaults.CornerRadius,
+                        bottomEnd = EtaCardDefaults.CornerRadius,
                     )
                 ),
         ) {
@@ -518,7 +519,7 @@ private fun ColumnScope.BrowserStatusBanner(snapshot: BrowserSessionSnapshot) {
         enter = fadeIn() + expandVertically(),
         exit = fadeOut() + shrinkVertically(),
     ) {
-        Card(
+        EtaCard(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 10.dp),

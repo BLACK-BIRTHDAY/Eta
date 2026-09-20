@@ -47,6 +47,7 @@ import io.github.mangi.eta.data.model.withId
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixPageBottomSpacer
 import io.github.mangi.eta.ui.components.MiuixScaffold
@@ -60,7 +61,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
@@ -475,7 +475,7 @@ private fun ProviderConfigTab(
 
         if (!isNew) {
             item(key = "danger_zone") {
-                Card(
+                EtaCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp)

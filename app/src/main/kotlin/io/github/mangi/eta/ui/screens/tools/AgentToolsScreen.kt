@@ -24,12 +24,12 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.model.AgentToolsAction
 import io.github.mangi.eta.ui.model.AgentToolsUiState
 import io.github.mangi.eta.ui.model.ToolItemUi
 import io.github.mangi.eta.ui.model.projectToolGroups
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.preference.ArrowPreference
@@ -65,7 +65,7 @@ fun AgentToolsScreen(
             )
         }
         item(key = "capability-discovery") {
-            Card(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp)) {
+            EtaCard(modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp)) {
                 ArrowPreference(
                     title = stringResource(R.string.capability_enhancements),
                     summary = stringResource(R.string.capability_enhancements_summary),

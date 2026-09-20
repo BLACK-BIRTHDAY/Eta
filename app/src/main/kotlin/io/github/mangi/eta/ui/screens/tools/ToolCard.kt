@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import io.github.mangi.eta.agent.tool.RootRequirement
+import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.ItemDescriptionDialog
 import io.github.mangi.eta.ui.components.iconForTool
 import io.github.mangi.eta.ui.model.AgentToolsAction
@@ -31,7 +32,6 @@ import io.github.mangi.eta.ui.model.ToolItemUi
 import io.github.mangi.eta.ui.model.actualToolName
 import io.github.mangi.eta.ui.model.toolCardAction
 import io.github.mangi.eta.ui.model.toolCardRequirement
-import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -61,7 +61,7 @@ internal fun ToolCard(
         AgentToolsAction.OpenEnhancements -> stringResource(R.string.tools_view_enhancements)
         else -> stringResource(R.string.ui_view_description)
     }
-    Card(
+    EtaCard(
         modifier = modifier.heightIn(min = 136.dp),
         insideMargin = PaddingValues(16.dp),
         colors = CardDefaults.defaultColors(
