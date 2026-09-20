@@ -79,6 +79,8 @@ import io.github.mangi.eta.agent.browser.AgentBrowserSession
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
 import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.EtaCardDefaults
+import io.github.mangi.eta.ui.components.EtaTextButton
+import io.github.mangi.eta.ui.components.EtaWindowDialog
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.StatusError
 import kotlinx.coroutines.Dispatchers
@@ -91,11 +93,9 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
 import top.yukonga.miuix.kmp.basic.LinearProgressIndicator
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
  * Agent 与用户共享的浏览器会话。
@@ -246,7 +246,7 @@ internal fun AgentBrowserScreen(
     }
 
     if (showResetDialog) {
-        WindowDialog(
+        EtaWindowDialog(
             show = true,
             title = stringResource(R.string.ui_reset_browser_session_791b36),
             summary = stringResource(R.string.ui_this_will_close_the_current_page_and_clear_eta_brows_1cd331),
@@ -523,7 +523,7 @@ private fun ColumnScope.BrowserStatusBanner(snapshot: BrowserSessionSnapshot) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 10.dp),
-            insideMargin = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
             colors = CardDefaults.defaultColors(
                 color = color.copy(alpha = 0.10f),
                 contentColor = MiuixTheme.colorScheme.onSurface,
@@ -678,7 +678,7 @@ private fun BrowserFailedState(
             )
         }
         Spacer(modifier = Modifier.height(14.dp))
-        TextButton(
+        EtaTextButton(
             text = stringResource(R.string.ui_reload_5982c4),
             onClick = onRetry,
             colors = ButtonDefaults.textButtonColorsPrimary(),

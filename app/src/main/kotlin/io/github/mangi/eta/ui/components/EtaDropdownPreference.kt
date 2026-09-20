@@ -7,6 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -25,19 +26,23 @@ import top.yukonga.miuix.kmp.popup.WindowDropdownPopup
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun SettingsDropdownPreference(
+internal fun EtaDropdownPreference(
     title: String,
     items: List<DropdownItem>,
     selectedIndex: Int,
-    startAction: @Composable () -> Unit,
+    startAction: (@Composable () -> Unit)? = null,
+    summary: String? = null,
+    modifier: Modifier = Modifier,
+    bottomAction: (@Composable () -> Unit)? = null,
     enabled: Boolean = true,
     useWindow: Boolean = true,
     onSelectedIndexChange: (Int) -> Unit,
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
+    var holding by remember { mutableStateOf(false) }
     val available = enabled && items.isNotEmpty()
     LaunchedEffect(available) {
-        if (!available) expanded = false
+        if (!available) { expanded = false; holding = false }
     }
     val haptics = LocalHapticFeedback.current
     val color = if (available) MiuixTheme.colorScheme.onSurfaceVariantActions
@@ -48,14 +53,20 @@ internal fun SettingsDropdownPreference(
             item.onClick?.invoke()
         })
     })
-    SettingsPreferenceRow(
+    EtaPreferenceRow(
         title = title,
+        summary = summary,
+        modifier = modifier,
+        bottomAction = bottomAction,
         startAction = startAction,
         enabled = available,
-        holdDownState = expanded && available,
+        holdDownState = holding && available,
         interaction = Modifier.clickable(enabled = available, role = Role.DropdownList) {
             expanded = !expanded
-            if (expanded) haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+            if (expanded) {
+                holding = true
+                haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+            }
         },
     ) {
         items.getOrNull(selectedIndex)?.text?.let { value ->
@@ -74,7 +85,7 @@ internal fun SettingsDropdownPreference(
                     entry = entry,
                     show = expanded && available,
                     onDismiss = { expanded = false },
-                    onDismissFinished = {},
+                    onDismissFinished = { holding = false },
                     maxHeight = null,
                     dropdownColors = DropdownDefaults.dropdownColors(),
                 )
@@ -83,7 +94,7 @@ internal fun SettingsDropdownPreference(
                     entry = entry,
                     show = expanded && available,
                     onDismiss = { expanded = false },
-                    onDismissFinished = {},
+                    onDismissFinished = { holding = false },
                     maxHeight = null,
                     dropdownColors = DropdownDefaults.dropdownColors(),
                     renderInRootScaffold = true,
@@ -92,3 +103,33 @@ internal fun SettingsDropdownPreference(
         }
     }
 }
+
+@Composable
+internal fun EtaWindowSpinnerPreference(
+    title: String,
+    items: List<DropdownItem>,
+    selectedIndex: Int,
+    summary: String? = null,
+    startAction: (@Composable () -> Unit)? = null,
+    enabled: Boolean = true,
+    onSelectedIndexChange: (Int) -> Unit,
+) = EtaDropdownPreference(
+    title = title, items = items, selectedIndex = selectedIndex, summary = summary,
+    startAction = startAction, enabled = enabled, useWindow = true,
+    onSelectedIndexChange = onSelectedIndexChange,
+)
+
+@Composable
+internal fun EtaOverlayDropdownPreference(
+    title: String,
+    items: List<String>,
+    selectedIndex: Int,
+    summary: String? = null,
+    startAction: (@Composable () -> Unit)? = null,
+    enabled: Boolean = true,
+    onSelectedIndexChange: (Int) -> Unit,
+) = EtaDropdownPreference(
+    title = title, items = items.map { DropdownItem(text = it) }, selectedIndex = selectedIndex,
+    summary = summary, startAction = startAction, enabled = enabled, useWindow = false,
+    onSelectedIndexChange = onSelectedIndexChange,
+)

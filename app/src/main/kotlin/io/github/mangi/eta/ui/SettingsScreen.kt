@@ -63,18 +63,18 @@ import io.github.mangi.eta.systemizer.RootManager
 import io.github.mangi.eta.systemizer.SystemizerInstallResult
 import io.github.mangi.eta.ui.app.EnhancementSettingsHistory
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
+import io.github.mangi.eta.ui.components.EtaArrowPreference
+import io.github.mangi.eta.ui.components.EtaDropdownPreference
+import io.github.mangi.eta.ui.components.EtaPreferenceColors
+import io.github.mangi.eta.ui.components.EtaPreferenceDivider
+import io.github.mangi.eta.ui.components.EtaPreferenceGroup
+import io.github.mangi.eta.ui.components.EtaPreferenceGroupTitle
+import io.github.mangi.eta.ui.components.EtaPreferenceIcon
+import io.github.mangi.eta.ui.components.EtaSwitchPreference
+import io.github.mangi.eta.ui.components.EtaWindowDialog
 import io.github.mangi.eta.ui.components.LanguagePreference
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
-import io.github.mangi.eta.ui.components.SettingsArrowPreference
-import io.github.mangi.eta.ui.components.SettingsDropdownPreference
-import io.github.mangi.eta.ui.components.SettingsGroup
-import io.github.mangi.eta.ui.components.SettingsGroupTitle
-import io.github.mangi.eta.ui.components.SettingsIconColors
-import io.github.mangi.eta.ui.components.SettingsItemDivider
-import io.github.mangi.eta.ui.components.SettingsPageTheme
-import io.github.mangi.eta.ui.components.SettingsPreferenceIcon
-import io.github.mangi.eta.ui.components.SettingsSwitchPreference
 import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -82,7 +82,6 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
  * 模块配置界面。
@@ -96,9 +95,7 @@ internal fun SettingsScreen(
     onNavigate: (AppRoute) -> Unit,
     onBack: () -> Unit,
 ) {
-    SettingsPageTheme {
-        SettingsPageContent(context = context, onNavigate = onNavigate, onBack = onBack)
-    }
+    SettingsPageContent(context = context, onNavigate = onNavigate, onBack = onBack)
 }
 
 @Composable
@@ -211,78 +208,78 @@ private fun SettingsPageContent(
     ) {
             // ── LLM 提供商 ──────────────────────────────────────────────
             item(key = "section_agent") {
-                SettingsGroupTitle(stringResource(R.string.settings_llm_providers))
-                SettingsGroup {
-                    SettingsArrowPreference(
+                EtaPreferenceGroupTitle(stringResource(R.string.settings_llm_providers))
+                EtaPreferenceGroup {
+                    EtaArrowPreference(
                         title = stringResource(R.string.ui_model_provider_e8c7f5),
                         summary = providerSummary,
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.Rounded.Memory,
-                                tint = SettingsIconColors.Blue,
+                                tint = EtaPreferenceColors.Blue,
                             )
                         },
                         onClick = { onNavigate(AppRoute.ModelProviders) },
                     )
 
-                    SettingsItemDivider()
+                    EtaPreferenceDivider()
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
                         title = stringResource(R.string.ui_deep_thinking_enabled_by_default_c032d6),
                         key = Prefs.Keys.AGENT_THINKING_ENABLED,
                         icon = Icons.Rounded.Psychology,
-                        iconTint = SettingsIconColors.Blue,
+                        iconTint = EtaPreferenceColors.Blue,
                     )
                 }
             }
 
             // ── 上下文与扩展 ────────────────────────────────────────────
             item(key = "section_context_extensions") {
-                SettingsGroupTitle(stringResource(R.string.settings_context_extensions))
-                SettingsGroup {
-                    SettingsArrowPreference(
+                EtaPreferenceGroupTitle(stringResource(R.string.settings_context_extensions))
+                EtaPreferenceGroup {
+                    EtaArrowPreference(
                         title = stringResource(R.string.ui_memory_b55ff5),
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.AutoMirrored.Rounded.MenuBook,
-                                tint = SettingsIconColors.Orange,
+                                tint = EtaPreferenceColors.Orange,
                             )
                         },
                         onClick = { onNavigate(AppRoute.Memory) },
                     )
 
-                    SettingsItemDivider()
-                    SettingsArrowPreference(
+                    EtaPreferenceDivider()
+                    EtaArrowPreference(
                         title = stringResource(R.string.route_skills),
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.Rounded.Extension,
-                                tint = SettingsIconColors.Green,
+                                tint = EtaPreferenceColors.Green,
                             )
                         },
                         onClick = { onNavigate(AppRoute.Skills) },
                     )
 
-                    SettingsItemDivider()
-                    SettingsArrowPreference(
+                    EtaPreferenceDivider()
+                    EtaArrowPreference(
                         title = stringResource(R.string.route_mcp_servers),
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.Rounded.AccountTree,
-                                tint = SettingsIconColors.Blue,
+                                tint = EtaPreferenceColors.Blue,
                             )
                         },
                         onClick = { onNavigate(AppRoute.McpServers) },
                     )
 
-                    SettingsItemDivider()
-                    SettingsArrowPreference(
+                    EtaPreferenceDivider()
+                    EtaArrowPreference(
                         title = "角色",
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.Rounded.TheaterComedy,
-                                tint = SettingsIconColors.Orange,
+                                tint = EtaPreferenceColors.Orange,
                             )
                         },
                         onClick = { onNavigate(AppRoute.Characters) },
@@ -292,71 +289,71 @@ private fun SettingsPageContent(
 
             // ── 工具 ───────────────────────────────────────────────────
             item(key = "section_tools") {
-                SettingsGroupTitle(stringResource(R.string.ui_tool_a72ef1))
-                SettingsGroup {
-                    SettingsArrowPreference(
+                EtaPreferenceGroupTitle(stringResource(R.string.ui_tool_a72ef1))
+                EtaPreferenceGroup {
+                    EtaArrowPreference(
                         title = stringResource(R.string.settings_tools_list),
-                        startAction = { SettingsPreferenceIcon(Icons.Rounded.Dashboard, tint = SettingsIconColors.Green) },
+                        startAction = { EtaPreferenceIcon(Icons.Rounded.Dashboard, tint = EtaPreferenceColors.Green) },
                         onClick = { onNavigate(AppRoute.Tools) },
                     )
 
-                    SettingsItemDivider()
+                    EtaPreferenceDivider()
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
                         title = stringResource(R.string.ui_enable_web_browsing_tools_8b6b03),
                         key = Prefs.Keys.AGENT_BROWSER_TOOLS,
                         icon = Icons.Rounded.Language,
-                        iconTint = SettingsIconColors.Blue,
+                        iconTint = EtaPreferenceColors.Blue,
                     )
 
-                    SettingsItemDivider()
+                    EtaPreferenceDivider()
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
                         title = stringResource(R.string.ui_enable_device_direct_tools_e2d595),
                         key = Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS,
                         icon = Icons.Rounded.Smartphone,
-                        iconTint = SettingsIconColors.Green,
+                        iconTint = EtaPreferenceColors.Green,
                     )
 
-                    SettingsItemDivider()
+                    EtaPreferenceDivider()
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
                         title = stringResource(R.string.ui_allow_reading_of_sensitive_device_information_feaec0),
                         key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_READ_TOOLS,
                         icon = Icons.Rounded.Visibility,
-                        iconTint = SettingsIconColors.Blue,
+                        iconTint = EtaPreferenceColors.Blue,
                     )
 
-                    SettingsItemDivider()
+                    EtaPreferenceDivider()
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
                         title = stringResource(R.string.ui_allow_sensitive_device_operation_3d42ea),
                         key = Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
                         icon = Icons.Rounded.GppMaybe,
-                        iconTint = SettingsIconColors.Orange,
+                        iconTint = EtaPreferenceColors.Orange,
                     )
 
-                    SettingsItemDivider()
+                    EtaPreferenceDivider()
                     SwitchPref(
                         context = context,
                         prefs = agentPrefs,
                         title = stringResource(R.string.ui_enable_terminal_file_tools_18bb43),
                         key = Prefs.Keys.AGENT_TERMINAL_TOOLS,
                         icon = Icons.Rounded.Terminal,
-                        iconTint = SettingsIconColors.Green,
+                        iconTint = EtaPreferenceColors.Green,
                     )
 
-                    SettingsItemDivider()
-                    SettingsArrowPreference(
+                    EtaPreferenceDivider()
+                    EtaArrowPreference(
                         title = stringResource(R.string.ui_linux_tool_environment_314d22),
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.Rounded.Inventory2,
-                                tint = SettingsIconColors.Orange,
+                                tint = EtaPreferenceColors.Orange,
                             )
                         },
                         onClick = { onNavigate(AppRoute.LinuxEnvironment) },
@@ -365,10 +362,10 @@ private fun SettingsPageContent(
             }
 
             item(key = "system_enhancements") {
-                SettingsGroup {
-                    SettingsArrowPreference(
+                EtaPreferenceGroup {
+                    EtaArrowPreference(
                         title = stringResource(R.string.capability_enhancements),
-                        startAction = { SettingsPreferenceIcon(Icons.Rounded.Security, tint = SettingsIconColors.Blue) },
+                        startAction = { EtaPreferenceIcon(Icons.Rounded.Security, tint = EtaPreferenceColors.Blue) },
                         onClick = { onNavigate(AppRoute.SystemEnhance) },
                     )
                 }
@@ -376,28 +373,28 @@ private fun SettingsPageContent(
 
             // ── 系统助手接管 ──────────────────────────────────────────────
             item(key = "section_assistant_takeover") {
-                SettingsGroupTitle(stringResource(R.string.ui_system_assistant_takes_over_f46043))
-                SettingsGroup {
-                    SettingsArrowPreference(
+                EtaPreferenceGroupTitle(stringResource(R.string.ui_system_assistant_takes_over_f46043))
+                EtaPreferenceGroup {
+                    EtaArrowPreference(
                         title = stringResource(R.string.ui_eta_system_assistant_003e9b),
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.Rounded.SupportAgent,
-                                tint = SettingsIconColors.Green,
+                                tint = EtaPreferenceColors.Green,
                             )
                         },
                         onClick = openAssistantSettings,
                     )
                     if (prefs != null || hasConnectedFramework) {
-                        SettingsItemDivider()
-                        SettingsDropdownPreference(
+                        EtaPreferenceDivider()
+                        EtaDropdownPreference(
                             title = stringResource(R.string.ui_long_press_the_power_button_1958d0),
                             items = powerAssistantItems,
                             selectedIndex = powerAssistantTargets.indexOf(powerAssistantTarget),
                             onSelectedIndexChange = { index ->
                                 val target = powerAssistantTargets.getOrNull(index)
-                                    ?: return@SettingsDropdownPreference
-                                val targetPrefs = prefs ?: return@SettingsDropdownPreference
+                                    ?: return@EtaDropdownPreference
+                                val targetPrefs = prefs ?: return@EtaDropdownPreference
                                 if (putStringSync(
                                         prefs = targetPrefs,
                                         key = Prefs.Keys.POWER_KEY_ASSISTANT_TARGET,
@@ -415,23 +412,23 @@ private fun SettingsPageContent(
                                 }
                             },
                             startAction = {
-                                SettingsPreferenceIcon(
+                                EtaPreferenceIcon(
                                     icon = Icons.Rounded.PowerSettingsNew,
-                                    tint = SettingsIconColors.Yellow,
+                                    tint = EtaPreferenceColors.Yellow,
                                     enabled = prefs != null,
                                 )
                             },
                             enabled = prefs != null,
                         )
 
-                        SettingsItemDivider()
+                        EtaPreferenceDivider()
                         SwitchPref(
                             context = context,
                             prefs = prefs,
                             title = stringResource(R.string.ui_automatically_set_default_assistant_f86963),
                             key = Prefs.Keys.ASSISTANT_AUTO_CONFIG,
                             icon = Icons.Rounded.Settings,
-                            iconTint = SettingsIconColors.Green,
+                            iconTint = EtaPreferenceColors.Green,
                         )
                     }
                 }
@@ -440,25 +437,25 @@ private fun SettingsPageContent(
             if (prefs != null || hasConnectedFramework) {
                 // ── 厂商助手兼容入口 ──────────────────────────────────────────
                 item(key = "section_oem_assistant_compatibility") {
-                    SettingsGroupTitle(stringResource(R.string.ui_xiaobu_xiaoai_compatible_entrance_ae918a))
-                    SettingsGroup {
+                    EtaPreferenceGroupTitle(stringResource(R.string.ui_xiaobu_xiaoai_compatible_entrance_ae918a))
+                    EtaPreferenceGroup {
                         SwitchPref(
                             context = context,
                             prefs = prefs,
                             title = stringResource(R.string.ui_enable_vendor_assistant_custom_models_c8e465),
                             key = Prefs.Keys.AGENT_CUSTOM_MODEL,
                             icon = Icons.Rounded.Memory,
-                            iconTint = SettingsIconColors.Blue,
+                            iconTint = EtaPreferenceColors.Blue,
                         )
 
-                        SettingsItemDivider()
+                        EtaPreferenceDivider()
                         SwitchPref(
                             context = context,
                             prefs = prefs,
                             title = stringResource(R.string.ui_only_take_over_with_agent_prefix_d17556),
                             key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
                             icon = Icons.Rounded.Code,
-                            iconTint = SettingsIconColors.Blue,
+                            iconTint = EtaPreferenceColors.Blue,
                         )
                     }
                 }
@@ -467,8 +464,8 @@ private fun SettingsPageContent(
             if (prefs != null || hasConnectedFramework || capabilities.root.isGranted || hasUsedSystemizer) {
                 // ── Gemini ─────────────────────────────────────────────────
                 item(key = "section_gemini") {
-                    SettingsGroupTitle("Gemini")
-                    SettingsGroup {
+                    EtaPreferenceGroupTitle("Gemini")
+                    EtaPreferenceGroup {
                         if (prefs != null || hasConnectedFramework) {
                             SwitchPref(
                                 context = context,
@@ -476,40 +473,40 @@ private fun SettingsPageContent(
                                 title = stringResource(R.string.ui_maintain_hey_google_detection_after_screen_rest_9d6877),
                                 key = Prefs.Keys.HOTWORD_SELF_HEAL,
                                 icon = Icons.Rounded.Hearing,
-                                iconTint = SettingsIconColors.Green,
+                                iconTint = EtaPreferenceColors.Green,
                             )
 
-                            SettingsItemDivider()
+                            EtaPreferenceDivider()
                             SwitchPref(
                                 context = context,
                                 prefs = prefs,
                                 title = stringResource(R.string.ui_lock_screen_evokes_automatic_voice_input_1cde18),
                                 key = Prefs.Keys.LOCKSCREEN_VOICE_COMMAND,
                                 icon = Icons.Rounded.Lock,
-                                iconTint = SettingsIconColors.Blue,
+                                iconTint = EtaPreferenceColors.Blue,
                             )
 
-                            SettingsItemDivider()
+                            EtaPreferenceDivider()
                             SwitchPref(
                                 context = context,
                                 prefs = prefs,
                                 title = stringResource(R.string.ui_bright_screen_evokes_automatic_voice_input_4358fe),
                                 key = Prefs.Keys.SCREEN_ON_VOICE_COMMAND,
                                 icon = Icons.Rounded.Mic,
-                                iconTint = SettingsIconColors.Green,
+                                iconTint = EtaPreferenceColors.Green,
                             )
 
                         }
                         if (capabilities.root.isGranted || hasUsedSystemizer) {
                             if (prefs != null || hasConnectedFramework) {
-                                SettingsItemDivider()
+                                EtaPreferenceDivider()
                             }
-                            SettingsArrowPreference(
+                            EtaArrowPreference(
                                 title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
                                 startAction = {
-                                    SettingsPreferenceIcon(
+                                    EtaPreferenceIcon(
                                         icon = Icons.Rounded.Inventory,
-                                        tint = SettingsIconColors.Orange,
+                                        tint = EtaPreferenceColors.Orange,
                                         enabled = !installingSystemizer,
                                     )
                                 },
@@ -532,25 +529,25 @@ private fun SettingsPageContent(
             if (prefs != null || hasConnectedFramework) {
                 // ── 一圈即搜 ────────────────────────────────────────────────
                 item(key = "section_circle_to_search") {
-                    SettingsGroupTitle(stringResource(R.string.ui_search_in_one_turn_179584))
-                    SettingsGroup {
+                    EtaPreferenceGroupTitle(stringResource(R.string.ui_search_in_one_turn_179584))
+                    EtaPreferenceGroup {
                         SwitchPref(
                             context = context,
                             prefs = prefs,
                             title = stringResource(R.string.ui_long_press_on_the_gesture_bar_triggers_a_circle_to_s_b80117),
                             key = Prefs.Keys.GESTURE_BAR_CIRCLE_TO_SEARCH,
                             icon = Icons.Rounded.SwipeUp,
-                            iconTint = SettingsIconColors.Blue,
+                            iconTint = EtaPreferenceColors.Blue,
                         )
 
-                        SettingsItemDivider()
+                        EtaPreferenceDivider()
                         SwitchPref(
                             context = context,
                             prefs = prefs,
                             title = stringResource(R.string.ui_long_press_with_two_fingers_to_trigger_a_circle_sear_ab597a),
                             key = Prefs.Keys.DOUBLE_FINGER_CIRCLE_TO_SEARCH,
                             icon = Icons.Rounded.TouchApp,
-                            iconTint = SettingsIconColors.Blue,
+                            iconTint = EtaPreferenceColors.Blue,
                         )
                     }
                 }
@@ -558,29 +555,29 @@ private fun SettingsPageContent(
 
             // ── 通用 ────────────────────────────────────────────────────
             item(key = "section_general") {
-                SettingsGroupTitle(stringResource(R.string.settings_general))
-                SettingsGroup {
-                    SettingsArrowPreference(
+                EtaPreferenceGroupTitle(stringResource(R.string.settings_general))
+                EtaPreferenceGroup {
+                    EtaArrowPreference(
                         title = stringResource(R.string.appearance_title),
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.Rounded.Palette,
-                                tint = SettingsIconColors.Orange,
+                                tint = EtaPreferenceColors.Orange,
                             )
                         },
                         onClick = { onNavigate(AppRoute.AppearanceSettings) },
                     )
 
-                    SettingsItemDivider()
-                    LanguagePreference(iconTint = SettingsIconColors.Blue)
+                    EtaPreferenceDivider()
+                    LanguagePreference(iconTint = EtaPreferenceColors.Blue)
 
-                    SettingsItemDivider()
-                    SettingsArrowPreference(
+                    EtaPreferenceDivider()
+                    EtaArrowPreference(
                         title = stringResource(R.string.data_backup_title),
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.Rounded.Description,
-                                tint = SettingsIconColors.Blue,
+                                tint = EtaPreferenceColors.Blue,
                             )
                         },
                         onClick = { onNavigate(AppRoute.DataBackup) },
@@ -590,14 +587,14 @@ private fun SettingsPageContent(
 
             // ── 权限 ────────────────────────────────────────────────────
             item(key = "section_permissions") {
-                SettingsGroupTitle(stringResource(R.string.ui_permissions_560165))
-                SettingsGroup {
-                    SettingsArrowPreference(
+                EtaPreferenceGroupTitle(stringResource(R.string.ui_permissions_560165))
+                EtaPreferenceGroup {
+                    EtaArrowPreference(
                         title = stringResource(R.string.ui_floating_window_permissions_076b77),
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.Rounded.Layers,
-                                tint = SettingsIconColors.Blue,
+                                tint = EtaPreferenceColors.Blue,
                             )
                         },
                         endActions = {
@@ -627,13 +624,13 @@ private fun SettingsPageContent(
                         },
                     )
 
-                    SettingsItemDivider()
-                    SettingsArrowPreference(
+                    EtaPreferenceDivider()
+                    EtaArrowPreference(
                         title = stringResource(R.string.ui_accessibility_enhancement_tools_8fd257),
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.Rounded.AccessibilityNew,
-                                tint = SettingsIconColors.Blue,
+                                tint = EtaPreferenceColors.Blue,
                             )
                         },
                         endActions = {
@@ -659,13 +656,13 @@ private fun SettingsPageContent(
                         },
                     )
                     if (prefs != null || hasConnectedFramework) {
-                        SettingsItemDivider()
-                        SettingsSwitchPreference(
+                        EtaPreferenceDivider()
+                        EtaSwitchPreference(
                             title = stringResource(R.string.ui_enforce_accessibility_55e838),
                             checked = accessibilityProtectionEnabled,
                             onCheckedChange = { enabled ->
                                 if (accessibilityProtectionPending) {
-                                    return@SettingsSwitchPreference
+                                    return@EtaSwitchPreference
                                 }
                                 accessibilityProtectionPending = true
                                 AccessibilityProtectionClient.setEnabled(
@@ -692,9 +689,9 @@ private fun SettingsPageContent(
                                 }
                             },
                             startAction = {
-                                SettingsPreferenceIcon(
+                                EtaPreferenceIcon(
                                     icon = Icons.Rounded.VerifiedUser,
-                                    tint = SettingsIconColors.Blue,
+                                    tint = EtaPreferenceColors.Blue,
                                     enabled = prefs != null && !accessibilityProtectionPending,
                                 )
                             },
@@ -706,14 +703,14 @@ private fun SettingsPageContent(
 
             // ── 关于 ────────────────────────────────────────────────────
             item(key = "section_about") {
-                SettingsGroupTitle(stringResource(R.string.ui_about_bed172))
-                SettingsGroup {
-                    SettingsArrowPreference(
+                EtaPreferenceGroupTitle(stringResource(R.string.ui_about_bed172))
+                EtaPreferenceGroup {
+                    EtaArrowPreference(
                         title = stringResource(R.string.ui_source_code_740296),
                         startAction = {
-                            SettingsPreferenceIcon(
+                            EtaPreferenceIcon(
                                 icon = Icons.Rounded.Code,
-                                tint = SettingsIconColors.Blue,
+                                tint = EtaPreferenceColors.Blue,
                             )
                         },
                         endActions = {
@@ -778,7 +775,7 @@ private fun SystemizerConfirmDialog(
     onDismissRequest: () -> Unit,
     onConfirm: () -> Unit,
 ) {
-    WindowDialog(
+    EtaWindowDialog(
         show = show,
         title = stringResource(R.string.ui_convert_google_apps_to_system_apps_0f6d89),
         summary = stringResource(R.string.ui_system_applications_have_voice_wake_up_permissions_f_0190f2),
@@ -832,14 +829,14 @@ private fun SwitchPref(
         targetPrefs.registerOnSharedPreferenceChangeListener(listener)
         onDispose { targetPrefs.unregisterOnSharedPreferenceChangeListener(listener) }
     }
-    SettingsSwitchPreference(
+    EtaSwitchPreference(
         title = title,
         summary = summary,
         checked = checked,
         onCheckedChange = { value ->
             // 同步提交；RemotePreferences.commit() 失败（binder 提交失败）时回滚 UI 状态，
             // 避免 UI 显示已切换而 hook 进程实际未收到。
-            val targetPrefs = prefs ?: return@SettingsSwitchPreference
+            val targetPrefs = prefs ?: return@EtaSwitchPreference
             if (putBooleanSync(targetPrefs, key, value)) {
                 checked = value
                 history.recordCommittedBoolean(key, value)
@@ -855,7 +852,7 @@ private fun SwitchPref(
             }
         },
         startAction = {
-            SettingsPreferenceIcon(icon = icon, enabled = enabled, tint = iconTint)
+            EtaPreferenceIcon(icon = icon, enabled = enabled, tint = iconTint)
         },
         enabled = enabled,
     )

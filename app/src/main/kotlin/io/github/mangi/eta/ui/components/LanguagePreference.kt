@@ -49,12 +49,12 @@ internal fun LanguagePreference(iconTint: Color = MiuixTheme.colorScheme.onBackg
         locales.indexOfFirst { LocaleList.matchesLanguageAndScript(it, selected) } + 1
     } ?: 0
 
-    SettingsDropdownPreference(
+    EtaDropdownPreference(
         title = stringResource(R.string.settings_language),
         items = labels.map { DropdownItem(text = it) },
         useWindow = false,
         selectedIndex = selectedIndex,
-        startAction = { SettingsPreferenceIcon(icon = Icons.Rounded.Language, tint = iconTint) },
+        startAction = { EtaPreferenceIcon(icon = Icons.Rounded.Language, tint = iconTint) },
         onSelectedIndexChange = { index ->
             if (index in labels.indices) {
                 repository.selectLocale(if (index == 0) null else locales[index - 1])
