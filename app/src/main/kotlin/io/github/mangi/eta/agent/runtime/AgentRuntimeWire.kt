@@ -128,6 +128,7 @@ internal object AgentRuntimeWire {
     private const val KEY_WIDTH = "width"
     private const val KEY_HEIGHT = "height"
     private const val KEY_SOURCE = "source"
+    private const val KEY_PRESERVE_ORIGINAL = "preserve_original"
     private const val KEY_OK = "ok"
     private const val KEY_CONTENT = "content"
     private const val KEY_REASONING_CONTENT = "reasoning_content"
@@ -182,6 +183,7 @@ internal object AgentRuntimeWire {
         val width: Int? = null,
         val height: Int? = null,
         val source: String = "unknown",
+        val preserveOriginal: Boolean = false,
     )
 
     /** 接收端在后台完成图片物化前持有文件描述符；关闭后不可再次使用。 */
@@ -255,6 +257,7 @@ internal object AgentRuntimeWire {
                 image.width?.let { putInt(KEY_WIDTH, it) }
                 image.height?.let { putInt(KEY_HEIGHT, it) }
                 putString(KEY_SOURCE, image.source)
+                putBoolean(KEY_PRESERVE_ORIGINAL, image.preserveOriginal)
             }
         }
         return requestBundle(request, imageBundles, payloadDirectory)
@@ -271,6 +274,7 @@ internal object AgentRuntimeWire {
                 image.width?.let { putInt(KEY_WIDTH, it) }
                 image.height?.let { putInt(KEY_HEIGHT, it) }
                 putString(KEY_SOURCE, image.source)
+                putBoolean(KEY_PRESERVE_ORIGINAL, image.preserveOriginal)
             }
         },
     )
@@ -355,6 +359,7 @@ internal object AgentRuntimeWire {
                     width = image.optionalInt(KEY_WIDTH),
                     height = image.optionalInt(KEY_HEIGHT),
                     source = image.getString(KEY_SOURCE).orEmpty(),
+                    preserveOriginal = image.getBoolean(KEY_PRESERVE_ORIGINAL, false),
                 )
             }
             return IncomingRunRequest(
@@ -393,6 +398,7 @@ internal object AgentRuntimeWire {
                         width = image.width,
                         height = image.height,
                         source = image.source,
+                        preserveOriginal = image.preserveOriginal,
                     )
                 },
             )

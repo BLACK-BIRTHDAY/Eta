@@ -13,6 +13,7 @@ import java.io.FileOutputStream
 import java.io.ByteArrayOutputStream
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
@@ -26,6 +27,54 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class AgentRuntimeWireTest {
+    @Test
+    fun screenshotsKeepExactBytesAndFormatAcrossDescriptorAndInlineTransport() {
+        val bitmap = Bitmap.createBitmap(32, 24, Bitmap.Config.ARGB_8888).apply {
+            eraseColor(android.graphics.Color.argb(128, 96, 128, 192))
+        }
+        try {
+            for ((format, mime) in listOf(
+                Bitmap.CompressFormat.PNG to "image/png",
+                Bitmap.CompressFormat.JPEG to "image/jpeg",
+                Bitmap.CompressFormat.WEBP_LOSSLESS to "image/webp",
+            )) {
+                val original = ByteArrayOutputStream().use { output ->
+                    assertTrue(bitmap.compress(format, 83, output))
+                    output.toByteArray()
+                }
+                val image = AgentImageCodec.fromScreenBytes(original, "custom_capture_label", mime)
+                val request = AgentRuntimeWire.RunRequest(
+                    runId = "raw-screen", prompt = "解释当前屏幕", images = listOf(image),
+                    config = AgentModelClient.ModelConfig(
+                        baseUrl = "https://example.invalid", apiKey = "fixture", model = "fixture", systemPrompt = "",
+                        reasoningEffort = ReasoningEffort.OFF,
+                    ),
+                )
+                AgentRuntimeImageTransfer.prepare(RuntimeEnvironment.getApplication(), request.images).use { prepared ->
+                    assertTrue(prepared.images.single().preserveOriginal)
+                    val result = AgentRuntimeImageTransfer.materialize(AgentRuntimeWire.incomingRunRequestFromBundle(
+                        AgentRuntimeWire.toBundle(request, prepared.images),
+                    )).images.single()
+                    assertEquals(mime, result.mimeType)
+                    assertTrue(result.preserveOriginal)
+                    assertEquals(32, result.width)
+                    assertEquals(24, result.height)
+                    assertArrayEquals(original, Base64.decode(result.reference.substringAfter("base64,"), Base64.DEFAULT))
+                }
+                val inline = AgentRuntimeWire.toLegacyBundle(request)
+                assertEquals(request, AgentRuntimeWire.runRequestFromBundle(inline))
+                val restored = AgentRuntimeImageTransfer.materialize(
+                    AgentRuntimeWire.incomingRunRequestFromBundle(inline),
+                ).images.single()
+                assertEquals(mime, restored.mimeType)
+                assertTrue(restored.preserveOriginal)
+                assertArrayEquals(original, Base64.decode(restored.reference.substringAfter("base64,"), Base64.DEFAULT))
+                inline.getParcelableArrayList("images", android.os.Bundle::class.java)!!.single().remove("preserve_original")
+                assertFalse(AgentRuntimeWire.runRequestFromBundle(inline).images.single().preserveOriginal)
+            }
+        } finally { bitmap.recycle() }
+    }
+
     @Test
     fun assistantScreenContextRoundTripsSeparatelyFromPromptAndDefaultsForOldSenders() {
         val request = AgentRuntimeWire.RunRequest(

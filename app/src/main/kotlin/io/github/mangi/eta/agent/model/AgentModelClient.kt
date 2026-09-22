@@ -323,7 +323,9 @@ internal object AgentModelClient {
         val bytes: Int,
         val width: Int? = null,
         val height: Int? = null,
-        val source: String = "unknown"
+        val source: String = "unknown",
+        /** 截图已具有可上传编码，跨进程物化时保留字节，不走附件转码。 */
+        val preserveOriginal: Boolean = false,
     )
 
     sealed interface ModelResponse {
