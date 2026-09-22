@@ -1,18 +1,11 @@
 package io.github.mangi.eta.agent.voice
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -23,7 +16,6 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,19 +35,16 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.CancelPresentation
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DesktopWindows
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,7 +60,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -84,7 +72,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.components.AgentConversationMessages
-import io.github.mangi.eta.ui.components.rememberDataUrlBitmap
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
@@ -95,13 +82,10 @@ import kotlin.math.max
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.anim.folmeSpring
-import top.yukonga.miuix.kmp.basic.CircularProgressIndicator
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.squircle.squircleBackground
-import top.yukonga.miuix.kmp.squircle.squircleClip
-import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 internal enum class EtaVoicePhase {
@@ -114,7 +98,6 @@ internal data class EtaVoiceUiState(
     val messages: List<AgentChatMessageUi> = emptyList(),
     val phase: EtaVoicePhase = EtaVoicePhase.READY,
     val status: EtaVoiceStatus = EtaVoiceStatus.InputRequest,
-    val screenContext: EtaScreenContextUiState = EtaScreenContextUiState(),
 )
 
 internal sealed interface EtaVoiceStatus {
@@ -124,42 +107,6 @@ internal sealed interface EtaVoiceStatus {
     data class RunningTool(val name: String) : EtaVoiceStatus
     data class Failed(val detail: String?) : EtaVoiceStatus
     data object Stopped : EtaVoiceStatus
-}
-
-internal enum class EtaScreenContextPhase {
-    CAPTURING,
-    AVAILABLE,
-    UNAVAILABLE,
-    CONSUMED,
-}
-
-internal data class EtaScreenContextUiState(
-    val phase: EtaScreenContextPhase = EtaScreenContextPhase.CONSUMED,
-    val previewDataUrl: String? = null,
-    val selected: Boolean = false,
-)
-
-internal object EtaScreenContextStateReducer {
-    fun select(
-        state: EtaScreenContextUiState,
-        enabled: Boolean,
-        hasAttachment: Boolean,
-    ): EtaScreenContextUiState =
-        if (enabled && hasAttachment && state.phase == EtaScreenContextPhase.AVAILABLE) {
-            state.copy(selected = true)
-        } else {
-            state
-        }
-
-    fun remove(
-        state: EtaScreenContextUiState,
-        enabled: Boolean,
-    ): EtaScreenContextUiState =
-        if (enabled && state.selected) state.copy(selected = false) else state
-
-    fun consume(): EtaScreenContextUiState = EtaScreenContextUiState(
-        phase = EtaScreenContextPhase.CONSUMED,
-    )
 }
 
 private data class EtaVoicePanelColors(
@@ -208,8 +155,6 @@ internal fun EtaVoicePanel(
     canOpenConversation: Boolean,
     exitRequested: Boolean,
     onInputChange: (String) -> Unit,
-    onScreenContextSelect: () -> Unit,
-    onScreenContextRemove: () -> Unit,
     onSubmit: () -> Unit,
     onStop: () -> Unit,
     onClose: () -> Unit,
@@ -285,8 +230,6 @@ internal fun EtaVoicePanel(
                 bottomInsetPx = bottomInset,
                 imeOverlapPx = imeOverlap,
                 onInputChange = onInputChange,
-                onScreenContextSelect = onScreenContextSelect,
-                onScreenContextRemove = onScreenContextRemove,
                 onSubmit = {
                     keyboard?.hide()
                     onSubmit()
@@ -311,8 +254,6 @@ private fun BoxScope.AssistantPanel(
     bottomInsetPx: Int,
     imeOverlapPx: Int,
     onInputChange: (String) -> Unit,
-    onScreenContextSelect: () -> Unit,
-    onScreenContextRemove: () -> Unit,
     onSubmit: () -> Unit,
     onStop: () -> Unit,
     onClose: () -> Unit,
@@ -569,8 +510,6 @@ private fun BoxScope.AssistantPanel(
             colors = colors,
             focusRequester = focusRequester,
             onInputChange = onInputChange,
-            onScreenContextSelect = onScreenContextSelect,
-            onScreenContextRemove = onScreenContextRemove,
             onSubmit = onSubmit,
             onStop = onStop,
             modifier = Modifier
@@ -592,8 +531,6 @@ private fun AssistantComposer(
     colors: EtaVoicePanelColors,
     focusRequester: FocusRequester,
     onInputChange: (String) -> Unit,
-    onScreenContextSelect: () -> Unit,
-    onScreenContextRemove: () -> Unit,
     onSubmit: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
@@ -603,16 +540,6 @@ private fun AssistantComposer(
             animationSpec = folmeSpring(damping = 0.92f, response = 0.34f),
         ),
     ) {
-        ScreenContextAttachment(
-            state = state.screenContext,
-            enabled = state.phase != EtaVoicePhase.PROCESSING,
-            colors = colors,
-            onSelect = onScreenContextSelect,
-            onRemove = onScreenContextRemove,
-        )
-        if (state.screenContext.phase != EtaScreenContextPhase.CONSUMED) {
-            Spacer(Modifier.height(7.dp))
-        }
         AssistantInputBar(
             state = state,
             input = input,
@@ -623,145 +550,6 @@ private fun AssistantComposer(
             onStop = onStop,
             modifier = Modifier.fillMaxWidth(),
         )
-    }
-}
-
-@Composable
-private fun ScreenContextAttachment(
-    state: EtaScreenContextUiState,
-    enabled: Boolean,
-    colors: EtaVoicePanelColors,
-    onSelect: () -> Unit,
-    onRemove: () -> Unit,
-) {
-    AnimatedContent(
-        targetState = state,
-        transitionSpec = {
-            (fadeIn(tween(180, easing = LinearOutSlowInEasing)) +
-                slideInVertically(tween(180, easing = LinearOutSlowInEasing)) { it / 5 })
-                .togetherWith(
-                    fadeOut(tween(120, easing = FastOutSlowInEasing)) +
-                        slideOutVertically(tween(120, easing = FastOutSlowInEasing)) { -it / 6 },
-                )
-        },
-        contentKey = { it.phase to it.selected },
-        label = "assistant_screen_context",
-    ) { screenContext ->
-        when {
-            screenContext.phase == EtaScreenContextPhase.CONSUMED -> Unit
-            screenContext.phase == EtaScreenContextPhase.AVAILABLE && screenContext.selected -> {
-                SelectedScreenContext(
-                    previewDataUrl = screenContext.previewDataUrl,
-                    enabled = enabled,
-                    colors = colors,
-                    onRemove = onRemove,
-                )
-            }
-            else -> {
-                val available = screenContext.phase == EtaScreenContextPhase.AVAILABLE && enabled
-                Row(
-                    modifier = Modifier
-                        .height(34.dp)
-                        .squircleSurface(
-                            color = colors.input.copy(alpha = 0.9f),
-                            cornerRadius = 17.dp,
-                        )
-                        .clickable(enabled = available, onClick = onSelect)
-                        .padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    when (screenContext.phase) {
-                        EtaScreenContextPhase.CAPTURING -> CircularProgressIndicator(
-                            size = 15.dp,
-                            strokeWidth = 2.dp,
-                        )
-                        EtaScreenContextPhase.AVAILABLE -> Icon(
-                            imageVector = Icons.Rounded.DesktopWindows,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = if (available) colors.inputPrimary else colors.inputTertiary,
-                        )
-                        EtaScreenContextPhase.UNAVAILABLE -> Icon(
-                            imageVector = Icons.Rounded.CancelPresentation,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = colors.inputTertiary,
-                        )
-                        EtaScreenContextPhase.CONSUMED -> Unit
-                    }
-                    Spacer(Modifier.size(7.dp))
-                    Text(
-                        text = when (screenContext.phase) {
-                            EtaScreenContextPhase.CAPTURING -> stringResource(R.string.voice_screen_preparing)
-                            EtaScreenContextPhase.AVAILABLE -> stringResource(R.string.voice_screen_add)
-                            EtaScreenContextPhase.UNAVAILABLE -> stringResource(R.string.voice_screen_unavailable)
-                            EtaScreenContextPhase.CONSUMED -> ""
-                        },
-                        color = if (available) colors.inputPrimary else colors.inputSecondary,
-                        fontSize = 12.sp,
-                        maxLines = 1,
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SelectedScreenContext(
-    previewDataUrl: String?,
-    enabled: Boolean,
-    colors: EtaVoicePanelColors,
-    onRemove: () -> Unit,
-) {
-    val previewBitmap = previewDataUrl?.let { rememberDataUrlBitmap(it) }
-    Row(
-        modifier = Modifier
-            .height(60.dp)
-            .squircleBackground(colors.input.copy(alpha = 0.92f), 15.dp)
-            .padding(5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        previewBitmap?.let { bitmap ->
-            Image(
-                bitmap = bitmap,
-                contentDescription = stringResource(R.string.voice_screen_preview),
-                modifier = Modifier
-                    .size(50.dp)
-                    .squircleClip(11.dp),
-                contentScale = ContentScale.Crop,
-            )
-        }
-        Column(
-            modifier = Modifier.padding(start = 10.dp, end = 6.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.voice_screen_title),
-                color = colors.inputPrimary,
-                fontSize = 13.sp,
-                maxLines = 1,
-            )
-            Text(
-                text = stringResource(R.string.voice_screen_context_summary),
-                color = colors.inputSecondary,
-                fontSize = 11.sp,
-                maxLines = 1,
-            )
-        }
-        IconButton(
-            onClick = onRemove,
-            enabled = enabled,
-            minWidth = 30.dp,
-            minHeight = 30.dp,
-            cornerRadius = 15.dp,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Close,
-                contentDescription = stringResource(R.string.voice_screen_remove),
-                modifier = Modifier.size(14.dp),
-                tint = if (enabled) colors.inputSecondary else colors.inputTertiary,
-            )
-        }
     }
 }
 

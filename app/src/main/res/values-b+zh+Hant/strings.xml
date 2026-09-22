@@ -647,13 +647,6 @@
   <string name="voice_completed">已完成</string>
   <string name="voice_failed">Eta 執行失敗</string>
   <string name="voice_running_tool">Eta 正在執行 %1$s</string>
-  <string name="voice_screen_preparing">正在準備目前畫面</string>
-  <string name="voice_screen_add">加入目前畫面</string>
-  <string name="voice_screen_unavailable">無法使用目前畫面</string>
-  <string name="voice_screen_preview">目前畫面預覽</string>
-  <string name="voice_screen_title">目前畫面</string>
-  <string name="voice_screen_context_summary">將加入為下一則訊息的內容脈絡</string>
-  <string name="voice_screen_remove">移除目前畫面</string>
   <string name="voice_input_hint">傳訊息給 Eta…</string>
   <string name="voice_send">傳送</string>
   <string name="injected_reasoning">Eta 正在思考…</string>

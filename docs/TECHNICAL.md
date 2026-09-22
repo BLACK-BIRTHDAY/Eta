@@ -37,11 +37,15 @@ Release 裁剪以 `app/proguard-rules.pro` 为唯一可执行事实来源，规�
 
 ## Eta 原生数字助理
 
-Manifest 注册 `VoiceInteractionService`、独立进程的 `VoiceInteractionSessionService`、全屏 `TYPE_APPLICATION_OVERLAY` 助理浮窗以及 Android 助理角色资格要求的 `RecognitionService`。设置页只负责打开系统数字助理选择界面；当前浮窗不请求麦克风权限。
+Manifest 注册 `VoiceInteractionService`、与浮窗同进程的 `VoiceInteractionSessionService`、全屏 `TYPE_APPLICATION_OVERLAY` 助理浮窗以及 Android 助理角色资格要求的 `RecognitionService`。设置页只负责打开系统数字助理选择界面；当前浮窗不请求麦克风权限。
 
-`VoiceInteractionSession` 只承接系统入口并关闭自身 UI；`EtaAssistantOverlayService` 持有全屏窗口、彩色边缘动画和键盘输入。窗口通过 `setFitInsetsTypes(0)` 绘制到状态栏、导航栏与显示开孔后方，可交互内容再通过 `WindowInsetsRulers.SafeDrawing` 与 `Ime` 保持可触达，避免给根容器增加 Insets 后截断 edge-to-edge 背景。用户提交的文本交给 `AgentRuntimeClient`；请求、流式结果、前台工具收起、取消与归档沿用既有 Runtime 协议。前台工具执行前，Eta 自有入口在主线程定向移除窗口并通知系统会话 `hide()`，Runtime 等待该 View 真正 detach 后才继续；小布与超级小爱等外部入口仍使用返回动作和目标包窗口确认。当前不执行语音识别或语音朗读。
+`VoiceInteractionSession` 承接系统入口及系统提供的 Assist 数据，关闭自身 UI；`EtaAssistantOverlayService` 持有全屏窗口、彩色边缘动画和键盘输入。窗口通过 `setFitInsetsTypes(0)` 绘制到状态栏、导航栏与显示开孔后方，可交互内容再通过 `WindowInsetsRulers.SafeDrawing` 与 `Ime` 保持可触达，避免给根容器增加 Insets 后截断 edge-to-edge 背景。用户提交的文本交给 `AgentRuntimeClient`；请求、流式结果、前台工具收起、取消与归档沿用既有 Runtime 协议。前台工具执行前，Eta 自有入口在主线程定向移除窗口并通知系统会话 `hide()`，Runtime 等待该 View 真正 detach 后才继续；小布与超级小爱等外部入口仍使用返回动作和目标包窗口确认。当前不执行语音识别或语音朗读。
 
-`:voice`、`:voice_session` 与 `:recognition` 进程只初始化本地偏好，不预热数据库、Skills 或 Xposed UI 服务。`RecognitionService` 仅保留 Android 数字助理角色资格所需声明，不由当前浮窗调用；HyperOS 按键适配不在当前实现范围内。
+`:voice` 与 `:recognition` 进程只初始化本地偏好，不预热数据库、Skills 或 Xposed UI 服务。`RecognitionService` 仅保留 Android 数字助理角色资格所需声明，不由当前浮窗调用；HyperOS 按键适配不在当前实现范围内。
+
+助理上下文通过 `SHOW_WITH_ASSIST`、`SHOW_WITH_SCREENSHOT` 请求，Android 17 同时请求结构化屏幕内容并声明对应权限及服务 XML 属性。Session 与浮窗在主进程共享单次唤醒对象，Intent 只携带关联 ID；新唤醒替换旧对象，关闭窗口或系统会话隐藏后释放上下文，迟到的异步结果不写回新入口。截图与应用文本独立处理；提交时最多等待剩余的两秒采集窗口，缺失部分不阻塞普通提问。同一次浮窗内的追问沿用该次唤醒快照，并明确标注采集时间；前台工具改变界面后不把旧快照当作实时屏幕。
+
+应用内容按可见窗口、节点数、深度和文本容量限制，跳过密码输入节点；截断会附带标记。屏幕正文以独立可选字段进入 Runtime，仅投影到当前模型请求，不改写用户原话、不写入持久上下文或日志；截图继续通过既有文件描述符链路进入 Runtime。系统共享开关、受保护窗口或应用未提供内容时允许部分数据或空结果，GUI 操作本身仍遵循无障碍工具的能力要求。
 
 ## system_server
 
@@ -246,7 +250,7 @@ Markdown 空行只参与块结构解析，不按源码数量累加可见高度�
 
 ## 预期行为
 
-电源键目标为小布时，ColorOS 长按电源键保持厂商原始行为且不修改当前默认助理。目标为 Gemini 时，长按恢复 Google 原有系统助手与 Activity 兜底链路。目标为 Eta 且 Eta 已是默认数字助理时，长按会打开 edge-to-edge 全屏助理浮窗并自动聚焦键盘输入框；入口会在浮窗与 IME 出现前准备一张屏幕截图，只有用户选择后才作为下一条消息的图片上下文发送。用户提交文本后，工具执行、流式结果和归档仍由主进程中的 Agent Runtime 负责，当前流程不执行 ASR 或 TTS。
+电源键目标为小布时，ColorOS 长按电源键保持厂商原始行为且不修改当前默认助理。目标为 Gemini 时，长按恢复 Google 原有系统助手与 Activity 兜底链路。目标为 Eta 且 Eta 已是默认数字助理时，长按会打开 edge-to-edge 全屏助理浮窗并自动聚焦键盘输入框；系统在唤醒时采集截图、前台应用和页面内容，Session 异步接收后由浮窗自动随提问发送，不再显示手动添加屏幕按钮，也不依赖无障碍截图。用户提交文本后，工具执行、流式结果和归档仍由主进程中的 Agent Runtime 负责，当前流程不执行 ASR 或 TTS。
 
 Eta 尚未成为默认助理且自动设置关闭时，按既定策略直接回到小布，不创建平行 Activity 会话。自动设置开启时，失败触发只在后台修复当前选择，当前长按仍立即回退；后续触发使用修复后的主路径。HyperOS 后续只需把厂商按键事件接到同一目标分发边界，不需要修改文本会话和 Runtime。
 
