@@ -60,7 +60,15 @@ internal object ColorOsMemoryHooks {
                 hooks.logger,
                 File(applicationInfo.dataDir, "cache/eta-dexkit"),
                 moduleNativeLibraryDirectory = module.moduleApplicationInfo.nativeLibraryDir,
-            ).use { ColorOsMemoryHostDatabase.resolve(it, hooks.logger) }
+                moduleApkPath = module.moduleApplicationInfo.sourceDir,
+            ).use { ColorOsMemoryHostDatabase.resolve(classLoader, it, hooks.logger) }
+            if (hostDatabase == null) {
+                hooks.missing(
+                    id = "coloros-memory.database-connection",
+                    description = "小布记忆加密数据库连接",
+                    detail = "小布记忆加密连接未就绪，请检查前面的 DexKit 加载与目标定位日志",
+                )
+            }
             hooks.intercept(
                 id = "coloros-memory.provider-call",
                 executable = callMethod,

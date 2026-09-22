@@ -37,7 +37,7 @@ internal object ColorDirectHooks {
         val hooks = HookRegistrar(module, rootLogger, "ColorDirect")
         return hooks.install {
             hookCollectInfoActivity(
-                hooks, classLoader, applicationInfo, module.moduleApplicationInfo.nativeLibraryDir,
+                hooks, classLoader, applicationInfo, module.moduleApplicationInfo,
             )
         }
     }
@@ -46,7 +46,7 @@ internal object ColorDirectHooks {
         hooks: HookRegistrar,
         classLoader: ClassLoader,
         applicationInfo: ApplicationInfo,
-        moduleNativeLibraryDirectory: String?,
+        moduleApplicationInfo: ApplicationInfo,
     ) {
         val logger = hooks.logger
         val activityClass = HookSupport.findClassOrNull(
@@ -71,7 +71,8 @@ internal object ColorDirectHooks {
             classLoader = classLoader,
             logger = logger,
             cacheDirectory = applicationInfo.dataDir?.let { File(it, "cache/eta-dexkit") },
-            moduleNativeLibraryDirectory = moduleNativeLibraryDirectory,
+            moduleNativeLibraryDirectory = moduleApplicationInfo.nativeLibraryDir,
+            moduleApkPath = moduleApplicationInfo.sourceDir,
         ).use { targets ->
             ColorDirectTargets.findCollectIntent(targets, activityClass)
         }

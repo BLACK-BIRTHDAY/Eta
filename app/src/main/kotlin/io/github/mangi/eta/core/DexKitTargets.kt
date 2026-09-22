@@ -12,8 +12,9 @@ internal class DexKitTargets(
     private val apkPath: String,
     private val classLoader: ClassLoader,
     private val logger: AgentLogger,
-    cacheDirectory: File? = null,
+    private val cacheDirectory: File? = null,
     private val moduleNativeLibraryDirectory: String? = null,
+    private val moduleApkPath: String,
 ) : Closeable {
     private var bridge: DexKitBridge? = null
     private var bridgeUnavailable = false
@@ -79,7 +80,20 @@ internal class DexKitTargets(
         if (bridgeUnavailable) return null
         bridgeUnavailable = true
         try {
-            NativeLibrary.load(moduleNativeLibraryDirectory)
+            DexKitNativeLibrary.load(
+                moduleApkPath,
+                moduleNativeLibraryDirectory,
+                requireNotNull(cacheDirectory) { "DexKit 原生库缓存目录不可用" },
+                logger,
+            )
+        } catch (error: UnsatisfiedLinkError) {
+            logger.warn("DexKit 原生库加载失败: reason=${nativeLoadFailureReason(error)}")
+            return null
+        } catch (exception: Exception) {
+            logger.warn("DexKit 原生库准备失败: type=${exception.safeLogType()}")
+            return null
+        }
+        try {
             val created = DexKitBridge.create(apkPath)
             if (!created.isValid) {
                 created.close()
@@ -91,7 +105,7 @@ internal class DexKitTargets(
         } catch (exception: Exception) {
             logger.warn("DexKit 初始化失败: type=${exception.safeLogType()}")
         } catch (error: LinkageError) {
-            logger.warn("DexKit 原生库不可用: type=${error.safeLogType()}")
+            logger.warn("DexKit JNI 初始化失败: type=${error.safeLogType()}")
         }
         return null
     }
@@ -106,22 +120,6 @@ internal class DexKitTargets(
         } catch (error: LinkageError) {
             logger.warn("DexKit 缓存目标链接失败: key=$key, type=${error.safeLogType()}")
             null
-        }
-    }
-
-    private object NativeLibrary {
-        private var loaded = false
-
-        @Synchronized
-        fun load(moduleNativeLibraryDirectory: String?) {
-            if (loaded) return
-            if (moduleNativeLibraryDirectory != null) {
-                // 模块为终端可执行文件启用了解压打包，不能依赖框架从压缩 APK 条目加载 JNI。
-                System.load(File(moduleNativeLibraryDirectory, "libdexkit.so").absolutePath)
-            } else {
-                System.loadLibrary("dexkit")
-            }
-            loaded = true
         }
     }
 

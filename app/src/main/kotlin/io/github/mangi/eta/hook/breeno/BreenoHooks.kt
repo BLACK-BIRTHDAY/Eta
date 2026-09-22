@@ -172,6 +172,7 @@ internal object BreenoHooks {
                 logger = logger,
                 cacheDirectory = File(applicationInfo.dataDir, "cache/eta-dexkit"),
                 moduleNativeLibraryDirectory = module.moduleApplicationInfo.nativeLibraryDir,
+                moduleApkPath = module.moduleApplicationInfo.sourceDir,
             ).use { BreenoTargets.resolve(classLoader, it) }
             protocolTargets = targets
             if (targets.missingBridgeMethods.isNotEmpty()) {

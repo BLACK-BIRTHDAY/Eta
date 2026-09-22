@@ -4,6 +4,7 @@ import android.content.Context
 import android.database.Cursor
 import io.github.mangi.eta.agent.tool.ColorOsMemoryReadDatabase
 import io.github.mangi.eta.core.DexKitTargets
+import io.github.mangi.eta.core.HookSupport
 import io.github.mangi.eta.core.ModuleLogger
 import io.github.mangi.eta.core.safeLogType
 import java.io.File
@@ -32,7 +33,15 @@ internal class ColorOsMemoryHostDatabase private constructor(
     }
 
     companion object {
-        fun resolve(targets: DexKitTargets, logger: ModuleLogger): ColorOsMemoryHostDatabase? {
+        fun resolve(
+            classLoader: ClassLoader,
+            targets: DexKitTargets,
+            logger: ModuleLogger,
+        ): ColorOsMemoryHostDatabase? {
+            // 已验证的 Room 类型保留了类名，结构满足时不必依赖原生 DEX 解析。
+            HookSupport.findClassOrNull(classLoader, "com.oplus.aimemory.db.MemoryDatabase")
+                ?.let { resolveClass(it, logger) }
+                ?.let { return it }
             val factory = targets.findMethod(
                 key = "coloros-memory.database-factory.v1",
                 validate = { method ->
@@ -48,8 +57,14 @@ internal class ColorOsMemoryHostDatabase private constructor(
                     }
                 }
             } ?: return null
+            return resolveClass(factory.returnType, logger)
+        }
+
+        private fun resolveClass(databaseClass: Class<*>, logger: ModuleLogger): ColorOsMemoryHostDatabase? {
             return try {
-                val databaseClass = factory.returnType
+                val isRoomDatabase = generateSequence(databaseClass) { it.superclass }
+                    .any { it.name == "androidx.room.RoomDatabase" }
+                if (!isRoomDatabase) return null
                 val instanceField = databaseClass.declaredFields.singleOrNull {
                     Modifier.isStatic(it.modifiers) && it.type == databaseClass
                 } ?: return null
