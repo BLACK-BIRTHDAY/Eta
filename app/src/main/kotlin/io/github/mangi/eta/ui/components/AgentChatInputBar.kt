@@ -113,6 +113,7 @@ private val InputContainerShape = RoundedCornerShape(20.dp)
 internal fun AgentChatInputBar(
     input: String,
     modelPickerState: AgentModelPickerUiState,
+    isCompacting: Boolean,
     contextUsage: AgentContextUsageUi,
     showContextUsage: Boolean,
     isStreaming: Boolean,
@@ -122,7 +123,10 @@ internal fun AgentChatInputBar(
     pendingFileReferences: List<PendingFileReferenceUi>,
     isEditingMessage: Boolean,
     editHasLaterTurns: Boolean,
+    preserveFollowingMessages: Boolean,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
+    onCompactContext: () -> Unit,
+    canCompactContext: Boolean,
     onModelSelected: (String) -> Unit,
     onSubmit: (String) -> Unit,
     onStop: () -> Unit,
@@ -175,8 +179,8 @@ internal fun AgentChatInputBar(
         wasEditingMessage = isEditingMessage
     }
 
-    LaunchedEffect(isStreaming) {
-        if (isStreaming) {
+    LaunchedEffect(isStreaming, isCompacting) {
+        if (isStreaming && !isCompacting) {
             // 发送按钮、建议词和外部恢复都可能启动流式任务，统一清掉本地草稿。
             textFieldState.clearText()
         }
@@ -216,7 +220,9 @@ internal fun AgentChatInputBar(
             exit = fadeOut(tween(100)) + shrinkVertically(tween(140)),
         ) {
             Text(
-                text = if (editHasLaterTurns) {
+                text = if (preserveFollowingMessages) {
+                    "保存后原位更新这条消息，并保留后续对话"
+                } else if (editHasLaterTurns) {
                     stringResource(R.string.chat_edit_replace_later)
                 } else {
                     stringResource(R.string.chat_edit_replace_message)
@@ -359,7 +365,7 @@ internal fun AgentChatInputBar(
                         Spacer(modifier = Modifier.weight(1f))
 
                         if (showContextUsage) {
-                            AgentContextUsageButton(usage = contextUsage)
+                            AgentContextUsageButton(usage = contextUsage, onCompact = onCompactContext, canCompact = canCompactContext && !isStreaming)
 
                             Spacer(modifier = Modifier.width(2.dp))
                         }
@@ -422,7 +428,11 @@ internal fun AgentChatInputBar(
                                         } else {
                                             Icons.Rounded.ArrowUpward
                                         },
-                                        contentDescription = if (streaming) stringResource(R.string.chat_stop) else stringResource(R.string.chat_send),
+                                        contentDescription = when {
+                                            streaming -> stringResource(R.string.chat_stop)
+                                            isEditingMessage && preserveFollowingMessages -> "保存消息"
+                                            else -> stringResource(R.string.chat_send)
+                                        },
                                         modifier = Modifier.size(
                                             if (streaming) StopIconSize else SendIconSize
                                         ),

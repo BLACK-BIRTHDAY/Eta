@@ -33,8 +33,8 @@ android {
         minSdk = 34
         targetSdk = 36
         // versionCode 规则：yyyyMMdd + 两位当日序号（01 起），发版时随 versionName 一起手动递增。
-        versionCode = 2026090701
-        versionName = "3.0.2"
+        versionCode = 2026092301
+        versionName = "3.0.5"
     }
 
     signingConfigs {
@@ -110,6 +110,7 @@ dependencies {
     // UI 侧 RemotePreferences 写入桥：通过 XposedService 将配置提交到 LSPosed 数据库；
     // Hook 侧用 XposedInterface.getRemotePreferences 读取当前进程持有的配置缓存。
     implementation(libs.libxposed.service)
+    implementation(libs.dexkit)
     implementation(libs.miuix.ui)
     implementation(libs.miuix.blur)
     implementation(libs.miuix.nav)

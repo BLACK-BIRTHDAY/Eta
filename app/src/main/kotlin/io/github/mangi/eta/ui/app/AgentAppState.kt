@@ -1,5 +1,7 @@
 package io.github.mangi.eta.ui.app
 
+import io.github.mangi.eta.agent.model.AgentContextSnapshot
+
 import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.Context
@@ -26,6 +28,12 @@ import io.github.mangi.eta.agent.model.AgentFileReferenceKind
 import io.github.mangi.eta.agent.model.AgentFileReferencePolicy
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.agent.roleplay.RoleplayBinding
+import io.github.mangi.eta.agent.roleplay.CharacterMacros
+import io.github.mangi.eta.agent.roleplay.CharacterCardCodec
+import io.github.mangi.eta.agent.roleplay.RoleplayMessageLink
+import io.github.mangi.eta.agent.roleplay.RoleplayMessageState
+import io.github.mangi.eta.data.repository.CharacterRepository
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentExecutionService
 import io.github.mangi.eta.agent.runtime.AgentExternalArchivePayload
@@ -77,6 +85,7 @@ import io.github.mangi.eta.ui.model.ToolGroupUi
 import io.github.mangi.eta.ui.model.ToolItemUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.model.canDeleteUserSkill
+import io.github.mangi.eta.ui.model.contentMatches
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.UUID
@@ -472,10 +481,20 @@ internal class AgentAppState(
             activeRunId = activeRunId,
             locallyObservedRunId = locallyObservedRunId,
         )
+        val orphanRewrites = if (activeStateKnown && terminalStateKnown) withContext(Dispatchers.Main) {
+            val observed = checkpoints.mapTo(mutableSetOf()) { it.runId }.apply {
+                addAll(completedRuns.map { it.result.runId })
+                activeRunId?.let(::add)
+                currentRunId?.let(::add)
+            }
+            conversationsById.flatMap { (id, state) ->
+                state.roleplayMessages.pendingRewrites.keys.filterNot { it in observed }.map { id to it }
+            }
+        } else emptyList()
         if (
             plan.completed.isEmpty() &&
             plan.interrupted.isEmpty() &&
-            plan.reattach == null
+            plan.reattach == null && orphanRewrites.isEmpty()
         ) {
             return
         }
@@ -520,6 +539,14 @@ internal class AgentAppState(
                     interrupted = true,
                 ) || stateChanged
             }
+            orphanRewrites.forEach { (conversationId, runId) ->
+                conversationsById[conversationId]?.let { state ->
+                    updateConversation(conversationId, RoleplayConversationReducer.applyRewrite(state, runId,
+                        AgentRuntimeWire.RunResult(runId, false, "", "重新生成已中断，原回复已保留。",
+                            operation = AgentRuntimeWire.OP_REWRITE_REPLY)))
+                    stateChanged = true
+                }
+            }
             if (stateChanged) refreshConversationSummaries()
             stateChanged || acknowledgeAfterSave.isNotEmpty() || removeAfterSave.isNotEmpty()
         }
@@ -551,9 +578,17 @@ internal class AgentAppState(
             .conversationId
         val existing = conversationsById[conversationId] ?: return false
         if (AgentRuntimeHistoryReducer.wasApplied(existing, runId)) return false
+        if (checkpoint.operation == AgentRuntimeWire.OP_REWRITE_REPLY) {
+            val restored = RoleplayConversationReducer.restorePendingRewrite(existing, runId, checkpoint.rewriteTargetMessageId)
+            if (interrupted) updateConversation(conversationId, RoleplayConversationReducer.applyRewrite(
+                restored, runId, AgentRuntimeWire.RunResult(runId, false, "", "重新生成已中断，原回复已保留。",
+                    operation = AgentRuntimeWire.OP_REWRITE_REPLY, rewriteTargetMessageId = checkpoint.rewriteTargetMessageId),
+            )) else updateConversation(conversationId, restored)
+            return interrupted || restored != existing
+        }
 
         runConversationIds[runId] = conversationId
-        updateConversation(conversationId, existing.copy(isStreaming = true))
+        updateConversation(conversationId, existing.copy(isStreaming = true, isCompacting = checkpoint.operation == AgentRuntimeWire.OP_COMPACT))
         restoreRunEvents(runId, checkpoint.events)
         flushPendingRunDelta(runId)
         updateRunTrace(runId) { messages ->
@@ -562,7 +597,7 @@ internal class AgentAppState(
             if (interrupted) {
                 val interruptedTools = runMessageProjector.interruptRunningTools(
                     reason = appContext.getString(R.string.system_notice_interrupted),
-                    messages = finalizedText,
+                    messages = runMessageProjector.finishContextCompaction(runId, finalizedText, "上下文压缩已中断"),
                 )
                 val noticeId = "interrupted-$runId"
                 if (interruptedTools.any { it.id == noticeId }) {
@@ -576,6 +611,12 @@ internal class AgentAppState(
             } else {
                 runMessageProjector.finalizeRun(runId, finalizedText)
             }
+        }
+        if (interrupted && (checkpoint.contextSnapshot != null || checkpoint.transcript.isNotEmpty())) {
+            applyConversationHistoryResult(runId, checkpoint.transcript, checkpoint.contextSnapshot, true)
+        }
+        conversationsById[conversationId]?.let { state ->
+            updateConversation(conversationId, RoleplayConversationReducer.linkRun(state, runId))
         }
         setConversationStreaming(runId, false)
         runMessageProjector.clearRun(runId)
@@ -594,7 +635,10 @@ internal class AgentAppState(
         if (activeRunJobs.containsKey(runId) || AgentRuntimeHistoryReducer.wasApplied(existing, runId)) return
 
         runConversationIds[runId] = conversationId
-        updateConversation(conversationId, existing.copy(isStreaming = true))
+        val restored = if (checkpoint.operation == AgentRuntimeWire.OP_REWRITE_REPLY) {
+            RoleplayConversationReducer.restorePendingRewrite(existing, runId, checkpoint.rewriteTargetMessageId)
+        } else existing
+        updateConversation(conversationId, restored.copy(isStreaming = true, isCompacting = checkpoint.operation == AgentRuntimeWire.OP_COMPACT))
         refreshConversationSummaries()
         val job = scope.launch(Dispatchers.IO) {
             val client = AgentRuntimeClient(appContext, AndroidAgentLogger)
@@ -763,6 +807,7 @@ internal class AgentAppState(
 
     fun updateSearchQuery(query: String) {
         conversationPaneState = conversationPaneState.copy(searchQuery = query)
+        refreshConversationSummaries()
     }
 
     fun selectConversation(conversationId: String) {
@@ -793,6 +838,42 @@ internal class AgentAppState(
             searchQuery = "",
         )
         refreshConversationSummaries()
+    }
+
+    fun startCharacterConversation(binding: RoleplayBinding, greeting: String) {
+        createConversation()
+        val id = newConversationId()
+        val greetingId = "greeting-$id"
+        val text = CharacterMacros.expand(
+            text = greeting, card = CharacterCardCodec.decodeJson(binding.cardSnapshotJson),
+            userName = binding.userName, userDescription = binding.userDescription,
+        )
+        val transcript = if (text.isBlank()) emptyList() else listOf(
+            AgentModelClient.ConversationMessage(role = "assistant", content = text, messageId = greetingId),
+        )
+        selectedConversationId = id
+        homeState = emptyChatState(defaultThinkingEnabled).withCurrentReasoningCapabilities().copy(
+            roleplay = binding,
+            history = transcript,
+            journal = transcript,
+            messages = if (text.isBlank()) emptyList() else listOf(AgentMessageUi(greetingId, text, characterEditable = true)),
+            roleplayMessages = RoleplayMessageState(links = if (text.isBlank()) emptyMap() else mapOf(
+                greetingId to RoleplayMessageLink(greetingId),
+            )),
+        )
+        conversationTitles = conversationTitles + (id to binding.characterName)
+        updateConversation(id, homeState)
+        conversationPaneState = conversationPaneState.copy(selectedConversationId = id, searchQuery = "")
+        refreshConversationSummaries()
+        persistConversations()
+    }
+
+    fun selectReplyCandidate(messageId: String, index: Int) {
+        if (homeState.isStreaming || homeState.messageEdit != null) return
+        val updated = RoleplayConversationReducer.select(homeState, messageId, index) ?: return
+        updateCurrentConversation(updated)
+        refreshConversationSummaries()
+        persistConversations()
     }
 
     fun deleteConversation(conversationId: String) {
@@ -826,7 +907,49 @@ internal class AgentAppState(
         persistConversations()
     }
 
+    fun exportConversationMarkdown(conversationId: String): String? {
+        val state = conversationsById[conversationId] ?: return null
+        val title = conversationTitles[conversationId]?.takeIf { it.isNotBlank() }
+            ?: appContext.getString(R.string.conversation_unnamed)
+        return ConversationMarkdownExporter.export(
+            title = title,
+            messages = state.messages,
+            labels = ConversationMarkdownExporter.Labels(
+                user = appContext.getString(R.string.conversation_export_user),
+                assistant = appContext.getString(R.string.conversation_export_assistant),
+                thinking = appContext.getString(R.string.conversation_export_thinking),
+                toolLineFormat = appContext.getString(R.string.conversation_export_tool_line),
+                toolsLineFormat = appContext.getString(R.string.conversation_export_tools_line),
+                argumentsFormat = appContext.getString(R.string.conversation_export_tool_arguments),
+                resultFormat = appContext.getString(R.string.conversation_export_tool_result),
+                imagesFormat = appContext.getString(R.string.conversation_export_images),
+                toolStatusRunning = appContext.getString(R.string.tool_status_running),
+                toolStatusSuccess = appContext.getString(R.string.tool_status_success),
+                toolStatusFailed = appContext.getString(R.string.tool_status_failed),
+                toolStatusUnknown = appContext.getString(R.string.tool_status_unknown),
+                noticeStopped = noticeText(SystemNoticeCode.Stopped),
+                noticeEmptyResult = noticeText(SystemNoticeCode.EmptyResult),
+                noticeModelRetry = noticeText(SystemNoticeCode.ModelRetry),
+                noticeContextCompaction = noticeText(SystemNoticeCode.ContextCompaction),
+                noticeRuntimeFailed = noticeText(SystemNoticeCode.RuntimeFailed),
+                noticeInterrupted = noticeText(SystemNoticeCode.Interrupted),
+            ),
+        )
+    }
+
+    private fun noticeText(code: SystemNoticeCode): String = appContext.getString(
+        when (code) {
+            SystemNoticeCode.Stopped -> R.string.system_notice_stopped
+            SystemNoticeCode.EmptyResult -> R.string.system_notice_empty_result
+            SystemNoticeCode.ContextCompaction -> R.string.context_compaction
+            SystemNoticeCode.ModelRetry -> R.string.system_notice_model_retry
+            SystemNoticeCode.RuntimeFailed -> R.string.system_notice_runtime_failed
+            SystemNoticeCode.Interrupted -> R.string.system_notice_interrupted
+        },
+    )
+
     fun sendCurrentMessage(submittedText: String? = null) {
+        if (homeState.isCompacting) return
         val prompt = (submittedText ?: homeState.input).trim()
         val pendingImages = homeState.pendingImages
         val pendingFileReferences = homeState.pendingFileReferences
@@ -834,6 +957,18 @@ internal class AgentAppState(
             (prompt.isBlank() && pendingImages.isEmpty() && pendingFileReferences.isEmpty()) ||
             homeState.isStreaming
         ) {
+            return
+        }
+        homeState.messageEdit?.takeIf { it.preserveFollowingMessages }?.let { edit ->
+            val updated = RoleplayConversationReducer.edit(homeState, edit.targetMessageId, prompt) ?: return
+            updateCurrentConversation(updated.copy(
+                input = edit.previousInput,
+                pendingImages = edit.previousImages,
+                pendingFileReferences = edit.previousFileReferences,
+                messageEdit = null,
+            ))
+            refreshConversationSummaries()
+            persistConversations()
             return
         }
         val fileReferences = pendingFileReferences.map { it.reference }
@@ -884,7 +1019,7 @@ internal class AgentAppState(
         val userHistoryMessage = AgentModelClient.buildUserHistoryMessage(
             text = runtimePrompt,
             images = pendingImages.toHistoryImages(),
-        )
+        ).copy(messageId = userMessage.id)
 
         val currentTitle = conversationTitles[conversationId]
         val oldAutoTitle = editBoundary
@@ -913,6 +1048,7 @@ internal class AgentAppState(
             userHistoryMessage = userHistoryMessage,
             messages = messages,
             state = homeState.copy(
+                journal = editBoundary?.journalPrefix ?: homeState.journal,
                 input = "",
                 pendingImages = emptyList(),
                 pendingFileReferences = emptyList(),
@@ -924,6 +1060,20 @@ internal class AgentAppState(
 
     fun beginMessageEdit(messageId: String) {
         if (homeState.isStreaming || homeState.messageEdit != null) return
+        if (homeState.roleplay != null) {
+            if (messageId !in homeState.roleplayMessages.links) return
+            val content = when (val message = homeState.messages.firstOrNull { it.id == messageId }) {
+                is UserMessageUi -> message.content
+                is AgentMessageUi -> message.content
+                else -> return
+            }
+            updateCurrentConversation(homeState.copy(
+                input = content, pendingImages = emptyList(), pendingFileReferences = emptyList(),
+                messageEdit = MessageEditUiState(messageId, homeState.input, homeState.pendingImages,
+                    homeState.pendingFileReferences, hasLaterTurns = false, preserveFollowingMessages = true),
+            ))
+            return
+        }
         val boundary = AgentConversationRevisionReducer.boundary(homeState, messageId) ?: return
         val images = boundary.userMessage.images.mapIndexed { index, dataUrl ->
             PendingImageUi(
@@ -970,14 +1120,36 @@ internal class AgentAppState(
     }
 
     fun messageRevisionImpact(messageId: String): MessageRevisionImpact? =
-        AgentConversationRevisionReducer.boundary(homeState, messageId)?.let { boundary ->
+        if (homeState.roleplay != null && messageId.startsWith("greeting-")) MessageRevisionImpact(0)
+        else AgentConversationRevisionReducer.boundary(homeState, messageId)?.let { boundary ->
             MessageRevisionImpact(laterTurnCount = boundary.laterTurnCount)
         }
 
     fun deleteMessageTurn(messageId: String) {
         if (homeState.isStreaming || homeState.messageEdit != null) return
         val conversationId = selectedConversationId ?: return
-        val revised = AgentConversationRevisionReducer.deleteFromTurn(homeState, messageId) ?: return
+        if (homeState.roleplay != null && messageId.startsWith("greeting-")) {
+            val originalId = homeState.roleplayMessages.links[messageId]?.transcriptMessageId ?: return
+            val updated = homeState.copy(
+                messages = homeState.messages.filterNot { it.id == messageId },
+                journal = homeState.journal.filterNot { it.messageId == originalId },
+                history = homeState.history.filterNot { it.messageId == originalId || it.contextSummary },
+                roleplayMessages = homeState.roleplayMessages.copy(
+                    links = homeState.roleplayMessages.links - messageId,
+                    revisions = homeState.roleplayMessages.revisions - messageId,
+                ),
+            )
+            updateConversation(conversationId, updated.copy(history = RoleplayConversationReducer.projectJournal(updated)))
+            refreshConversationSummaries()
+            persistConversations()
+            return
+        }
+        val removed = AgentConversationRevisionReducer.deleteFromTurn(homeState, messageId) ?: return
+        val retainedIds = removed.messages.mapTo(mutableSetOf()) { it.id }
+        val revised = if (removed.roleplay == null) removed else removed.copy(roleplayMessages = removed.roleplayMessages.copy(
+            links = removed.roleplayMessages.links.filterKeys { it in retainedIds },
+            revisions = removed.roleplayMessages.revisions.filterKeys { it in retainedIds },
+        ))
         if (revised.messages.isEmpty()) {
             conversationsById = conversationsById - conversationId
             conversationTitles = conversationTitles - conversationId
@@ -998,6 +1170,19 @@ internal class AgentAppState(
     fun regenerateMessage(messageId: String) {
         if (homeState.isStreaming || homeState.messageEdit != null) return
         val conversationId = selectedConversationId ?: return
+        if (homeState.roleplay != null) {
+            val target = homeState.messages.filterIsInstance<AgentMessageUi>().firstOrNull { it.id == messageId } ?: return
+            val prefix = RoleplayConversationReducer.rewriteHistory(homeState, messageId) ?: return
+            val runId = "run-${UUID.randomUUID()}"
+            launchConversationRun(
+                conversationId, runId, target.content, emptyList(), prefix, null, homeState.messages,
+                homeState.copy(roleplayMessages = homeState.roleplayMessages.copy(
+                    pendingRewrites = homeState.roleplayMessages.pendingRewrites + (runId to messageId),
+                )), homeState.reasoningEffort, operation = AgentRuntimeWire.OP_REWRITE_REPLY,
+                rewriteTargetMessageId = messageId,
+            )
+            return
+        }
         val boundary = AgentConversationRevisionReducer.boundary(homeState, messageId) ?: return
         val images = boundary.userMessage.images.mapIndexed { index, dataUrl ->
             PendingImageUi(
@@ -1021,8 +1206,20 @@ internal class AgentAppState(
             history = boundary.historyPrefix,
             userHistoryMessage = userHistoryMessage,
             messages = homeState.messages.take(boundary.userMessageIndex + 1),
-            state = homeState,
+            state = homeState.copy(journal = boundary.journalPrefix),
             reasoningEffort = homeState.reasoningEffort,
+        )
+    }
+
+    fun compactCurrentContext() {
+        val conversationId = selectedConversationId ?: return
+        if (currentRunId != null || !homeState.canCompactContext || modelPickerState.isChanging) return
+        launchConversationRun(
+            conversationId = conversationId,
+            runId = java.util.UUID.randomUUID().toString(),
+            prompt = "", images = emptyList(), history = homeState.history,
+            userHistoryMessage = null, messages = homeState.messages, state = homeState,
+            reasoningEffort = homeState.reasoningEffort, operation = AgentRuntimeWire.OP_COMPACT,
         )
     }
 
@@ -1032,10 +1229,12 @@ internal class AgentAppState(
         prompt: String,
         images: List<PendingImageUi>,
         history: List<AgentModelClient.ConversationMessage>,
-        userHistoryMessage: AgentModelClient.ConversationMessage,
+        userHistoryMessage: AgentModelClient.ConversationMessage?,
         messages: List<AgentChatMessageUi>,
         state: AgentChatHomeUiState,
         reasoningEffort: ReasoningEffort,
+        operation: String = AgentRuntimeWire.OP_CHAT,
+        rewriteTargetMessageId: String? = null,
     ) {
         runConversationIds[runId] = conversationId
 
@@ -1043,7 +1242,9 @@ internal class AgentAppState(
             conversationId,
             state.copy(
                 isStreaming = true,
-                history = history + userHistoryMessage,
+                history = if (operation == AgentRuntimeWire.OP_REWRITE_REPLY) state.history else history + listOfNotNull(userHistoryMessage),
+                journal = state.journal.ifEmpty { state.history } + listOfNotNull(userHistoryMessage),
+                isCompacting = operation == AgentRuntimeWire.OP_COMPACT,
                 messages = messages,
                 messageEdit = null,
             )
@@ -1066,6 +1267,35 @@ internal class AgentAppState(
                     )
                 }
                 return@launch
+            }
+            state.roleplay?.let { binding ->
+                try {
+                    CharacterRepository.initialize(appContext)
+                    CharacterRepository.get(binding.characterId)?.let { profile ->
+                        val updatedBinding = binding.copy(
+                            cardSnapshotJson = CharacterCardCodec.encodeJson(profile.card),
+                            characterName = profile.card.name, avatarPath = profile.avatarPath,
+                        )
+                        val saved = withContext(Dispatchers.Main) {
+                            conversationsById[conversationId]?.let { current ->
+                                updateConversation(conversationId, current.copy(roleplay = updatedBinding))
+                            }
+                            persistConversations()
+                        }.await()
+                        check(saved) { "无法保存角色会话设定" }
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    AndroidAgentLogger.warnThrottled("character_run_prepare_failed") {
+                        "Character preparation failed: type=${failure.safeLogType()}"
+                    }
+                    withContext(Dispatchers.Main) {
+                        applyRunResult(runId, AgentRuntimeWire.RunResult(runId, false, "", "无法读取或保存角色设定，请重试。",
+                            operation = operation, rewriteTargetMessageId = rewriteTargetMessageId))
+                    }
+                    return@launch
+                }
             }
             val permittedReasoningEffort = if (
                 agentBooleanForUi(Prefs.Keys.AGENT_THINKING_ENABLED)
@@ -1107,9 +1337,17 @@ internal class AgentAppState(
                     source = "user_attach",
                 )
             }
+            if (withContext(Dispatchers.Main) { runId in stopRequestedRunIds }) {
+                withContext(Dispatchers.Main) {
+                    applyRunResult(runId, AgentRuntimeWire.RunResult(runId, false, "", "已停止", operation = operation))
+                }
+                return@launch
+            }
             val result = runInterruptible {
                 AgentRuntimeClient(appContext, AndroidAgentLogger).run(
                     request = AgentRuntimeWire.RunRequest(
+                        operation = operation,
+                        rewriteTargetMessageId = rewriteTargetMessageId,
                         runId = runId,
                         prompt = prompt,
                         config = config,
@@ -1357,27 +1595,19 @@ internal class AgentAppState(
             AgentFileReferenceGateway.Error.ValidationTimedOut -> appContext.getString(R.string.state_ui_path_verification_timed_out_please_try_again_703687)
         }
 
+    private val stopRequestedRunIds = mutableSetOf<String>()
+
     fun stopCurrentRun() {
         val runId = selectedConversationId?.let { convId ->
             runConversationIds.entries.firstOrNull { it.value == convId }?.key
         } ?: activeRunJobs.keys.firstOrNull() ?: return
+        if (!stopRequestedRunIds.add(runId)) return
         val job = activeRunJobs.remove(runId)
         job?.cancel()
         flushPendingRunDelta(runId)
         scope.launch(Dispatchers.IO) {
             AgentRuntimeClient(appContext, AndroidAgentLogger).cancelRun(runId)
         }
-        updateRunTrace(runId) { messages ->
-            val finalizedThinking = runMessageProjector.finalizeThinking(runId, messages)
-            val finalizedText = runMessageProjector.finalizeText(runId, finalizedThinking)
-            runMessageProjector.failRunningTools(SYNTHETIC_STATUS_STOPPED, finalizedText)
-        }
-        replaceLatestAssistantWithNotice(runId, SystemNoticeCode.Stopped)
-        setConversationStreaming(runId, false)
-        runMessageProjector.clearRun(runId)
-        runConversationIds.remove(runId)
-        refreshConversationSummaries()
-        persistConversations()
     }
 
     private var permissionRefreshJob: Job? = null
@@ -1590,7 +1820,11 @@ internal class AgentAppState(
         }
     }
 
+    private fun isReplyRewrite(runId: String): Boolean =
+        conversationsById[conversationIdForRun(runId)]?.roleplayMessages?.pendingRewrites?.containsKey(runId) == true
+
     private fun restoreRunEvents(runId: String, events: List<AgentEvent>) {
+        if (isReplyRewrite(runId)) return
         // 恢复是完整快照：先清除同一 run 的旧投影，再一次发布，避免历史增量重复追加
         // 或中途的 Running 状态使已结束的思考重新展开、播放动画。
         Snapshot.withMutableSnapshot {
@@ -1868,6 +2102,12 @@ internal class AgentAppState(
         event: AgentEvent,
         persistSupplement: Boolean = true,
     ) {
+        if (isReplyRewrite(runId)) {
+            if (event is AgentEvent.RunStarted && runId in stopRequestedRunIds) scope.launch(Dispatchers.IO) {
+                AgentRuntimeClient(appContext, AndroidAgentLogger).cancelRun(runId)
+            }
+            return
+        }
         when (event) {
             is AgentEvent.AssistantBlockStart -> {
                 updateRunTrace(runId) { messages ->
@@ -1965,6 +2205,17 @@ internal class AgentAppState(
                 }
             }
 
+            is AgentEvent.ContextCompaction -> {
+                updateMessages(runId) { messages ->
+                    val id = "assistant-$runId-compaction-${event.operationId}"
+                    messages.filterNot { it.id == id } + SystemNoticeMessageUi(
+                        id = id, code = SystemNoticeCode.ContextCompaction, detail = event.displayMessage,
+                        contextTokens = event.tokensAfter,
+                        running = event.phase == AgentEvent.ContextCompaction.PHASE_STARTED,
+                    )
+                }
+            }
+
             is AgentEvent.ModelRetryScheduled -> {
                 updateRunTrace(runId) { messages ->
                     runMessageProjector.scheduleModelRetry(runId, event, messages)
@@ -1999,7 +2250,11 @@ internal class AgentAppState(
                 }
             }
 
-            is AgentEvent.RunStarted,
+            is AgentEvent.RunStarted -> {
+                if (runId in stopRequestedRunIds) scope.launch(Dispatchers.IO) {
+                    AgentRuntimeClient(appContext, AndroidAgentLogger).cancelRun(runId)
+                }
+            }
             is AgentEvent.ProviderRequestStarted,
             is AgentEvent.ProviderResponseStarted,
             is AgentEvent.ToolImagesAttached,
@@ -2015,9 +2270,44 @@ internal class AgentAppState(
     ) {
         flushPendingRunDelta(runId)
         activeRunJobs.remove(runId)
-        updateRunTrace(runId) { messages -> runMessageProjector.finalizeRun(runId, messages) }
-        applyConversationHistoryResult(runId, result.transcript)
+        val rewriting = result.operation == AgentRuntimeWire.OP_REWRITE_REPLY || isReplyRewrite(runId)
+        stopRequestedRunIds.remove(runId)
+        if (runId == currentRunId) {
+            currentRunId = null
+            currentRunJob = null
+        }
+        if (rewriting) {
+            val conversationId = conversationIdForRun(runId)
+            val existing = conversationsById[conversationId]
+            if (conversationId != null && existing != null && result.contextSnapshotRef.isBlank()) {
+                updateConversation(conversationId, RoleplayConversationReducer.applyRewrite(existing, runId, result))
+            } else setConversationStreaming(runId, false)
+            runMessageProjector.clearRun(runId)
+            runConversationIds.remove(runId)
+            refreshConversationSummaries()
+            persistConversations(onSaved = if (acknowledgeRuntimeResult && result.contextSnapshotRef.isBlank()) {
+                { AgentRuntimeClient(appContext, AndroidAgentLogger).ackResult(runId) }
+            } else null)
+            return
+        }
+        updateRunTrace(runId) { messages ->
+            runMessageProjector.finishContextCompaction(runId,
+                runMessageProjector.finalizeRun(runId, messages),
+                if (result.ok) "上下文压缩完成" else result.error ?: "上下文压缩已停止")
+        }
+        if (result.contextSnapshotRef.isBlank()) {
+            applyConversationHistoryResult(runId, result.transcript, result.contextSnapshot, !result.ok || result.contextSnapshot != null)
+        }
         when {
+            result.operation == AgentRuntimeWire.OP_COMPACT ||
+                conversationsById[conversationIdForRun(runId)]?.isCompacting == true -> updateMessages(runId) { messages ->
+                    AgentRunMessageProjector.mergeCompactionResultNotice(
+                        runId = runId,
+                        messages = messages,
+                        ok = result.ok,
+                        detail = if (result.ok) "上下文压缩完成" else result.error ?: "上下文压缩失败",
+                    )
+                }
             result.ok && result.content.isNotBlank() -> completeLatestAssistantMessage(
                 runId,
                 fallbackContent = result.content,
@@ -2032,11 +2322,14 @@ internal class AgentAppState(
             )
         }
         setConversationStreaming(runId, false)
+        conversationIdForRun(runId)?.let { id -> conversationsById[id]?.let {
+            updateConversation(id, RoleplayConversationReducer.linkRun(it, runId))
+        } }
         runMessageProjector.clearRun(runId)
         runConversationIds.remove(runId)
         refreshConversationSummaries()
         persistConversations(
-            onSaved = if (acknowledgeRuntimeResult) {
+            onSaved = if (acknowledgeRuntimeResult && result.contextSnapshotRef.isBlank()) {
                 {
                     AgentRuntimeClient(appContext, AndroidAgentLogger).ackResult(runId)
                 }
@@ -2190,10 +2483,12 @@ internal class AgentAppState(
     private fun applyConversationHistoryResult(
         runId: String,
         additions: List<AgentModelClient.ConversationMessage>,
+        snapshot: AgentContextSnapshot? = null,
+        retainPendingSupplements: Boolean = snapshot != null,
     ) {
         val conversationId = conversationIdForRun(runId) ?: return
         val state = conversationsById[conversationId] ?: return
-        val outcome = AgentRuntimeHistoryReducer.apply(state, runId, additions)
+        val outcome = AgentRuntimeHistoryReducer.apply(state, runId, additions, snapshot, retainPendingSupplements)
         if (!outcome.alreadyApplied) updateConversation(conversationId, outcome.state)
     }
 
@@ -2237,7 +2532,7 @@ internal class AgentAppState(
     private fun setConversationStreaming(runId: String, isStreaming: Boolean) {
         val conversationId = conversationIdForRun(runId) ?: return
         val state = conversationsById[conversationId] ?: return
-        updateConversation(conversationId, state.copy(isStreaming = isStreaming))
+        updateConversation(conversationId, state.copy(isStreaming = isStreaming, isCompacting = state.isCompacting && isStreaming))
     }
 
     private fun conversationIdForRun(runId: String): String? = runConversationIds[runId]
@@ -2271,15 +2566,7 @@ internal class AgentAppState(
                         is AgentMessageUi -> lastMessage.content.ifBlank {
                             appContext.getString(R.string.conversation_preview_reasoning)
                         }
-                        is SystemNoticeMessageUi -> appContext.getString(
-                            when (lastMessage.code) {
-                                SystemNoticeCode.Stopped -> R.string.system_notice_stopped
-                                SystemNoticeCode.EmptyResult -> R.string.system_notice_empty_result
-                                SystemNoticeCode.ModelRetry -> R.string.system_notice_model_retry
-                                SystemNoticeCode.RuntimeFailed -> R.string.system_notice_runtime_failed
-                                SystemNoticeCode.Interrupted -> R.string.system_notice_interrupted
-                            },
-                        )
+                        is SystemNoticeMessageUi -> noticeText(lastMessage.code)
                         is ThinkingMessageUi -> appContext.getString(R.string.conversation_preview_reasoning)
                         is ToolActivityMessageUi -> appContext.getString(
                             R.string.conversation_preview_tool_call,
@@ -2302,6 +2589,7 @@ internal class AgentAppState(
                     },
                     updatedAtMillis = conversationUpdatedAt[id] ?: 0L,
                     mode = ConversationModeUi.Chat,
+                    characterName = state.roleplay?.characterName,
                     isActiveRun = state.isStreaming,
                 )
             }
@@ -2311,12 +2599,28 @@ internal class AgentAppState(
             conversations = if (query.isBlank()) {
                 summaries
             } else {
-                summaries.filter {
-                    it.title.contains(query, ignoreCase = true) ||
-                        it.preview.contains(query, ignoreCase = true)
+                contentMatchCache.keys.retainAll(conversationsById.keys)
+                summaries.filter { summary ->
+                    summary.title.contains(query, ignoreCase = true) ||
+                        summary.preview.contains(query, ignoreCase = true) ||
+                        conversationContentMatches(summary.id, query)
                 }
             },
         )
+    }
+
+    // 内容匹配按（查询词, 会话状态引用）缓存：刷新摘要时未变化的会话不重复全文扫描。
+    private val contentMatchCache = mutableMapOf<String, ContentMatchCacheEntry>()
+
+    private fun conversationContentMatches(conversationId: String, query: String): Boolean {
+        val state = conversationsById[conversationId] ?: return false
+        val cached = contentMatchCache[conversationId]
+        if (cached != null && cached.query == query && cached.state === state) {
+            return cached.matches
+        }
+        val matches = state.contentMatches(query) { code -> noticeText(code) }
+        contentMatchCache[conversationId] = ContentMatchCacheEntry(query, state, matches)
+        return matches
     }
 
     private fun persistConversations(onSaved: (() -> Unit)? = null): Deferred<Boolean> {
@@ -2363,6 +2667,7 @@ internal class AgentAppState(
             AgentChatHomeUiState(
                 messages = emptyList(),
                 history = emptyList(),
+                journal = emptyList(),
                 input = "",
                 isStreaming = false,
                 thinkingEnabled = thinkingEnabled,
@@ -2374,6 +2679,12 @@ internal class AgentAppState(
 
 internal data class MessageRevisionImpact(
     val laterTurnCount: Int,
+)
+
+private data class ContentMatchCacheEntry(
+    val query: String,
+    val state: AgentChatHomeUiState,
+    val matches: Boolean,
 )
 
 private const val EXTERNAL_ARCHIVE_CONVERSATION_PREFIX = "archive-"
@@ -2519,6 +2830,8 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                 tools = listOf(
                     ToolItemUi("memory_get", context.getString(R.string.tool_ui_read_memory_979135), context.getString(R.string.tool_ui_paged_to_read_or_retrieve_long_term_memory_in_me_88afc4)),
                     ToolItemUi("memory_write", context.getString(R.string.tool_ui_organize_memory_2b08eb), context.getString(R.string.tool_ui_partially_update_append_or_clear_long_term_memor_c1bab6)),
+                    ToolItemUi("character_memory_get", "读取剧情记忆", "仅角色会话可用，读取当前角色的长期剧情和关系。"),
+                    ToolItemUi("character_memory_write", "整理剧情记忆", "仅角色会话可用，更新当前角色的剧情记忆，不写入现实 MEMORY.md。"),
                 ),
             ),
             ToolGroupUi(

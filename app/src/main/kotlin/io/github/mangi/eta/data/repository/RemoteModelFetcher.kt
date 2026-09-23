@@ -1,7 +1,7 @@
 package io.github.mangi.eta.data.repository
 
 import io.github.mangi.eta.agent.model.AgentHttpClient
-import io.github.mangi.eta.agent.model.CustomHeaderFilter
+import io.github.mangi.eta.agent.model.ProviderRequestHeaders
 import io.github.mangi.eta.agent.model.ProviderUrls
 import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
@@ -130,7 +130,7 @@ internal object RemoteModelFetcher {
                         if (provider.apiKey.isNotBlank()) {
                             add("Authorization", "Bearer ${provider.apiKey}")
                         }
-                        CustomHeaderFilter.mergeInto(this, provider.customHeaders)
+                        ProviderRequestHeaders.mergeInto(this, provider.baseUrl, provider.customHeaders)
                     }
                     .build()
             )
@@ -150,7 +150,7 @@ internal object RemoteModelFetcher {
                         if (provider.apiKey.isNotBlank()) {
                             add("x-api-key", provider.apiKey)
                         }
-                        CustomHeaderFilter.mergeInto(this, provider.customHeaders)
+                        ProviderRequestHeaders.mergeInto(this, provider.baseUrl, provider.customHeaders)
                     }
                     .build()
             )

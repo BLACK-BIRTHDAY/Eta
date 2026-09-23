@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ShortText
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.rounded.AddComment
 import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.Menu
-import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -77,9 +77,11 @@ fun AgentAppShell(
     onOpenBrowser: () -> Unit,
     onSelectConversation: (String) -> Unit,
     onConversationRename: (ConversationSummaryUi) -> Unit,
+    onConversationExport: (ConversationSummaryUi) -> Unit,
     onConversationDelete: (ConversationSummaryUi) -> Unit,
     onOpenTools: () -> Unit,
     onOpenSkills: () -> Unit,
+    onOpenCharacters: () -> Unit,
     onOpenPermissions: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenModelProviders: () -> Unit,
@@ -139,11 +141,13 @@ fun AgentAppShell(
                 onSearchChange = onSearchConversations,
                 onConversationSelected = onSelectConversation,
                 onConversationRename = onConversationRename,
+                onConversationExport = onConversationExport,
                 onConversationDelete = onConversationDelete,
                 onOpenSettings = onOpenSettings,
                 onOpenModelProviders = onOpenModelProviders,
                 onOpenTools = onOpenTools,
                 onOpenSkills = onOpenSkills,
+                onOpenCharacters = onOpenCharacters,
                 onOpenPermissions = onOpenPermissions,
             ) {
                 pageContent()
@@ -175,7 +179,8 @@ private fun AgentTopBar(
         if (isHome) {
             IconButton(onClick = onOpenConversationPane) {
                 Icon(
-                    imageVector = Icons.Rounded.Menu,
+                    imageVector = Icons.AutoMirrored.Outlined.ShortText,
+                    modifier = Modifier.size(24.dp),
                     contentDescription = stringResource(R.string.action_conversation_history),
                 )
             }
@@ -239,7 +244,8 @@ private fun TopBarOverflowMenu(
     Box {
         IconButton(onClick = { onRefreshKimiWeb(); showMenu = true }) {
             Icon(
-                imageVector = Icons.Rounded.MoreVert,
+                imageVector = Icons.Outlined.MoreHoriz,
+                modifier = Modifier.size(24.dp),
                 contentDescription = stringResource(R.string.action_more),
             )
         }
@@ -336,6 +342,11 @@ private fun titleForRoute(route: AppRoute?): String = when (route) {
     is AppRoute.Terminal -> stringResource(R.string.route_terminal)
     is AppRoute.Tools -> stringResource(R.string.route_tools)
     is AppRoute.Skills -> stringResource(R.string.route_skills)
+    is AppRoute.Characters -> "角色"
+    is AppRoute.CharacterDetail -> "角色详情"
+    is AppRoute.CharacterEditor -> "编辑角色"
+    is AppRoute.CharacterPersona -> "我的人设"
+    is AppRoute.CharacterMemory -> "剧情记忆"
     is AppRoute.Permissions -> stringResource(R.string.route_permissions)
     is AppRoute.SystemEnhance -> stringResource(R.string.route_system_enhancements)
     is AppRoute.Settings -> stringResource(R.string.route_settings)

@@ -18,9 +18,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -60,6 +63,11 @@ import io.github.mangi.eta.ui.pages.providers.ModelProviderListScreen
 import io.github.mangi.eta.ui.screens.backup.DataBackupScreen
 import io.github.mangi.eta.ui.screens.browser.AgentBrowserScreen
 import io.github.mangi.eta.ui.screens.chat.AgentChatScreen
+import io.github.mangi.eta.ui.screens.characters.CharacterLibraryScreen
+import io.github.mangi.eta.ui.screens.characters.CharacterDetailScreen
+import io.github.mangi.eta.ui.screens.characters.CharacterEditorScreen
+import io.github.mangi.eta.ui.screens.characters.CharacterPersonaScreen
+import io.github.mangi.eta.ui.screens.characters.CharacterMemoryScreen
 import io.github.mangi.eta.ui.screens.enhance.SystemEnhanceScreen
 import io.github.mangi.eta.ui.screens.home.AgentHomeScreen
 import io.github.mangi.eta.ui.screens.mcp.McpServerDetailScreen
@@ -73,8 +81,10 @@ import io.github.mangi.eta.ui.screens.terminal.SharedFoldersScreen
 import io.github.mangi.eta.ui.screens.terminal.TerminalEntryScreen
 import io.github.mangi.eta.ui.screens.terminal.WorkspaceScreen
 import io.github.mangi.eta.ui.screens.tools.AgentToolsScreen
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.TextField
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
@@ -95,8 +105,10 @@ fun AgentAppRoot(
     val uiScope = rememberCoroutineScope()
     val backStack = rememberNavBackStack<AppRoute>(AppRoute.Home)
     val navigator = remember(backStack) { AgentNavigator(backStack) }
+    var navigationResetKey by rememberSaveable { mutableIntStateOf(0) }
     val appViewModel = viewModel<AgentAppViewModel>()
     val agentState = appViewModel.state
+    val characterStore = viewModel<CharacterLibraryViewModel>().store
     val requestExecutionNotifications = rememberExecutionNotificationRequest()
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -120,8 +132,40 @@ fun AgentAppRoot(
     var conversationPaneOpen by remember { mutableStateOf(false) }
     var conversationRenameTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     var conversationDeleteTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
+    var conversationExportTarget by remember { mutableStateOf<ConversationSummaryUi?>(null) }
     var messageDeleteTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
     var messageRegenerateTarget by remember { mutableStateOf<MessageMutationTarget?>(null) }
+    val conversationExportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/markdown"),
+    ) { uri ->
+        val target = conversationExportTarget
+        conversationExportTarget = null
+        if (uri == null || target == null) return@rememberLauncherForActivityResult
+        uiScope.launch {
+            try {
+                val markdown = agentState.exportConversationMarkdown(target.id)
+                    ?: error(context.getString(R.string.conversation_export_failed))
+                val output = context.contentResolver.openOutputStream(uri)
+                    ?: error(context.getString(R.string.conversation_export_failed))
+                withContext(Dispatchers.IO) {
+                    output.use { it.write(markdown.toByteArray(Charsets.UTF_8)) }
+                }
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.conversation_exported),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Throwable) {
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.conversation_export_failed),
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
+    }
     val focusManager = LocalFocusManager.current
 
     LaunchedEffect(Unit) {
@@ -204,11 +248,21 @@ fun AgentAppRoot(
             onConversationRename = { conversation ->
                 conversationRenameTarget = conversation
             },
+            onConversationExport = { conversation ->
+                conversationExportTarget = conversation
+                conversationExportLauncher.launch(
+                    ConversationMarkdownExporter.defaultFileName(
+                        title = conversation.title.ifBlank { conversation.preview },
+                        fallback = context.getString(R.string.conversation_export_default_name),
+                    ),
+                )
+            },
             onConversationDelete = { conversation ->
                 conversationDeleteTarget = conversation
             },
             onOpenTools = { pushRoute(AppRoute.Tools) },
             onOpenSkills = { pushRoute(AppRoute.Skills) },
+            onOpenCharacters = { pushRoute(AppRoute.Characters) },
             onOpenPermissions = { pushRoute(AppRoute.Permissions) },
             onOpenSettings = { pushRoute(AppRoute.Settings) },
             onOpenModelProviders = { pushRoute(AppRoute.ModelProviders) },
@@ -231,13 +285,14 @@ fun AgentAppRoot(
     val swipeDismiss = swipeBackDirection.takeIf {
         LocalAppearanceSettings.current.swipeDismissEnabled
     }
-    NavDisplay(
-        backStack = backStack,
-        onBack = { popRoute() },
-        effects = NavDisplayEffects(
-            cornerClipRadius = rememberNavSystemCornerRadius(),
-        ),
-    ) {
+    key(navigationResetKey) {
+        NavDisplay(
+            backStack = backStack,
+            onBack = { popRoute() },
+            effects = NavDisplayEffects(
+                cornerClipRadius = rememberNavSystemCornerRadius(),
+            ),
+        ) {
             entry<AppRoute.Home>(swipeDismiss = swipeDismiss) {
                 LaunchedEffect(Unit) {
                     if (agentState.skillsState.skills.isEmpty()) {
@@ -254,6 +309,7 @@ fun AgentAppRoot(
                             when (action) {
                                 is AgentHomeAction.ReasoningEffortChanged ->
                                     agentState.updateReasoningEffort(action.effort)
+                                AgentHomeAction.CompactContext -> agentState.compactCurrentContext()
                                 is AgentHomeAction.ModelSelected -> agentState.selectModel(action.modelId)
                                 is AgentHomeAction.SubmitMessage -> { requestExecutionNotifications(); agentState.sendCurrentMessage(action.text) }
                                 AgentHomeAction.StopRun -> agentState.stopCurrentRun()
@@ -273,12 +329,13 @@ fun AgentAppRoot(
                                 }
                                 is AgentHomeAction.RegenerateMessage -> {
                                     val impact = agentState.messageRevisionImpact(action.id)
-                                    if (impact?.laterTurnCount == 0) {
+                                    if (agentState.homeState.roleplay != null || impact?.laterTurnCount == 0) {
                                         agentState.regenerateMessage(action.id)
                                     } else if (impact != null) {
                                         messageRegenerateTarget = MessageMutationTarget(action.id, impact.laterTurnCount)
                                     }
                                 }
+                                is AgentHomeAction.SelectReplyCandidate -> agentState.selectReplyCandidate(action.id, action.index)
                                 AgentHomeAction.OpenTools -> pushRoute(AppRoute.Tools)
                                 AgentHomeAction.OpenSkills -> pushRoute(AppRoute.Skills)
                                 AgentHomeAction.OpenPermissions -> pushRoute(AppRoute.Permissions)
@@ -309,6 +366,7 @@ fun AgentAppRoot(
                                 AgentChatAction.NavigateBack -> popRoute()
                                 is AgentChatAction.ReasoningEffortChanged ->
                                     agentState.updateReasoningEffort(action.effort)
+                                AgentChatAction.CompactContext -> agentState.compactCurrentContext()
                                 is AgentChatAction.ModelSelected -> agentState.selectModel(action.modelId)
                                 is AgentChatAction.SubmitMessage -> { requestExecutionNotifications(); agentState.sendCurrentMessage(action.text) }
                                 AgentChatAction.StopRun -> agentState.stopCurrentRun()
@@ -329,12 +387,13 @@ fun AgentAppRoot(
                                 }
                                 is AgentChatAction.RegenerateMessage -> {
                                     val impact = agentState.messageRevisionImpact(action.id)
-                                    if (impact?.laterTurnCount == 0) {
+                                    if (agentState.homeState.roleplay != null || impact?.laterTurnCount == 0) {
                                         agentState.regenerateMessage(action.id)
                                     } else if (impact != null) {
                                         messageRegenerateTarget = MessageMutationTarget(action.id, impact.laterTurnCount)
                                     }
                                 }
+                                is AgentChatAction.SelectReplyCandidate -> agentState.selectReplyCandidate(action.id, action.index)
                             }
                         },
                     )
@@ -396,6 +455,47 @@ fun AgentAppRoot(
                     agentState = agentState,
                     onBack = { popRoute() },
                 )
+            entry<AppRoute.Characters>(swipeDismiss = swipeDismiss) {
+                LaunchedEffect(backStack.lastOrNull() == AppRoute.Characters) {
+                    if (backStack.lastOrNull() == AppRoute.Characters) characterStore.loadLibrary()
+                }
+                CharacterLibraryScreen(characterStore, { if (navigator.current() == AppRoute.Characters) pushRoute(it) }, ::popRoute)
+            }
+            entry<AppRoute.CharacterDetail>(swipeDismiss = swipeDismiss) { route ->
+                LaunchedEffect(route.characterId, backStack.lastOrNull() == route) {
+                    if (backStack.lastOrNull() == route) characterStore.loadDetail(route.characterId)
+                }
+                CharacterDetailScreen(route.characterId, characterStore, { if (navigator.current() == route) pushRoute(it) }, ::popRoute) { binding, greeting ->
+                    if (navigator.current() == route) {
+                        agentState.startCharacterConversation(binding, greeting)
+                        conversationPaneOpen = false
+                        navigator.popToHome()
+                        // 开始新故事直接呈现首页；重置导航呈现态，避免多层退栈扫过角色列表。
+                        navigationResetKey++
+                    }
+                }
+            }
+            entry<AppRoute.CharacterEditor>(swipeDismiss = swipeDismiss) { route ->
+                LaunchedEffect(route.characterId, backStack.lastOrNull() == route) {
+                    if (backStack.lastOrNull() == route) characterStore.loadEditor(route.characterId)
+                }
+                CharacterEditorScreen(route.characterId, characterStore, ::popRoute) { id ->
+                    if (navigator.current() == route) navigator.replace(AppRoute.CharacterDetail(id))
+                }
+            }
+            entry<AppRoute.CharacterPersona>(swipeDismiss = swipeDismiss) {
+                LaunchedEffect(backStack.lastOrNull() == AppRoute.CharacterPersona) {
+                    if (backStack.lastOrNull() == AppRoute.CharacterPersona) characterStore.loadPersona()
+                }
+                CharacterPersonaScreen(characterStore) {
+                    if (navigator.current() == AppRoute.CharacterPersona) popRoute()
+                }
+            }
+            entry<AppRoute.CharacterMemory>(swipeDismiss = swipeDismiss) { route ->
+                LaunchedEffect(route.characterId, backStack.lastOrNull() == route) {
+                    if (backStack.lastOrNull() == route) characterStore.loadMemory(route.characterId)
+                }
+                CharacterMemoryScreen(route.characterId, characterStore, ::popRoute)
             }
             entry<AppRoute.Permissions>(swipeDismiss = swipeDismiss) {
                 LaunchedEffect(Unit) {
@@ -603,6 +703,15 @@ fun AgentAppRoot(
                     onBack = ::popRoute
                 )
             }
+        }
+    }
+
+    characterStore.notice?.let { notice ->
+        WindowDialog(show = true, title = "角色", summary = notice, onDismissRequest = characterStore::dismissNotice) {
+            top.yukonga.miuix.kmp.basic.TextButton(
+                text = "知道了", onClick = characterStore::dismissNotice, modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 
     conversationRenameTarget?.let { conversation ->

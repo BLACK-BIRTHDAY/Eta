@@ -3,9 +3,6 @@ package io.github.mangi.eta.ui.screens.terminal
 import android.content.Context
 import android.text.format.Formatter
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Description
@@ -19,7 +16,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -63,18 +59,20 @@ import io.github.mangi.eta.ui.app.launchForegroundExecution
 import io.github.mangi.eta.ui.app.message
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
 import io.github.mangi.eta.ui.app.rememberExecutionNotificationRequest
+import io.github.mangi.eta.ui.components.EtaArrowPreference
+import io.github.mangi.eta.ui.components.EtaCard
+import io.github.mangi.eta.ui.components.EtaPreference
+import io.github.mangi.eta.ui.components.EtaPreferenceColors
+import io.github.mangi.eta.ui.components.EtaPreferenceDivider
+import io.github.mangi.eta.ui.components.EtaPreferenceGroup
+import io.github.mangi.eta.ui.components.EtaPreferenceGroupTitle
+import io.github.mangi.eta.ui.components.EtaPreferenceIcon
+import io.github.mangi.eta.ui.components.EtaTextButton
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
-import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.navigation.AppRoute
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TextButton
-import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 private enum class InstallTarget {
     BASE,
@@ -350,7 +348,7 @@ internal fun LinuxEnvironmentScreen(
                 },
             )
         }
-        item(key = "configuration-title") { SmallTitle(stringResource(R.string.linux_environment_configuration)) }
+        item(key = "configuration-title") { EtaPreferenceGroupTitle(stringResource(R.string.linux_environment_configuration)) }
         item(key = "configuration-card") {
             LinuxEnvironmentConfiguration(
                 distribution = selectedDistribution,
@@ -375,26 +373,28 @@ internal fun LinuxEnvironmentScreen(
                 },
             )
         }
-        item(key = "files-title") { SmallTitle(stringResource(R.string.linux_environment_files)) }
+        item(key = "files-title") { EtaPreferenceGroupTitle(stringResource(R.string.linux_environment_files)) }
         item(key = "files-card") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                ArrowPreference(
+            EtaPreferenceGroup(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                EtaArrowPreference(
                     title = stringResource(R.string.capability_workspace),
                     summary = stringResource(R.string.capability_workspace_summary),
-                    startAction = { PreferenceIcon(Icons.Rounded.Folder) },
+                    startAction = { EtaPreferenceIcon(Icons.Rounded.Folder, tint = EtaPreferenceColors.Orange) },
                     onClick = { onNavigate(AppRoute.Workspace) },
                 )
                 if (selectedBaseReady) {
-                    ArrowPreference(
+                    EtaPreferenceDivider(hasLeading = true)
+                    EtaArrowPreference(
                         title = stringResource(R.string.shared_folders_entry_title),
                         summary = stringResource(R.string.linux_environment_shared_folders_summary),
-                        startAction = { PreferenceIcon(Icons.Rounded.FolderOpen) },
+                        startAction = { EtaPreferenceIcon(Icons.Rounded.FolderOpen, tint = EtaPreferenceColors.Orange) },
                         onClick = { onNavigate(AppRoute.SharedFolders) },
                     )
-                    ArrowPreference(
+                    EtaPreferenceDivider(hasLeading = true)
+                    EtaArrowPreference(
                         title = stringResource(R.string.linux_files_entry_title),
                         summary = stringResource(R.string.linux_files_entry_summary),
-                        startAction = { PreferenceIcon(Icons.Rounded.Description) },
+                        startAction = { EtaPreferenceIcon(Icons.Rounded.Description, tint = EtaPreferenceColors.Blue) },
                         onClick = { onNavigate(AppRoute.LinuxFiles(selectedDistribution.wireName)) },
                     )
                 }
@@ -402,14 +402,14 @@ internal fun LinuxEnvironmentScreen(
         }
 
         if (selectedToolsReady) {
-            item(key = "optional-tools-title") { SmallTitle(stringResource(R.string.ui_optional_tools_3097d6)) }
+            item(key = "optional-tools-title") { EtaPreferenceGroupTitle(stringResource(R.string.ui_optional_tools_3097d6)) }
             item(key = "optional-tools-card") {
-                Card(
+                EtaPreferenceGroup(
                     modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 16.dp),
                 ) {
-                    packageProfileUis.forEach { profileUi ->
+                    packageProfileUis.forEachIndexed { index, profileUi ->
                         val ready = profileReady[profileUi.target] == true
                         val isKimi = profileUi.target == InstallTarget.KIMI
                         val summaryRes = if (selectedDistribution == LinuxDistribution.DEBIAN) {
@@ -422,7 +422,8 @@ internal fun LinuxEnvironmentScreen(
                         } else {
                             profileUi.readyRes
                         }
-                        BasicComponent(
+                        if (index > 0) EtaPreferenceDivider(hasLeading = false)
+                        EtaPreference(
                             title = stringResource(profileUi.titleRes),
                             summary = if (busyTarget == profileUi.target) {
                                 profileProgressSummary ?: stringResource(summaryRes)
@@ -431,110 +432,99 @@ internal fun LinuxEnvironmentScreen(
                             } else {
                                 stringResource(summaryRes)
                             },
-                            bottomAction = {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    if (isKimi && kimiWebRunning) {
-                                        TextButton(
-                                            text = stringResource(R.string.action_stop),
-                                            enabled = !kimiWebLaunching && !requiresRoot,
-                                            onClick = {
-                                                coroutineScope.launch {
-                                                    val stopped = kimiWebLauncher.stop(selectedDistribution.terminalEnvironment)
-                                                    kimiWebRunning = !stopped
-                                                }
-                                            },
-                                        )
-                                    }
-                                    TextButton(
-                                        text = when {
-                                            isKimi && ready -> stringResource(
-                                                if (kimiWebLaunching) {
-                                                    R.string.linux_kimi_web_starting
-                                                } else if (kimiWebRunning) {
-                                                    R.string.action_open
-                                                } else {
-                                                    R.string.linux_kimi_web_launch
-                                                },
-                                            )
-                                            ready -> stringResource(R.string.linux_installed)
-                                            busyTarget == profileUi.target -> stringResource(R.string.linux_installing)
-                                            else -> stringResource(R.string.linux_install)
-                                        },
-                                        enabled = !requiresRoot && if (isKimi && ready) {
-                                            !kimiWebLaunching && busyTarget == null
-                                        } else {
-                                            busyTarget == null && !ready
-                                        },
+                            endActions = {
+                                if (isKimi && kimiWebRunning) {
+                                    EtaTextButton(
+                                        text = stringResource(R.string.action_stop),
+                                        enabled = !kimiWebLaunching && !requiresRoot,
                                         onClick = {
-                                            if (isKimi && ready) {
-                                                launchKimiWeb()
-                                                return@TextButton
-                                            }
-                                            if (busyTarget != null || ready) return@TextButton
-                                            busyTarget = profileUi.target
-                                            resultMessage = null
-                                            val profileTitle = context.getString(profileUi.titleRes)
-                                            launchInstallation {
-                                                val profileInstaller = profileInstallers.getValue(profileUi.target)
-                                                val result = profileInstaller.install { update ->
-                                                    withContext(Dispatchers.Main.immediate) {
-                                                        profileProgressSummary = update.summary(context, profileTitle)
-                                                    }
-                                                }
-                                                profileReady = profileReady +
-                                                    (profileUi.target to profileInstaller.isReady())
-                                                profileProgressSummary = null
-                                                busyTarget = null
-                                                resultMessage = result.toMessage(context, profileTitle)
+                                            coroutineScope.launch {
+                                                val stopped = kimiWebLauncher.stop(selectedDistribution.terminalEnvironment)
+                                                kimiWebRunning = !stopped
                                             }
                                         },
                                     )
                                 }
+                                EtaTextButton(
+                                    text = when {
+                                        isKimi && ready -> stringResource(
+                                            if (kimiWebLaunching) {
+                                                R.string.linux_kimi_web_starting
+                                            } else if (kimiWebRunning) {
+                                                R.string.action_open
+                                            } else {
+                                                R.string.linux_kimi_web_launch
+                                            },
+                                        )
+                                        ready -> stringResource(R.string.linux_installed)
+                                        busyTarget == profileUi.target -> stringResource(R.string.linux_installing)
+                                        else -> stringResource(R.string.linux_install)
+                                    },
+                                    enabled = !requiresRoot && if (isKimi && ready) {
+                                        !kimiWebLaunching && busyTarget == null
+                                    } else {
+                                        busyTarget == null && !ready
+                                    },
+                                    onClick = {
+                                        if (isKimi && ready) {
+                                            launchKimiWeb()
+                                            return@EtaTextButton
+                                        }
+                                        if (busyTarget != null || ready) return@EtaTextButton
+                                        busyTarget = profileUi.target
+                                        resultMessage = null
+                                        val profileTitle = context.getString(profileUi.titleRes)
+                                        launchInstallation {
+                                            val profileInstaller = profileInstallers.getValue(profileUi.target)
+                                            val result = profileInstaller.install { update ->
+                                                withContext(Dispatchers.Main.immediate) {
+                                                    profileProgressSummary = update.summary(context, profileTitle)
+                                                }
+                                            }
+                                            profileReady = profileReady +
+                                                (profileUi.target to profileInstaller.isReady())
+                                            profileProgressSummary = null
+                                            busyTarget = null
+                                            resultMessage = result.toMessage(context, profileTitle)
+                                        }
+                                    },
+                                )
                             },
                         )
                     }
-                    BasicComponent(
+                    EtaPreferenceDivider(hasLeading = false)
+                    EtaPreference(
                         title = stringResource(R.string.ui_apk_analysis_95ad17),
                         summary = apkAnalysisProgress?.summary(context) ?: if (apkAnalysisReady) {
                             context.getString(R.string.linux_apk_tools_ready)
                         } else {
                             context.getString(R.string.linux_apk_tools_summary)
                         },
-                        bottomAction = {
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                TextButton(
-                                    text = when {
-                                        apkAnalysisReady -> context.getString(R.string.linux_installed)
-                                        busyTarget == InstallTarget.APK_ANALYSIS -> context.getString(R.string.linux_installing)
-                                        else -> context.getString(R.string.linux_install)
-                                    },
-                                    enabled = busyTarget == null && !requiresRoot && !apkAnalysisReady,
-                                    onClick = {
-                                        if (busyTarget != null || apkAnalysisReady) return@TextButton
-                                        busyTarget = InstallTarget.APK_ANALYSIS
-                                        resultMessage = null
-                                        launchInstallation {
-                                            val result = apkAnalysisInstaller.install { update ->
-                                                withContext(Dispatchers.Main.immediate) {
-                                                    apkAnalysisProgress = update
-                                                }
+                        endActions = {
+                            EtaTextButton(
+                                text = when {
+                                    apkAnalysisReady -> context.getString(R.string.linux_installed)
+                                    busyTarget == InstallTarget.APK_ANALYSIS -> context.getString(R.string.linux_installing)
+                                    else -> context.getString(R.string.linux_install)
+                                },
+                                enabled = busyTarget == null && !requiresRoot && !apkAnalysisReady,
+                                onClick = {
+                                    if (busyTarget != null || apkAnalysisReady) return@EtaTextButton
+                                    busyTarget = InstallTarget.APK_ANALYSIS
+                                    resultMessage = null
+                                    launchInstallation {
+                                        val result = apkAnalysisInstaller.install { update ->
+                                            withContext(Dispatchers.Main.immediate) {
+                                                apkAnalysisProgress = update
                                             }
-                                            apkAnalysisReady = apkAnalysisInstaller.isReady()
-                                            apkAnalysisProgress = null
-                                            busyTarget = null
-                                            resultMessage = result.toMessage(context)
                                         }
-                                    },
-                                )
-                            }
+                                        apkAnalysisReady = apkAnalysisInstaller.isReady()
+                                        apkAnalysisProgress = null
+                                        busyTarget = null
+                                        resultMessage = result.toMessage(context)
+                                    }
+                                },
+                            )
                         },
                     )
                 }

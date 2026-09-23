@@ -33,11 +33,24 @@ internal enum class EndpointKind {
     GEMINI_GENERATE_CONTENT
 }
 
+internal enum class ProviderRequestPurpose {
+    CHAT, COMPACTION, REPLY_REWRITE;
+
+    val allowsTools: Boolean get() = this == CHAT
+}
+
 internal data class ProviderRequest(
     val config: AgentModelClient.ModelConfig,
     val messages: JSONArray,
-    val tools: JSONArray
-)
+    val tools: JSONArray,
+    val sessionId: String = java.util.UUID.randomUUID().toString(),
+    val purpose: ProviderRequestPurpose = ProviderRequestPurpose.CHAT,
+) {
+    val effectiveConfig: AgentModelClient.ModelConfig get() = if (!purpose.allowsTools) {
+        config.copy(hostedWebSearchEnabled = false, extraBodyJson = "", customBody = emptyList())
+    } else config
+    val effectiveTools: JSONArray get() = if (purpose.allowsTools) tools else JSONArray()
+}
 
 internal data class ProviderResponse(
     val assistantMessage: JSONObject
@@ -101,7 +114,10 @@ internal sealed interface ProviderEvent {
     ) : ProviderEvent
 
     data class Usage(
-        val usage: AgentTokenUsage
+        val usage: AgentTokenUsage,
+        val contextInputTokens: Int? = usage.inputTokens ?: usage.contextTokens?.let {
+            (it - (usage.outputTokens ?: 0)).coerceAtLeast(0)
+        },
     ) : ProviderEvent
 
     data class HostedToolStarted(

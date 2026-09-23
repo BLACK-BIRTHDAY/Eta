@@ -12,6 +12,8 @@ import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.QueryStats
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.runtime.Composable
@@ -19,17 +21,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.components.EtaArrowPreference
+import io.github.mangi.eta.ui.components.EtaPreferenceColors
+import io.github.mangi.eta.ui.components.EtaPreferenceDivider
+import io.github.mangi.eta.ui.components.EtaPreferenceGroup
+import io.github.mangi.eta.ui.components.EtaPreferenceGroupTitle
+import io.github.mangi.eta.ui.components.EtaPreferenceIcon
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
-import io.github.mangi.eta.ui.components.PreferenceIcon
 import io.github.mangi.eta.ui.components.color
 import io.github.mangi.eta.ui.components.label
 import io.github.mangi.eta.ui.model.PermissionHealthAction
 import io.github.mangi.eta.ui.model.PermissionHealthItemUi
 import io.github.mangi.eta.ui.model.PermissionHealthUiState
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -44,11 +48,12 @@ fun PermissionHealthScreen(
         modifier = modifier,
     ) {
         item(key = "title") {
-            SmallTitle(stringResource(R.string.ui_permissions_and_status_35f368))
+            EtaPreferenceGroupTitle(stringResource(R.string.ui_permissions_and_status_35f368))
         }
         item(key = "card") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp)) {
-                state.items.forEach { item ->
+            EtaPreferenceGroup(modifier = Modifier.padding(horizontal = 16.dp)) {
+                state.items.forEachIndexed { index, item ->
+                    if (index > 0) EtaPreferenceDivider()
                     PermissionItemRow(
                         item = item,
                         onActionClick = { onAction(PermissionHealthAction.OpenItemAction(item.id)) },
@@ -76,14 +81,17 @@ private fun PermissionItemRow(
         "background" -> Icons.Rounded.History
         "app_list" -> Icons.Rounded.Dashboard
         "location" -> Icons.Rounded.LocationOn
+        "notification_history" -> Icons.Rounded.NotificationsActive
+        "usage_access" -> Icons.Rounded.QueryStats
+        "notifications" -> Icons.Rounded.Notifications
         else -> Icons.Rounded.Shield
     }
 
-    ArrowPreference(
+    EtaArrowPreference(
         title = item.title,
         summary = item.summary.takeIf { it.isNotBlank() },
         startAction = {
-            PreferenceIcon(icon = icon)
+            EtaPreferenceIcon(icon = icon, tint = EtaPreferenceColors.Blue)
         },
         endActions = {
             Text(
