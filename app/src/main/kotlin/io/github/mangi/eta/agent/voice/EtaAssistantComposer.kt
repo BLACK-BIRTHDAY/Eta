@@ -62,6 +62,7 @@ internal fun AssistantComposer(
     speech: EtaSpeechState,
     onMicrophone: () -> Unit,
     onFinishSpeech: () -> Unit,
+    onDownloadModel: () -> Unit,
     onKeyboard: () -> Unit,
     onClose: () -> Unit,
     keyboardVisible: Boolean,
@@ -75,7 +76,7 @@ internal fun AssistantComposer(
     Column(
         modifier = modifier,
     ) {
-        EtaSpeechFeedback(speech)
+        EtaSpeechFeedback(speech, onDownloadModel)
         AnimatedContent(
             targetState = speech.active && state.messages.isEmpty(),
             transitionSpec = {

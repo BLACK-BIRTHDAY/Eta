@@ -3,7 +3,9 @@ package io.github.mangi.eta.agent.voice
 import android.app.Application
 import android.os.Bundle
 import android.os.Looper
+import android.speech.RecognitionSupport
 import android.speech.SpeechRecognizer
+import io.github.mangi.eta.R
 import java.time.Duration
 import org.junit.Assert.*
 import org.junit.Before
@@ -19,19 +21,22 @@ import org.robolectric.shadows.ShadowSpeechRecognizer
 @Config(sdk = [34], application = Application::class)
 class EtaSpeechInputTest {
     private val results = mutableListOf<String>()
-    private val errors = mutableListOf<Int>()
+    private val errors = mutableListOf<EtaSpeechIssue>()
     private val partials = mutableListOf<String>()
     private lateinit var input: EtaSpeechInput
 
     @Before fun setup() {
         ShadowSpeechRecognizer.setIsOnDeviceRecognitionAvailable(true)
-        input = EtaSpeechInput(RuntimeEnvironment.getApplication(), {}, {}, {}, partials::add, results::add, errors::add)
+        input = EtaSpeechInput(RuntimeEnvironment.getApplication(), {}, {}, {}, partials::add, results::add, errors::add, {})
     }
 
     private fun start(): ShadowSpeechRecognizer {
         input.start()
         shadowOf(Looper.getMainLooper()).idle()
-        return shadowOf(ShadowSpeechRecognizer.getLatestSpeechRecognizer())
+        return shadowOf(ShadowSpeechRecognizer.getLatestSpeechRecognizer()).also {
+            it.triggerSupportError(SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT)
+            shadowOf(Looper.getMainLooper()).idle()
+        }
     }
 
     private fun text(value: String) = Bundle().apply {
@@ -53,7 +58,7 @@ class EtaSpeechInputTest {
     @Test fun errorReturnsToOwnerAndReleasesRecognizer() {
         val recognizer = start()
         recognizer.triggerOnError(SpeechRecognizer.ERROR_NETWORK)
-        assertEquals(listOf(SpeechRecognizer.ERROR_NETWORK), errors)
+        assertEquals(listOf(SpeechRecognizer.ERROR_NETWORK), errors.map(EtaSpeechIssue::errorCode))
         assertTrue(recognizer.isDestroyed)
     }
 
@@ -75,15 +80,73 @@ class EtaSpeechInputTest {
         val recognizer = start()
         recognizer.triggerOnResults(Bundle())
         assertTrue(results.isEmpty())
-        assertEquals(listOf(SpeechRecognizer.ERROR_NO_MATCH), errors)
+        assertEquals(listOf(SpeechRecognizer.ERROR_NO_MATCH), errors.map(EtaSpeechIssue::errorCode))
     }
 
     @Test fun stalledServiceTimesOutAndRejectsLateResults() {
         val recognizer = start()
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(30))
-        assertEquals(listOf(SpeechRecognizer.ERROR_SPEECH_TIMEOUT), errors)
+        assertEquals(listOf(SpeechRecognizer.ERROR_SPEECH_TIMEOUT), errors.map(EtaSpeechIssue::errorCode))
+        assertEquals(EtaSpeechIssueKind.SERVICE_TIMEOUT, errors.single().kind)
         recognizer.triggerOnResults(text("迟到结果"))
         assertTrue(results.isEmpty())
         assertTrue(recognizer.isDestroyed)
+    }
+
+    @Test fun supportQueryCannotDelayListeningIndefinitely() {
+        input.start()
+        val recognizer = shadowOf(ShadowSpeechRecognizer.getLatestSpeechRecognizer())
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(750))
+        assertNotNull(recognizer.lastRecognizerIntent)
+        recognizer.triggerSupportError(SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT)
+        assertTrue(errors.isEmpty())
+        recognizer.triggerOnResults(text("问题"))
+        assertEquals(listOf("问题"), results)
+    }
+
+    @Test fun downloadableLanguageStopsRecognitionAndExposesAction() {
+        input.start()
+        val recognizer = shadowOf(ShadowSpeechRecognizer.getLatestSpeechRecognizer())
+        recognizer.triggerSupportResult(
+            RecognitionSupport.Builder()
+                .setSupportedOnDeviceLanguages(listOf(java.util.Locale.getDefault().toLanguageTag()))
+                .build(),
+        )
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(EtaSpeechIssueKind.DOWNLOAD_AVAILABLE, errors.single().kind)
+        assertTrue(recognizer.isDestroyed)
+        assertNull(recognizer.lastRecognizerIntent)
+    }
+
+    @Test fun downloadableLanguageIsOfferedOnlyWhenNoInstalledOrOnlineSupport() {
+        val downloadable = RecognitionSupport.Builder()
+            .setSupportedOnDeviceLanguages(listOf("zh-CN"))
+            .build()
+        assertEquals(EtaSpeechSupportDecision.DOWNLOAD, speechSupportDecision(downloadable, "zh-CN"))
+        val online = RecognitionSupport.Builder()
+            .setSupportedOnDeviceLanguages(listOf("zh-CN"))
+            .setOnlineLanguages(listOf("zh-CN"))
+            .build()
+        assertEquals(EtaSpeechSupportDecision.START, speechSupportDecision(online, "zh-CN"))
+        val pending = RecognitionSupport.Builder()
+            .setPendingOnDeviceLanguages(listOf("zh-CN"))
+            .build()
+        assertEquals(EtaSpeechSupportDecision.PENDING, speechSupportDecision(pending, "zh-CN"))
+        assertEquals(EtaSpeechSupportDecision.START, speechSupportDecision(downloadable, "zh-TW"))
+    }
+
+    @Test fun recognitionFailuresUseDistinctUserMessages() {
+        assertEquals(
+            R.string.voice_speech_network_error,
+            speechIssueMessage(EtaSpeechIssue(SpeechRecognizer.ERROR_NETWORK)),
+        )
+        assertEquals(
+            R.string.voice_speech_service_error,
+            speechIssueMessage(EtaSpeechIssue(SpeechRecognizer.ERROR_SERVER_DISCONNECTED)),
+        )
+        assertEquals(
+            R.string.voice_language_unavailable,
+            speechIssueMessage(EtaSpeechIssue(SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE)),
+        )
     }
 }

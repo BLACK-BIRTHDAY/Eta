@@ -106,13 +106,35 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 speechState = EtaSpeechState()
                 submitPrompt(text)
             },
-            onError = { error ->
-                speechState = EtaSpeechState(errorRes = when (error) {
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> R.string.voice_audio_permission
-                    SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> R.string.voice_no_speech
-                    else -> R.string.voice_speech_unavailable
-                })
-                showKeyboard()
+            onError = { issue ->
+                speechState = EtaSpeechState(
+                    errorRes = speechIssueMessage(issue),
+                    downloadAvailable = issue.kind == EtaSpeechIssueKind.DOWNLOAD_AVAILABLE,
+                    feedbackIsError = issue.kind != EtaSpeechIssueKind.DOWNLOAD_PENDING,
+                )
+                if (issue.kind != EtaSpeechIssueKind.DOWNLOAD_AVAILABLE &&
+                    issue.kind != EtaSpeechIssueKind.DOWNLOAD_PENDING
+                ) showKeyboard()
+            },
+            onDownloadStatus = { status ->
+                speechState = when (status) {
+                    EtaSpeechDownloadStatus.DOWNLOADING -> EtaSpeechState(
+                        errorRes = R.string.voice_model_downloading,
+                        feedbackIsError = false,
+                    )
+                    EtaSpeechDownloadStatus.SCHEDULED -> EtaSpeechState(
+                        errorRes = R.string.voice_model_scheduled,
+                        feedbackIsError = false,
+                    )
+                    EtaSpeechDownloadStatus.READY -> EtaSpeechState(
+                        errorRes = R.string.voice_model_ready,
+                        feedbackIsError = false,
+                    )
+                    EtaSpeechDownloadStatus.FAILED -> EtaSpeechState(
+                        errorRes = R.string.voice_model_download_failed,
+                        downloadAvailable = true,
+                    )
+                }
             },
         )
     }
@@ -269,6 +291,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                         speechLevel = { speechLevel },
                         onMicrophone = ::startSpeech,
                         onFinishSpeech = { speechInput.finish() },
+                        onDownloadModel = { speechInput.downloadModel() },
                         onKeyboard = ::switchToKeyboard,
                         input = inputText,
                         inputFocusRequestKey = inputFocusRequestKey,
