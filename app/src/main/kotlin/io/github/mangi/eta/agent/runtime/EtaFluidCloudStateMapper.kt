@@ -22,7 +22,7 @@ internal object EtaFluidCloudStateMapper {
     // 统计写操作的文件数量
     private val modifiedFiles = mutableSetOf<String>()
 
-    fun reset(runId: String) {
+    fun reset(runId: String? = null) {
         currentRunId = runId
         modifiedFiles.clear()
         pendingUpdateRunnable?.let { mainHandler.removeCallbacks(it) }
@@ -134,6 +134,7 @@ internal object EtaFluidCloudStateMapper {
         val timeSinceLast = now - lastEmittedTime
 
         pendingUpdateRunnable?.let { mainHandler.removeCallbacks(it) }
+        pendingUpdateRunnable = null
 
         if (immediate || timeSinceLast >= THROTTLE_INTERVAL_MS) {
             lastEmittedTime = now
@@ -141,6 +142,7 @@ internal object EtaFluidCloudStateMapper {
         } else {
             val remaining = THROTTLE_INTERVAL_MS - timeSinceLast
             val runnable = Runnable {
+                pendingUpdateRunnable = null
                 lastEmittedTime = System.currentTimeMillis()
                 EtaLiveUpdateManager.update(runId, shortText, detailText)
             }

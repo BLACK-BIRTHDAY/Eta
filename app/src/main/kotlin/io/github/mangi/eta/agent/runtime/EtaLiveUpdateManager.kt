@@ -31,12 +31,13 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
     private const val CHANNEL_ID = "eta_live_status_v2"
     private const val CHANNEL_NAME = "Eta 实时流体云与状态栏胶囊"
     const val NOTIFICATION_ID = 19999
-    private const val SUCCESS_DISMISS_DELAY_MS = 8000L
+    private const val SUCCESS_DISMISS_DELAY_MS = 5000L
 
     const val ACTION_CANCEL_RUN = "io.github.mangi.eta.agent.runtime.CANCEL_RUN"
     const val EXTRA_RUN_ID = "run_id"
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private var appContext: Context? = null
     private var boundService: Service? = null
     private var currentRunId: String? = null
     private var isPromoted = false
@@ -46,19 +47,54 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
     var isAppInForeground = false
         private set
     private var startedActivityCount = 0
+    @Volatile
+    private var isAssistantOverlayVisible = false
 
     // 缓存最新进度，以便从前台切到后台时瞬间恢复流体云
     private var latestShortText = "🧠 构思"
     private var latestDetailText = "正在执行任务..."
     private var latestProgress: Int? = null
 
-    private val autoDismissRunnable = Runnable {
-        dismiss()
+    // 完成通知降级缓存，保证 5 秒后仅收回状态栏胶囊，保留通知栏普通通知
+    private var lastFinishedRunId: String? = null
+    private var lastFinishedShortText: String = "✅ 完成"
+    private var lastFinishedDetailText: String = "任务已完成"
+
+    private val demoteCapsuleRunnable = Runnable {
+        demoteCapsuleToStandardNotification()
+    }
+
+    private fun demoteCapsuleToStandardNotification() {
+        val context = boundService ?: appContext ?: return
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        val runId = lastFinishedRunId ?: return
+        // 关键修复：5秒后仅收回状态栏流体云胶囊（requestPromoted = false），但保留下拉通知栏卡片供用户查看与划除，绝不 cancel 通知
+        val notification = buildNotification(
+            context = context,
+            runId = runId,
+            shortText = lastFinishedShortText,
+            detailText = lastFinishedDetailText,
+            progress = null,
+            isOngoing = false,
+            requestPromoted = false,
+        )
+        runCatching {
+            nm.notify(NOTIFICATION_ID, notification)
+        }
     }
 
     fun init(application: Application) {
+        appContext = application.applicationContext
         application.registerActivityLifecycleCallbacks(this)
         initChannel(application)
+    }
+
+    fun setAssistantOverlayVisible(visible: Boolean) {
+        mainHandler.post {
+            if (isAssistantOverlayVisible == visible) return@post
+            isAssistantOverlayVisible = visible
+            checkForegroundState(startedActivityCount > 0 || isAssistantOverlayVisible)
+        }
     }
 
     fun initChannel(context: Context) {
@@ -81,12 +117,12 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
 
     override fun onActivityStarted(activity: Activity) {
         startedActivityCount++
-        checkForegroundState(startedActivityCount > 0)
+        checkForegroundState(startedActivityCount > 0 || isAssistantOverlayVisible)
     }
 
     override fun onActivityStopped(activity: Activity) {
         startedActivityCount = maxOf(0, startedActivityCount - 1)
-        checkForegroundState(startedActivityCount > 0)
+        checkForegroundState(startedActivityCount > 0 || isAssistantOverlayVisible)
     }
 
     override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
@@ -118,7 +154,7 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
     fun start(service: Service, runId: String, initialPrompt: String) {
         boundService = service
         currentRunId = runId
-        mainHandler.removeCallbacks(autoDismissRunnable)
+        mainHandler.removeCallbacks(demoteCapsuleRunnable)
         initChannel(service)
 
         latestShortText = "🧠 构思"
@@ -138,7 +174,8 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
      */
     @Synchronized
     fun update(runId: String, shortText: String, detailText: String, progress: Int? = null) {
-        if (currentRunId != null && currentRunId != runId) return
+        val activeRunId = currentRunId ?: return
+        if (activeRunId != runId) return
         latestShortText = shortText
         latestDetailText = detailText
         latestProgress = progress
@@ -154,7 +191,12 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
      */
     @Synchronized
     fun finish(runId: String, success: Boolean, summary: String) {
-        if (currentRunId != null && currentRunId != runId) return
+        val activeRunId = currentRunId
+        if (activeRunId != null && activeRunId != runId) return
+
+        currentRunId = null
+        EtaFluidCloudStateMapper.reset()
+        mainHandler.removeCallbacks(demoteCapsuleRunnable)
 
         // 若用户在前台看着对话框，用户已直接看到界面回答，彻底静默并不留任何通知
         if (isAppInForeground) {
@@ -162,12 +204,13 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
             return
         }
 
-        // 若用户在后台，弹出终态通知并常驻通知栏，待用户点击或划除
-        val service = boundService ?: return
-        val nm = service.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
+        // 若用户在后台，弹出终态通知并解绑前台服务
+        val service = boundService
+        val context = service ?: appContext ?: return
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
 
         // 任务已终态，解绑前台服务附着（STOP_FOREGROUND_DETACH），保留通知供用户查看
-        if (isPromoted) {
+        if (service != null && isPromoted) {
             runCatching {
                 if (Build.VERSION.SDK_INT >= 34) {
                     service.stopForeground(Service.STOP_FOREGROUND_DETACH)
@@ -179,15 +222,29 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
             isPromoted = false
         }
 
-        mainHandler.removeCallbacks(autoDismissRunnable)
-
         val shortText = if (success) "✅ 完成" else "⚠️ 异常"
         val detail = if (summary.isNotBlank()) summary else (if (success) "任务已完成" else "任务中断")
-        val notification = buildNotification(service, runId, shortText, detail, progress = null, isOngoing = false)
+        lastFinishedRunId = runId
+        lastFinishedShortText = shortText
+        lastFinishedDetailText = detail
+
+        // 终态通知先以 Promoted 状态展示，让胶囊展现 5 秒完成态动画
+        val notification = buildNotification(
+            context = context,
+            runId = runId,
+            shortText = shortText,
+            detailText = detail,
+            progress = null,
+            isOngoing = false,
+            requestPromoted = true,
+        )
 
         runCatching {
             nm.notify(NOTIFICATION_ID, notification)
         }
+
+        // 关键修复：5 秒后仅降级收回状态栏胶囊，保留下拉通知栏普通通知供用户查看，不再直接 cancel 抹去通知
+        mainHandler.postDelayed(demoteCapsuleRunnable, SUCCESS_DISMISS_DELAY_MS)
     }
 
     private fun showNotification(shortText: String, detailText: String, progress: Int?) {
@@ -218,6 +275,7 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
     }
 
     private fun hideNotificationOnly() {
+        mainHandler.removeCallbacks(demoteCapsuleRunnable)
         val service = boundService
         if (service != null && isPromoted) {
             runCatching {
@@ -230,7 +288,7 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
             }
             isPromoted = false
         }
-        val nm = service?.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        val nm = (service ?: appContext)?.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
         nm?.cancel(NOTIFICATION_ID)
     }
 
@@ -239,7 +297,8 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
      */
     @Synchronized
     fun dismiss() {
-        mainHandler.removeCallbacks(autoDismissRunnable)
+        mainHandler.removeCallbacks(demoteCapsuleRunnable)
+        EtaFluidCloudStateMapper.reset()
         hideNotificationOnly()
         currentRunId = null
     }
@@ -250,7 +309,8 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
         shortText: String,
         detailText: String,
         progress: Int?,
-        isOngoing: Boolean
+        isOngoing: Boolean,
+        requestPromoted: Boolean = isOngoing,
     ): Notification {
         val builder = Notification.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -270,14 +330,18 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
 
         // Android 16 (API 36+) 官方原生 Promoted Ongoing 与实时胶囊规范
         if (Build.VERSION.SDK_INT >= 36) {
-            builder.setRequestPromotedOngoing(true)
-            builder.setShortCriticalText(shortText)
+            builder.setRequestPromotedOngoing(requestPromoted)
+            if (requestPromoted) {
+                builder.setShortCriticalText(shortText)
+            }
 
             if (progress != null) {
                 val style = Notification.ProgressStyle()
                     .setProgress(progress.coerceIn(0, 100))
                     .setStyledByProgress(true)
                 builder.setStyle(style)
+            } else {
+                builder.setStyle(Notification.BigTextStyle().bigText(detailText))
             }
         } else {
             builder.setStyle(Notification.BigTextStyle().bigText(detailText))

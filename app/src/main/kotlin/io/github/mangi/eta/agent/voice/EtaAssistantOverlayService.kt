@@ -42,6 +42,7 @@ import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentExternalArchivePayload
 import io.github.mangi.eta.agent.runtime.AgentRuntimeClient
 import io.github.mangi.eta.agent.runtime.AgentRuntimeWire
+import io.github.mangi.eta.agent.runtime.EtaLiveUpdateManager
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.ui.MainActivity
 import io.github.mangi.eta.ui.app.AgentAppTheme
@@ -134,6 +135,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        EtaLiveUpdateManager.setAssistantOverlayVisible(false)
         entryGeneration++
         entryCaptureJob?.cancel()
         entryCaptureJob = null
@@ -315,6 +317,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         windowParams = params
         registerSystemBackCallback(view)
         view.requestFocus()
+        EtaLiveUpdateManager.setAssistantOverlayVisible(true)
     }
 
     private fun createComposeView(content: @Composable () -> Unit): ComposeView =
@@ -786,6 +789,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     }
 
     private fun removeWindow(onComplete: ((Boolean) -> Unit)? = null) {
+        EtaLiveUpdateManager.setAssistantOverlayVisible(false)
         unregisterSystemBackCallback()
         detachingWindowView?.let { detachingView ->
             onComplete?.let(windowDetachCallbacks::add)

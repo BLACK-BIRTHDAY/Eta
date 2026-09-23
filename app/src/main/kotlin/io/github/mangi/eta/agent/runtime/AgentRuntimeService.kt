@@ -371,6 +371,11 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         thread(name = "agent-runtime-${request.runId}") {
             try {
                 executeRun(session, request)
+            } catch (t: Throwable) {
+                AndroidAgentLogger.error(
+                    "Agent runtime executeRun unhandled failure: ${t.safeLogType()}"
+                )
+                EtaLiveUpdateManager.finish(session.runId, false, "执行异常中断")
             } finally {
                 AgentExecutionService.release("run:${request.runId}")
             }
@@ -392,6 +397,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         ).execute(session, request)
         if (!outcome.shouldUpdateHost) {
             activeSessions.remove(session.runId)
+            EtaLiveUpdateManager.finish(session.runId, outcome.result.ok, outcome.result.error.orEmpty())
             return
         }
         postTerminalOverlay(
@@ -704,7 +710,10 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             )
             return
         }
-        val session = activeSessions[runId] ?: return
+        val session = activeSessions[runId] ?: run {
+            EtaLiveUpdateManager.finish(runId, false, "已停止")
+            return
+        }
         if (session.cancel("已停止")) {
             state.value = state.value.copy(status = AgentOverlayStatus.Stopping)
         }
