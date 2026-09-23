@@ -455,6 +455,7 @@ fun AgentAppRoot(
                     agentState = agentState,
                     onBack = { popRoute() },
                 )
+            }
             entry<AppRoute.Characters>(swipeDismiss = swipeDismiss) {
                 LaunchedEffect(backStack.lastOrNull() == AppRoute.Characters) {
                     if (backStack.lastOrNull() == AppRoute.Characters) characterStore.loadLibrary()

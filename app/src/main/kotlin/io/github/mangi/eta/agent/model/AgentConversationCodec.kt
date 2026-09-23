@@ -13,6 +13,8 @@ internal object AgentConversationCodec {
     internal const val MAX_STORAGE_TRANSCRIPT_CHARS = 1_000_000
     internal const val MAX_CONVERSATION_CHECKPOINT_CHARS = 2_000_000
 
+    private const val COMPACTION_NOTICE =
+        "[Eta 上下文提示：此前部分 assistant/tool 记录因跨进程或持久化容量上限已压缩，请勿假定缺失步骤未执行。]"
     private const val IMAGE_OMITTED_TEXT = "[图片观察已在当前回合使用，未写入持久会话]"
     private const val SENSITIVE_TOOL_OMITTED_TEXT =
         "[敏感工具参数与原始结果仅供当前回合使用，未写入持久会话]"
@@ -20,6 +22,17 @@ internal object AgentConversationCodec {
         ignoreUnknownKeys = true
         encodeDefaults = false
     }
+
+    fun encodeTranscriptForIpc(messages: List<AgentModelClient.ConversationMessage>): String =
+        encodeBounded(messages, MAX_IPC_TRANSCRIPT_CHARS)
+
+    fun encodeTranscriptForDrain(messages: List<AgentModelClient.ConversationMessage>): String =
+        encodeBounded(messages, MAX_DRAIN_TRANSCRIPT_CHARS)
+
+    fun messagesForIpc(
+        messages: List<AgentModelClient.ConversationMessage>,
+    ): List<AgentModelClient.ConversationMessage> =
+        decodeTranscript(encodeTranscriptForIpc(messages))
 
     fun encodeTranscriptForStorage(messages: List<AgentModelClient.ConversationMessage>): String =
         json.encodeToString(messages.map(::sanitizeMessage))

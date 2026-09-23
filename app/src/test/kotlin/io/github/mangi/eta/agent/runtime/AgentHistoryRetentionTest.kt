@@ -120,7 +120,7 @@ class AgentHistoryRetentionTest {
         val history = listOf(AgentModelClient.ConversationMessage("assistant", text,
             contextSummary = true, compactedUserTurns = 50, summaryThroughUserTurn = 51))
         val request = AgentRuntimeWire.RunRequest("wire-large", text, config.copy(systemPrompt = text), emptyList(), history)
-        val bundle = AgentRuntimeWire.toBundle(request, emptyList(), context.cacheDir)
+        val bundle = AgentRuntimeWire.toBundle(request, emptyList<AgentRuntimeWire.WireImage>(), context.cacheDir)
         val parcel = Parcel.obtain()
         try {
             parcel.writeBundle(bundle)

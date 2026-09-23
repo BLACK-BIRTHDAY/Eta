@@ -485,7 +485,7 @@ internal class AgentAppState(
             val observed = checkpoints.mapTo(mutableSetOf()) { it.runId }.apply {
                 addAll(completedRuns.map { it.result.runId })
                 activeRunId?.let(::add)
-                currentRunId?.let(::add)
+                addAll(activeRunJobs.keys)
             }
             conversationsById.flatMap { (id, state) ->
                 state.roleplayMessages.pendingRewrites.keys.filterNot { it in observed }.map { id to it }
@@ -1213,7 +1213,7 @@ internal class AgentAppState(
 
     fun compactCurrentContext() {
         val conversationId = selectedConversationId ?: return
-        if (currentRunId != null || !homeState.canCompactContext || modelPickerState.isChanging) return
+        if (homeState.isStreaming || runConversationIds.values.contains(conversationId) || !homeState.canCompactContext || modelPickerState.isChanging) return
         launchConversationRun(
             conversationId = conversationId,
             runId = java.util.UUID.randomUUID().toString(),
@@ -2272,10 +2272,6 @@ internal class AgentAppState(
         activeRunJobs.remove(runId)
         val rewriting = result.operation == AgentRuntimeWire.OP_REWRITE_REPLY || isReplyRewrite(runId)
         stopRequestedRunIds.remove(runId)
-        if (runId == currentRunId) {
-            currentRunId = null
-            currentRunJob = null
-        }
         if (rewriting) {
             val conversationId = conversationIdForRun(runId)
             val existing = conversationsById[conversationId]
