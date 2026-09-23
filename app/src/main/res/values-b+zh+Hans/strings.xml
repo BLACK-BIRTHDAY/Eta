@@ -258,7 +258,7 @@
   <string name="conversation_persistence_failed">无法保存对话，请重试</string>
   <string name="system_notice_interrupted">任务已中断。已保留部分输出，未自动重试尚未完成的操作。</string>
   <string name="tool_status_unknown">结果未知</string>
-  <string name="voice_listening">正在聆听…</string>
+  <string name="voice_listening">聆听中...</string>
   <string name="voice_processing">正在处理…</string>
   <string name="voice_tap_to_speak">点击说话</string>
   <string name="voice_speech_unavailable">语音识别不可用</string>
@@ -1157,4 +1157,9 @@
   <string name="data_backup_imported">已导入 %1$d 个对话和 %2$d 个模型提供商</string>
   <string name="data_backup_failed">备份操作失败</string>
   <string name="data_backup_file_open_failed">无法打开所选文件</string>
+  <string name="voice_audio_permission">请在 Eta 应用权限中允许麦克风，然后重新唤醒；点击麦克风可打开设置</string>
+  <string name="voice_no_speech">没有听清，请点击麦克风重试，或改用键盘输入</string>
+  <string name="voice_use_keyboard">切换键盘输入</string>
+  <string name="voice_finish_speech">结束录音并发送</string>
+  <string name="voice_recognizing">识别中...</string>
 </resources>

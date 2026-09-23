@@ -281,7 +281,7 @@
   <string name="conversation_persistence_failed">Couldn’t save the conversation. Please try again.</string>
   <string name="system_notice_interrupted">The run was interrupted. Partial output is preserved; unfinished actions were not retried.</string>
   <string name="tool_status_unknown">Result unknown</string>
-  <string name="voice_listening">Listening…</string>
+  <string name="voice_listening">Listening...</string>
   <string name="voice_processing">Processing…</string>
   <string name="voice_tap_to_speak">Tap to speak</string>
   <string name="voice_speech_unavailable">Speech recognition is unavailable</string>
@@ -1174,4 +1174,9 @@
   <string name="context_compaction">Context compaction</string>
   <string name="context_compact_action">Compact context</string>
   <string name="context_usage_estimated">%1$s\nEstimated after compaction</string>
+  <string name="voice_audio_permission">请在 Eta 应用权限中允许麦克风，然后重新唤醒；点击麦克风可打开设置</string>
+  <string name="voice_no_speech">没有听清，请点击麦克风重试，或改用键盘输入</string>
+  <string name="voice_use_keyboard">切换键盘输入</string>
+  <string name="voice_finish_speech">结束录音并发送</string>
+  <string name="voice_recognizing">Recognizing...</string>
 </resources>
