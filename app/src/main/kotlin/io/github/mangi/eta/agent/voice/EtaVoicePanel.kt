@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,6 +63,7 @@ import kotlin.math.abs
 import kotlin.math.max
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.anim.folmeSpring
@@ -292,23 +294,31 @@ private fun BoxScope.AssistantPanel(
     var thresholdHapticSent by remember { mutableStateOf(false) }
     var handoffRunning by remember { mutableStateOf(false) }
     var keepBottomAnchored by remember { mutableStateOf(true) }
+    var fittedReplyId by remember { mutableStateOf<String?>(null) }
     val handoffThresholdPx = with(density) { 72.dp.toPx() }
     val directHandoffThresholdPx = with(density) { 48.dp.toPx() }
     val dismissThresholdPx = with(density) { 92.dp.toPx() }
     val handoffVelocityPx = with(density) { 900.dp.toPx() }
     val autoSettleTolerancePx = with(density) { 8.dp.toPx() }
+    val overflowTolerancePx = with(density) { 16.dp.toPx() }
+    val minimumContentHeightPx = with(density) { 140.dp.toPx() }.coerceAtMost(maxContentHeightPx)
+    val dragHandleHeightPx = with(density) { 38.dp.toPx() }
+    val contentFitSlackPx = with(density) { 12.dp.toPx() }
     val mediumHeightPx = baseContentHeightPx +
         (maxContentHeightPx - baseContentHeightPx) * 0.58f
     val hasMessages = state.messages.isNotEmpty()
+    val latestMessageId = state.messages.lastOrNull()?.id
     val targetHeightPx = if (hasMessages) {
-        settledHeightPx.coerceIn(baseContentHeightPx, maxContentHeightPx)
+        if (settledHeightPx <= 0f) baseContentHeightPx
+        else settledHeightPx.coerceIn(minimumContentHeightPx, maxContentHeightPx)
     } else {
         0f
     }
     val animatedHeightPx by animateFloatAsState(
         targetValue = targetHeightPx,
         animationSpec = when {
-            !autoExpandSuppressed && settledHeightPx > baseContentHeightPx + autoSettleTolerancePx ->
+            !autoExpandSuppressed &&
+                abs(settledHeightPx - baseContentHeightPx) > autoSettleTolerancePx ->
                 folmeSpring(damping = 1f, response = 0.72f)
             autoExpandSuppressed -> folmeSpring(damping = 1f, response = 0.38f)
             else -> folmeSpring(damping = 1f, response = 0.50f)
@@ -344,34 +354,73 @@ private fun BoxScope.AssistantPanel(
         with(density) { 28.dp.toPx() },
     ) * 0.12f
 
-    LaunchedEffect(hasMessages, baseContentHeightPx, maxContentHeightPx) {
+    LaunchedEffect(hasMessages, minimumContentHeightPx, maxContentHeightPx) {
         settledHeightPx = if (hasMessages) {
-            settledHeightPx.coerceIn(baseContentHeightPx, maxContentHeightPx)
+            if (settledHeightPx <= 0f) baseContentHeightPx
+            else settledHeightPx.coerceIn(minimumContentHeightPx, maxContentHeightPx)
         } else {
             autoExpandSuppressed = false
+            fittedReplyId = null
             0f
         }
     }
-    // 等当前锚点停稳后按实际列表溢出逐级升高；流式增量不直接改变高度目标。
-    LaunchedEffect(hasMessages, keyboardVisible, baseContentHeightPx, maxContentHeightPx, listState) {
+    LaunchedEffect(state.phase, latestMessageId) {
+        if (state.phase == EtaVoicePhase.PROCESSING) fittedReplyId = null
+    }
+    // 回复中按真实溢出逐级升高；回复结束且全部条目可测量时交给一次性内容拟合。
+    LaunchedEffect(hasMessages, state.phase, latestMessageId, keyboardVisible, baseContentHeightPx, maxContentHeightPx, listState) {
         if (!hasMessages || keyboardVisible) return@LaunchedEffect
         snapshotFlow {
             !autoExpandSuppressed &&
+                fittedReplyId != latestMessageId &&
                 draggedHeightPx == null &&
                 !handoffRunning &&
                 keepBottomAnchored &&
                 abs(currentAnimatedHeight.value - settledHeightPx) <= autoSettleTolerancePx &&
-                (listState.canScrollBackward || listState.canScrollForward)
+                run {
+                    val measuredHeightPx = measuredConversationHeightPx(listState)
+                    if (state.phase != EtaVoicePhase.PROCESSING && measuredHeightPx != null) {
+                        false
+                    } else if (measuredHeightPx != null) {
+                        measuredHeightPx > listState.layoutInfo.viewportSize.height + overflowTolerancePx
+                    } else {
+                        listState.canScrollBackward || listState.canScrollForward
+                    }
+                }
         }
             .distinctUntilChanged()
             .collect { overflowAtRest ->
                 if (!overflowAtRest) return@collect
                 val nextHeight = when {
+                    settledHeightPx < baseContentHeightPx - autoSettleTolerancePx -> baseContentHeightPx
                     settledHeightPx < mediumHeightPx - autoSettleTolerancePx -> mediumHeightPx
                     settledHeightPx < maxContentHeightPx - autoSettleTolerancePx -> maxContentHeightPx
                     else -> null
                 }
                 if (nextHeight != null) settledHeightPx = nextHeight
+            }
+    }
+    // 完成排版后本轮只拟合一次；列表的旧滚动偏移不能把它再次推回高档。
+    LaunchedEffect(hasMessages, state.phase, latestMessageId, keyboardVisible, maxContentHeightPx, listState) {
+        if (!hasMessages || state.phase == EtaVoicePhase.PROCESSING || keyboardVisible) return@LaunchedEffect
+        snapshotFlow {
+            if (autoExpandSuppressed || fittedReplyId == latestMessageId ||
+                draggedHeightPx != null || handoffRunning ||
+                !keepBottomAnchored ||
+                abs(currentAnimatedHeight.value - settledHeightPx) > autoSettleTolerancePx
+            ) return@snapshotFlow null
+            val contentHeightPx = measuredConversationHeightPx(listState) ?: return@snapshotFlow null
+            (dragHandleHeightPx + contentHeightPx + contentFitSlackPx)
+                .coerceIn(minimumContentHeightPx, maxContentHeightPx)
+        }
+            .distinctUntilChanged()
+            .collectLatest { fittedHeightPx ->
+                val targetHeightPx = fittedHeightPx ?: return@collectLatest
+                delay(500)
+                fittedReplyId = latestMessageId
+                if (abs(settledHeightPx - targetHeightPx) > autoSettleTolerancePx) {
+                    settledHeightPx = targetHeightPx
+                }
             }
     }
     LaunchedEffect(handoffReady) {
@@ -398,7 +447,7 @@ private fun BoxScope.AssistantPanel(
         if (autoExpandSuppressed) return
         autoExpandSuppressed = true
         if (settledHeightPx > currentAnimatedHeight.value + autoSettleTolerancePx) {
-            settledHeightPx = currentAnimatedHeight.value.coerceIn(baseContentHeightPx, maxContentHeightPx)
+            settledHeightPx = currentAnimatedHeight.value.coerceIn(minimumContentHeightPx, maxContentHeightPx)
         }
     }
 
@@ -406,14 +455,15 @@ private fun BoxScope.AssistantPanel(
         if (handoffRunning || state.messages.isEmpty()) return 0f
         val current = draggedHeightPx ?: currentAnimatedHeight.value
         val requested = current - deltaY
+        val minimumDragHeightPx = minOf(baseContentHeightPx, settledHeightPx)
         return when {
             requested > maxContentHeightPx -> {
                 draggedHeightPx = maxContentHeightPx
                 if (deltaY < 0f) handoffPullPx += -deltaY
                 deltaY
             }
-            requested < baseContentHeightPx -> {
-                draggedHeightPx = baseContentHeightPx
+            requested < minimumDragHeightPx -> {
+                draggedHeightPx = minimumDragHeightPx
                 if (deltaY > 0f) dismissPullPx += deltaY
                 deltaY
             }
@@ -433,7 +483,12 @@ private fun BoxScope.AssistantPanel(
             canOpenConversation && current >= maxContentHeightPx * 0.88f &&
                 (handoffReady || velocityY <= -handoffVelocityPx) -> triggerHandoff()
             else -> {
-                val anchors = floatArrayOf(baseContentHeightPx, mediumHeightPx, maxContentHeightPx)
+                val anchors = floatArrayOf(
+                    minOf(baseContentHeightPx, settledHeightPx),
+                    baseContentHeightPx,
+                    mediumHeightPx,
+                    maxContentHeightPx,
+                )
                 settledHeightPx = anchors.minBy { kotlin.math.abs(it - current) }
                 draggedHeightPx = null
                 dismissPullPx = 0f
@@ -470,7 +525,8 @@ private fun BoxScope.AssistantPanel(
                     return Offset(0f, available.y)
                 }
                 val shouldResize = (available.y < 0f && current < maxContentHeightPx) ||
-                    (available.y > 0f && current > baseContentHeightPx && !listState.canScrollBackward)
+                    (available.y > 0f && current > minOf(baseContentHeightPx, settledHeightPx) &&
+                        !listState.canScrollBackward)
                 return if (shouldResize) {
                     Offset(0f, dragByState.value(available.y))
                 } else {
@@ -487,7 +543,7 @@ private fun BoxScope.AssistantPanel(
                 stopAutoExpand()
                 val current = draggedHeightPx ?: currentAnimatedHeight.value
                 val atUpperEdge = available.y < 0f && current >= maxContentHeightPx * 0.88f
-                val atLowerEdge = available.y > 0f && current <= baseContentHeightPx
+                val atLowerEdge = available.y > 0f && current <= minOf(baseContentHeightPx, settledHeightPx)
                 return if (atUpperEdge || atLowerEdge) {
                     Offset(0f, dragByState.value(available.y))
                 } else {
@@ -623,6 +679,16 @@ private fun DragHandle(colors: EtaVoicePanelColors, modifier: Modifier = Modifie
                 .background(colors.tertiary),
         )
     }
+}
+
+private fun measuredConversationHeightPx(listState: LazyListState): Float? {
+    val layout = listState.layoutInfo
+    if (layout.totalItemsCount == 0) return null
+    val first = layout.visibleItemsInfo.firstOrNull() ?: return null
+    val last = layout.visibleItemsInfo.lastOrNull() ?: return null
+    if (first.index != 0 || last.index != layout.totalItemsCount - 1) return null
+    return (last.offset + last.size - first.offset +
+        layout.beforeContentPadding + layout.afterContentPadding).toFloat()
 }
 
 private fun assistantBaseHeightPx(
