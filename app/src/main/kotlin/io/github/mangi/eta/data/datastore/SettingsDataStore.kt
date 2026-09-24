@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.mangi.eta.data.model.AppearanceAccentColor
@@ -27,6 +28,7 @@ internal object SettingsDataStore {
 
     private val SELECTED_PROVIDER_ID = stringPreferencesKey("selected_provider_id")
     private val SELECTED_MODEL_ID = stringPreferencesKey("selected_model_id")
+    private val OFFICIAL_MODEL_CATALOG_REVISION = intPreferencesKey("official_model_catalog_revision")
     private val MEMORY_ENABLED = booleanPreferencesKey("memory_enabled")
     private val LINUX_DISTRIBUTION = stringPreferencesKey("linux_distribution")
     private val APPEARANCE_THEME_MODE = stringPreferencesKey("appearance_theme_mode")
@@ -68,6 +70,18 @@ internal object SettingsDataStore {
     }
 
     suspend fun settings(): Settings = settingsFlow().first()
+
+    suspend fun officialModelCatalogRevision(): Int {
+        ensureInitialized()
+        return dataStore.data.first()[OFFICIAL_MODEL_CATALOG_REVISION] ?: 0
+    }
+
+    suspend fun setOfficialModelCatalogRevision(revision: Int) {
+        ensureInitialized()
+        dataStore.edit { preferences ->
+            preferences[OFFICIAL_MODEL_CATALOG_REVISION] = revision
+        }
+    }
 
     suspend fun updateSettings(transform: (Settings) -> Settings) {
         ensureInitialized()
