@@ -33,6 +33,8 @@ class AppRouteSerializationTest {
             AppRoute.Workspace,
             AppRoute.LinuxFiles("alpine"),
             AppRoute.ModelProviders,
+            AppRoute.CommunityCatalog,
+            AppRoute.CommunityCatalogProvider("provider"),
             AppRoute.McpServers,
             AppRoute.McpServerDetail("mcp-server"),
             AppRoute.ModelProviderDetail("provider"),

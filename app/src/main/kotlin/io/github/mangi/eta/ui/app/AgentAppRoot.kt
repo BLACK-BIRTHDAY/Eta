@@ -57,6 +57,8 @@ import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import io.github.mangi.eta.ui.model.PermissionHealthAction
 import io.github.mangi.eta.ui.navigation.AgentNavigator
 import io.github.mangi.eta.ui.navigation.AppRoute
+import io.github.mangi.eta.ui.pages.providers.CommunityCatalogProviderScreen
+import io.github.mangi.eta.ui.pages.providers.CommunityCatalogScreen
 import io.github.mangi.eta.ui.pages.providers.ModelProviderDetailScreen
 import io.github.mangi.eta.ui.pages.providers.ModelProviderListScreen
 import io.github.mangi.eta.ui.screens.backup.DataBackupScreen
@@ -108,6 +110,7 @@ fun AgentAppRoot(
     val appViewModel = viewModel<AgentAppViewModel>()
     val agentState = appViewModel.state
     val characterStore = viewModel<CharacterLibraryViewModel>().store
+    val communityCatalogStore = viewModel<CommunityCatalogViewModel>().store
     val requestExecutionNotifications = rememberExecutionNotificationRequest()
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -656,6 +659,21 @@ fun AgentAppRoot(
                 ModelProviderListScreen(
                     onNavigate = { route -> pushRoute(route) },
                     onBack = ::popRoute
+                )
+            }
+            entry<AppRoute.CommunityCatalog>(swipeDismiss = swipeDismiss) {
+                CommunityCatalogScreen(
+                    store = communityCatalogStore,
+                    onNavigate = { route -> pushRoute(route) },
+                    onBack = ::popRoute,
+                )
+            }
+            entry<AppRoute.CommunityCatalogProvider>(swipeDismiss = swipeDismiss) { route ->
+                CommunityCatalogProviderScreen(
+                    catalogId = route.catalogId,
+                    store = communityCatalogStore,
+                    onImported = { providerId -> navigator.replace(AppRoute.ModelProviderDetail(providerId)) },
+                    onBack = ::popRoute,
                 )
             }
             entry<AppRoute.McpServers>(swipeDismiss = swipeDismiss) {

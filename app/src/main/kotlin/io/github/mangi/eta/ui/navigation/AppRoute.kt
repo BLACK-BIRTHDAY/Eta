@@ -72,6 +72,12 @@ sealed interface AppRoute : NavKey {
     data object ModelProviders : AppRoute
 
     @Serializable
+    data object CommunityCatalog : AppRoute
+
+    @Serializable
+    data class CommunityCatalogProvider(val catalogId: String) : AppRoute
+
+    @Serializable
     data object McpServers : AppRoute
 
     @Serializable
