@@ -97,6 +97,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -642,27 +643,35 @@ internal class AgentAppState(
         refreshConversationSummaries()
         val job = scope.launch(Dispatchers.IO) {
             val client = AgentRuntimeClient(appContext, AndroidAgentLogger)
-            val outcome = client.attachRun(
-                runId = runId,
-                onReplay = { events -> restoreRunEvents(runId, events) },
-                onEvent = { event -> enqueueRunEvent(runId, event) },
-            )
-            when (outcome) {
-                is AgentRuntimeClient.AttachOutcome.Completed -> withContext(Dispatchers.Main) {
-                    applyRunResult(
-                        runId = runId,
-                        result = outcome.result,
-                        acknowledgeRuntimeResult = true,
-                    )
-                }
-                AgentRuntimeClient.AttachOutcome.NotActive -> {
-                    withContext(Dispatchers.Main) {
+            try {
+                val outcome = client.attachRun(
+                    runId = runId,
+                    onReplay = { events -> restoreRunEvents(runId, events) },
+                    onEvent = { event -> enqueueRunEvent(runId, event) },
+                )
+                when (outcome) {
+                    is AgentRuntimeClient.AttachOutcome.Completed -> withContext(Dispatchers.Main) {
+                        applyRunResult(
+                            runId = runId,
+                            result = outcome.result,
+                            acknowledgeRuntimeResult = true,
+                        )
+                    }
+                    AgentRuntimeClient.AttachOutcome.NotActive -> {
+                        withContext(Dispatchers.Main) {
+                            activeRunJobs.remove(runId)
+                            setConversationStreaming(runId, false)
+                        }
+                        recoverRuntimeRuns()
+                    }
+                    AgentRuntimeClient.AttachOutcome.Unavailable -> withContext(Dispatchers.Main) {
                         activeRunJobs.remove(runId)
                         setConversationStreaming(runId, false)
+                        refreshConversationSummaries()
                     }
-                    recoverRuntimeRuns()
                 }
-                AgentRuntimeClient.AttachOutcome.Unavailable -> withContext(Dispatchers.Main) {
+            } catch (cancelled: CancellationException) {
+                withContext(NonCancellable + Dispatchers.Main) {
                     activeRunJobs.remove(runId)
                     setConversationStreaming(runId, false)
                     refreshConversationSummaries()
@@ -1343,26 +1352,46 @@ internal class AgentAppState(
                 }
                 return@launch
             }
-            val result = runInterruptible {
-                AgentRuntimeClient(appContext, AndroidAgentLogger).run(
-                    request = AgentRuntimeWire.RunRequest(
-                        operation = operation,
-                        rewriteTargetMessageId = rewriteTargetMessageId,
-                        runId = runId,
-                        prompt = prompt,
-                        config = config,
-                        images = modelImages,
-                        history = history,
-                        handoff = AgentRuntimeWire.EntryHandoff(
-                            id = runId,
-                            source = AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE,
-                            payload = conversationId,
+            val result = try {
+                runInterruptible {
+                    AgentRuntimeClient(appContext, AndroidAgentLogger).run(
+                        request = AgentRuntimeWire.RunRequest(
+                            operation = operation,
+                            rewriteTargetMessageId = rewriteTargetMessageId,
+                            runId = runId,
+                            prompt = prompt,
+                            config = config,
+                            images = modelImages,
+                            history = history,
+                            handoff = AgentRuntimeWire.EntryHandoff(
+                                id = runId,
+                                source = AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE,
+                                payload = conversationId,
+                            ),
                         ),
-                    ),
-                    onEvent = { event -> enqueueRunEvent(runId, event) },
+                        onEvent = { event -> enqueueRunEvent(runId, event) },
+                    )
+                }
+            } catch (cancelled: CancellationException) {
+                AgentRuntimeWire.RunResult(
+                    runId = runId,
+                    ok = false,
+                    content = "",
+                    error = LEGACY_STOPPED_ERROR,
+                    operation = operation,
+                    rewriteTargetMessageId = rewriteTargetMessageId,
+                )
+            } catch (throwable: Throwable) {
+                AgentRuntimeWire.RunResult(
+                    runId = runId,
+                    ok = false,
+                    content = "",
+                    error = throwable.message ?: throwable.javaClass.simpleName,
+                    operation = operation,
+                    rewriteTargetMessageId = rewriteTargetMessageId,
                 )
             }
-            withContext(Dispatchers.Main) {
+            withContext(NonCancellable + Dispatchers.Main) {
                 applyRunResult(runId, result, acknowledgeRuntimeResult = true)
             }
         }
@@ -1602,8 +1631,6 @@ internal class AgentAppState(
             runConversationIds.entries.firstOrNull { it.value == convId }?.key
         } ?: activeRunJobs.keys.firstOrNull() ?: return
         if (!stopRequestedRunIds.add(runId)) return
-        val job = activeRunJobs.remove(runId)
-        job?.cancel()
         flushPendingRunDelta(runId)
         scope.launch(Dispatchers.IO) {
             AgentRuntimeClient(appContext, AndroidAgentLogger).cancelRun(runId)
