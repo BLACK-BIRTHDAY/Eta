@@ -26,6 +26,7 @@ class AppRouteSerializationTest {
             AppRoute.SystemEnhance,
             AppRoute.Settings,
             AppRoute.AppearanceSettings,
+            AppRoute.SpeechSettings,
             AppRoute.DataBackup,
             AppRoute.Memory,
             AppRoute.LinuxEnvironment,
