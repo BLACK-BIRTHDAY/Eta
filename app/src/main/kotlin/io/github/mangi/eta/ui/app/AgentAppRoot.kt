@@ -1,6 +1,9 @@
 package io.github.mangi.eta.ui.app
 
+import io.github.mangi.eta.ui.voice.SpeechOssScreen
+import io.github.mangi.eta.ui.voice.SpeechRecognitionScreen
 import io.github.mangi.eta.ui.voice.SpeechSettingsScreen
+import io.github.mangi.eta.ui.voice.SpeechSynthesisScreen
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
@@ -616,7 +619,22 @@ fun AgentAppRoot(
                 )
             }
             entry<AppRoute.SpeechSettings>(swipeDismiss = swipeDismiss) {
-                SpeechSettingsScreen(onBack = ::popRoute)
+                SpeechSettingsScreen(
+                    onBack = ::popRoute,
+                    onNavigate = { route -> pushRoute(route) },
+                )
+            }
+            entry<AppRoute.SpeechRecognition>(swipeDismiss = swipeDismiss) {
+                SpeechRecognitionScreen(
+                    onBack = ::popRoute,
+                    onOpenOss = { pushRoute(AppRoute.SpeechOss) },
+                )
+            }
+            entry<AppRoute.SpeechSynthesis>(swipeDismiss = swipeDismiss) {
+                SpeechSynthesisScreen(onBack = ::popRoute)
+            }
+            entry<AppRoute.SpeechOss>(swipeDismiss = swipeDismiss) {
+                SpeechOssScreen(onBack = ::popRoute)
             }
             entry<AppRoute.AppearanceSettings>(swipeDismiss = swipeDismiss) {
                 AppearanceSettingsScreen(onBack = ::popRoute)

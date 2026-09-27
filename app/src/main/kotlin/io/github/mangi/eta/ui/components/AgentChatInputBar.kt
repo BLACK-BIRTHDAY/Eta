@@ -336,6 +336,8 @@ internal fun AgentChatInputBar(
 
                         SpeechDictationButton(dictation, enabled = !isStreaming)
 
+                        Spacer(modifier = Modifier.width(2.dp))
+
                         AgentModelPickerButton(
                             state = modelPickerState,
                             isStreaming = isStreaming,

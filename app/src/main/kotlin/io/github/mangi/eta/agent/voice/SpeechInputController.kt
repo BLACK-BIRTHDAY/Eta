@@ -25,6 +25,7 @@ internal data class SpeechInputState(
     val progress: String = "",
     val error: String? = null,
     val systemIssue: EtaSpeechIssue? = null,
+    val configureAvailable: Boolean = false,
     val downloadAvailable: Boolean = false,
 ) {
     val active: Boolean get() = phase != EtaSpeechPhase.IDLE
@@ -120,7 +121,11 @@ internal class SpeechInputController(
                     val failure = error.speechFailure()
                     AndroidAgentLogger.warn("Eta speech recognition failed: code=${failure.code} type=${error.javaClass.simpleName}")
                     cancel()
-                    mutableState.value = SpeechInputState(error = failure.userMessage)
+                    mutableState.value = SpeechInputState(
+                        error = failure.userMessage,
+                        configureAvailable = failure.code == SpeechErrorCode.CONFIGURATION ||
+                            failure.code == SpeechErrorCode.CREDENTIALS,
+                    )
                 }
             } finally {
                 if (generation == session) cancel()

@@ -73,7 +73,12 @@ internal fun EtaSpeechFeedback(speech: EtaSpeechState, onDownloadModel: () -> Un
                 )
                 .padding(horizontal = 10.dp, vertical = 6.dp),
         )
-        if (speech.configureAvailable) TextButton(text = "语音设置", onClick = onOpenSpeechSettings)
+        if (speech.configureAvailable) {
+            TextButton(
+                text = stringResource(R.string.speech_open_settings),
+                onClick = onOpenSpeechSettings,
+            )
+        }
         if (speech.downloadAvailable) {
             TextButton(
                 text = stringResource(R.string.voice_download_model),

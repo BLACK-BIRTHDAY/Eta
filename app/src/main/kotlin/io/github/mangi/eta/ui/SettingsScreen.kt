@@ -570,7 +570,7 @@ private fun SettingsPageContent(
 
                     EtaPreferenceDivider()
                     EtaArrowPreference(
-                        title = "语音", summary = "语音识别与回答播报",
+                        title = stringResource(R.string.speech_settings_title),
                         startAction = { EtaPreferenceIcon(icon = Icons.Rounded.Mic, tint = EtaPreferenceColors.Blue) },
                         onClick = { onNavigate(AppRoute.SpeechSettings) },
                     )
