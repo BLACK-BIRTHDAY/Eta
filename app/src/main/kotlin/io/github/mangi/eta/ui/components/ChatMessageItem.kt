@@ -195,7 +195,7 @@ internal fun rememberDataUrlBitmap(dataUrl: String) = remember(dataUrl) {
     decodeDataUrlBitmap(dataUrl)
 }
 
-private fun decodeDataUrlBitmap(dataUrl: String): ImageBitmap? {
+internal fun decodeDataUrlBitmap(dataUrl: String): ImageBitmap? {
     val base64 = dataUrl.substringAfter("base64,", "")
     if (base64.isBlank()) return null
     return runCatching {
@@ -241,7 +241,7 @@ fun AITypingIndicator(modifier: Modifier = Modifier) {
  * 每个已完成节点都持续产生帧时钟与状态更新。
  */
 @Composable
-private fun rememberActivePulse(
+internal fun rememberActivePulse(
     active: Boolean,
     label: String,
 ): Float {
@@ -355,210 +355,6 @@ internal fun ChatMessageItem(
         )
         is ToolSummaryMessageUi -> ToolSummaryInline(message = message, modifier = modifier, compact = compact)
         is SuggestionChipsMessageUi -> SuggestionChipsRow(message = message, onSuggestionClick = onSuggestionClick, modifier = modifier)
-    }
-}
-
-/**
- * 把连续的思考与工具调用收束为一个可展开的工作过程，避免 Agent 事件退化为聊天气泡噪音。
- */
-@Composable
-internal fun AgentWorkProcess(
-    id: String,
-    messages: List<AgentChatMessageUi>,
-    assistantOverlay: Boolean = false,
-    onOpenBrowser: () -> Unit,
-    currentBrowserMessageId: String?,
-    retainedStreamingStates: Map<String, StreamingMarkdownState>,
-    modifier: Modifier = Modifier,
-    active: Boolean = false,
-) {
-    val running = messages.any { message ->
-        (message is ThinkingMessageUi && message.isStreaming) ||
-            (message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running)
-    }
-    val toolCount = messages.count { it is ToolActivityMessageUi }
-    val runningTool = messages.lastOrNull { message ->
-        message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running
-    } as? ToolActivityMessageUi
-    val runningToolTitle = runningTool?.argumentsSummary?.takeIf { it.isNotBlank() }
-        ?: runningTool?.let { toolDisplayName(it.toolName) }
-    var expanded by rememberSaveable(id) { mutableStateOf(active || running) }
-    var manuallyExpanded by rememberSaveable(id) { mutableStateOf(false) }
-
-    // 以“是否仍是本轮末尾的工作过程”判定收起，而不是 running：思考结束到工具开始之间
-    // running 会短暂为 false，按它收起会造成卡片反复开合。正文开始或本轮结束后自动收起。
-    LaunchedEffect(active) {
-        if (!manuallyExpanded) expanded = active
-    }
-
-    val pulseAlpha = rememberActivePulse(active = running, label = "work_pulse")
-
-    if (assistantOverlay) {
-        Column(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-        ) {
-            Row(
-                modifier = Modifier
-                    .clickable {
-                        val currentlyVisible = expanded && manuallyExpanded
-                        manuallyExpanded = true
-                        expanded = !currentlyVisible
-                    }
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(MiuixTheme.colorScheme.onSurface)
-                        .graphicsLayer(alpha = if (running) pulseAlpha else 1f),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (running) stringResource(R.string.voice_reasoning)
-                        else stringResource(R.string.work_completed),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                )
-            }
-            AnimatedVisibility(visible = expanded && manuallyExpanded) {
-                Column {
-                    messages.forEach { message ->
-                        ChatMessageItem(
-                            message = message,
-                            onSuggestionClick = {},
-                            onRunTraceClick = {},
-                            onOpenBrowser = onOpenBrowser,
-                            showBrowserShortcut = message.id == currentBrowserMessageId,
-                            retainedStreamingState = retainedStreamingStates[message.id],
-                            compact = true,
-                            assistantOverlay = true,
-                        )
-                    }
-                }
-            }
-        }
-        return
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 4.dp)
-            .squircleSurface(
-                color = MiuixTheme.colorScheme.surface,
-                cornerRadius = 14.dp,
-            )
-            .squircleBorder(
-                width = 0.5.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.50f),
-                cornerRadius = 14.dp,
-            ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                    manuallyExpanded = true
-                    expanded = !expanded
-                }
-                .padding(horizontal = 13.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = when {
-                    runningTool != null -> iconForTool(runningTool.toolName)
-                    running -> Icons.Rounded.Lightbulb
-                    else -> Icons.Rounded.Build
-                },
-                contentDescription = null,
-                modifier = Modifier
-                    .size(15.dp)
-                    .graphicsLayer(alpha = if (running) pulseAlpha else 1f),
-                tint = if (running) {
-                    MiuixTheme.colorScheme.primary
-                } else {
-                    MiuixTheme.colorScheme.onSurfaceVariantSummary
-                },
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = when {
-                    running && toolCount > 0 -> pluralStringResource(
-                        R.plurals.work_processing_step,
-                        toolCount,
-                        toolCount,
-                    ) + (runningToolTitle?.let { " · $it" } ?: "")
-                    running -> stringResource(R.string.work_analyzing)
-                    toolCount > 0 -> pluralStringResource(
-                        R.plurals.work_completed_steps,
-                        toolCount,
-                        toolCount,
-                    )
-                    else -> stringResource(R.string.work_completed)
-                },
-                style = MiuixTheme.textStyles.body2,
-                color = if (running) {
-                    MiuixTheme.colorScheme.onSurface
-                } else {
-                    MiuixTheme.colorScheme.onSurfaceVariantSummary
-                },
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Icon(
-                imageVector = if (expanded) Icons.Rounded.ExpandMore
-                    else Icons.Rounded.ChevronRight,
-                contentDescription = stringResource(
-                    if (expanded) R.string.work_collapse else R.string.work_expand,
-                ),
-                modifier = Modifier.size(14.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
-            )
-        }
-
-        AnimatedVisibility(
-            visible = expanded,
-            enter = fadeIn() + expandVertically(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMediumLow,
-                )
-            ),
-            exit = fadeOut() + shrinkVertically(
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioNoBouncy,
-                    stiffness = Spring.StiffnessMediumLow,
-                )
-            ),
-        ) {
-            Column {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 13.dp)
-                        .height(0.5.dp)
-                        .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.45f)),
-                )
-                Column(modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)) {
-                    messages.forEach { message ->
-                        ChatMessageItem(
-                            message = message,
-                            onSuggestionClick = {},
-                            onRunTraceClick = {},
-                            onOpenBrowser = onOpenBrowser,
-                            showBrowserShortcut = message.id == currentBrowserMessageId,
-                            retainedStreamingState = retainedStreamingStates[message.id],
-                            compact = true,
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -2241,7 +2037,7 @@ private fun MutableSet<RevealBlockKey>.collectTableCellRevealKeys(node: ASTNode)
 // ── 思考过程 ─────────────────────────────────────────────────────────
 
 @Composable
-private fun ThinkingRow(
+internal fun ThinkingRow(
     message: ThinkingMessageUi,
     retainedStreamingState: StreamingMarkdownState?,
     modifier: Modifier = Modifier,
@@ -2281,11 +2077,9 @@ private fun ThinkingRow(
         label = "thinking_pulse",
     )
 
-    // compact 模式渲染在工作过程卡片内部，不再携带自己的卡片外壳，避免卡中卡。
+    // compact 模式渲染在工作过程时间线内，节点徽章已承担图标，这里只保留文字与展开控制。
     val containerModifier = if (compact) {
-        modifier
-            .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 2.dp)
+        modifier.fillMaxWidth()
     } else {
         modifier
             .fillMaxWidth()
@@ -2311,23 +2105,32 @@ private fun ThinkingRow(
                     if (!tailWindow || !expanded) expanded = !expanded
                     manuallyExpanded = true
                 }
-                .padding(horizontal = if (compact) 4.dp else 13.dp, vertical = if (compact) 6.dp else 10.dp),
+                .then(
+                    if (compact) {
+                        Modifier.heightIn(min = WorkRowHeight)
+                    } else {
+                        Modifier.padding(horizontal = 13.dp, vertical = 10.dp)
+                    },
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                imageVector = Icons.Rounded.Lightbulb,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(15.dp)
-                    .graphicsLayer(alpha = if (message.isStreaming) pulseAlpha else 1f),
-                tint = if (message.isStreaming) {
-                    MiuixTheme.colorScheme.primary
-                } else {
-                    MiuixTheme.colorScheme.onSurfaceVariantSummary
-                },
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
+            if (!compact) {
+                Icon(
+                    imageVector = Icons.Rounded.Lightbulb,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(15.dp)
+                        .graphicsLayer(alpha = if (message.isStreaming) pulseAlpha else 1f),
+                    tint = if (message.isStreaming) {
+                        MiuixTheme.colorScheme.primary
+                    } else {
+                        MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    },
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            ShimmerText(
+                active = message.isStreaming,
                 text = if (message.isStreaming) {
                     stringResource(R.string.reasoning_in_progress)
                 } else {
@@ -2345,16 +2148,14 @@ private fun ThinkingRow(
                 } else {
                     MiuixTheme.colorScheme.onSurfaceVariantSummary
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f, fill = !compact),
             )
-            Icon(
-                imageVector = if (expanded) Icons.Rounded.ExpandMore
-                    else Icons.Rounded.ChevronRight,
+            ExpandChevron(
+                expanded = expanded,
                 contentDescription = stringResource(
                     if (expanded) R.string.reasoning_collapse else R.string.reasoning_expand,
                 ),
-                modifier = Modifier.size(14.dp),
-                tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
+                modifier = Modifier.padding(start = 4.dp, end = if (compact) 8.dp else 0.dp),
             )
         }
 
@@ -2372,9 +2173,9 @@ private fun ThinkingRow(
                 val contentModifier = Modifier
                     .fillMaxWidth()
                     .padding(
-                        start = if (compact) 27.dp else 13.dp,
-                        end = 13.dp,
-                        top = if (compact) 2.dp else 8.dp,
+                        start = if (compact) 0.dp else 13.dp,
+                        end = if (compact) 8.dp else 13.dp,
+                        top = if (compact) 0.dp else 8.dp,
                         bottom = if (compact) 8.dp else 12.dp,
                     )
                 if (streamingState != null && (message.isStreaming || completedMarkdownState == null)) {
@@ -2452,407 +2253,6 @@ private fun ThinkingTailWindow(
 
 private const val THINKING_TAIL_WINDOW_LINES = 4
 private const val THINKING_LINE_HEIGHT_SP = 22
-
-// ── 工具调用：优雅极简时间线 ─────────────────────────────────────────
-
-@Composable
-private fun ToolActivityInline(
-    message: ToolActivityMessageUi,
-    onOpenBrowser: () -> Unit,
-    showBrowserShortcut: Boolean,
-    modifier: Modifier = Modifier,
-    compact: Boolean = false,
-) {
-    var isExpanded by rememberSaveable(message.id) { mutableStateOf(false) }
-    // 只有「当前浏览器」卡片订阅实时会话快照，避免每个工具行都跟随快照重组
-    val browserSnapshot = if (showBrowserShortcut) {
-        AgentBrowserSession.snapshots.collectAsState().value
-    } else {
-        null
-    }
-
-    val pulseAlpha = rememberActivePulse(
-        active = message.status == ToolActivityStatusUi.Running,
-        label = "tool_pulse",
-    )
-
-    val title = message.argumentsSummary.ifBlank { toolDisplayName(message.toolName) }
-    val browserSubtitle = browserSnapshot?.let { snapshot ->
-        when {
-            snapshot.isLoading ->
-                stringResource(R.string.tool_browser_loading, snapshot.progress)
-            snapshot.host.isNotBlank() && snapshot.title.isNotBlank() ->
-                "${snapshot.host} · ${snapshot.title}"
-            snapshot.host.isNotBlank() -> snapshot.host
-            else -> null
-        }
-    }
-    // 失败原因直接显示在折叠行，不必展开卡片；剥离去重「失败」前缀与日志用的 code= 尾巴
-    val failureSubtitle = if (message.status == ToolActivityStatusUi.Failed) {
-        message.resultSummary
-            ?.lineSequence()?.firstOrNull()
-            ?.removePrefix("失败 · ")
-            ?.substringBefore(" · code=")
-            ?.takeIf { it.isNotBlank() && it != "失败" }
-    } else {
-        null
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable { isExpanded = !isExpanded }
-            .padding(horizontal = if (compact) 10.dp else 20.dp, vertical = 3.dp)
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 5.dp),
-        ) {
-            // 工具图标与思考行的灯泡共用同一前导槽位，保证卡片内左边缘对齐。
-            Icon(
-                imageVector = iconForTool(message.toolName),
-                contentDescription = null,
-                modifier = Modifier.size(15.dp),
-                tint = when (message.status) {
-                    ToolActivityStatusUi.Running -> MiuixTheme.colorScheme.primary
-                    ToolActivityStatusUi.Failed -> StatusError
-                    ToolActivityStatusUi.Unknown -> MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    ToolActivityStatusUi.Success ->
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
-                }
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MiuixTheme.textStyles.body2,
-                    color = if (message.status == ToolActivityStatusUi.Running) {
-                        MiuixTheme.colorScheme.onSurface
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary
-                    },
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                val subtitle = failureSubtitle ?: browserSubtitle
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = if (failureSubtitle != null) {
-                            StatusError
-                        } else {
-                            MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
-                        },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                AnimatedContent(
-                    targetState = message.status,
-                    transitionSpec = {
-                        (fadeIn(tween(150)) + scaleIn(tween(170), initialScale = 0.86f))
-                            .togetherWith(
-                                fadeOut(tween(90)) + scaleOut(tween(110), targetScale = 0.86f)
-                            )
-                    },
-                    label = "tool_status",
-                ) { status ->
-                    // 成功是常态，只留低饱和度对勾；运行中与失败才占用视觉注意力
-                    if (status == ToolActivityStatusUi.Success) {
-                        Icon(
-                            imageVector = Icons.Rounded.Check,
-                            contentDescription = stringResource(R.string.tool_status_success),
-                            modifier = Modifier.size(13.dp),
-                            tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.7f),
-                        )
-                    } else {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp),
-                            modifier = Modifier.graphicsLayer(
-                                alpha = if (status == ToolActivityStatusUi.Running) pulseAlpha else 1f
-                            ),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(7.dp)
-                                    .clip(CircleShape)
-                                    .background(status.statusColor())
-                            )
-                            Text(
-                                text = status.statusLabel(),
-                                style = MiuixTheme.textStyles.footnote2,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f),
-                            )
-                        }
-                    }
-                }
-                Icon(
-                    imageVector = if (isExpanded) Icons.Rounded.ExpandMore
-                        else Icons.Rounded.ChevronRight,
-                    contentDescription = null,
-                    modifier = Modifier.size(13.dp),
-                    tint = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.5f),
-                )
-            }
-        }
-
-        AnimatedVisibility(visible = isExpanded) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 27.dp, top = 2.dp, bottom = 6.dp)
-                    .squircleSurface(
-                        color = MiuixTheme.colorScheme.surfaceContainer,
-                        cornerRadius = 10.dp,
-                    )
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-            ) {
-                if (!message.command.isNullOrBlank()) {
-                    ToolCommandBlock(
-                        command = message.command,
-                        context = message.argumentsSummary,
-                        modifier = Modifier.padding(
-                            bottom = if (message.resultSummary.isNullOrBlank()) 0.dp else 10.dp,
-                        ),
-                    )
-                }
-                if (message.resultSummary != null && message.resultSummary.isNotBlank()) {
-                    Text(
-                        text = stringResource(R.string.ui_result_0a2c91),
-                        style = MiuixTheme.textStyles.footnote1,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        modifier = Modifier.padding(bottom = 2.dp)
-                    )
-                    Text(
-                        text = message.resultSummary,
-                        style = MiuixTheme.textStyles.footnote2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                        maxLines = 10,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                if (showBrowserShortcut) {
-                    browserSnapshot?.takeIf { it.available }?.let { snapshot ->
-                        BrowserPagePreview(
-                            snapshot = snapshot,
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        TextButton(
-                            text = stringResource(R.string.ui_open_current_browser_58358e),
-                            onClick = onOpenBrowser,
-                            colors = ButtonDefaults.textButtonColorsPrimary(),
-                            minHeight = 36.dp,
-                            textStyle = MiuixTheme.textStyles.body2,
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * 浏览器工具的实时页面预览：迷你地址条 + 当前视口截图。
- *
- * 截图只在页面加载中或内容稳定后的低频节拍刷新；组合销毁即停止，
- * 不做后台轮询。截图不可用时退化为图标占位。
- */
-@Composable
-private fun BrowserPagePreview(
-    snapshot: BrowserSessionSnapshot,
-    modifier: Modifier = Modifier,
-) {
-    var preview by remember(snapshot.url) { mutableStateOf<ImageBitmap?>(null) }
-    LaunchedEffect(snapshot.url, snapshot.isLoading) {
-        while (true) {
-            val image = withContext(Dispatchers.IO) {
-                AgentBrowserSession.capturePreview()?.let { decodeDataUrlBitmap(it.dataUrl) }
-            }
-            if (image != null) preview = image
-            delay(if (snapshot.isLoading) 1_200L else 4_000L)
-        }
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .squircleSurface(
-                color = MiuixTheme.colorScheme.surfaceContainer,
-                cornerRadius = 10.dp,
-            ),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(if (snapshot.isLoading) StatusRunning else StatusSuccess),
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = snapshot.host.ifBlank { snapshot.displayUrl },
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        val image = preview
-        if (image != null) {
-            Image(
-                bitmap = image,
-                contentDescription = stringResource(R.string.tool_browser_preview),
-                modifier = Modifier.fillMaxWidth(),
-                contentScale = ContentScale.FillWidth,
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Language,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MiuixTheme.colorScheme.outline,
-                )
-            }
-        }
-        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
-            if (snapshot.title.isNotBlank()) {
-                Text(
-                    text = snapshot.title,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (snapshot.displayUrl.isNotBlank()) {
-                Text(
-                    text = snapshot.displayUrl,
-                    style = MiuixTheme.textStyles.footnote2,
-                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ToolCommandBlock(
-    command: String,
-    context: String,
-    modifier: Modifier = Modifier,
-) {
-    @Suppress("DEPRECATION")
-    val clipboardManager = LocalClipboardManager.current
-    var copied by remember(command) { mutableStateOf(false) }
-    LaunchedEffect(copied) {
-        if (copied) {
-            kotlinx.coroutines.delay(1_400)
-            copied = false
-        }
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .squircleSurface(
-                color = MiuixTheme.colorScheme.surface,
-                cornerRadius = 10.dp,
-            )
-            .squircleBorder(
-                width = 0.5.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
-                cornerRadius = 10.dp,
-            ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, end = 5.dp, top = 3.dp, bottom = 3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = context.ifBlank { stringResource(R.string.shell_command) },
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(
-                onClick = {
-                    @Suppress("DEPRECATION")
-                    clipboardManager.setText(AnnotatedString(command))
-                    copied = true
-                },
-                minWidth = 28.dp,
-                minHeight = 28.dp,
-            ) {
-                Icon(
-                    imageVector = if (copied) Icons.Rounded.Check
-                        else Icons.Rounded.ContentCopy,
-                    contentDescription = stringResource(
-                        if (copied) R.string.copy_copied else R.string.copy_command,
-                    ),
-                    modifier = Modifier.size(13.dp),
-                    tint = if (copied) {
-                        MiuixTheme.colorScheme.primary
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
-                    },
-                )
-            }
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .height(0.5.dp)
-                .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.45f)),
-        )
-        SelectionContainer {
-            Text(
-                text = command,
-                style = MiuixTheme.textStyles.footnote2.copy(fontFamily = FontFamily.Monospace),
-                color = MiuixTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-            )
-        }
-    }
-}
 
 // ── Run trace：轻量入口行 ─────────────────────────────────────────────
 
@@ -2990,22 +2390,4 @@ private fun SuggestionChipsRow(
             }
         }
     }
-}
-
-// ── 辅助 ──────────────────────────────────────────────────────────────
-
-@Composable
-private fun ToolActivityStatusUi.statusColor() = when (this) {
-    ToolActivityStatusUi.Running -> StatusRunning
-    ToolActivityStatusUi.Success -> StatusSuccess
-    ToolActivityStatusUi.Failed -> StatusError
-    ToolActivityStatusUi.Unknown -> MiuixTheme.colorScheme.onSurfaceVariantSummary
-}
-
-@Composable
-private fun ToolActivityStatusUi.statusLabel(): String = when (this) {
-    ToolActivityStatusUi.Running -> stringResource(R.string.tool_status_running)
-    ToolActivityStatusUi.Success -> stringResource(R.string.tool_status_success)
-    ToolActivityStatusUi.Failed -> stringResource(R.string.tool_status_failed)
-    ToolActivityStatusUi.Unknown -> stringResource(R.string.tool_status_unknown)
 }

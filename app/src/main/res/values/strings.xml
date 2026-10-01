@@ -303,7 +303,6 @@
   <string name="voice_model_download_failed">Could not download the speech model</string>
   <string name="voice_request_failed">The request failed. Please try again.</string>
   <string name="voice_input_request">Enter a request</string>
-  <string name="voice_reasoning">Eta is reasoning</string>
   <string name="voice_completed">Completed</string>
   <string name="voice_failed">Eta failed to complete the task</string>
   <string name="voice_running_tool">Eta is running %1$s</string>
@@ -427,7 +426,6 @@
   <string name="ui_system_enhancement_dcd4ad">System enhancement</string>
   <string name="ui_system_applications_have_voice_wake_up_permissions_f_0190f2">System applications have voice wake-up permissions, fewer self-start restrictions, and the experience is close to native. Will be installed via Magisk/KernelSU module and will take effect after reboot.</string>
   <string name="ui_system_prompt_word_193981">System prompt</string>
-  <string name="ui_result_0a2c91">result</string>
   <string name="ui_absolute_path_9ac6fc">absolute path</string>
   <string name="ui_edit_a7f814">edit</string>
   <string name="ui_edit_model_parameters_ba4864">Edit model parameters</string>
@@ -484,6 +482,23 @@
     <item quantity="other">Completed %d steps</item>
   </plurals>
   <string name="work_completed">Analysis complete</string>
+  <string name="tool_elapsed_seconds">%1$ds</string>
+  <plurals name="tool_group_calls">
+    <item quantity="one">%d call</item>
+    <item quantity="other">%d calls</item>
+  </plurals>
+  <plurals name="work_summary_thinking">
+    <item quantity="one">Thought %d time</item>
+    <item quantity="other">Thought %d times</item>
+  </plurals>
+  <plurals name="work_summary_tools">
+    <item quantity="one">%d tool call</item>
+    <item quantity="other">%d tool calls</item>
+  </plurals>
+  <plurals name="work_summary_failed">
+    <item quantity="one">%d failed</item>
+    <item quantity="other">%d failed</item>
+  </plurals>
   <string name="work_collapse">Collapse work details</string>
   <string name="work_expand">Expand work details</string>
   <string name="copy_copied">Copied</string>

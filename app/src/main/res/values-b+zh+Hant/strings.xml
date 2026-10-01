@@ -403,7 +403,6 @@
   <string name="ui_system_enhancement_dcd4ad">系統增強</string>
   <string name="ui_system_applications_have_voice_wake_up_permissions_f_0190f2">系統應用程式享有語音喚醒權限、較少的自啟動限制，體驗接近原生。將透過 Magisk / KernelSU 模組安裝，重新啟動後生效。</string>
   <string name="ui_system_prompt_word_193981">System prompt</string>
-  <string name="ui_result_0a2c91">結果</string>
   <string name="ui_absolute_path_9ac6fc">絕對路徑</string>
   <string name="ui_edit_a7f814">編輯</string>
   <string name="ui_edit_model_parameters_ba4864">編輯模型參數</string>
@@ -458,6 +457,19 @@
     <item quantity="other">已完成 %d 個步驟</item>
   </plurals>
   <string name="work_completed">分析完成</string>
+  <string name="tool_elapsed_seconds">%1$d 秒</string>
+  <plurals name="tool_group_calls">
+    <item quantity="other">%d 次</item>
+  </plurals>
+  <plurals name="work_summary_thinking">
+    <item quantity="other">思考 %d 次</item>
+  </plurals>
+  <plurals name="work_summary_tools">
+    <item quantity="other">呼叫 %d 個工具</item>
+  </plurals>
+  <plurals name="work_summary_failed">
+    <item quantity="other">%d 個失敗</item>
+  </plurals>
   <string name="work_collapse">收合工作過程</string>
   <string name="work_expand">展開工作過程</string>
   <string name="copy_copied">已複製</string>
@@ -669,7 +681,6 @@
   <string name="page_use_standard_chat_completions_ee4b1a">使用 Chat Completions API</string>
   <string name="page_using_typed_items_with_semantic_streaming_events_f9c906">使用 Responses API、typed Items 與語意化串流事件</string>
   <string name="voice_input_request">輸入要求</string>
-  <string name="voice_reasoning">Eta 正在思考</string>
   <string name="voice_completed">已完成</string>
   <string name="voice_failed">Eta 執行失敗</string>
   <string name="voice_running_tool">Eta 正在執行 %1$s</string>
