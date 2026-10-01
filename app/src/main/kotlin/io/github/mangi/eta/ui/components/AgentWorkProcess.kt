@@ -35,7 +35,6 @@ import androidx.compose.material.icons.rounded.Checklist
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -92,16 +91,13 @@ internal fun AgentWorkProcess(
             (message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running)
     }
     val steps = remember(messages) { messages.toWorkSteps() }
-    var expanded by rememberSaveable(id) { mutableStateOf(active || running) }
-    var manuallyExpanded by rememberSaveable(id) { mutableStateOf(false) }
+    // null 表示自动模式；用户点过之后只认手动选择。
+    var manualExpanded by rememberSaveable(id) { mutableStateOf<Boolean?>(null) }
 
     // 以“是否仍是本轮末尾的工作过程”判定收起，而不是 running：思考结束到工具开始之间
-    // running 会短暂为 false，按它收起会造成卡片反复开合。正文开始或本轮结束后自动收起。
-    LaunchedEffect(active) {
-        if (!manuallyExpanded) expanded = active
-    }
-    // 语音浮层空间有限，只在用户主动展开时显示时间线。
-    val bodyVisible = expanded && (!assistantOverlay || manuallyExpanded)
+    // running 会短暂为 false，按它收起会造成反复开合。展开态在组合期同步推导，与正文
+    // 条目插入落在同一帧，不经 LaunchedEffect 晚一帧收起。语音浮层空间有限，自动模式不展开。
+    val bodyVisible = manualExpanded ?: (active && !assistantOverlay)
 
     Column(
         modifier = modifier
@@ -112,10 +108,7 @@ internal fun AgentWorkProcess(
             messages = messages,
             working = active || running,
             expanded = bodyVisible,
-            onClick = {
-                manuallyExpanded = true
-                expanded = !bodyVisible
-            },
+            onClick = { manualExpanded = !bodyVisible },
         )
         AnimatedVisibility(
             visible = bodyVisible,

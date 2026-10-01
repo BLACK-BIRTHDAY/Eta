@@ -2043,8 +2043,8 @@ internal fun ThinkingRow(
     modifier: Modifier = Modifier,
     compact: Boolean = false,
 ) {
-    var expanded by rememberSaveable(message.id) { mutableStateOf(!message.collapsed) }
-    var manuallyExpanded by rememberSaveable(message.id) { mutableStateOf(false) }
+    // null 表示跟随思考生命周期；用户点过之后只认手动选择。
+    var manualExpanded by rememberSaveable(message.id) { mutableStateOf<Boolean?>(null) }
     val keepStreamingMarkdown = remember(message.id) { message.isStreaming }
     val streamingState = if (keepStreamingMarkdown) {
         retainedStreamingState ?: remember(message.id) { StreamingMarkdownState() }
@@ -2053,11 +2053,11 @@ internal fun ThinkingRow(
     }
     val completedMarkdownState = (streamingState ?: retainedStreamingState)
         ?.snapshot?.completedStateFor(message.content)
-    // 未手动操作时跟随思考生命周期：进行中以尾部窗口展开，结束后自动收起。
-    LaunchedEffect(message.isStreaming) {
-        if (!manuallyExpanded) expanded = message.isStreaming
-    }
-    val tailWindow = message.isStreaming && !manuallyExpanded
+    // 展开态必须在组合期同步推导：若经 LaunchedEffect 晚一帧收起，思考结束的那一帧尾部窗口
+    // 已解除而正文仍展开，会以全文高度闪现一帧，再从该高度执行收起动画。
+    val expanded = manualExpanded ?: message.isStreaming
+    // 自动模式下高度上限覆盖到收起动画结束，退出过程不会先撑开再收拢。
+    val tailWindow = manualExpanded == null
 
     // Markdown 状态在行级提前创建：行进入组合（工作过程展开或滚动到可视区）时就开始
     // 后台解析，而不是等到首次点击展开。否则首帧只能测量 loading fallback 的纯文本高度，
@@ -2102,8 +2102,7 @@ internal fun ThinkingRow(
                 .clip(RoundedCornerShape(10.dp))
                 .clickable {
                     // 尾部窗口下点击视为要看全文，保持展开并放开高度限制。
-                    if (!tailWindow || !expanded) expanded = !expanded
-                    manuallyExpanded = true
+                    manualExpanded = (tailWindow && expanded) || !expanded
                 }
                 .then(
                     if (compact) {
@@ -2178,7 +2177,9 @@ internal fun ThinkingRow(
                         top = if (compact) 0.dp else 8.dp,
                         bottom = if (compact) 8.dp else 12.dp,
                     )
-                if (streamingState != null && (message.isStreaming || completedMarkdownState == null)) {
+                if (streamingState != null &&
+                    (message.isStreaming || completedMarkdownState == null || tailWindow)
+                ) {
                     ThinkingTailWindow(
                         enabled = tailWindow,
                         modifier = contentModifier,
