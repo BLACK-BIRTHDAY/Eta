@@ -94,6 +94,7 @@ import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.rememberNavBackStack
 import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
 import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
+import top.yukonga.miuix.kmp.layout.DialogDefaults
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
@@ -690,7 +691,13 @@ fun AgentAppRoot(
     }
 
     characterStore.notice?.let { notice ->
-        WindowDialog(show = true, title = "角色", summary = notice, onDismissRequest = characterStore::dismissNotice) {
+        WindowDialog(
+            show = true,
+            title = "角色",
+            summary = notice,
+            cornerRadius = DialogDefaults.CornerRadius,
+            onDismissRequest = characterStore::dismissNotice,
+        ) {
             top.yukonga.miuix.kmp.basic.TextButton(
                 text = "知道了", onClick = characterStore::dismissNotice, modifier = Modifier.fillMaxWidth(),
             )
@@ -701,6 +708,7 @@ fun AgentAppRoot(
         var renameInput by remember(conversation.id) { mutableStateOf(conversation.title) }
         WindowDialog(
             show = true,
+            cornerRadius = DialogDefaults.CornerRadius,
             title = stringResource(R.string.conversation_rename_title),
             onDismissRequest = { conversationRenameTarget = null },
         ) {
@@ -729,6 +737,7 @@ fun AgentAppRoot(
     conversationDeleteTarget?.let { conversation ->
         WindowDialog(
             show = true,
+            cornerRadius = DialogDefaults.CornerRadius,
             title = stringResource(R.string.conversation_delete_title),
             summary = stringResource(R.string.conversation_delete_message),
             onDismissRequest = { conversationDeleteTarget = null },
@@ -748,6 +757,7 @@ fun AgentAppRoot(
     messageDeleteTarget?.let { target ->
         WindowDialog(
             show = true,
+            cornerRadius = DialogDefaults.CornerRadius,
             title = stringResource(R.string.conversation_delete_message_title),
             summary = if (target.laterTurnCount == 0) {
                 stringResource(R.string.conversation_delete_message_body)
@@ -775,6 +785,7 @@ fun AgentAppRoot(
     messageRegenerateTarget?.let { target ->
         WindowDialog(
             show = true,
+            cornerRadius = DialogDefaults.CornerRadius,
             title = stringResource(R.string.conversation_regenerate_title),
             summary = if (target.laterTurnCount == 0) {
                 stringResource(R.string.conversation_regenerate_current_turn)

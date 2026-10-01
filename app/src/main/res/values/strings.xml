@@ -434,7 +434,6 @@
   <string name="ui_memory_b55ff5">Memory</string>
   <string name="ui_set_up_7debf9">set up</string>
   <string name="ui_access_7f5641">Access</string>
-  <string name="ui_this_value_is_used_for_session_clipping_and_context__c3f9e7">This value is used for session clipping and context budgeting. When left blank, the remote or official directory value is used.</string>
   <string name="ui_input_file_path_36d474">input file path</string>
   <string name="ui_return_11d024">return</string>
   <string name="ui_connection_configuration_7d057b">Connection</string>
@@ -576,7 +575,6 @@
   <string name="page_root_environment_is_missing_available_busybox_or_nec_76f454">Root environment is missing available BusyBox or necessary applets</string>
   <string name="page_ready_7cca0c">} Ready</string>
   <string name="page_context_unknown_b6ae7b">context unknown</string>
-  <string name="page_the_context_length_must_be_a_positive_integer_06ca7a">The context window must be a positive integer</string>
   <string name="page_download_the_alpine_base_environment_8433ea">Download the Alpine base environment</string>
   <string name="page_download_and_install_f4df99">Download and install</string>
   <string name="page_not_supported_ef8274">Not supported</string>
@@ -967,7 +965,6 @@
     <item quantity="one">%d selected</item>
     <item quantity="other">%d selected</item>
   </plurals>
-  <string name="provider_context_window_hint">Enter this model\'s context window in tokens.</string>
   <string name="provider_auto_reasoning_supported">Auto: supports reasoning</string>
   <string name="provider_auto_reasoning_unknown">Auto: unsupported or unknown</string>
   <string name="provider_context_tag">%1$s context</string>

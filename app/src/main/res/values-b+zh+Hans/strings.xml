@@ -423,7 +423,6 @@
   <string name="ui_memory_b55ff5">记忆</string>
   <string name="ui_set_up_7debf9">设置</string>
   <string name="ui_access_7f5641">访问</string>
-  <string name="ui_this_value_is_used_for_session_clipping_and_context__c3f9e7">该值用于会话裁剪和上下文预算。留空时使用远端或官方目录值。</string>
   <string name="ui_input_file_path_36d474">输入文件路径</string>
   <string name="ui_return_11d024">返回</string>
   <string name="ui_connection_configuration_7d057b">连接配置</string>
@@ -558,7 +557,6 @@
   <string name="page_root_environment_is_missing_available_busybox_or_nec_76f454">Root 环境缺少可用的 BusyBox 或必要 applet</string>
   <string name="page_ready_7cca0c">} 已就绪</string>
   <string name="page_context_unknown_b6ae7b">上下文未知</string>
-  <string name="page_the_context_length_must_be_a_positive_integer_06ca7a">上下文窗口必须是正整数</string>
   <string name="page_download_the_alpine_base_environment_8433ea">下载 Alpine 基础环境</string>
   <string name="page_download_and_install_f4df99">下载并安装</string>
   <string name="page_not_supported_ef8274">不支持</string>
@@ -950,7 +948,6 @@
   <plurals name="provider_models_selected">
     <item quantity="other">已选 %d 个</item>
   </plurals>
-  <string name="provider_context_window_hint">请填写当前模型的上下文窗口大小，单位为 tokens。</string>
   <string name="provider_auto_reasoning_supported">自动：支持思考</string>
   <string name="provider_auto_reasoning_unknown">自动：不支持或未知</string>
   <string name="provider_context_tag">%1$s 上下文</string>

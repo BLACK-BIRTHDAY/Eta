@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -612,6 +613,8 @@ private fun AgentMessageBlock(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    // 抵消按钮的居中留白，与工作过程标题图标共用左侧中心线。
+                    .offset(x = -8.dp)
                     .padding(top = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
