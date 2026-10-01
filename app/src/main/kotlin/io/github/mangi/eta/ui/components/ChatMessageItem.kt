@@ -26,6 +26,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -363,6 +370,7 @@ internal fun AgentWorkProcess(
     currentBrowserMessageId: String?,
     retainedStreamingStates: Map<String, StreamingMarkdownState>,
     modifier: Modifier = Modifier,
+    active: Boolean = false,
 ) {
     val running = messages.any { message ->
         (message is ThinkingMessageUi && message.isStreaming) ||
@@ -374,13 +382,13 @@ internal fun AgentWorkProcess(
     } as? ToolActivityMessageUi
     val runningToolTitle = runningTool?.argumentsSummary?.takeIf { it.isNotBlank() }
         ?: runningTool?.let { toolDisplayName(it.toolName) }
-    var expanded by rememberSaveable(id) { mutableStateOf(running) }
+    var expanded by rememberSaveable(id) { mutableStateOf(active || running) }
     var manuallyExpanded by rememberSaveable(id) { mutableStateOf(false) }
 
-    LaunchedEffect(running) {
-        if (running && !manuallyExpanded) {
-            expanded = true
-        }
+    // 以“是否仍是本轮末尾的工作过程”判定收起，而不是 running：思考结束到工具开始之间
+    // running 会短暂为 false，按它收起会造成卡片反复开合。正文开始或本轮结束后自动收起。
+    LaunchedEffect(active) {
+        if (!manuallyExpanded) expanded = active
     }
 
     val pulseAlpha = rememberActivePulse(active = running, label = "work_pulse")
@@ -1160,6 +1168,7 @@ private fun StreamingMarkdown(
             success = { state, successComponents, successModifier ->
                 StreamingGfmSuccess(
                     state = state,
+                    isComplete = parsed.isComplete,
                     components = successComponents,
                     revealCoordinator = revealCoordinator,
                     modifier = successModifier,
@@ -1176,6 +1185,7 @@ private fun StreamingMarkdown(
 @Composable
 private fun StreamingGfmSuccess(
     state: State.Success,
+    isComplete: Boolean,
     components: MarkdownComponents,
     revealCoordinator: SmoothTextRevealCoordinator,
     modifier: Modifier = Modifier,
@@ -1191,6 +1201,7 @@ private fun StreamingGfmSuccess(
         root = state.node,
         content = state.content,
         components = components,
+        freezeGeneration = isComplete,
         modifier = modifier,
     )
 }
@@ -1205,6 +1216,7 @@ private fun ChatMarkdownDocument(
     content: String,
     components: MarkdownComponents,
     modifier: Modifier = Modifier,
+    freezeGeneration: Any? = null,
 ) {
     val blocks = remember(root) { topLevelMarkdownBlocks(root) }
     val density = LocalDensity.current
@@ -1216,15 +1228,37 @@ private fun ChatMarkdownDocument(
             }
             if (gap > 0.dp) Spacer(Modifier.height(gap))
             key(node.startOffset, node.type.name) {
-                MarkdownElement(
-                    node = node,
-                    components = components,
-                    content = content,
-                    includeSpacer = false,
-                )
+                // 流式期间每次重解析都会产出新的 AST 与全文实例，块内按 (content, node)
+                // 记忆的 AnnotatedString 与文本布局会全部失效。源码切片未变的块沿用首次
+                // 见到的节点与全文前缀，使已完成的块在组合期直接跳过，只有尾部块重建。
+                // 终态解析会补齐引用式链接，freezeGeneration 变化时所有块统一刷新一次。
+                val blockSource = content.substring(node.startOffset, node.endOffset)
+                val frozen = remember(blockSource, freezeGeneration) {
+                    FrozenMarkdownBlock(node = node, content = content.substring(0, node.endOffset))
+                }
+                FrozenMarkdownElement(block = frozen, components = components)
             }
         }
     }
+}
+
+/** 固定一个顶层块的节点与其所需的源码前缀，作为组合跳过的稳定身份。 */
+private class FrozenMarkdownBlock(
+    val node: ASTNode,
+    val content: String,
+)
+
+@Composable
+private fun FrozenMarkdownElement(
+    block: FrozenMarkdownBlock,
+    components: MarkdownComponents,
+) {
+    MarkdownElement(
+        node = block.node,
+        components = components,
+        content = block.content,
+        includeSpacer = false,
+    )
 }
 
 internal fun topLevelMarkdownBlocks(root: ASTNode): List<ASTNode> =
@@ -1379,7 +1413,7 @@ private fun chatMarkdownBodyStyle(tone: ChatMarkdownTone) =
     } else {
         MiuixTheme.textStyles.body2.copy(
             fontSize = 14.sp,
-            lineHeight = 22.sp,
+            lineHeight = THINKING_LINE_HEIGHT_SP.sp,
             color = chatMarkdownTextColor(tone),
         )
     }
@@ -2223,9 +2257,11 @@ private fun ThinkingRow(
     }
     val completedMarkdownState = (streamingState ?: retainedStreamingState)
         ?.snapshot?.completedStateFor(message.content)
+    // 未手动操作时跟随思考生命周期：进行中以尾部窗口展开，结束后自动收起。
     LaunchedEffect(message.isStreaming) {
-        if (message.isStreaming && !manuallyExpanded) expanded = true
+        if (!manuallyExpanded) expanded = message.isStreaming
     }
+    val tailWindow = message.isStreaming && !manuallyExpanded
 
     // Markdown 状态在行级提前创建：行进入组合（工作过程展开或滚动到可视区）时就开始
     // 后台解析，而不是等到首次点击展开。否则首帧只能测量 loading fallback 的纯文本高度，
@@ -2271,8 +2307,9 @@ private fun ThinkingRow(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
                 .clickable {
+                    // 尾部窗口下点击视为要看全文，保持展开并放开高度限制。
+                    if (!tailWindow || !expanded) expanded = !expanded
                     manuallyExpanded = true
-                    expanded = !expanded
                 }
                 .padding(horizontal = if (compact) 4.dp else 13.dp, vertical = if (compact) 6.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -2341,14 +2378,18 @@ private fun ThinkingRow(
                         bottom = if (compact) 8.dp else 12.dp,
                     )
                 if (streamingState != null && (message.isStreaming || completedMarkdownState == null)) {
-                    StreamingMarkdown(
-                        state = streamingState,
-                        content = message.content,
-                        isStreaming = message.isStreaming,
-                        onRevealCompleteChange = {},
-                        tone = ChatMarkdownTone.Thinking,
+                    ThinkingTailWindow(
+                        enabled = tailWindow,
                         modifier = contentModifier,
-                    )
+                    ) {
+                        StreamingMarkdown(
+                            state = streamingState,
+                            content = message.content,
+                            isStreaming = message.isStreaming,
+                            onRevealCompleteChange = {},
+                            tone = ChatMarkdownTone.Thinking,
+                        )
+                    }
                 } else {
                     StableMarkdown(
                         content = message.content,
@@ -2362,6 +2403,55 @@ private fun ThinkingRow(
         }
     }
 }
+
+/**
+ * 进行中的思考只露出最近几行：内容按底部对齐超出部分向上裁掉，顶部渐隐提示还有更早内容。
+ * 高度封顶后增量不再推高工作过程卡片，列表也不必随每次思考快照重新跟底。
+ */
+@Composable
+private fun ThinkingTailWindow(
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    if (!enabled) {
+        Box(modifier) { content() }
+        return
+    }
+    val maxHeight = with(LocalDensity.current) {
+        (THINKING_TAIL_WINDOW_LINES * THINKING_LINE_HEIGHT_SP).sp.toDp()
+    }
+    Box(
+        modifier = modifier
+            .heightIn(max = maxHeight)
+            .clipToBounds()
+            // 离屏合成只覆盖这块有界区域，用于让渐隐遮罩作用在文字 alpha 上。
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                if (size.height >= maxHeight.toPx() - 1f) {
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            0f to Color.Transparent,
+                            0.35f to Color.Black,
+                        ),
+                        blendMode = BlendMode.DstIn,
+                    )
+                }
+            },
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight(align = Alignment.Bottom, unbounded = true),
+        ) {
+            content()
+        }
+    }
+}
+
+private const val THINKING_TAIL_WINDOW_LINES = 4
+private const val THINKING_LINE_HEIGHT_SP = 22
 
 // ── 工具调用：优雅极简时间线 ─────────────────────────────────────────
 
