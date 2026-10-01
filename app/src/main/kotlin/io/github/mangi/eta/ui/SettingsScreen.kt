@@ -281,6 +281,16 @@ private fun SettingsPageContent(
             item(key = "section_context_extensions") {
                 EtaPreferenceGroupTitle(stringResource(R.string.settings_context_extensions))
                 EtaPreferenceGroup {
+                    SwitchPref(
+                        context = context,
+                        prefs = agentPrefs,
+                        title = stringResource(R.string.settings_auto_compaction),
+                        key = Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED,
+                        icon = Icons.Rounded.Layers,
+                        iconTint = EtaPreferenceColors.Blue,
+                    )
+
+                    EtaPreferenceDivider()
                     EtaArrowPreference(
                         title = stringResource(R.string.ui_memory_b55ff5),
                         startAction = {

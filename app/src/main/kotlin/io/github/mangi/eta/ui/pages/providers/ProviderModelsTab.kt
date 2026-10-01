@@ -138,7 +138,6 @@ internal fun contextWindowInputError(
     errorMessage: String = "Context window must be a positive integer",
 ): String? {
     val normalized = value.trim()
-    if (normalized.isEmpty()) return null
     return if (normalized.toIntOrNull()?.let { it > 0 } == true) {
         null
     } else {
@@ -835,15 +834,7 @@ private fun ModelEditDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    text = when {
-                        contextWindowOverrideText.isNotBlank() -> context.getString(R.string.page_overwritten_will_take_precedence_over_remote_metadat_59934d)
-                        model.contextWindow != null ->
-                            stringResource(
-                                R.string.provider_auto_context,
-                                formatCompactTokenCount(model.contextWindow),
-                            )
-                        else -> context.getString(R.string.page_automatic_no_context_cap_was_provided_by_the_remote__db027f)
-                    },
+                    text = stringResource(R.string.provider_context_window_hint),
                     style = MiuixTheme.textStyles.footnote2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.fillMaxWidth(),

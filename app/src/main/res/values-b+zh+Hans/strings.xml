@@ -595,7 +595,6 @@
   <string name="page_installed_eb88ff">已安装</string>
   <string name="page_ready_f2afde">已就绪</string>
   <string name="page_covered_model_automatic_capabilities_3fa7d4">已覆盖模型自动能力</string>
-  <string name="page_overwritten_will_take_precedence_over_remote_metadat_59934d">已覆盖，将优先于远端元数据</string>
   <string name="page_exceeded_the_1_mib_limit_please_delete_120a63">已超过 1 MiB 上限，请删减</string>
   <string name="page_the_installation_of_common_tools_has_not_been_comple_d7f7c2">常用工具安装尚未完成，可以从当前进度继续</string>
   <string name="page_the_current_root_environment_cannot_create_an_isolat_4ca00a">当前 Root 环境无法创建隔离 mount namespace 或 chroot</string>
@@ -624,7 +623,6 @@
   <string name="page_open_with_external_application_ab3d4c">用外部应用打开</string>
   <string name="page_continue_installation_62da0c">继续安装</string>
   <string name="page_edit_model_29e31e">编辑模型</string>
-  <string name="page_automatic_no_context_cap_was_provided_by_the_remote__db027f">自动：远端未提供上下文上限</string>
   <string name="page_custom_model_25be0f">自定义模型</string>
   <string name="page_set_as_current_model_183d7d">设为当前模型</string>
   <string name="page_please_complete_the_linux_basic_tool_installation_fi_2ab81b">请先完成 Linux 基础工具安装</string>
@@ -953,7 +951,7 @@
   <plurals name="provider_models_selected">
     <item quantity="other">已选 %d 个</item>
   </plurals>
-  <string name="provider_auto_context">自动：%1$s tokens</string>
+  <string name="provider_context_window_hint">请填写当前模型的上下文窗口大小，单位为 tokens。</string>
   <string name="provider_auto_reasoning_supported">自动：支持思考</string>
   <string name="provider_auto_reasoning_unknown">自动：不支持或未知</string>
   <string name="provider_context_tag">%1$s 上下文</string>
@@ -1106,12 +1104,12 @@
   <string name="model_collapse_provider">收起 %1$s</string>
   <string name="model_expand_provider">展开 %1$s</string>
   <string name="context_no_previous_usage">暂无上轮用量</string>
-  <string name="context_no_model_limit">模型未提供上限</string>
+  <string name="context_no_model_limit">请先到设置 → 模型提供商填写当前模型的上下文窗口大小。</string>
   <string name="context_usage_after_response">完成首次回复后显示实测用量</string>
   <string name="context_usage_previous_response">%1$s\n上轮实测</string>
-  <string name="context_usage_estimated">%1$s\n压缩后估算</string>
   <string name="context_compaction">上下文压缩</string>
   <string name="context_compact_action">压缩上下文</string>
+  <string name="settings_auto_compaction">自动压缩上下文</string>
   <string name="context_usage_description">上下文用量：%1$s</string>
   <string name="memory_budget_summary">每轮最多注入 %1$s 字符，详细内容由模型按需读取</string>
   <string name="memory_over_limit">已超过 1 MiB 上限，请删减</string>
