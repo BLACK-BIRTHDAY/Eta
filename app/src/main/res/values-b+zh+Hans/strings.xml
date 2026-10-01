@@ -484,6 +484,12 @@
   </plurals>
   <string name="work_collapse">收起工作过程</string>
   <string name="work_expand">展开工作过程</string>
+  <string name="markdown_code_block">代码</string>
+  <string name="markdown_alert_note">说明</string>
+  <string name="markdown_alert_tip">提示</string>
+  <string name="markdown_alert_important">重要</string>
+  <string name="markdown_alert_warning">警告</string>
+  <string name="markdown_alert_caution">注意</string>
   <string name="copy_copied">已复制</string>
   <string name="copy_answer">复制回答</string>
   <string name="copy_code">复制代码</string>

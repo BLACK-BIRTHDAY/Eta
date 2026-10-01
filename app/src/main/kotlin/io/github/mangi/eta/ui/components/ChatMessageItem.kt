@@ -3,28 +3,17 @@ package io.github.mangi.eta.ui.components
 import io.github.mangi.eta.ui.voice.SpeechReadAloudButton
 import android.graphics.BitmapFactory
 import android.util.Base64
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Brush
@@ -34,29 +23,23 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
@@ -64,92 +47,42 @@ import androidx.compose.material.icons.rounded.Compress
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Lightbulb
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.isTraversalGroup
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextMotion
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.unit.takeOrElse
-import androidx.lifecycle.compose.LifecycleResumeEffect
-import com.mikepenz.markdown.annotator.annotatorSettings
-import com.mikepenz.markdown.annotator.buildMarkdownAnnotatedString
-import com.mikepenz.markdown.compose.LocalMarkdownA11yLabels
-import com.mikepenz.markdown.compose.LocalMarkdownComponents
-import com.mikepenz.markdown.compose.LocalMarkdownDimens
-import com.mikepenz.markdown.compose.LocalMarkdownPadding
-import com.mikepenz.markdown.compose.MarkdownElement
-import com.mikepenz.markdown.compose.components.MarkdownComponentModel
-import com.mikepenz.markdown.compose.components.MarkdownComponents
-import com.mikepenz.markdown.compose.components.markdownComponents
-import com.mikepenz.markdown.compose.elements.MarkdownCodeBlock
-import com.mikepenz.markdown.compose.elements.MarkdownCodeFence
-import com.mikepenz.markdown.compose.elements.MarkdownHeader
-import com.mikepenz.markdown.compose.elements.MarkdownParagraph
-import com.mikepenz.markdown.compose.elements.MarkdownTableBasicText
-import com.mikepenz.markdown.compose.elements.MarkdownText
-import com.mikepenz.markdown.compose.elements.listDepth
-import com.mikepenz.markdown.m3.Markdown
-import com.mikepenz.markdown.m3.markdownColor
-import com.mikepenz.markdown.m3.markdownTypography
-import com.mikepenz.markdown.model.MarkdownState
-import com.mikepenz.markdown.model.State
-import com.mikepenz.markdown.model.markdownAnimations
-import com.mikepenz.markdown.model.markdownDimens
-import com.mikepenz.markdown.model.markdownPadding
-import com.mikepenz.markdown.model.rememberMarkdownState
-import com.mikepenz.markdown.utils.getUnescapedTextInNode
 import io.github.mangi.eta.R
-import io.github.mangi.eta.agent.browser.AgentBrowserSession
-import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
 import io.github.mangi.eta.agent.model.AgentFileReferencePromptCodec
 import io.github.mangi.eta.agent.overlay.toolDisplayName
+import io.github.mangi.eta.ui.markdown.MarkdownTone
+import io.github.mangi.eta.ui.markdown.StaticMarkdown
+import io.github.mangi.eta.ui.markdown.StreamingMarkdown
+import io.github.mangi.eta.ui.markdown.StreamingMarkdownState
+import io.github.mangi.eta.ui.markdown.THINKING_LINE_HEIGHT_SP
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
 import io.github.mangi.eta.ui.model.AgentMessageUi
 import io.github.mangi.eta.ui.model.RunTraceMessageUi
@@ -158,30 +91,13 @@ import io.github.mangi.eta.ui.model.SystemNoticeCode
 import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
-import io.github.mangi.eta.ui.model.ToolActivityStatusUi
 import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withContext
-import org.intellij.markdown.IElementType
-import org.intellij.markdown.MarkdownElementTypes
-import org.intellij.markdown.MarkdownTokenTypes
-import org.intellij.markdown.ast.ASTNode
-import org.intellij.markdown.ast.findChildOfType
-import org.intellij.markdown.flavours.gfm.GFMElementTypes.HEADER
-import org.intellij.markdown.flavours.gfm.GFMElementTypes.ROW
-import org.intellij.markdown.flavours.gfm.GFMElementTypes.TABLE
-import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CELL
-import org.intellij.markdown.flavours.gfm.GFMTokenTypes.CHECK_BOX
-import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.RichTooltip
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TooltipAnchorPosition
 import top.yukonga.miuix.kmp.basic.TooltipBox
 import top.yukonga.miuix.kmp.basic.TooltipDefaults
@@ -628,10 +544,10 @@ private fun AgentMessageBlock(
     } else {
         null
     }
-    val completedMarkdownState = (streamingState ?: retainedStreamingState)
-        ?.snapshot?.completedStateFor(message.content)
+    val completedDocument = (streamingState ?: retainedStreamingState)
+        ?.snapshot?.completedDocumentFor(message.content)
     val revealComplete = streamingRevealComplete && !message.isStreaming &&
-        (streamingState == null || completedMarkdownState != null)
+        (streamingState == null || completedDocument != null)
     LaunchedEffect(retainedStreamingState, revealComplete, message.content) {
         retainedStreamingState?.revealedContent = message.content.takeIf { revealComplete }
     }
@@ -661,15 +577,17 @@ private fun AgentMessageBlock(
                     state = streamingState,
                     content = message.content,
                     isStreaming = message.isStreaming,
+                    tone = MarkdownTone.Answer,
                     onRevealCompleteChange = { streamingRevealComplete = it },
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
             message.renderMarkdown -> {
                 SelectionContainer {
-                    StableMarkdown(
+                    StaticMarkdown(
                         content = message.content,
-                        parsedState = completedMarkdownState,
+                        tone = MarkdownTone.Answer,
+                        parsed = completedDocument,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -810,1230 +728,6 @@ private fun AgentMessageBlock(
     }
 }
 
-@Composable
-private fun StableMarkdown(
-    content: String,
-    modifier: Modifier = Modifier,
-    tone: ChatMarkdownTone = ChatMarkdownTone.Answer,
-    markdownState: MarkdownState? = null,
-    parsedState: State.Success? = null,
-) {
-    // 流式终态已有完整 AST，直接复用，避免新解析器的 Loading 原文先撑高页面再缩回。
-    val state = parsedState ?: (markdownState ?: rememberMarkdownState(
-        content = content,
-        retainState = true,
-    )).state.collectAsState().value
-    val components = remember { chatMarkdownComponents() }
-    Markdown(
-        state = state,
-        colors = chatMarkdownColors(tone),
-        typography = chatMarkdownTypography(tone),
-        padding = chatMarkdownPadding(),
-        dimens = chatMarkdownDimens(),
-        components = components,
-        modifier = modifier,
-        loading = {
-            // 保留与最终正文接近的高度，避免历史消息异步解析完成后越界绘制。
-            Text(
-                text = content,
-                style = chatMarkdownBodyStyle(tone),
-                color = chatMarkdownTextColor(tone),
-                modifier = it,
-            )
-        },
-        error = {
-            Text(
-                text = content,
-                style = chatMarkdownBodyStyle(tone),
-                color = chatMarkdownTextColor(tone),
-                modifier = it,
-            )
-        },
-        success = { state, successComponents, successModifier ->
-            ChatMarkdownDocument(
-                root = state.node,
-                content = state.content,
-                components = successComponents,
-                modifier = successModifier,
-            )
-        },
-    )
-}
-
-@Composable
-private fun StreamingMarkdown(
-    state: StreamingMarkdownState,
-    content: String,
-    isStreaming: Boolean,
-    onRevealCompleteChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-    tone: ChatMarkdownTone = ChatMarkdownTone.Answer,
-) {
-    val revealCoordinator = state.revealCoordinator
-    // 思考紧跟已收到的增量，避免高速思考先排版占位、再受正文逐字速度限制而积压。
-    val animateReveal = tone == ChatMarkdownTone.Answer
-    val components = remember(revealCoordinator, isStreaming, animateReveal) {
-        chatMarkdownComponents(
-            revealCoordinator = revealCoordinator.takeIf { animateReveal },
-            suppressEmptyListMarkers = isStreaming && animateReveal,
-        )
-    }
-    val parseTargets = state.parseTargets
-    val currentRevealCompleteCallback by rememberUpdatedState(onRevealCompleteChange)
-    val snapshot = state.snapshot
-    val currentContent by rememberUpdatedState(content)
-    val currentIsStreaming by rememberUpdatedState(isStreaming)
-    val restoreGeneration = state.restoreState.generation
-
-    LifecycleResumeEffect(state) {
-        revealCoordinator.pauseAnimationsAndCatchUp()
-        state.restoreState.begin(currentContent)
-        onPauseOrDispose {
-            state.restoreState.pause()
-            revealCoordinator.pauseAnimationsAndCatchUp()
-        }
-    }
-
-    LaunchedEffect(revealCoordinator, animateReveal) {
-        if (animateReveal) revealCoordinator.runFrameClock()
-    }
-
-    LaunchedEffect(content, isStreaming) {
-        parseTargets.trySend(
-            StreamingMarkdownTarget(
-                content = content,
-                isStreaming = isStreaming,
-            )
-        )
-        if (isStreaming) currentRevealCompleteCallback(false)
-    }
-
-    LaunchedEffect(state) {
-        state.parseUpdates()
-    }
-
-    LaunchedEffect(content, isStreaming, snapshot?.originalSource, snapshot?.isComplete, revealCoordinator) {
-        val currentSnapshot = snapshot
-        if (!isStreamingMarkdownTargetComplete(
-                content = content,
-                isStreaming = isStreaming,
-                snapshotContent = currentSnapshot?.originalSource,
-                snapshotComplete = currentSnapshot?.isComplete == true,
-            )
-        ) {
-            currentRevealCompleteCallback(false)
-            return@LaunchedEffect
-        }
-
-        // 等这一版 AST 完成组合与排版后，再等待尾部字符的透明度动画收口。
-        withFrameNanos { }
-        if (!revealCoordinator.drained.value) {
-            revealCoordinator.drained.filter { it }.first()
-        }
-        if (isStreamingMarkdownTargetComplete(
-                content = currentContent,
-                isStreaming = currentIsStreaming,
-                snapshotContent = currentSnapshot?.originalSource,
-                snapshotComplete = currentSnapshot?.isComplete == true,
-            )
-        ) {
-            currentRevealCompleteCallback(true)
-        }
-    }
-
-    snapshot?.let { parsed ->
-        Markdown(
-            state = parsed.state,
-            colors = chatMarkdownColors(tone),
-            typography = chatMarkdownTypography(tone),
-            padding = chatMarkdownPadding(),
-            dimens = chatMarkdownDimens(),
-            components = components,
-            animations = markdownAnimations(animateTextSize = { this }),
-            modifier = modifier.onGloballyPositioned {
-                // 恢复基线对应的 AST 真正排版后才开放增量动画，解析耗时不受帧数限制。
-                if (state.restoreState.completeLayout(
-                        generation = restoreGeneration,
-                        renderedContent = parsed.originalSource,
-                        currentContent = currentContent,
-                    )
-                ) {
-                    revealCoordinator.resumeAnimationsAfterCatchUp()
-                }
-            },
-            success = { state, successComponents, successModifier ->
-                StreamingGfmSuccess(
-                    state = state,
-                    isComplete = parsed.isComplete,
-                    components = successComponents,
-                    revealCoordinator = revealCoordinator,
-                    modifier = successModifier,
-                )
-            },
-        )
-    }
-}
-
-/**
- * 顶层节点以源码位置和语法类型作为稳定身份。完整重解析只替换真正发生类型变化的
- * 当前块，前面已经稳定的段落、表格和代码块不会因新 chunk 到达而重新挂载。
- */
-@Composable
-private fun StreamingGfmSuccess(
-    state: State.Success,
-    isComplete: Boolean,
-    components: MarkdownComponents,
-    revealCoordinator: SmoothTextRevealCoordinator,
-    modifier: Modifier = Modifier,
-) {
-    val activeRevealBlocks = remember(state.node) {
-        state.revealBlockKeys()
-    }
-    SideEffect {
-        revealCoordinator.retainBlocks(activeRevealBlocks)
-    }
-
-    ChatMarkdownDocument(
-        root = state.node,
-        content = state.content,
-        components = components,
-        freezeGeneration = isComplete,
-        modifier = modifier,
-    )
-}
-
-/**
- * 空行只负责切分 Markdown 块，不直接占据布局高度；可见块之间按语义分配留白，
- * 避免统一 block padding 让标题、正文、列表和表格失去层级。
- */
-@Composable
-private fun ChatMarkdownDocument(
-    root: ASTNode,
-    content: String,
-    components: MarkdownComponents,
-    modifier: Modifier = Modifier,
-    freezeGeneration: Any? = null,
-) {
-    val blocks = remember(root) { topLevelMarkdownBlocks(root) }
-    val density = LocalDensity.current
-    Column(modifier) {
-        blocks.forEachIndexed { index, node ->
-            val previousType = blocks.getOrNull(index - 1)?.type
-            val gap = with(density) {
-                markdownBlockSpacing(previousType, node.type).toDp()
-            }
-            if (gap > 0.dp) Spacer(Modifier.height(gap))
-            key(node.startOffset, node.type.name) {
-                // 流式期间每次重解析都会产出新的 AST 与全文实例，块内按 (content, node)
-                // 记忆的 AnnotatedString 与文本布局会全部失效。源码切片未变的块沿用首次
-                // 见到的节点与全文前缀，使已完成的块在组合期直接跳过，只有尾部块重建。
-                // 终态解析会补齐引用式链接，freezeGeneration 变化时所有块统一刷新一次。
-                val blockSource = content.substring(node.startOffset, node.endOffset)
-                val frozen = remember(blockSource, freezeGeneration) {
-                    FrozenMarkdownBlock(node = node, content = content.substring(0, node.endOffset))
-                }
-                FrozenMarkdownElement(block = frozen, components = components)
-            }
-        }
-    }
-}
-
-/** 固定一个顶层块的节点与其所需的源码前缀，作为组合跳过的稳定身份。 */
-private class FrozenMarkdownBlock(
-    val node: ASTNode,
-    val content: String,
-)
-
-@Composable
-private fun FrozenMarkdownElement(
-    block: FrozenMarkdownBlock,
-    components: MarkdownComponents,
-) {
-    MarkdownElement(
-        node = block.node,
-        components = components,
-        content = block.content,
-        includeSpacer = false,
-    )
-}
-
-internal fun topLevelMarkdownBlocks(root: ASTNode): List<ASTNode> =
-    root.children.filterNot { node -> node.type == MarkdownTokenTypes.EOL }
-
-internal fun markdownBlockSpacing(previous: IElementType?, current: IElementType): TextUnit {
-    if (previous == null) return 0.sp
-    if (previous.isMarkdownHeading() && current.isMarkdownHeading()) return 12.sp
-    if (current.isMarkdownHeading()) {
-        return if (current == MarkdownElementTypes.ATX_1 ||
-            current == MarkdownElementTypes.SETEXT_1 ||
-            current == MarkdownElementTypes.ATX_2 ||
-            current == MarkdownElementTypes.SETEXT_2
-        ) {
-            24.sp
-        } else {
-            20.sp
-        }
-    }
-    if (previous.isMarkdownHeading()) return 10.sp
-    if (previous.isMarkdownParagraph() && current.isMarkdownParagraph()) return 16.sp
-    if (previous.isMarkdownStructuredBlock() || current.isMarkdownStructuredBlock()) return 16.sp
-    return 14.sp
-}
-
-private fun IElementType.isMarkdownHeading(): Boolean = when (this) {
-    MarkdownElementTypes.ATX_1,
-    MarkdownElementTypes.ATX_2,
-    MarkdownElementTypes.ATX_3,
-    MarkdownElementTypes.ATX_4,
-    MarkdownElementTypes.ATX_5,
-    MarkdownElementTypes.ATX_6,
-    MarkdownElementTypes.SETEXT_1,
-    MarkdownElementTypes.SETEXT_2,
-    -> true
-
-    else -> false
-}
-
-private fun IElementType.isMarkdownParagraph(): Boolean =
-    this == MarkdownElementTypes.PARAGRAPH || this == MarkdownTokenTypes.TEXT
-
-private fun IElementType.isMarkdownStructuredBlock(): Boolean = when (this) {
-    MarkdownElementTypes.ORDERED_LIST,
-    MarkdownElementTypes.UNORDERED_LIST,
-    MarkdownElementTypes.BLOCK_QUOTE,
-    MarkdownElementTypes.CODE_BLOCK,
-    MarkdownElementTypes.CODE_FENCE,
-    MarkdownElementTypes.IMAGE,
-    MarkdownTokenTypes.HORIZONTAL_RULE,
-    TABLE,
-    -> true
-
-    else -> false
-}
-
-internal fun streamingMarkdownBatchSize(backlogChars: Int): Int = when {
-    backlogChars >= 384 -> 96
-    backlogChars >= 160 -> 64
-    backlogChars >= 64 -> 40
-    else -> 24
-}
-
-internal fun streamingMarkdownBatchEnd(
-    content: String,
-    start: Int,
-    maxGraphemes: Int,
-): Int {
-    return AppendOnlyGraphemeIndex().apply { update(content) }.endAfter(start, maxGraphemes)
-}
-
-// ── Markdown 样式：克制的聊天排版，标题只作强调不作页面标题 ─────────────
-
-private enum class ChatMarkdownTone {
-    Answer,
-    Thinking,
-}
-
-@Composable
-private fun chatMarkdownTypography(tone: ChatMarkdownTone) = markdownTypography(
-    h1 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 21.sp else 17.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 29.sp else 25.sp,
-        fontWeight = FontWeight.Bold,
-    ),
-    h2 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 19.sp else 16.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 27.sp else 24.sp,
-        fontWeight = FontWeight.Bold,
-    ),
-    h3 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 18.sp else 15.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 26.sp else 23.sp,
-        fontWeight = FontWeight.SemiBold,
-    ),
-    h4 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 17.sp else 14.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 25.sp else 22.sp,
-        fontWeight = FontWeight.SemiBold,
-    ),
-    h5 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 16.sp else 14.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 24.sp else 22.sp,
-        fontWeight = FontWeight.SemiBold,
-    ),
-    h6 = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 15.sp else 14.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 23.sp else 22.sp,
-        fontWeight = FontWeight.SemiBold,
-    ),
-    text = chatMarkdownBodyStyle(tone),
-    paragraph = chatMarkdownBodyStyle(tone),
-    ordered = chatMarkdownBodyStyle(tone),
-    bullet = chatMarkdownBodyStyle(tone),
-    list = chatMarkdownBodyStyle(tone),
-    quote = MiuixTheme.textStyles.body2.copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 15.sp else 14.sp,
-        lineHeight = if (tone == ChatMarkdownTone.Answer) 24.sp else 22.sp,
-        color = chatMarkdownTextColor(ChatMarkdownTone.Thinking),
-    ),
-    code = TextStyle(
-        fontSize = 13.sp,
-        lineHeight = 20.sp,
-        fontFamily = FontFamily.Monospace,
-        color = chatMarkdownTextColor(tone),
-    ),
-    inlineCode = chatMarkdownBodyStyle(tone).copy(
-        fontSize = if (tone == ChatMarkdownTone.Answer) 14.sp else 13.sp,
-        fontFamily = FontFamily.Monospace,
-    ),
-    table = MiuixTheme.textStyles.body2.copy(
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        color = chatMarkdownTextColor(tone),
-    ),
-    textLink = TextLinkStyles(
-        style = SpanStyle(
-            color = MiuixTheme.colorScheme.primary,
-            fontWeight = FontWeight.Medium,
-        ),
-    ),
-)
-
-@Composable
-private fun chatMarkdownBodyStyle(tone: ChatMarkdownTone) =
-    if (tone == ChatMarkdownTone.Answer) {
-        MiuixTheme.textStyles.body1.copy(
-            fontSize = 16.sp,
-            lineHeight = 26.sp,
-            color = chatMarkdownTextColor(tone),
-        )
-    } else {
-        MiuixTheme.textStyles.body2.copy(
-            fontSize = 14.sp,
-            lineHeight = THINKING_LINE_HEIGHT_SP.sp,
-            color = chatMarkdownTextColor(tone),
-        )
-    }
-
-@Composable
-private fun chatMarkdownTextColor(tone: ChatMarkdownTone): Color =
-    if (tone == ChatMarkdownTone.Answer) {
-        MiuixTheme.colorScheme.onSurface
-    } else {
-        MiuixTheme.colorScheme.onSurfaceVariantSummary
-    }
-
-@Composable
-private fun chatMarkdownColors(tone: ChatMarkdownTone) = markdownColor(
-    text = chatMarkdownTextColor(tone),
-    // 代码块与表格的底色、描边由自定义组件绘制，这里只保留行内代码底色与分隔线。
-    codeBackground = MiuixTheme.colorScheme.surface,
-    inlineCodeBackground = MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
-    dividerColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
-    tableBackground = Color.Transparent,
-)
-
-@Composable
-private fun chatMarkdownDimens() = markdownDimens(
-    dividerThickness = 0.5.dp,
-    codeBackgroundCornerSize = 10.dp,
-    blockQuoteThickness = 3.dp,
-)
-
-@Composable
-private fun chatMarkdownPadding() = markdownPadding(
-    // 顶层块由 ChatMarkdownDocument 按语义分配留白，库的统一前置间距保持关闭。
-    block = 0.dp,
-    list = 3.dp,
-    listItemTop = 3.dp,
-    listItemBottom = 3.dp,
-    listIndent = 14.dp,
-    codeBlock = PaddingValues(horizontal = 13.dp, vertical = 11.dp),
-    blockQuote = PaddingValues(horizontal = 12.dp),
-    blockQuoteText = PaddingValues(vertical = 3.dp),
-    blockQuoteBar = PaddingValues.Absolute(left = 2.dp, top = 3.dp, right = 0.dp, bottom = 3.dp),
-)
-
-private fun chatMarkdownComponents(
-    revealCoordinator: SmoothTextRevealCoordinator? = null,
-    suppressEmptyListMarkers: Boolean = false,
-) = markdownComponents(
-    text = { model ->
-        if (revealCoordinator == null) {
-            MarkdownText(
-                content = model.node.getUnescapedTextInNode(model.content),
-                node = model.node,
-                style = model.typography.text,
-            )
-        } else {
-            ChatRevealRawText(model, revealCoordinator)
-        }
-    },
-    paragraph = { model ->
-        if (revealCoordinator == null || model.node.containsMarkdownImage()) {
-            MarkdownParagraph(
-                content = model.content,
-                node = model.node,
-                style = model.typography.paragraph,
-            )
-        } else {
-            ChatRevealMarkdownText(
-                model = model,
-                style = model.typography.paragraph,
-                revealCoordinator = revealCoordinator,
-            )
-        }
-    },
-    orderedList = { model ->
-        ChatMarkdownList(
-            model = model,
-            ordered = true,
-            revealCoordinator = revealCoordinator,
-            suppressEmptyMarker = suppressEmptyListMarkers,
-        )
-    },
-    unorderedList = { model ->
-        ChatMarkdownList(
-            model = model,
-            ordered = false,
-            revealCoordinator = revealCoordinator,
-            suppressEmptyMarker = suppressEmptyListMarkers,
-        )
-    },
-    heading1 = { ChatHeadingBlock(it, it.typography.h1, revealCoordinator = revealCoordinator) },
-    heading2 = { ChatHeadingBlock(it, it.typography.h2, revealCoordinator = revealCoordinator) },
-    heading3 = { ChatHeadingBlock(it, it.typography.h3, revealCoordinator = revealCoordinator) },
-    heading4 = { ChatHeadingBlock(it, it.typography.h4, revealCoordinator = revealCoordinator) },
-    heading5 = { ChatHeadingBlock(it, it.typography.h5, revealCoordinator = revealCoordinator) },
-    heading6 = { ChatHeadingBlock(it, it.typography.h6, revealCoordinator = revealCoordinator) },
-    setextHeading1 = {
-        ChatHeadingBlock(
-            it,
-            it.typography.h1,
-            setext = true,
-            revealCoordinator = revealCoordinator,
-        )
-    },
-    setextHeading2 = {
-        ChatHeadingBlock(
-            it,
-            it.typography.h2,
-            setext = true,
-            revealCoordinator = revealCoordinator,
-        )
-    },
-    codeFence = { model ->
-        val revealState = if (revealCoordinator != null) {
-            rememberSmoothTextRevealState(
-                key = RevealBlockKey(model.node.startOffset),
-                coordinator = revealCoordinator,
-            )
-        } else {
-            null
-        }
-        MarkdownCodeFence(model.content, model.node, style = model.typography.code) { code, language, style ->
-            ChatCodeBlock(
-                code = code,
-                language = language,
-                style = style,
-                revealState = revealState,
-            )
-        }
-    },
-    codeBlock = { model ->
-        val revealState = if (revealCoordinator != null) {
-            rememberSmoothTextRevealState(
-                key = RevealBlockKey(model.node.startOffset),
-                coordinator = revealCoordinator,
-            )
-        } else {
-            null
-        }
-        MarkdownCodeBlock(model.content, model.node, style = model.typography.code) { code, language, style ->
-            ChatCodeBlock(
-                code = code,
-                language = language,
-                style = style,
-                revealState = revealState,
-            )
-        }
-    },
-    table = { model ->
-        ChatMarkdownTable(
-            content = model.content,
-            node = model.node,
-            style = model.typography.table,
-            revealCoordinator = revealCoordinator,
-        )
-    },
-    blockQuote = { model ->
-        ChatBlockQuote(model)
-    },
-)
-
-/**
- * 流式列表不能直接使用库的默认实现：默认实现会立即绘制 marker，而正文还在显现动画中。
- * 这里把每一项作为稳定的组合单元，并让 marker 与该项首个正文块共享开始时机。
- */
-@Composable
-private fun ChatMarkdownList(
-    model: MarkdownComponentModel,
-    ordered: Boolean,
-    revealCoordinator: SmoothTextRevealCoordinator?,
-    suppressEmptyMarker: Boolean,
-    depth: Int = model.listDepth,
-) {
-    val components = LocalMarkdownComponents.current
-    val padding = LocalMarkdownPadding.current
-    val items = remember(model.node) {
-        model.node.children.filter { it.type == MarkdownElementTypes.LIST_ITEM }
-    }
-    if (items.isEmpty()) return
-
-    val startedRevealKeys = rememberStartedRevealKeys(revealCoordinator)
-    val initialListNumber = items.first()
-        .getUnescapedTextInNode(model.content)
-        .takeWhile(Char::isDigit)
-        .toIntOrNull()
-        ?: 1
-
-    Column(
-        modifier = Modifier.padding(
-            start = padding.listIndent * depth,
-            top = padding.list,
-            bottom = padding.list,
-        ),
-    ) {
-        items.forEachIndexed { index, item ->
-            key(item.startOffset, item.type.name) {
-                val firstRevealKey = remember(item) { item.firstRevealBlockKey() }
-                val checkboxNode = remember(item) {
-                    item.children.firstOrNull { child -> child.type == CHECK_BOX }
-                }
-                val markerVisible = streamingListMarkerVisible(
-                    coordinatorActive = suppressEmptyMarker,
-                    firstRevealKey = firstRevealKey,
-                    startedRevealKeys = startedRevealKeys,
-                    containsImage = item.containsMarkdownImage(),
-                )
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { isTraversalGroup = true }
-                        .padding(
-                            top = padding.listItemTop,
-                            bottom = padding.listItemBottom,
-                        ),
-                ) {
-                    Box(
-                        modifier = Modifier.graphicsLayer(
-                            // 隐藏 marker 但保留它的测量宽度，避免正文横向跳动。
-                            alpha = if (markerVisible) 1f else 0f,
-                        ),
-                    ) {
-                        if (checkboxNode != null) {
-                            components.checkbox(
-                                MarkdownComponentModel(
-                                    content = model.content,
-                                    node = checkboxNode,
-                                    typography = model.typography,
-                                ),
-                            )
-                        } else if (ordered) {
-                            Text(
-                                text = "${initialListNumber + index}.",
-                                style = model.typography.ordered.copy(
-                                    color = MiuixTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.SemiBold,
-                                ),
-                            )
-                        } else {
-                            // Compose 单行 Text 在默认 Trim.Both 下忽略 lineHeight，行框即字体自然行高；
-                            // marker 必须与正文同 fontSize/lineHeight 才能共享度规对齐，
-                            // 层级差异只通过字形与颜色表达。
-                            val bulletDepth = depth % 3
-                            Text(
-                                text = when (bulletDepth) {
-                                    0 -> "•"
-                                    1 -> "◦"
-                                    else -> "▪"
-                                },
-                                style = model.typography.bullet.copy(
-                                    color = if (bulletDepth == 2) {
-                                        MiuixTheme.colorScheme.onSurfaceVariantSummary
-                                    } else {
-                                        MiuixTheme.colorScheme.primary
-                                    },
-                                ),
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    Column {
-                        item.children.forEach { child ->
-                            when (child.type) {
-                                MarkdownElementTypes.ORDERED_LIST -> {
-                                    ChatMarkdownList(
-                                        model = MarkdownComponentModel(
-                                            content = model.content,
-                                            node = child,
-                                            typography = model.typography,
-                                        ),
-                                        ordered = true,
-                                        revealCoordinator = revealCoordinator,
-                                        suppressEmptyMarker = suppressEmptyMarker,
-                                        depth = depth + 1,
-                                    )
-                                }
-
-                                MarkdownElementTypes.UNORDERED_LIST -> {
-                                    ChatMarkdownList(
-                                        model = MarkdownComponentModel(
-                                            content = model.content,
-                                            node = child,
-                                            typography = model.typography,
-                                        ),
-                                        ordered = false,
-                                        revealCoordinator = revealCoordinator,
-                                        suppressEmptyMarker = suppressEmptyMarker,
-                                        depth = depth + 1,
-                                    )
-                                }
-
-                                else -> MarkdownElement(
-                                    node = child,
-                                    components = components,
-                                    content = model.content,
-                                    includeSpacer = false,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun rememberStartedRevealKeys(
-    coordinator: SmoothTextRevealCoordinator?,
-): Set<RevealBlockKey> = if (coordinator == null) {
-    emptySet()
-} else {
-    coordinator.started.collectAsState().value
-}
-
-internal fun streamingListMarkerVisible(
-    coordinatorActive: Boolean,
-    firstRevealKey: RevealBlockKey?,
-    startedRevealKeys: Set<RevealBlockKey>,
-    containsImage: Boolean,
-): Boolean = !coordinatorActive ||
-    firstRevealKey?.let(startedRevealKeys::contains) == true ||
-    (firstRevealKey == null && containsImage)
-
-@Composable
-private fun ChatRevealRawText(
-    model: MarkdownComponentModel,
-    revealCoordinator: SmoothTextRevealCoordinator,
-) {
-    val text = remember(model.content, model.node) {
-        AnnotatedString(model.node.getUnescapedTextInNode(model.content))
-    }
-    ChatRevealAnnotatedText(
-        text = text,
-        node = model.node,
-        sourceContent = model.content,
-        style = model.typography.text,
-        revealCoordinator = revealCoordinator,
-    )
-}
-
-@Composable
-private fun ChatRevealMarkdownText(
-    model: MarkdownComponentModel,
-    style: TextStyle,
-    revealCoordinator: SmoothTextRevealCoordinator,
-    modifier: Modifier = Modifier,
-    contentChildType: IElementType? = null,
-) {
-    val annotatorSettings = annotatorSettings()
-    val contentNode = remember(model.node, contentChildType) {
-        contentChildType?.let(model.node::findChildOfType) ?: model.node
-    }
-    val text = remember(model.content, contentNode, style, annotatorSettings) {
-        buildAnnotatedString {
-            pushStyle(style.toSpanStyle())
-            buildMarkdownAnnotatedString(
-                content = model.content,
-                node = contentNode,
-                annotatorSettings = annotatorSettings,
-            )
-            pop()
-        }
-    }
-    ChatRevealAnnotatedText(
-        text = text,
-        node = model.node,
-        sourceContent = model.content,
-        style = style,
-        revealCoordinator = revealCoordinator,
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun ChatRevealAnnotatedText(
-    text: AnnotatedString,
-    node: ASTNode,
-    sourceContent: String,
-    style: TextStyle,
-    revealCoordinator: SmoothTextRevealCoordinator,
-    modifier: Modifier = Modifier,
-) {
-    val revealState = rememberSmoothTextRevealState(
-        key = RevealBlockKey(node.startOffset),
-        coordinator = revealCoordinator,
-    )
-    MarkdownText(
-        content = text,
-        node = node,
-        modifier = modifier.smoothTextReveal(revealState),
-        style = style.copy(textMotion = TextMotion.Animated),
-        onTextLayout = { layoutResult, _ ->
-            revealState.onTextLayout(text.text, layoutResult)
-        },
-        sourceContent = sourceContent,
-    )
-}
-
-/**
- * 标题自身只负责文字样式；与相邻块的距离由文档级排版统一决定。
- */
-@Composable
-private fun ChatHeadingBlock(
-    model: MarkdownComponentModel,
-    style: TextStyle,
-    setext: Boolean = false,
-    revealCoordinator: SmoothTextRevealCoordinator? = null,
-) {
-    val contentChildType = if (setext) {
-        MarkdownTokenTypes.SETEXT_CONTENT
-    } else {
-        MarkdownTokenTypes.ATX_CONTENT
-    }
-    if (revealCoordinator == null || model.node.containsMarkdownImage()) {
-        MarkdownHeader(
-            content = model.content,
-            node = model.node,
-            style = style,
-            contentChildType = contentChildType,
-        )
-    } else {
-        ChatRevealMarkdownText(
-            model = model,
-            style = style,
-            revealCoordinator = revealCoordinator,
-            contentChildType = contentChildType,
-            modifier = Modifier.semantics { heading() },
-        )
-    }
-}
-
-/**
- * 代码块：顶栏显示语言标签并提供一键复制，正文等宽字体、超出横向滚动。
- */
-@Composable
-private fun ChatCodeBlock(
-    code: String,
-    language: String?,
-    style: TextStyle,
-    revealState: SmoothTextRevealState? = null,
-) {
-    @Suppress("DEPRECATION")
-    val clipboardManager = LocalClipboardManager.current
-    var copied by remember { mutableStateOf(false) }
-    LaunchedEffect(copied) {
-        if (copied) {
-            kotlinx.coroutines.delay(1_400)
-            copied = false
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .background(MiuixTheme.colorScheme.surface)
-            .border(
-                0.5.dp,
-                MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
-                RoundedCornerShape(10.dp),
-            ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 13.dp, end = 6.dp, top = 3.dp, bottom = 3.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = language?.takeIf { it.isNotBlank() } ?: "code",
-                style = MiuixTheme.textStyles.footnote2,
-                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                modifier = Modifier.weight(1f),
-            )
-            IconButton(
-                onClick = {
-                    @Suppress("DEPRECATION")
-                    clipboardManager.setText(AnnotatedString(code))
-                    copied = true
-                },
-                minWidth = 28.dp,
-                minHeight = 28.dp,
-            ) {
-                Icon(
-                    imageVector = if (copied) Icons.Rounded.Check
-                        else Icons.Rounded.ContentCopy,
-                    contentDescription = stringResource(
-                        if (copied) R.string.copy_copied else R.string.copy_code,
-                    ),
-                    modifier = Modifier.size(13.dp),
-                    tint = if (copied) {
-                        MiuixTheme.colorScheme.primary
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceVariantSummary.copy(alpha = 0.8f)
-                    },
-                )
-            }
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 13.dp)
-                .height(0.5.dp)
-                .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.45f)),
-        )
-        val codeModifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
-            .padding(horizontal = 13.dp, vertical = 11.dp)
-            .let { base ->
-                if (revealState != null) base.smoothTextReveal(revealState) else base
-            }
-        Text(
-            text = code,
-            style = if (revealState != null) {
-                style.copy(textMotion = TextMotion.Animated)
-            } else {
-                style
-            },
-            color = MiuixTheme.colorScheme.onSurface,
-            modifier = codeModifier,
-            onTextLayout = revealState?.let { state ->
-                { layoutResult -> state.onTextLayout(code, layoutResult) }
-            },
-        )
-    }
-}
-
-private val ChatTableCellWidth = 112.dp
-
-/**
- * 表格：细描边容器 + 表头浅底加粗 + 行间发丝分隔线；列宽不足时整体横向滚动。
- */
-@Composable
-private fun ChatMarkdownTable(
-    content: String,
-    node: ASTNode,
-    style: TextStyle,
-    revealCoordinator: SmoothTextRevealCoordinator? = null,
-) {
-    val headerCells = remember(node) {
-        node.findChildOfType(HEADER)?.children?.filter { it.type == CELL }.orEmpty()
-    }
-    val bodyRows = remember(node) {
-        node.children.filter { it.type == ROW }
-            .map { row -> row.children.filter { it.type == CELL } }
-    }
-    if (headerCells.isEmpty()) return
-
-    val borderColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f)
-    BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp),
-    ) {
-        val tableWidth = ChatTableCellWidth * headerCells.size
-        val scrollable = maxWidth <= tableWidth
-        Column(
-            modifier = (if (scrollable) {
-                Modifier
-                    .horizontalScroll(rememberScrollState())
-                    .requiredWidth(tableWidth)
-            } else {
-                Modifier.fillMaxWidth()
-            })
-                .clip(RoundedCornerShape(10.dp))
-                .border(0.5.dp, borderColor, RoundedCornerShape(10.dp))
-                .background(MiuixTheme.colorScheme.surface),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f))
-                    .height(IntrinsicSize.Max),
-            ) {
-                headerCells.forEach { cell ->
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(horizontal = 12.dp, vertical = 9.dp),
-                    ) {
-                        ChatMarkdownTableCell(
-                            content = content,
-                            cell = cell,
-                            style = style.copy(fontWeight = FontWeight.SemiBold),
-                            maxLines = 4,
-                            overflow = TextOverflow.Ellipsis,
-                            revealCoordinator = revealCoordinator,
-                        )
-                    }
-                }
-            }
-            bodyRows.forEach { rowCells ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(borderColor.copy(alpha = 0.6f)),
-                )
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    rowCells.forEach { cell ->
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 12.dp, vertical = 9.dp),
-                        ) {
-                            ChatMarkdownTableCell(
-                                content = content,
-                                cell = cell,
-                                style = style,
-                                maxLines = 6,
-                                overflow = TextOverflow.Ellipsis,
-                                revealCoordinator = revealCoordinator,
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ChatMarkdownTableCell(
-    content: String,
-    cell: ASTNode,
-    style: TextStyle,
-    maxLines: Int,
-    overflow: TextOverflow,
-    revealCoordinator: SmoothTextRevealCoordinator?,
-) {
-    if (revealCoordinator == null || cell.containsMarkdownImage()) {
-        MarkdownTableBasicText(
-            content = content,
-            cell = cell,
-            style = style,
-            maxLines = maxLines,
-            overflow = overflow,
-        )
-        return
-    }
-
-    val annotatorSettings = annotatorSettings()
-    val text = remember(content, cell, style, annotatorSettings) {
-        buildAnnotatedString {
-            pushStyle(style.toSpanStyle())
-            buildMarkdownAnnotatedString(
-                content = content,
-                node = cell,
-                annotatorSettings = annotatorSettings,
-            )
-            pop()
-        }
-    }
-    val revealState = rememberSmoothTextRevealState(
-        key = RevealBlockKey(cell.startOffset),
-        coordinator = revealCoordinator,
-    )
-    Text(
-        text = text,
-        style = style.copy(textMotion = TextMotion.Animated),
-        color = MiuixTheme.colorScheme.onSurface,
-        maxLines = maxLines,
-        overflow = overflow,
-        modifier = Modifier.smoothTextReveal(revealState),
-        onTextLayout = { layoutResult ->
-            revealState.onTextLayout(text.text, layoutResult)
-        },
-    )
-}
-
-/**
- * 引用块：圆角浅色竖条 + 弱化文字。
- * 库默认实现把竖条颜色绑死在 quote 文字颜色上，无法分别控制，因此竖条自绘；
- * 子节点仍交给 ambient components，流式显现与嵌套引用行为不变。
- */
-@Composable
-private fun ChatBlockQuote(model: MarkdownComponentModel) {
-    val components = LocalMarkdownComponents.current
-    val padding = LocalMarkdownPadding.current
-    val dimens = LocalMarkdownDimens.current
-    val a11yLabels = LocalMarkdownA11yLabels.current
-    val barColor = MiuixTheme.colorScheme.primary.copy(alpha = 0.4f)
-    val emptyLineHeight = with(LocalDensity.current) {
-        model.typography.quote.lineHeight.takeOrElse { 22.sp }.toDp()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics { contentDescription = a11yLabels.blockquote }
-            .drawBehind {
-                val thickness = dimens.blockQuoteThickness.toPx()
-                val x = padding.blockQuoteBar
-                    .calculateStartPadding(LayoutDirection.Ltr).toPx() + thickness / 2
-                drawLine(
-                    color = barColor,
-                    strokeWidth = thickness,
-                    start = Offset(x, padding.blockQuoteBar.calculateTopPadding().toPx()),
-                    end = Offset(
-                        x,
-                        size.height - padding.blockQuoteBar.calculateBottomPadding().toPx(),
-                    ),
-                    cap = StrokeCap.Round,
-                )
-            }
-            .padding(padding.blockQuote),
-    ) {
-        model.node.children.forEach { child ->
-            key(child.startOffset) {
-                when (child.type) {
-                    MarkdownElementTypes.BLOCK_QUOTE -> ChatBlockQuote(
-                        MarkdownComponentModel(
-                            content = model.content,
-                            node = child,
-                            typography = model.typography,
-                        ),
-                    )
-
-                    MarkdownTokenTypes.EOL -> Spacer(Modifier.height(emptyLineHeight))
-
-                    else -> MarkdownElement(
-                        node = child,
-                        components = components,
-                        content = model.content,
-                        includeSpacer = false,
-                    )
-                }
-            }
-        }
-    }
-}
-
-private fun ASTNode.containsMarkdownImage(): Boolean =
-    type == MarkdownElementTypes.IMAGE || children.any { child -> child.containsMarkdownImage() }
-
-/** 找到列表项中首个会被显现协调器管理的块，marker 以它作为显示时机。 */
-private fun ASTNode.firstRevealBlockKey(): RevealBlockKey? = when (type) {
-    MarkdownTokenTypes.TEXT -> RevealBlockKey(startOffset)
-
-    MarkdownElementTypes.PARAGRAPH,
-    MarkdownElementTypes.ATX_1,
-    MarkdownElementTypes.ATX_2,
-    MarkdownElementTypes.ATX_3,
-    MarkdownElementTypes.ATX_4,
-    MarkdownElementTypes.ATX_5,
-    MarkdownElementTypes.ATX_6,
-    MarkdownElementTypes.SETEXT_1,
-    MarkdownElementTypes.SETEXT_2,
-    -> if (!containsMarkdownImage()) RevealBlockKey(startOffset) else null
-
-    MarkdownElementTypes.CODE_FENCE ->
-        if (children.size >= 3) RevealBlockKey(startOffset) else null
-
-    MarkdownElementTypes.CODE_BLOCK ->
-        if (children.isNotEmpty()) RevealBlockKey(startOffset) else null
-
-    TABLE -> children.asSequence()
-        .flatMap { it.depthFirstSequence() }
-        .firstOrNull { it.type == CELL && !it.containsMarkdownImage() }
-        ?.let { RevealBlockKey(it.startOffset) }
-
-    MarkdownElementTypes.IMAGE,
-    MarkdownTokenTypes.EOL,
-    MarkdownTokenTypes.HORIZONTAL_RULE,
-    -> null
-
-    else -> children.asSequence().mapNotNull(ASTNode::firstRevealBlockKey).firstOrNull()
-}
-
-private fun ASTNode.depthFirstSequence(): Sequence<ASTNode> = sequence {
-    yield(this@depthFirstSequence)
-    children.forEach { child -> yieldAll(child.depthFirstSequence()) }
-}
-
-private fun State.Success.revealBlockKeys(): Set<RevealBlockKey> = buildSet {
-    node.children.forEach { child -> collectRevealBlockKeys(child) }
-}
-
-private fun MutableSet<RevealBlockKey>.collectRevealBlockKeys(node: ASTNode) {
-    when (node.type) {
-        MarkdownTokenTypes.TEXT -> add(RevealBlockKey(node.startOffset))
-
-        MarkdownElementTypes.PARAGRAPH,
-        MarkdownElementTypes.ATX_1,
-        MarkdownElementTypes.ATX_2,
-        MarkdownElementTypes.ATX_3,
-        MarkdownElementTypes.ATX_4,
-        MarkdownElementTypes.ATX_5,
-        MarkdownElementTypes.ATX_6,
-        MarkdownElementTypes.SETEXT_1,
-        MarkdownElementTypes.SETEXT_2,
-        -> if (!node.containsMarkdownImage()) add(RevealBlockKey(node.startOffset))
-
-        MarkdownElementTypes.CODE_FENCE -> {
-            if (node.children.size >= 3) add(RevealBlockKey(node.startOffset))
-        }
-
-        MarkdownElementTypes.CODE_BLOCK -> {
-            if (node.children.isNotEmpty()) add(RevealBlockKey(node.startOffset))
-        }
-
-        TABLE -> collectTableCellRevealKeys(node)
-
-        MarkdownElementTypes.IMAGE,
-        MarkdownTokenTypes.EOL,
-        MarkdownTokenTypes.HORIZONTAL_RULE,
-        -> Unit
-
-        else -> node.children.forEach { child -> collectRevealBlockKeys(child) }
-    }
-}
-
-private fun MutableSet<RevealBlockKey>.collectTableCellRevealKeys(node: ASTNode) {
-    if (node.type == CELL) {
-        if (!node.containsMarkdownImage()) add(RevealBlockKey(node.startOffset))
-        return
-    }
-    node.children.forEach { child -> collectTableCellRevealKeys(child) }
-}
-
 // ── 思考过程 ─────────────────────────────────────────────────────────
 
 @Composable
@@ -2051,26 +745,13 @@ internal fun ThinkingRow(
     } else {
         null
     }
-    val completedMarkdownState = (streamingState ?: retainedStreamingState)
-        ?.snapshot?.completedStateFor(message.content)
+    val completedDocument = (streamingState ?: retainedStreamingState)
+        ?.snapshot?.completedDocumentFor(message.content)
     // 展开态必须在组合期同步推导：若经 LaunchedEffect 晚一帧收起，思考结束的那一帧尾部窗口
     // 已解除而正文仍展开，会以全文高度闪现一帧，再从该高度执行收起动画。
     val expanded = manualExpanded ?: message.isStreaming
     // 自动模式下高度上限覆盖到收起动画结束，退出过程不会先撑开再收拢。
     val tailWindow = manualExpanded == null
-
-    // Markdown 状态在行级提前创建：行进入组合（工作过程展开或滚动到可视区）时就开始
-    // 后台解析，而不是等到首次点击展开。否则首帧只能测量 loading fallback 的纯文本高度，
-    // 解析完成后正文高度会再次变化；状态挂在行级还能在收起/展开循环中存活，
-    // 避免每次展开都重新走一遍异步解析。
-    val stableMarkdownState = if (streamingState == null && completedMarkdownState == null) {
-        rememberMarkdownState(
-            content = message.content,
-            retainState = true,
-        )
-    } else {
-        null
-    }
 
     val pulseAlpha = rememberActivePulse(
         active = message.isStreaming,
@@ -2178,7 +859,7 @@ internal fun ThinkingRow(
                         bottom = if (compact) 8.dp else 12.dp,
                     )
                 if (streamingState != null &&
-                    (message.isStreaming || completedMarkdownState == null || tailWindow)
+                    (message.isStreaming || completedDocument == null || tailWindow)
                 ) {
                     ThinkingTailWindow(
                         enabled = tailWindow,
@@ -2188,16 +869,14 @@ internal fun ThinkingRow(
                             state = streamingState,
                             content = message.content,
                             isStreaming = message.isStreaming,
-                            onRevealCompleteChange = {},
-                            tone = ChatMarkdownTone.Thinking,
+                            tone = MarkdownTone.Thinking,
                         )
                     }
                 } else {
-                    StableMarkdown(
+                    StaticMarkdown(
                         content = message.content,
-                        tone = ChatMarkdownTone.Thinking,
-                        markdownState = stableMarkdownState,
-                        parsedState = completedMarkdownState,
+                        tone = MarkdownTone.Thinking,
+                        parsed = completedDocument,
                         modifier = contentModifier,
                     )
                 }
@@ -2253,7 +932,6 @@ private fun ThinkingTailWindow(
 }
 
 private const val THINKING_TAIL_WINDOW_LINES = 4
-private const val THINKING_LINE_HEIGHT_SP = 22
 
 // ── Run trace：轻量入口行 ─────────────────────────────────────────────
 
