@@ -46,7 +46,7 @@ Eta 上传 WAV 后生成有效期 15 分钟的读取签名 URL，向百炼提交
 - `SpeechInputController` 统一管理 start、finish、cancel 和一次性结果交付。系统服务适配沿用 `EtaSpeechInput`；独立进程 `EtaRecognitionService` 仍只负责系统兼容桥接，不向其他应用开放云端凭据。
 - `SpeechRecorder` 采集 16 kHz、单声道 PCM16。录音只暂存在内存中，文件接口封装 WAV；实时发送队列和响应解析均有限额，背压失败明确返回，不静默丢帧。
 - 千问实时协议通过 `text + stash` 替换当前 item 预览，以 completed 为最终文字，等待 session.finished 后结束。豆包使用专用二进制 codec，支持 Gzip、头扩展和最终包标记，不能套用 JSON WebSocket。
-- `SpeechPlaybackController` 负责合成与播放，`SpeechAudioLease` 协调本进程录音、播放和音频焦点。TTS 正文使用 GFM AST 提取可读文字，按句分块，使用 24 kHz PCM16 顺序播放。`SpeechPcmOutput` 先填充播放缓冲区再启动音轨；不足一个缓冲区的短音频在合成结束后按实际帧数启动。仅成功收到终止事件才把音频视为完整。
+- `SpeechPlaybackController` 负责合成与播放，`SpeechAudioLease` 协调本进程录音、播放和音频焦点。TTS 正文使用 GFM AST 提取可读文字，按句分块，使用 24 kHz PCM16 顺序播放。合成解码层识别裸 PCM 与流式 WAV，校验 WAV 格式并剥离容器头，不把头信息作为音频播放；文件头和采样可以跨响应片段。流式 WAV 长度字段可能是占位值，仅成功收到终止事件才把音频视为完整。`SpeechPcmOutput` 先填充播放缓冲区再启动音轨；不足一个缓冲区的短音频在合成结束后按实际帧数启动。
 - `SpeechSettingsRepository` 隔离持久化；普通配置进入现有 DataStore，凭据用 Android Keystore 的 AES-GCM 加密后保存。凭据不进入 RemotePreferences、会话、日志或数据导出；语音配置目前也不纳入手动备份。不可解密的凭据会要求重新填写，不静默当作空配置。
 - 设置页、聊天与浮窗复用相同控制器；网络与音频循环不进入 Composable、Hook 或 Agent loop，Runtime IPC 与归档格式保持兼容。
 
