@@ -150,6 +150,10 @@ internal object AgentConversationCodec {
                 if (source.has("reasoning_content") && !source.isNull("reasoning_content")) {
                     message.put("reasoning_content", source.optString("reasoning_content"))
                 }
+                val sig = source.optString("thoughtSignature").ifBlank { source.optString("thought_signature") }
+                if (sig.isNotBlank()) {
+                    message.put("thoughtSignature", sig)
+                }
                 ResponsesEphemeralState.copyOutputItems(source, message)
             }
 

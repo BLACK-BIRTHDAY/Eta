@@ -37,7 +37,8 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
     ): ProviderResponse {
         val config = request.config
         val url = ProviderUrls.geminiStreamGenerateContentUrl(config.baseUrl, config.model)
-        val payload = buildRequestJson(config, request.messages, request.tools)
+        val fallbackSignature = extractLatestSignature(request.messages)
+        val payload = buildRequestJson(config, request.messages, request.tools, fallbackSignature)
 
         val isOfficialGoogle = config.baseUrl.contains("generativelanguage.googleapis.com")
         val headers = Headers.Builder()
@@ -49,6 +50,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                         add("Authorization", "Bearer ${config.apiKey}")
                     }
                 }
+                add("X-Session-Id", request.sessionId)
                 CustomHeaderFilter.mergeInto(this, config.customHeaders)
             }
             .build()
@@ -71,7 +73,12 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     val errorBody = response.peekBody(16_384).string()
                     throw AgentModelFailure.http(response.code, errorBody)
                 }
-                val assistant = readStreamingAssistantMessage(response.body.byteStream(), runController, onEvent)
+                val assistant = readStreamingAssistantMessage(
+                    response.body.byteStream(),
+                    runController,
+                    onEvent,
+                    fallbackSignature
+                )
                 onEvent(ProviderEvent.Completed(assistant.optString("finish_reason").ifBlank { null }))
                 return ProviderResponse(assistant)
             }
@@ -87,7 +94,8 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
     private fun buildRequestJson(
         config: AgentModelClient.ModelConfig,
         messages: JSONArray,
-        tools: JSONArray
+        tools: JSONArray,
+        fallbackSignature: String? = null,
     ): JSONObject {
         val contents = JSONArray()
         val systemParts = mutableListOf<String>()
@@ -142,6 +150,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             }
         }
 
+        var runningSignature: String? = fallbackSignature
         for (index in 0 until messages.length()) {
             val message = messages.optJSONObject(index) ?: continue
             val role = message.optString("role")
@@ -158,7 +167,11 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     }
                 }
                 "assistant" -> {
-                    val parts = convertAssistantContent(message)
+                    val ownSig = extractThoughtSignature(message)
+                    if (!ownSig.isNullOrBlank()) {
+                        runningSignature = ownSig
+                    }
+                    val parts = convertAssistantContent(message, runningSignature)
                     if (parts.length() > 0) {
                         ensureTurn("model")
                         for (p in 0 until parts.length()) {
@@ -280,13 +293,65 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             else -> JSONArray().put(JSONObject().put("text", providerMessageText(content)))
         }
 
-    private fun convertAssistantContent(message: JSONObject): JSONArray {
+    private fun extractThoughtSignature(message: JSONObject): String? {
+        val direct = message.optString("thoughtSignature")
+            .ifBlank { message.optString("thought_signature") }
+            .takeIf { it.isNotBlank() && it != "skip_thought_signature_validator" }
+        if (!direct.isNullOrBlank()) return direct
+
+        val toolCalls = message.optJSONArray("tool_calls") ?: return null
+        for (i in 0 until toolCalls.length()) {
+            val tc = toolCalls.optJSONObject(i) ?: continue
+            val s = tc.optString("thoughtSignature")
+                .ifBlank { tc.optString("thought_signature") }
+            if (s.isNotBlank() && s != "skip_thought_signature_validator") {
+                return s
+            }
+        }
+        return null
+    }
+
+    private fun extractLatestSignature(messages: JSONArray): String? {
+        var latest: String? = null
+        for (i in 0 until messages.length()) {
+            val msg = messages.optJSONObject(i) ?: continue
+            val sig = extractThoughtSignature(msg)
+            if (!sig.isNullOrBlank()) {
+                latest = sig
+            }
+        }
+        return latest
+    }
+
+    private fun convertAssistantContent(
+        message: JSONObject,
+        sessionFallbackSig: String? = null,
+    ): JSONArray {
         val parts = JSONArray()
-        providerMessageText(message.opt("content"))
-            .takeIf { it.isNotBlank() && it != "null" }
-            ?.let { parts.put(JSONObject().put("text", it)) }
+
+        // 1. 提取当前轮次真实有效签名；多步工具调用中若当前轮次未生成新签名，无缝继承前序有效签名
+        val signature = extractThoughtSignature(message) ?: sessionFallbackSig
+
+        // 2. 还原历史思考块（对齐 Google 官方规范：思考块本身不带签名）
+        val reasoning = message.optString("reasoning")
+            .ifBlank { message.optString("reasoning_content") }
+        if (reasoning.isNotBlank()) {
+            parts.put(
+                JSONObject()
+                    .put("text", reasoning)
+                    .put("thought", true)
+            )
+        }
+
         val toolCalls = message.optJSONArray("tool_calls")
-        if (toolCalls != null) {
+        val hasToolCalls = toolCalls != null && toolCalls.length() > 0
+
+        // 3. 权威锚点保真与顺序对齐：
+        // 【关键】Google 铁律：有 functionCall 时，签名必须挂在首个 functionCall 上！
+        // 若先放 text，网关 v4.8.4 会误将 text 判为唯一锚点，把签名挂在 text 上并暴力清空 functionCall 的签名，
+        // 从而引发 Google 400: "Function call is missing a thought_signature in functionCall parts"。
+        // 因此当存在 tool_calls 时，必须优先注入 functionCall，确保首个非思考 Part 即为带有签名的 functionCall！
+        if (hasToolCalls) {
             for (index in 0 until toolCalls.length()) {
                 val toolCall = toolCalls.optJSONObject(index) ?: continue
                 val function = toolCall.optJSONObject("function") ?: continue
@@ -294,14 +359,34 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                 if (name.isBlank()) continue
                 val args = parseJsonObject(function.optString("arguments"))
                 val fnCallObj = JSONObject().put("name", name).put("args", args)
-                val signature = toolCall.optString("thought_signature")
-                    .ifBlank { "skip_thought_signature_validator" }
-                val partObj = JSONObject()
-                    .put("functionCall", fnCallObj)
-                    .put("thought_signature", signature)
+                val partObj = JSONObject().put("functionCall", fnCallObj)
+
+                val tcSig = toolCall.optString("thoughtSignature")
+                    .ifBlank { toolCall.optString("thought_signature") }
+                    .takeIf { it.isNotBlank() && it != "skip_thought_signature_validator" }
+                    ?: signature
+
+                // 首个 functionCall 作为权威锚点，必须携带真实签名（自身或继承）
+                if (!tcSig.isNullOrBlank() && index == 0) {
+                    partObj.put("thoughtSignature", tcSig)
+                }
                 parts.put(partObj)
             }
         }
+
+        // 4. 普通文本：
+        // 若无工具调用，普通文本即为权威锚点，携带签名；
+        // 若有工具调用，普通文本作为动作意图附注排在工具调用之后，不抢占锚点位置。
+        val text = providerMessageText(message.opt("content"))
+            .takeIf { it.isNotBlank() && it != "null" }
+        if (text != null) {
+            val textPart = JSONObject().put("text", text)
+            if (!hasToolCalls && !signature.isNullOrBlank()) {
+                textPart.put("thoughtSignature", signature)
+            }
+            parts.put(textPart)
+        }
+
         return parts
     }
 
@@ -367,11 +452,13 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
     private fun readStreamingAssistantMessage(
         stream: InputStream,
         runController: AgentRunController,
-        onEvent: (ProviderEvent) -> Unit
+        onEvent: (ProviderEvent) -> Unit,
+        fallbackSignature: String? = null,
     ): JSONObject {
         val fullText = StringBuilder()
         val fullReasoning = StringBuilder()
         val toolCalls = JSONArray()
+        var turnThoughtSignature: String = fallbackSignature.orEmpty()
         var finishReason: String? = null
         var usage: AgentTokenUsage? = null
 
@@ -439,12 +526,22 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                 val candidate = candidates.optJSONObject(0) ?: continue
 
                 candidate.optString("finishReason").ifBlank { null }?.let { finishReason = it }
+                val candidateSig = candidate.optString("thoughtSignature")
+                    .ifBlank { candidate.optString("thought_signature") }
+                if (candidateSig.isNotBlank() && candidateSig != "skip_thought_signature_validator") {
+                    turnThoughtSignature = candidateSig
+                }
 
                 val contentObj = candidate.optJSONObject("content") ?: continue
                 val parts = contentObj.optJSONArray("parts") ?: continue
 
                 for (p in 0 until parts.length()) {
                     val part = parts.optJSONObject(p) ?: continue
+                    val partSig = part.optString("thoughtSignature")
+                        .ifBlank { part.optString("thought_signature") }
+                    if (partSig.isNotBlank() && partSig != "skip_thought_signature_validator") {
+                        turnThoughtSignature = partSig
+                    }
                     val text = part.optString("text")
                     val isThought = part.optBoolean("thought", false)
 
@@ -495,19 +592,23 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                             }
                             else -> JSONObject()
                         }
-                        var thoughtSig = part.optString("thoughtSignature")
-                            .ifBlank { part.optString("thought_signature") }
-                        if (thoughtSig.isBlank()) {
+                        var thoughtSig = turnThoughtSignature.ifBlank {
+                            part.optString("thoughtSignature")
+                                .ifBlank { part.optString("thought_signature") }
+                        }
+                        if (thoughtSig.isBlank() || thoughtSig == "skip_thought_signature_validator") {
                             for (sp in 0 until parts.length()) {
                                 val item = parts.optJSONObject(sp) ?: continue
-                                val candidate = item.optString("thoughtSignature")
+                                val candidateCandidate = item.optString("thoughtSignature")
                                     .ifBlank { item.optString("thought_signature") }
-                                if (candidate.isNotBlank()) {
-                                    thoughtSig = candidate
+                                if (candidateCandidate.isNotBlank() && candidateCandidate != "skip_thought_signature_validator") {
+                                    thoughtSig = candidateCandidate
+                                    turnThoughtSignature = candidateCandidate
                                     break
                                 }
                             }
                         }
+                        val effectiveSig = thoughtSig.takeIf { it.isNotBlank() && it != "skip_thought_signature_validator" }
                         val toolCallId = "call_${toolCalls.length()}_${System.currentTimeMillis()}"
                         val toolCall = JSONObject()
                             .put("id", toolCallId)
@@ -518,8 +619,9 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                                     .put("name", name)
                                     .put("arguments", argsObj.toString())
                             ).also { obj ->
-                                if (thoughtSig.isNotBlank()) {
-                                    obj.put("thought_signature", thoughtSig)
+                                if (!effectiveSig.isNullOrBlank()) {
+                                    obj.put("thoughtSignature", effectiveSig)
+                                    obj.put("thought_signature", effectiveSig)
                                 }
                             }
                         toolCalls.put(toolCall)
@@ -548,6 +650,10 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                 if (fullReasoning.isNotEmpty()) {
                     assistant.put("reasoning", fullReasoning.toString())
                     assistant.put("reasoning_content", fullReasoning.toString())
+                }
+                if (turnThoughtSignature.isNotBlank() && turnThoughtSignature != "skip_thought_signature_validator") {
+                    assistant.put("thoughtSignature", turnThoughtSignature)
+                    assistant.put("thought_signature", turnThoughtSignature)
                 }
                 if (toolCalls.length() > 0) {
                     assistant.put("tool_calls", toolCalls)
