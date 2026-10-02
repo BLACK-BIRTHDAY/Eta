@@ -70,6 +70,8 @@ Runtime 独立于 Provider 自定义提示词注入 Eta 身份，以“当前配
 
 OpenAI-compatible Provider 可在配置页选择 `Chat Completions` 或 `Responses API`。新安装和重置后的内置 OpenAI 默认使用 Responses；数据库中已有 Provider 不会被默认值覆盖。自定义 Provider 和其他内置 Provider 默认仍使用 Chat Completions。
 
+提供商目录从固定的 `models.dev/api.json` 读取公开元数据，应用内另有随 APK 打包的压缩快照；在线目录通过大小限制、协议和 HTTPS 地址校验后原子缓存，读取失败时使用缓存或快照。目录只列出 Eta 可按 Chat Completions 接入且具有文本输出与工具调用能力的候选模型；读取目录不发送已保存的 API Key。用户选择模型并核对完整 Base URL 后，导入为默认停用、无 API Key 的自定义提供商；后续密钥由用户为该地址填写，已保存的模型和当前选择不随目录刷新改写。
+
 Chat Completions 在协议边界把当前上下文中的全部 `system` 内容按原顺序合并为首条唯一系统消息，兼容要求系统消息只能位于开头的模型 Chat Template。Responses 则把完整的 `system`/`developer` 上下文投影到 `instructions`，并将持久历史重建为带 `type: "message"` 的 input Items。
 
 Responses 请求固定使用 `stream:true`、`store:false`，不发送 `previous_response_id`。Runtime 在同一次 run 的工具回合之间精确回放 Provider 返回的完整 output Items；因此 encrypted reasoning、服务端工具状态等 opaque 数据只存在于内存，不进入 IPC transcript、Room、日志或运行归档。持久会话只保留规范化回答、可见推理内容和 Eta 工具记录，后续 run 由这些稳定数据重新构建上下文。
@@ -79,6 +81,8 @@ Responses 请求固定使用 `stream:true`、`store:false`，不发送 `previous
 推理界面展示 Provider 返回的可见推理内容，不由 Eta 生成或补写。Responses 支持 `reasoning_summary_text.delta` 和 `reasoning_text.delta`；终态读取 reasoning item 的 `summary[]` 与 `content[].reasoning_text`，并兼容旧接口的单字段 `reasoning_text`。标准内容与旧字段同时存在时不重复追加，终态仍按 item 和内容块身份校准流式结果。Responses 只对精确命中官方目录且未被远端显式标记为 `reasoning:false` 的模型补齐推理能力，不会因 Endpoint 类型而假定所有模型支持推理。
 
 Chat Completions 消费 `reasoning_content`，并兼容 `reasoning` 和 `reasoning_details` 中的可见文本或摘要；同一分片同时包含多种表示时只显示一次。Anthropic 消费 `content_block_start` 中已有的文字及后续 `thinking_delta` / `text_delta`，思考签名和加密内容不作为文字展示。三种协议共用 SSE 分帧，支持多行 `data:`、注释心跳和 UTF-8；正文、思考、工具的解释仍由各自 Provider 负责。Chat 在 `finish_reason` 到达时结束可见块，再接收用量与 `[DONE]`；Responses 和 Anthropic 收到各自终态事件后立即收尾，不等待连接关闭。缺少合法终态或 Anthropic 可见/工具块未闭合时返回未完成错误。
+
+Anthropic 工具回合会在当前 run 的模型上下文中按原顺序回传思考块、签名及加密块，供工具结果继续使用；这些 Provider 专用块不进入持久会话。签名待回传时沿用上一轮的系统提示与工具目录并保持原始上下文，自动压缩延后到签名回合完成，强制压缩则明确报错；工具执行仍按实时权限校验。工具回合完成后的上下文压缩会清除旧签名。
 
 Chat Completions、Responses 与 Anthropic Messages 在 Provider 边界统一投影为带 `round + block index` 身份的正文、思考和工具块。Responses 额外使用 `item_id/output_index/content_index` 区分同一轮中的多个 output item；Chat Completions 在 delta 类型切换时创建新块；Anthropic 直接保留 `content_block.index`。正文、思考或工具类型一旦切换，上一段可见块立即定稿，后续同类型内容也不会跨过工具卡片回填到旧块。终态只在 Provider 的权威内容与已流式内容不一致时携带一次替换，不用整轮聚合正文覆盖最后一个块。
 
@@ -158,9 +162,15 @@ App 在发起请求前已经把当前用户消息写入会话 history，因此 R
 
 ### 上下文摘要
 
-首次模型请求前、完整工具批次结束后的下一次请求前，以及任务完成后检查模型窗口预算。请求估算达到窗口的 85% 时触发自动压缩；窗口未知时不根据字符数猜测容量，只支持手动压缩和明确的 Provider 上下文溢出恢复。估算包含系统提示、工具 schema、文本与图片，并以成功请求的输入 usage 校准。阈值集中在 `AgentContextBudget`，存储和传输分块大小不参与触发。
+模型窗口只采用用户在设置中填写并保存的值。官方目录和远端窗口元数据不参与运行窗口解析，不自动补齐缺失配置。当前模型未填写正整数窗口时，聊天与系统助手入口在模型请求前提示用户到设置中的模型提供商填写；原有用户配置继续保留。
 
-压缩使用当前会话模型，额外请求会计费。摘要请求禁止本地及托管工具，也不接受自定义正文覆盖其输入；输入移除敏感工具原始参数、结果、图片正文与 opaque reasoning。近期历史以四条消息及窗口 20% 为目标，切分只能发生在完整工具批次之间；当前用户指令与未消费图片保留。过长历史按完整批次分段总结，明确的摘要输入溢出允许有限细分；单项过大、空摘要、截断摘要或没有容量收益时不提交。
+设置中的“上下文与扩展”提供“自动压缩上下文”开关，默认开启；配置保存在 App 本地，不依赖 Xposed，聊天与系统助手入口共用，从下一次运行生效。关闭后保留手动压缩。Runtime 会核对本地设置，入口请求不能重新开启已关闭的自动压缩。
+
+自动压缩只依据当前成功模型请求返回的实际输入 usage，达到用户填写窗口的 85% 时，在完整工具批次结束后的下一次请求前或任务完成后触发。首次请求前不估算文本、工具或图片的 token 数；缺少实际输入 usage 时不猜测容量，也不采用累计用量或输出用量代替输入。失败重试的 usage 不沿用；压缩成功后旧用量失效，等待下一次模型响应更新。
+
+压缩使用当前会话模型，额外请求会计费。摘要请求禁止本地及托管工具，也不接受自定义正文覆盖其输入；输入移除敏感工具原始参数、结果、图片正文与 opaque reasoning。自动与手动压缩均覆盖可安全替换的已完成历史，保留当前用户指令与未消费图片。主会话切分只能发生在完整工具批次之间。
+
+摘要一次发送全部待整理的脱敏历史，不按估算大小分片，不进行细分或网络重试。请求设置覆盖连接、服务端处理和流式读取的总超时，SSE 心跳不能无限延长等待。只有完整、有界且实际序列化文本缩小的摘要才提交；溢出、空摘要、截断、过滤、工具调用、超时或取消均保留原文，不提交半成品。
 
 摘要作为带有明确说明的 assistant 历史保存，不提升为系统指令。成功后重建模型上下文，保留系统约束及近期规范化消息；被压缩的原文始终保留在完整脱敏历史中，不用摘要覆盖。Responses 的旧 opaque output Items 不跨越压缩边界，也不跨 run、跨 Provider 持久化。
 
@@ -168,9 +178,9 @@ App 在发起请求前已经把当前用户消息写入会话 history，因此 R
 
 App 会话提供 `conversation_history` 工具，搜索或分页读取当前会话的完整脱敏原文。工具由 Runtime 绑定会话身份，模型不能指定其他会话；单次输出有界并返回续读游标，大消息可按字符偏移继续读取。它不依赖 MEMORY.md 开关，也不向模型暴露数据库路径。摘要仍然有损，历史工具让模型能按需核对摘要省略的细节；完整存储不代表每次请求都把所有历史塞入模型窗口。编辑或删除旧轮次时从完整历史重建对应前缀，旧版本已缺失的前缀沿用明确提示。
 
-空闲会话可从上下文用量提示框手动压缩，执行期间本会话禁止发送、模型切换和历史编辑，可停止或浏览其他会话。手动操作不生成虚构用户消息或模型回答；摘要正文不进入思考流、事件或日志，只展示压缩状态及前后估算用量。
+空闲会话可从上下文用量提示框手动压缩，执行期间本会话禁止发送、模型切换和历史编辑，可停止或浏览其他会话。手动操作不生成虚构用户消息或模型回答；摘要正文不进入思考流、事件或日志，只展示压缩状态。压缩后不显示估算用量，下一次模型响应返回实际 usage 后更新。
 
-明确的上下文溢出最多进行三次有进展的恢复；已开始托管工具的请求不自动重放。失败或取消不提交半成品摘要，已经提交的安全快照随取消或失败结果保留。任务已完成时，压缩失败不改变任务成功状态，原始上下文完整保存；实际持久化失败仍报告失败，不用删头方式掩盖。用户停止时先取消网络与工具，收束运行并保存已完成的安全历史，再交付取消终态。
+Provider 明确返回上下文溢出时直接报告失败，不自动压缩后重放原请求。空正文以长度上限结束时报告输出额度耗尽；内容过滤和普通空响应分别明确失败，不猜成输入溢出。已开始托管工具的请求不自动重放。失败或取消不提交半成品摘要，已经提交的安全快照随取消或失败结果保留。任务已完成时，压缩失败不改变任务成功状态，原始上下文完整保存；实际持久化失败仍报告失败，不用删头方式掩盖。用户停止时先取消网络与工具，收束运行并保存已完成的安全历史，再交付取消终态。
 
 设计依据：[Android Binder 事务限制](https://developer.android.com/reference/android/os/TransactionTooLargeException)、[ParcelFileDescriptor](https://developer.android.com/reference/android/os/ParcelFileDescriptor)、[CursorWindow](https://developer.android.com/reference/android/database/CursorWindow)。参考的会话模式见 [pi 的追加式压缩记录与上下文重建](https://github.com/earendil-works/pi/blob/b215884021491772a1eb7a9f92c6653a2a52a69d/packages/coding-agent/docs/compaction.md) 和 [Kimi Code 的历史恢复指针](https://github.com/MoonshotAI/kimi-code/blob/b1807253c34e12b0ecf60c9b4da3890d0c80ce72/packages/agent-core-v2/src/agent/fullCompaction/contextRecovery.ts)。Eta 使用 Room 分块及当前会话读取工具适配 Android，不依赖桌面文件路径。
 

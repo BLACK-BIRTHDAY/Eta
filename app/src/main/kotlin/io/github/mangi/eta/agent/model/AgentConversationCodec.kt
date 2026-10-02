@@ -155,6 +155,7 @@ internal object AgentConversationCodec {
                     message.put("thoughtSignature", sig)
                 }
                 ResponsesEphemeralState.copyOutputItems(source, message)
+                AnthropicEphemeralState.copyContentBlocks(source, message)
             }
 
     fun toolResultMessage(

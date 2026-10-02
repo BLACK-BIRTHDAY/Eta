@@ -3,9 +3,10 @@
 **简体中文** | [English](README_EN.md)
 
 <p>
-  <img src="https://img.shields.io/badge/Kotlin-2.4.10-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.10">
-  <img src="https://img.shields.io/badge/AGP-9.3.2-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.3.2">
+  <a href="https://github.com/Mangi-11/Eta/releases"><img src="https://img.shields.io/github/downloads/Mangi-11/Eta/total?logo=github&amp;label=Downloads&amp;color=1677FF" alt="GitHub Releases 累计下载量"></a>
   <img src="https://img.shields.io/badge/minSdk-34-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 34">
+  <img src="https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.20">
+  <img src="https://img.shields.io/badge/AGP-9.4.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.4.1">
   <img src="https://img.shields.io/badge/Gemini%203.x-Native%201M%20Context-4285F4?logo=google&amp;logoColor=white" alt="Gemini 3.x Native">
   <img src="https://img.shields.io/badge/Zero--Copy%20IPC-Pipe%202M%20Chars-FF6F00" alt="Zero-Copy IPC">
   <img src="https://img.shields.io/badge/ColorOS%2016-Fluid%20Cloud%20LiveAlert-00C853" alt="ColorOS 16 Fluid Cloud">
@@ -169,14 +170,20 @@ Eta 本体可以读取项目、修改代码、运行命令并验证结果。如�
 
 使用 Eta 的 AI 功能需要自备模型服务的 **API Key**。内置 OpenAI、Anthropic、**Google Gemini**、阿里百炼、DeepSeek、Kimi、MiMo、MiniMax、StepFun、硅基流动和 OpenRouter 等提供商配置，也可添加自定义服务。
 
+内置提供商附带常用对话模型预设；目录更新会为已有内置配置补充新型号，并保留用户的模型设置和当前选择。硅基流动与 OpenRouter 的模型目录变化较快，可在提供商的「模型」页面从服务端拉取。
+
+提供商列表还可从 [models.dev](https://models.dev/) 社区目录挑选兼容的对话服务和模型；联网时更新目录，离线时使用本地缓存或随应用打包的快照。导入后的提供商默认停用，需核对服务地址、填写该服务的 API Key 并启用；Eta 读取目录时不发送已保存的 API Key。
+
 Provider 层支持 OpenAI-compatible Chat Completions、Google Gemini 原生 GenerateContent、Responses API 和 Anthropic Messages，包括 SSE、Tool Calling、图片输入与推理内容。你可以自定义服务地址、请求头和请求体，拉取或手动添加模型，调整上下文长度与思考档位。具体能力取决于模型与接口，部分 Responses 提供商还可开启服务端网页搜索。
+
+使用模型前，请在设置中的模型提供商填写当前模型的上下文窗口大小（tokens）。“设置 → 上下文与扩展 → 自动压缩上下文”默认开启，修改从下一次运行生效，关闭后仍可手动压缩。自动压缩按服务商实际返回的输入用量与该窗口判断，不自动补窗或估算请求 token 数；服务商未返回输入用量时，可手动压缩。
 
 提供商配置中的“自定义请求头”默认折叠，可添加、编辑和删除名称/值，保存后用于模型列表与对话请求；“测试连接”会使用尚未保存的配置。支持覆盖 `User-Agent`，认证和传输请求头仍由 Eta 管理。连接 OpenCode 官方端点时，Eta 自动发送每段对话稳定的 `x-opencode-session`，无需手动填写；默认客户端标识为 `Eta`。
 
 ## 系统助手入口
 
 - **长按电源键**：选择唤起系统默认助手、Gemini 或 Eta。
-- **Eta 系统助手**：从电源键入口打开全局语音浮窗，竖屏下光效从按键位置沿屏幕边缘进入并汇聚到底部，也可切换键盘或点击建议提问；自动附带唤醒时的截图与应用内容，无需额外点击或开启无障碍截图。语音转写依赖设备可用的识别服务与麦克风权限；服务支持查询时可提示缺少的语音包，并由用户选择下载。
+- **Eta 系统助手**：从电源键入口打开全局语音浮窗，竖屏下光效从按键位置沿屏幕边缘进入并汇聚到底部，也可切换键盘或点击建议提问；自动附带唤醒时的截图与应用内容，无需额外点击或开启无障碍截图。语音识别可选择系统服务、千问或豆包；云端模式只需麦克风权限与对应服务配置，不依赖设备自带识别服务。支持助手回答自动播报、聊天听写和手动朗读，详见[语音配置](docs/VOICE.md)。
 - **小布 / 超级小爱接管**：保留厂商助手的电源键入口，将请求交给 Eta，使用自己配置的模型。
 - **ColorOS 双击电源键直达钱包**：深度 Hook ColorOS 系统输入分发，双击电源键无论在锁屏还是亮屏状态，瞬间拉起 Google 钱包或一加钱包。
 

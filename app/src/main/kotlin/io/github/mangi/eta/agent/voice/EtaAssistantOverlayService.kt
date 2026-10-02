@@ -1,5 +1,11 @@
 package io.github.mangi.eta.agent.voice
 
+import io.github.mangi.eta.data.model.TtsProvider
+import io.github.mangi.eta.data.repository.SpeechSettingsRepository
+import io.github.mangi.eta.ui.voice.openSpeechSettings
+import io.github.mangi.eta.ui.voice.SpeechPlaybackErrors
+import io.github.mangi.eta.ui.voice.LocalSpeechPlayback
+import android.os.PowerManager
 import android.Manifest
 import android.app.ActivityOptions
 import android.app.PendingIntent
@@ -96,46 +102,20 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private var deltaFlushJob: Job? = null
     private var speechLevel by mutableFloatStateOf(0f)
     private var speechState by mutableStateOf(EtaSpeechState())
+    private val speechForeground by lazy { AssistantSpeechForeground(this) }
+    private val playback by lazy {
+        SpeechPlaybackController(this, scope, beforePlayback = speechForeground::playback, afterPlayback = speechForeground::stop)
+    }
     private val speechInput by lazy {
-        EtaSpeechInput(
+        SpeechInputController(
             context = this,
-            onListening = { speechState = speechState.copy(phase = EtaSpeechPhase.LISTENING) },
-            onRecognizing = { speechState = speechState.copy(phase = EtaSpeechPhase.RECOGNIZING) },
-            onLevel = { speechLevel = it },
-            onPartial = { inputText = it },
+            scope = scope,
+            automaticEndpoint = true,
+            beforeCapture = speechForeground::recording,
+            afterCapture = speechForeground::stop,
             onResult = { text ->
                 speechState = EtaSpeechState()
-                submitPrompt(text)
-            },
-            onError = { issue ->
-                speechState = EtaSpeechState(
-                    errorRes = speechIssueMessage(issue),
-                    downloadAvailable = issue.kind == EtaSpeechIssueKind.DOWNLOAD_AVAILABLE,
-                    feedbackIsError = issue.kind != EtaSpeechIssueKind.DOWNLOAD_PENDING,
-                )
-                if (issue.kind != EtaSpeechIssueKind.DOWNLOAD_AVAILABLE &&
-                    issue.kind != EtaSpeechIssueKind.DOWNLOAD_PENDING
-                ) showKeyboard()
-            },
-            onDownloadStatus = { status ->
-                speechState = when (status) {
-                    EtaSpeechDownloadStatus.DOWNLOADING -> EtaSpeechState(
-                        errorRes = R.string.voice_model_downloading,
-                        feedbackIsError = false,
-                    )
-                    EtaSpeechDownloadStatus.SCHEDULED -> EtaSpeechState(
-                        errorRes = R.string.voice_model_scheduled,
-                        feedbackIsError = false,
-                    )
-                    EtaSpeechDownloadStatus.READY -> EtaSpeechState(
-                        errorRes = R.string.voice_model_ready,
-                        feedbackIsError = false,
-                    )
-                    EtaSpeechDownloadStatus.FAILED -> EtaSpeechState(
-                        errorRes = R.string.voice_model_download_failed,
-                        downloadAvailable = true,
-                    )
-                }
+                submitPromptInternal(text, fromSpeech = true)
             },
         )
     }
@@ -156,7 +136,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     private var presentedEntryGeneration = -1L
     private var entryScreenContext: EtaAssistantScreenContext? = null
     private var hiddenForForegroundOperation = false
-    private var handoffInProgress = false
+    private var handoffInProgress by mutableStateOf(false)
     private var handoffExitRequested by mutableStateOf(false)
     private var inputText by mutableStateOf("")
     private var inputFocusRequestKey by mutableIntStateOf(-1)
@@ -173,10 +153,26 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        scope.launch(Dispatchers.Main.immediate) {
+            speechInput.state.collect { state ->
+                speechLevel = state.level
+                if (state.preview.isNotBlank()) inputText = state.preview
+                speechState = EtaSpeechState(
+                    phase = state.phase,
+                    // 连接、聆听、识别中的阶段播报由语音条目与波形承担，反馈条只保留
+                    // 错误和空闲态的模型下载消息，避免与语音界面重复叙事。
+                    message = state.error ?: state.progress.takeIf { it.isNotBlank() && state.phase == EtaSpeechPhase.IDLE },
+                    downloadAvailable = state.downloadAvailable,
+                    configureAvailable = state.error != null && !state.downloadAvailable,
+                    feedbackIsError = state.error != null,
+                )
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
+            AssistantSpeechForeground.ACTION_STOP -> { speechInput.cancel(); playback.stop() }
             ACTION_SHOW -> showEntry(intent.getStringExtra(EXTRA_SCREEN_CONTEXT_ID))
             ACTION_HANDOFF_READY -> finishHandoff()
             else -> Unit
@@ -245,6 +241,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
 
     private fun startSpeech() {
         if (activeRunId != null) return
+        playback.stop()
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             try {
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
@@ -286,7 +283,9 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
             ) {
                 // ColorOS 在 Overlay 窗口切换期间可能短暂使用软件画布；RuntimeShader
                 // 无法在该画布绘制，因此浮窗统一使用 Miuix 的圆角回退路径。
-                CompositionLocalProvider(LocalSquircleEnabled provides false) {
+                CompositionLocalProvider(LocalSquircleEnabled provides false,
+                    LocalSpeechPlayback provides playback) {
+                    SpeechPlaybackErrors(playback)
                     EtaVoicePanel(
                         state = uiState,
                         speech = speechState,
@@ -294,6 +293,10 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                         onMicrophone = ::startSpeech,
                         onFinishSpeech = { speechInput.finish() },
                         onDownloadModel = { speechInput.downloadModel() },
+                        onOpenSpeechSettings = {
+                            openSpeechSettings(this)
+                            dismissAndStop()
+                        },
                         onKeyboard = ::switchToKeyboard,
                         input = inputText,
                         inputFocusRequestKey = inputFocusRequestKey,
@@ -306,6 +309,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                             uiState.messages.any { message ->
                                 message is AgentMessageUi && message.content.isNotBlank()
                             },
+                        handoffRunning = handoffInProgress,
                         exitRequested = handoffExitRequested,
                         onOpenConversation = ::openConversation,
                     )
@@ -398,11 +402,14 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         submitPrompt(prompt)
     }
 
-    private fun submitPrompt(prompt: String) {
+    private fun submitPrompt(prompt: String) = submitPromptInternal(prompt, fromSpeech = false)
+
+    private fun submitPromptInternal(prompt: String, fromSpeech: Boolean) {
         val normalized = prompt.trim()
         if (normalized.isBlank() || activeRunId != null) return
         speechInput.cancel()
         speechState = EtaSpeechState()
+        playback.stop()
         val capture = entryScreenContext
         inputText = ""
         activeRunId = UUID.randomUUID().toString()
@@ -417,6 +424,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         )
         updateSoftInput(visible = false)
         runJob = scope.launch {
+            val speechConfig = if (fromSpeech) SpeechSettingsRepository.settings() else null
             val screen = capture?.snapshot() ?: EtaAssistantScreenContext.Snapshot()
             val runImages = listOfNotNull(screen.image)
             val config = AgentModelClient.loadConfig()
@@ -465,6 +473,12 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                         status = EtaVoiceStatus.Failed(result.error),
                         messages = finishRunMessages(runId, result),
                     )
+                }
+                if (!hiddenForForegroundOperation && windowView?.isShown == true && result.ok &&
+                    getSystemService(PowerManager::class.java).isInteractive &&
+                    speechConfig?.autoSpeak == true && speechConfig.tts != TtsProvider.NONE) {
+                    val messageId = uiState.messages.filterIsInstance<AgentMessageUi>().lastOrNull()?.id ?: runId
+                    playback.speak(messageId, result.content, settings = speechConfig)
                 }
                 if (!hiddenForForegroundOperation) {
                     updateSoftInput(visible = false)
@@ -803,6 +817,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
     }
 
     private fun cancelCurrentRun() {
+        playback.stop()
         speechInput.cancel()
         speechState = EtaSpeechState()
         val runId = activeRunId ?: return
@@ -840,6 +855,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
 
     private fun removeWindow(onComplete: ((Boolean) -> Unit)? = null) {
         EtaLiveUpdateManager.setAssistantOverlayVisible(false)
+        playback.stop()
         speechInput.cancel()
         speechState = EtaSpeechState()
         unregisterSystemBackCallback()

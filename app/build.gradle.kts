@@ -33,8 +33,8 @@ android {
         minSdk = 34
         targetSdk = 36
         // versionCode 规则：yyyyMMdd + 两位当日序号（01 起），发版时随 versionName 一起手动递增。
-        versionCode = 2026092301
-        versionName = "3.0.5"
+        versionCode = 2026100201
+        versionName = "3.1.0"
     }
 
     signingConfigs {
@@ -100,6 +100,21 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
+        // Robolectric 在高版本 JDK 下需要访问内部 API，参数只作用于测试 JVM。
+        unitTests.all {
+            it.jvmArgs(
+                "--add-opens=java.base/java.lang=ALL-UNNAMED",
+                "--add-opens=java.base/java.util=ALL-UNNAMED",
+                "--add-opens=java.base/java.io=ALL-UNNAMED",
+                "--add-opens=java.base/java.net=ALL-UNNAMED",
+                "--add-opens=java.base/java.security=ALL-UNNAMED",
+                "--add-opens=java.base/java.text=ALL-UNNAMED",
+                "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
+                "--add-opens=java.desktop/java.awt.font=ALL-UNNAMED",
+                "--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+                "--enable-native-access=ALL-UNNAMED",
+            )
+        }
     }
 }
 
@@ -120,10 +135,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.activity.compose)
-    implementation(libs.markdown.renderer)
-    implementation(libs.markdown.renderer.m3)
-    // markdown-renderer-m3 将 material3 作为 compileOnly，需显式引入以满足运行时依赖
-    implementation(libs.material3)
+    // 只使用 GFM 解析器；聊天渲染层由 ui/markdown 自建，按块冻结并接入逐字显现。
+    implementation(libs.intellij.markdown)
     implementation(libs.hidden.api.bypass)
 
     // DataStore：Provider / Model 结构化 JSON 与当前选中 ID 等键值

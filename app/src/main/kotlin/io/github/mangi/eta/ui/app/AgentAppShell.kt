@@ -337,7 +337,6 @@ private fun TopBarOverflowMenu(
 @Composable
 private fun titleForRoute(route: AppRoute?): String = when (route) {
     is AppRoute.Home -> ""
-    is AppRoute.Chat -> stringResource(R.string.route_chat)
     is AppRoute.Browser -> stringResource(R.string.route_browser)
     is AppRoute.Terminal -> stringResource(R.string.route_terminal)
     is AppRoute.Tools -> stringResource(R.string.route_tools)
@@ -350,6 +349,10 @@ private fun titleForRoute(route: AppRoute?): String = when (route) {
     is AppRoute.Permissions -> stringResource(R.string.route_permissions)
     is AppRoute.SystemEnhance -> stringResource(R.string.route_system_enhancements)
     is AppRoute.Settings -> stringResource(R.string.route_settings)
+    is AppRoute.SpeechSettings -> stringResource(R.string.speech_settings_title)
+    is AppRoute.SpeechRecognition -> stringResource(R.string.speech_recognition_title)
+    is AppRoute.SpeechSynthesis -> stringResource(R.string.speech_synthesis_title)
+    is AppRoute.SpeechOss -> stringResource(R.string.speech_oss_title)
     is AppRoute.AppearanceSettings -> stringResource(R.string.appearance_title)
     is AppRoute.DataBackup -> stringResource(R.string.data_backup_title)
     is AppRoute.Memory -> stringResource(R.string.route_memory)
@@ -358,6 +361,8 @@ private fun titleForRoute(route: AppRoute?): String = when (route) {
     is AppRoute.SharedFolders -> stringResource(R.string.route_shared_folders)
     is AppRoute.LinuxFiles -> stringResource(R.string.route_linux_files)
     is AppRoute.ModelProviders -> stringResource(R.string.route_model_providers)
+    is AppRoute.CommunityCatalog -> "从目录添加"
+    is AppRoute.CommunityCatalogProvider -> "选择模型"
     is AppRoute.McpServers -> stringResource(R.string.route_mcp_servers)
     is AppRoute.McpServerDetail -> stringResource(R.string.route_mcp_server_detail)
     is AppRoute.ModelProviderDetail -> stringResource(R.string.route_provider_details)
