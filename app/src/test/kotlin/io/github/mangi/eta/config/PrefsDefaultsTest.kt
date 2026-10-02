@@ -10,6 +10,7 @@ class PrefsDefaultsTest {
         assertEquals(
             mapOf(
                 Prefs.Keys.POWER_KEY_TAKEOVER to false,
+                Prefs.Keys.POWER_KEY_DOUBLE_PRESS_WALLET to false,
                 Prefs.Keys.ASSISTANT_AUTO_CONFIG to false,
                 Prefs.Keys.HOTWORD_SELF_HEAL to false,
                 Prefs.Keys.GESTURE_BAR_CIRCLE_TO_SEARCH to true,

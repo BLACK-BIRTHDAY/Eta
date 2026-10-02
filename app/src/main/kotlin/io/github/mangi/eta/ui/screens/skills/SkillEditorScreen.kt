@@ -27,11 +27,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.mikepenz.markdown.m3.Markdown
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.skill.SkillParser
 import io.github.mangi.eta.ui.app.AgentAppState
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
+import io.github.mangi.eta.ui.markdown.MarkdownTone
+import io.github.mangi.eta.ui.markdown.StaticMarkdown
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -66,7 +67,7 @@ internal fun SkillEditorScreen(
         skillId = skillId,
         skillName = skillName,
         initialContent = initialContent,
-        onSave = { newContent -> agentState.saveSkillFileContent(skillId, newContent) },
+        onSave = { newContent -> agentState.saveSkillFileContent(skillId, newContent, fallbackName = skillName) },
         onBack = onBack,
         modifier = modifier,
     )
@@ -231,15 +232,19 @@ fun SkillEditorScreen(
                         .padding(bottom = 8.dp),
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        val parsedName = parsed?.frontmatter?.get("name")
-                        val parsedDesc = parsed?.frontmatter?.get("description")
-                        val hasValidName = !parsedName.isNullOrBlank()
+                        val parsedName = parsed?.frontmatter?.get("name")?.takeIf { it.isNotBlank() }
+                        val derivedName = SkillParser.extractTitleFromMarkdown(parsed?.body ?: textFieldValue.text)
+                        val effectiveName = parsedName ?: derivedName ?: skillName
+                        val isDerived = parsedName == null && (derivedName != null || skillName.isNotBlank())
+
+                        val parsedDesc = parsed?.frontmatter?.get("description")?.takeIf { it.isNotBlank() }
+                            ?: SkillParser.extractSummaryFromMarkdown(parsed?.body ?: textFieldValue.text)
 
                         Text(
-                            text = if (hasValidName) "技能名称: $parsedName" else "⚠️ 缺少有效的 name 字段",
+                            text = if (isDerived) "技能名称: $effectiveName (自动推导)" else "技能名称: $effectiveName",
                             style = MiuixTheme.textStyles.headline1,
                             fontWeight = FontWeight.Medium,
-                            color = if (hasValidName) MiuixTheme.colorScheme.onBackground else MiuixTheme.colorScheme.error,
+                            color = MiuixTheme.colorScheme.onBackground,
                         )
 
                         if (!parsedDesc.isNullOrBlank()) {
@@ -278,8 +283,9 @@ fun SkillEditorScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         val bodyText = parsed?.body?.ifBlank { null }
                             ?: textFieldValue.text.ifBlank { "（内容为空）" }
-                        Markdown(
+                        StaticMarkdown(
                             content = bodyText,
+                            tone = MarkdownTone.Answer,
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }

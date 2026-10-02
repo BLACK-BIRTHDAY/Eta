@@ -1,10 +1,11 @@
 package io.github.mangi.eta.data.repository
 
 import android.content.Context
-import android.util.AtomicFile
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import kotlinx.coroutines.flow.Flow
 
@@ -57,10 +58,10 @@ internal class AgentMemoryException(
 
 /** 单一 MEMORY.md 的有界、原子文件存储。 */
 internal class AgentMemoryStore(
-    rootDir: File,
+    val rootDir: File,
 ) {
     private val memoryDir = File(rootDir, DIRECTORY_NAME)
-    private val atomicFile = AtomicFile(File(memoryDir, FILE_NAME))
+    private val targetFile = File(memoryDir, FILE_NAME)
     private val lock = Any()
 
     fun snapshot(): AgentMemorySnapshot = synchronized(lock) {
@@ -108,10 +109,9 @@ internal class AgentMemoryStore(
     }
 
     private fun snapshotLocked(): AgentMemorySnapshot {
-        val file = atomicFile.baseFile
-        if (!file.exists()) return snapshotOf("")
+        if (!targetFile.exists()) return snapshotOf("")
         val bytes = try {
-            atomicFile.openRead().use { it.readBytes() }
+            targetFile.readBytes()
         } catch (throwable: IOException) {
             throw AgentMemoryException(
                 code = "MEMORY_READ_FAILED",
@@ -143,20 +143,25 @@ internal class AgentMemoryStore(
                 message = "无法创建记忆目录",
             )
         }
-        val output = try {
-            atomicFile.startWrite()
-        } catch (throwable: IOException) {
-            throw AgentMemoryException(
-                code = "MEMORY_WRITE_FAILED",
-                message = "无法开始写入记忆文件",
-                cause = throwable,
-            )
-        }
+        val tempFile = File(memoryDir, "$FILE_NAME.tmp")
         try {
-            output.write(bytes)
-            atomicFile.finishWrite(output)
+            tempFile.writeBytes(bytes)
+            try {
+                Files.move(
+                    tempFile.toPath(),
+                    targetFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE,
+                )
+            } catch (_: Exception) {
+                Files.move(
+                    tempFile.toPath(),
+                    targetFile.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING,
+                )
+            }
         } catch (throwable: Throwable) {
-            atomicFile.failWrite(output)
+            tempFile.delete()
             throw AgentMemoryException(
                 code = "MEMORY_WRITE_FAILED",
                 message = "无法保存记忆文件",
@@ -307,8 +312,9 @@ internal object AgentMemoryRepository {
     private lateinit var store: AgentMemoryStore
 
     fun init(context: Context) {
-        if (!::store.isInitialized) {
-            store = AgentMemoryStore(context.applicationContext.filesDir)
+        val targetDir = context.applicationContext.filesDir
+        if (!::store.isInitialized || store.rootDir != targetDir) {
+            store = AgentMemoryStore(targetDir)
         }
     }
 

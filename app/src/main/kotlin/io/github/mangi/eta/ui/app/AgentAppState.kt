@@ -2054,16 +2054,28 @@ internal class AgentAppState(
         return indexService.getBuiltinSkillContent(skillId)
     }
 
-    suspend fun saveSkillFileContent(skillId: String, newContent: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun saveSkillFileContent(
+        skillId: String,
+        newContent: String,
+        fallbackName: String? = null,
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val parsed = SkillParser.parseSkillContent(newContent)
+            val existingItem = skillsState.skills.firstOrNull { it.id == skillId }
+            val effectiveFallbackName = fallbackName?.trim().takeUnless { it.isNullOrBlank() }
+                ?: existingItem?.name?.trim().takeUnless { it.isNullOrBlank() }
+                ?: skillId
+            val normalizedContent = SkillParser.ensureSkillFrontmatter(
+                rawContent = newContent,
+                fallbackName = effectiveFallbackName,
+            )
+            val parsed = SkillParser.parseSkillContent(normalizedContent)
                 ?: throw IllegalArgumentException("SKILL.md 格式错误")
             val skillName = parsed.frontmatter["name"]?.trim()
             if (skillName.isNullOrBlank()) {
                 throw IllegalArgumentException("SKILL.md frontmatter 缺少必要的 'name' 字段")
             }
             val indexService = SkillRuntime.createIndexService(appContext)
-            val success = indexService.saveSkillContent(skillId, newContent)
+            val success = indexService.saveSkillContent(skillId, normalizedContent)
             if (!success) {
                 throw IllegalStateException("保存技能文件失败")
             }

@@ -3,7 +3,6 @@ package io.github.mangi.eta.ui.components
 import io.github.mangi.eta.ui.voice.SpeechDictationButton
 import io.github.mangi.eta.ui.voice.SpeechInputFeedback
 import io.github.mangi.eta.ui.voice.rememberSpeechInput
-import androidx.compose.ui.text.TextRange
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState

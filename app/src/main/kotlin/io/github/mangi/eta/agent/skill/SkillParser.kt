@@ -23,19 +23,134 @@ internal object SkillParser {
      * 解析 SKILL.md 字符串内容，返回 frontmatter map + body string。
      */
     fun parseSkillContent(raw: String): ParsedSkillFile? {
-        if (!raw.startsWith("---")) {
+        val trimmed = raw.trimStart()
+        if (!trimmed.startsWith("---")) {
             return ParsedSkillFile(frontmatter = emptyMap(), body = raw.trim())
         }
-        val markerIndex = raw.indexOf("\n---", startIndex = 3)
-        if (markerIndex <= 0) {
+        val firstLineEnd = trimmed.indexOf('\n')
+        if (firstLineEnd < 0) {
             return ParsedSkillFile(frontmatter = emptyMap(), body = raw.trim())
         }
-        val frontmatterText = raw.substring(3, markerIndex).trim('\n', '\r')
-        val body = raw.substring(markerIndex + 4).trim()
+        val firstLine = trimmed.substring(0, firstLineEnd).trim()
+        if (firstLine != "---") {
+            return ParsedSkillFile(frontmatter = emptyMap(), body = raw.trim())
+        }
+
+        val afterFirstLine = trimmed.substring(firstLineEnd + 1)
+        val closingRegex = Regex("""(?m)^---\s*$""")
+        val match = closingRegex.find(afterFirstLine)
+        if (match == null) {
+            return ParsedSkillFile(frontmatter = emptyMap(), body = raw.trim())
+        }
+
+        val frontmatterCandidate = afterFirstLine.substring(0, match.range.first).trim('\r', '\n')
+        val lines = frontmatterCandidate.lines()
+        // 关键防御：若两段 --- 之间包含 Markdown 标题（例如 # ），或完全不含合法键值对，则说明这只是正文水平分割线而非 YAML frontmatter
+        val hasMarkdownHeading = lines.any { it.trimStart().startsWith("#") }
+        val parsedMap = parseSimpleFrontmatter(frontmatterCandidate)
+        if (hasMarkdownHeading || (frontmatterCandidate.isNotBlank() && parsedMap.isEmpty())) {
+            return ParsedSkillFile(frontmatter = emptyMap(), body = raw.trim())
+        }
+
+        val body = afterFirstLine.substring(match.range.last + 1).trim()
         return ParsedSkillFile(
-            frontmatter = parseSimpleFrontmatter(frontmatterText),
+            frontmatter = parsedMap,
             body = body,
         )
+    }
+
+    /**
+     * 从 Markdown 正文中提取首个标题作为技能名称。
+     */
+    fun extractTitleFromMarkdown(markdown: String): String? {
+        val headingRegex = Regex("""(?m)^#{1,6}\s+(.+)$""")
+        val match = headingRegex.find(markdown) ?: return null
+        val rawTitle = match.groupValues[1].trim()
+        val cleaned = rawTitle.replace(Regex("""^[\p{So}\p{Sk}\p{Sm}\p{Sc}\p{C}\s\-_—·]+"""), "").trim()
+        return cleaned.ifBlank { rawTitle }
+    }
+
+    /**
+     * 从 Markdown 正文中提取首个有效段落作为描述摘要。
+     */
+    fun extractSummaryFromMarkdown(markdown: String, maxLength: Int = 120): String? {
+        val lines = markdown.lines()
+        val paragraph = lines
+            .map { it.trim() }
+            .firstOrNull { it.isNotBlank() && !it.startsWith("#") && !it.startsWith("```") && !it.startsWith("---") }
+            ?: return null
+        val cleanText = paragraph.replace(Regex("""[*_`~]"""), "").trim()
+        return if (cleanText.length > maxLength) {
+            cleanText.take(maxLength) + "…"
+        } else {
+            cleanText
+        }
+    }
+
+    /**
+     * 将用户编辑的内容规范化为合法的 SKILL.md。
+     * 自动补齐缺失的 frontmatter 或必要的 'name' / 'description' 字段。
+     */
+    fun ensureSkillFrontmatter(
+        rawContent: String,
+        fallbackName: String,
+        fallbackDescription: String? = null,
+    ): String {
+        val parsed = parseSkillContent(rawContent) ?: ParsedSkillFile(emptyMap(), rawContent.trim())
+        val existingFrontmatter = parsed.frontmatter.toMutableMap()
+
+        val effectiveName = existingFrontmatter["name"]?.trim()?.takeIf { it.isNotBlank() }
+            ?: extractTitleFromMarkdown(parsed.body)?.takeIf { it.isNotBlank() }
+            ?: fallbackName.trim().ifBlank { "custom-skill" }
+        existingFrontmatter["name"] = effectiveName
+
+        val effectiveDesc = existingFrontmatter["description"]?.trim()?.takeIf { it.isNotBlank() }
+            ?: fallbackDescription?.trim()?.takeIf { it.isNotBlank() }
+            ?: extractSummaryFromMarkdown(parsed.body)?.takeIf { it.isNotBlank() }
+            ?: effectiveName
+        existingFrontmatter["description"] = effectiveDesc
+
+        val body = parsed.body.ifBlank { rawContent.trim() }
+
+        val frontmatterBuilder = StringBuilder()
+        frontmatterBuilder.append("---\n")
+        frontmatterBuilder.append("name: ").append(yamlEscapeIfNeeded(effectiveName)).append("\n")
+        frontmatterBuilder.append("description: ").append(yamlEscapeIfNeeded(effectiveDesc)).append("\n")
+
+        existingFrontmatter.forEach { (k, v) ->
+            if (k != "name" && k != "description") {
+                if (v.contains('\n')) {
+                    frontmatterBuilder.append("$k: |\n")
+                    v.lines().forEach { line ->
+                        frontmatterBuilder.append("  ").append(line).append('\n')
+                    }
+                } else {
+                    frontmatterBuilder.append("$k: ").append(yamlEscapeIfNeeded(v)).append("\n")
+                }
+            }
+        }
+        frontmatterBuilder.append("---\n\n")
+        frontmatterBuilder.append(body.trim())
+        return frontmatterBuilder.toString().trim()
+    }
+
+    private fun yamlEscapeIfNeeded(value: String): String {
+        val trimmed = value.trim()
+        val needsQuotes = trimmed.contains(':') ||
+            trimmed.contains('#') ||
+            trimmed.contains('\'') ||
+            trimmed.contains('"') ||
+            trimmed.contains('\n') ||
+            trimmed.startsWith('@') ||
+            trimmed.startsWith('`') ||
+            trimmed.startsWith('%') ||
+            trimmed.startsWith('&') ||
+            trimmed.startsWith('*')
+        return if (needsQuotes) {
+            "\"" + trimmed.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+        } else {
+            trimmed
+        }
     }
 
     /**
