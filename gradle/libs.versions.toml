@@ -1,30 +1,31 @@
 [versions]
-ndk = "29.0.14206865"
-agp = "9.3.2"
-kotlin = "2.4.10"
-ksp = "2.3.9"
+ndk = "30.0.16248370"
+agp = "9.4.1"
+kotlin = "2.4.20"
+ksp = "2.3.12"
 libxposedApi = "102.0.0"
 libxposedService = "102.0.0"
-dexkit = "2.2.0"
-miuix = "0.9.4-rc01"
+dexkit = "2.3.0"
+miuix = "0.9.4"
 materialIcons = "1.7.8"
 androidx-navigationevent = "1.1.2"
 androidx-lifecycle = "2.11.0"
 activityCompose = "1.13.0"
 intellijMarkdown = "0.7.16"
 datastore = "1.2.1"
-okhttp = "5.4.0"
+okhttp = "5.5.0"
 kotlinx-serialization = "1.11.0"
 kotlinx-coroutines = "1.11.0"
 hiddenApiBypass = "6.1"
-room = "2.8.4"
+room = "2.8.5"
 junit = "4.13.2"
-json = "20260522"
-robolectric = "4.16.1"
+json = "20260814"
+robolectric = "4.17"
 commonsCompress = "1.28.0"
 xz = "1.12"
 
 [libraries]
+kotlin-gradle-plugin = { group = "org.jetbrains.kotlin", name = "kotlin-gradle-plugin", version.ref = "kotlin" }
 commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commonsCompress" }
 xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
 libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposedApi" }
