@@ -27,6 +27,8 @@ Eta 的「设置 → 语音」分别配置语音识别（ASR）与语音播报�
 
 千问可选择北京或新加坡，API Key 必须匹配所选地域。高级设置可填写服务根地址，包括业务空间专属域名；不要附加 `/api/v1` 或 `/compatible-mode/v1`。模型与协议绑定，不使用聊天模型列表推断语音能力。千问识别语言留空表示自动识别；指定语言时使用服务支持的语言代码。
 
+播报页内置千问与豆包各 16 个音色，按名称选择，列表标注男女声或方言。千问预设适配当前播报模型，豆包预设适配语音合成 2.0；已保存的音色 ID 会自动匹配名称，未匹配的 ID 保留在「自定义音色」中。
+
 豆包高级设置可修改资源 ID、服务根地址，或启用旧版 App ID＋Access Token 鉴权。旧版配置的 Access Token 填在对应的凭据输入框。自定义音色应填写所选模型支持的音色 ID，不会在 Eta 内创建或复刻音色。
 
 表单需点击「保存」。识别测试与音色试听使用当前草稿调用正式链路，不自动保存，也不自动开始。测试和试听可能产生对应服务费用。
@@ -56,5 +58,6 @@ Eta 上传 WAV 后生成有效期 15 分钟的读取签名 URL，向百炼提交
 - [千问实时 ASR 客户端事件](https://help.aliyun.com/zh/model-studio/qwen-asr-realtime-client-events)、[服务端事件](https://help.aliyun.com/zh/model-studio/qwen-asr-realtime-server-events)
 - [豆包流式 ASR 协议](https://www.volcengine.com/docs/6561/1354869)
 - [千问 TTS API](https://help.aliyun.com/zh/model-studio/qwen-tts-api)、[音频播放示例](https://help.aliyun.com/zh/model-studio/non-realtime-tts-user-guide)
+- [千问音色列表](https://help.aliyun.com/zh/model-studio/qwen-tts-voice-list)、[豆包音色列表](https://docs.volcengine.com/docs/DoubaoVoice/Tonelist-1?lang=zh)
 - [豆包单向流式 TTS HTTP](https://docs.volcengine.com/docs/DoubaoVoice/unidirectional-streaming-text-to-speech-http?lang=zh)
 - [OSS V4 请求头签名](https://help.aliyun.com/zh/oss/developer-reference/recommend-to-use-signature-version-4)、[URL 签名](https://help.aliyun.com/zh/oss/developer-reference/add-signatures-to-urls)
