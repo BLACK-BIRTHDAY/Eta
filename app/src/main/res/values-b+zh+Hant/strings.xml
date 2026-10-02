@@ -36,7 +36,6 @@
   <string name="action_launch_kimi_web">啟動 Kimi Web</string>
   <string name="route_browser">Agent 瀏覽器</string>
   <string name="route_tools">工具</string>
-  <string name="route_skills">Skills</string>
   <string name="route_permissions">權限</string>
   <string name="route_system_enhancements">系統增強</string>
   <string name="route_settings">設定</string>
@@ -1218,7 +1217,6 @@
   <string name="speech_region_beijing">北京</string>
   <string name="speech_region_singapore">新加坡</string>
   <string name="speech_access_token">Access Token</string>
-  <string name="speech_api_key">API Key</string>
   <string name="speech_app_id">App ID</string>
   <string name="speech_base_url">服務地址</string>
   <string name="speech_qwen_base_url_hint">服務地址（留空使用地域預設地址）</string>
@@ -1262,4 +1260,5 @@
   <string name="speech_test_result">識別結果：%1$s</string>
   <string name="speech_credentials_lost">語音憑據無法解密，請重新填寫並儲存</string>
   <string name="speech_save_retry">請重試</string>
+  <string name="system_notice_model_retry">模型請求重試</string>
 </resources>

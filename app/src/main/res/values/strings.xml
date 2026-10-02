@@ -38,7 +38,7 @@
   <string name="action_launch_kimi_web">Launch Kimi Web</string>
   <string name="route_browser">Agent browser</string>
   <string name="route_tools">Tools</string>
-  <string name="route_skills">Skills</string>
+  <string name="route_skills" translatable="false">Skills</string>
   <string name="route_permissions">Permissions</string>
   <string name="route_system_enhancements">System enhancements</string>
   <string name="route_settings">Settings</string>
@@ -276,7 +276,7 @@
   <string name="system_notice_stopped">Stopped</string>
   <string name="system_notice_empty_result">The run completed without a text response.</string>
   <string name="system_notice_runtime_failed">Runtime failed</string>
-  <string name="system_notice_model_retry">模型请求重试</string>
+  <string name="system_notice_model_retry">Retrying model request</string>
   <string name="conversation_persistence_failed">Couldn’t save the conversation. Please try again.</string>
   <string name="system_notice_interrupted">The run was interrupted. Partial output is preserved; unfinished actions were not retried.</string>
   <string name="tool_status_unknown">Result unknown</string>
@@ -1251,7 +1251,7 @@
   <string name="speech_region_beijing">Beijing</string>
   <string name="speech_region_singapore">Singapore</string>
   <string name="speech_access_token">Access Token</string>
-  <string name="speech_api_key">API Key</string>
+  <string name="speech_api_key" translatable="false">API Key</string>
   <string name="speech_app_id">App ID</string>
   <string name="speech_base_url">Base URL</string>
   <string name="speech_qwen_base_url_hint">Base URL (leave empty for the region default)</string>

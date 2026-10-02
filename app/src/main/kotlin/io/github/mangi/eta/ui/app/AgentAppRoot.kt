@@ -31,6 +31,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
@@ -108,6 +109,7 @@ fun AgentAppRoot(
     onAssistantConversationOpened: (Boolean) -> Unit = {},
 ) {
     val context = LocalContext.current
+    val resources = LocalResources.current
     val uiScope = rememberCoroutineScope()
     val backStack = rememberNavBackStack<AppRoute>(AppRoute.Home)
     LaunchedEffect(openSpeechSettings) {
@@ -157,15 +159,15 @@ fun AgentAppRoot(
         uiScope.launch {
             try {
                 val markdown = agentState.exportConversationMarkdown(target.id)
-                    ?: error(context.getString(R.string.conversation_export_failed))
+                    ?: error(resources.getString(R.string.conversation_export_failed))
                 val output = context.contentResolver.openOutputStream(uri)
-                    ?: error(context.getString(R.string.conversation_export_failed))
+                    ?: error(resources.getString(R.string.conversation_export_failed))
                 withContext(Dispatchers.IO) {
                     output.use { it.write(markdown.toByteArray(Charsets.UTF_8)) }
                 }
                 Toast.makeText(
                     context,
-                    context.getString(R.string.conversation_exported),
+                    resources.getString(R.string.conversation_exported),
                     Toast.LENGTH_SHORT,
                 ).show()
             } catch (cancelled: CancellationException) {
@@ -173,7 +175,7 @@ fun AgentAppRoot(
             } catch (_: Throwable) {
                 Toast.makeText(
                     context,
-                    context.getString(R.string.conversation_export_failed),
+                    resources.getString(R.string.conversation_export_failed),
                     Toast.LENGTH_LONG,
                 ).show()
             }
@@ -268,7 +270,7 @@ fun AgentAppRoot(
                 conversationExportLauncher.launch(
                     ConversationMarkdownExporter.defaultFileName(
                         title = conversation.title.ifBlank { conversation.preview },
-                        fallback = context.getString(R.string.conversation_export_default_name),
+                        fallback = resources.getString(R.string.conversation_export_default_name),
                     ),
                 )
             },
