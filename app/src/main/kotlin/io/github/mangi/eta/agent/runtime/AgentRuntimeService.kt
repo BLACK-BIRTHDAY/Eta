@@ -633,8 +633,12 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     private fun sendActiveRun(replyTo: Messenger?) {
         runCatching {
             val msg = Message.obtain(null, AgentRuntimeWire.MSG_QUERY_ACTIVE_RUN_RESPONSE)
-            val latestRunId = activeSessions.values.lastOrNull { !it.isTerminal }?.runId.orEmpty()
-            msg.data = AgentRuntimeWire.ackBundle(latestRunId)
+            val nonTerminalSessions = activeSessions.values.filter { !it.isTerminal }
+            val activeRunIds = nonTerminalSessions.map { it.runId }
+            val latestRunId = activeRunIds.lastOrNull().orEmpty()
+            msg.data = AgentRuntimeWire.ackBundle(latestRunId).apply {
+                putStringArrayList("active_run_ids", ArrayList(activeRunIds))
+            }
             replyTo?.send(msg)
         }.onFailure { throwable ->
             AndroidAgentLogger.warnThrottled("runtime_active_run_delivery_failed") {

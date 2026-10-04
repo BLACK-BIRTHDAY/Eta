@@ -30,7 +30,10 @@ internal class AgentRuntimeClient(
     }
 
     sealed interface ActiveRunQuery {
-        data class Known(val runId: String?) : ActiveRunQuery
+        data class Known(
+            val runId: String?,
+            val runIds: Set<String> = setOfNotNull(runId),
+        ) : ActiveRunQuery
         data object Unavailable : ActiveRunQuery
     }
 
@@ -193,10 +196,10 @@ internal class AgentRuntimeClient(
 
     fun queryActiveRun(): ActiveRunQuery {
         val responseLatch = CountDownLatch(1)
-        val runIdRef = AtomicReference("")
+        val runIdsRef = AtomicReference<Set<String>>(emptySet())
         val clientMessenger = Messenger(
-            ActiveRunHandler { runId ->
-                runIdRef.set(runId)
+            ActiveRunHandler { runIds ->
+                runIdsRef.set(runIds)
                 responseLatch.countDown()
             }
         )
@@ -208,7 +211,8 @@ internal class AgentRuntimeClient(
             if (!responseLatch.await(RESPONSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
                 ActiveRunQuery.Unavailable
             } else {
-                ActiveRunQuery.Known(runIdRef.get().takeIf(String::isNotBlank))
+                val runIds = runIdsRef.get()
+                ActiveRunQuery.Known(runIds.lastOrNull(), runIds)
             }
         }
     }
@@ -322,11 +326,19 @@ internal class AgentRuntimeClient(
     }
 
     private class ActiveRunHandler(
-        private val onResponse: (String) -> Unit,
+        private val onResponse: (Set<String>) -> Unit,
     ) : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             if (msg.what == AgentRuntimeWire.MSG_QUERY_ACTIVE_RUN_RESPONSE) {
-                onResponse(AgentRuntimeWire.runIdFromBundle(msg.data ?: return))
+                val bundle = msg.data ?: return
+                val list = bundle.getStringArrayList("active_run_ids")
+                val runIds = if (!list.isNullOrEmpty()) {
+                    list.filter { it.isNotBlank() }.toSet()
+                } else {
+                    val single = AgentRuntimeWire.runIdFromBundle(bundle)
+                    setOfNotNull(single.takeIf { it.isNotBlank() })
+                }
+                onResponse(runIds)
             }
         }
     }

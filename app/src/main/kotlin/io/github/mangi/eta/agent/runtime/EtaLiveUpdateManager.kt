@@ -60,6 +60,11 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
     private var lastFinishedShortText: String = "✅ 完成"
     private var lastFinishedDetailText: String = "任务已完成"
 
+    fun finishNotificationId(runId: String): Int {
+        val hash = runId.hashCode() and 0x7FFFFFFF
+        return 20000 + (hash % 10000)
+    }
+
     private val demoteCapsuleRunnable = Runnable {
         demoteCapsuleToStandardNotification()
     }
@@ -67,19 +72,9 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
     private fun demoteCapsuleToStandardNotification() {
         val context = boundService ?: appContext ?: return
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
-        val runId = lastFinishedRunId ?: return
-        // 关键修复：5秒后仅收回状态栏流体云胶囊（requestPromoted = false），但保留下拉通知栏卡片供用户查看与划除，绝不 cancel 通知
-        val notification = buildNotification(
-            context = context,
-            runId = runId,
-            shortText = lastFinishedShortText,
-            detailText = lastFinishedDetailText,
-            progress = null,
-            isOngoing = false,
-            requestPromoted = false,
-        )
+        // 关键修复：5秒后仅收回状态栏流体云胶囊（cancel 胶囊 NOTIFICATION_ID，而完成通知 ID 依然保留在通知栏供用户查看）
         runCatching {
-            nm.notify(NOTIFICATION_ID, notification)
+            nm.cancel(NOTIFICATION_ID)
         }
     }
 
@@ -191,18 +186,12 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
      */
     @Synchronized
     fun finish(runId: String, success: Boolean, summary: String) {
-        val activeRunId = currentRunId
-        if (activeRunId != null && activeRunId != runId) return
-
-        currentRunId = null
-        EtaFluidCloudStateMapper.reset()
-        mainHandler.removeCallbacks(demoteCapsuleRunnable)
-
-        // 若用户在前台看着对话框，用户已直接看到界面回答，彻底静默并不留任何通知
-        if (isAppInForeground) {
-            dismiss()
-            return
+        val isCurrent = currentRunId == runId
+        if (isCurrent) {
+            currentRunId = null
+            EtaFluidCloudStateMapper.reset()
         }
+        mainHandler.removeCallbacks(demoteCapsuleRunnable)
 
         // 若用户在后台，弹出终态通知并解绑前台服务
         val service = boundService
@@ -224,27 +213,44 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
 
         val shortText = if (success) "✅ 完成" else "⚠️ 异常"
         val detail = if (summary.isNotBlank()) summary else (if (success) "任务已完成" else "任务中断")
-        lastFinishedRunId = runId
-        lastFinishedShortText = shortText
-        lastFinishedDetailText = detail
 
-        // 终态通知先以 Promoted 状态展示，让胶囊展现 5 秒完成态动画
-        val notification = buildNotification(
+        // 1. 发送独立完成通知（独立 finishNotificationId，autoCancel = true，用户划除或点击才消失，绝不在切前台时自动删除）
+        val finishId = finishNotificationId(runId)
+        val finalNotification = buildNotification(
             context = context,
             runId = runId,
             shortText = shortText,
             detailText = detail,
             progress = null,
             isOngoing = false,
-            requestPromoted = true,
+            requestPromoted = false,
         )
-
         runCatching {
-            nm.notify(NOTIFICATION_ID, notification)
+            nm.notify(finishId, finalNotification)
         }
 
-        // 关键修复：5 秒后仅降级收回状态栏胶囊，保留下拉通知栏普通通知供用户查看，不再直接 cancel 抹去通知
-        mainHandler.postDelayed(demoteCapsuleRunnable, SUCCESS_DISMISS_DELAY_MS)
+        // 2. 若用户在后台且属于当前激活的胶囊任务，以 Promoted 状态展示胶囊 5 秒完成态动画，随后收回胶囊，保留通知栏普通通知
+        if (!isAppInForeground && isCurrent) {
+            lastFinishedRunId = runId
+            lastFinishedShortText = shortText
+            lastFinishedDetailText = detail
+
+            val capsuleNotification = buildNotification(
+                context = context,
+                runId = runId,
+                shortText = shortText,
+                detailText = detail,
+                progress = null,
+                isOngoing = false,
+                requestPromoted = true,
+            )
+            runCatching {
+                nm.notify(NOTIFICATION_ID, capsuleNotification)
+            }
+            mainHandler.postDelayed(demoteCapsuleRunnable, SUCCESS_DISMISS_DELAY_MS)
+        } else if (isCurrent) {
+            runCatching { nm.cancel(NOTIFICATION_ID) }
+        }
     }
 
     private fun showNotification(shortText: String, detailText: String, progress: Int?) {
@@ -322,7 +328,7 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
             .setOnlyAlertOnce(true)
             .setLocalOnly(true)
             .setCategory(if (isOngoing) Notification.CATEGORY_PROGRESS else Notification.CATEGORY_STATUS)
-            .setContentIntent(createClickPendingIntent(context))
+            .setContentIntent(createClickPendingIntent(context, runId))
 
         if (isOngoing) {
             builder.addAction(createCancelAction(context, runId))
@@ -353,17 +359,19 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
     /**
      * 点击流体云胶囊时，以 ColorOS 自由小窗（Freeform Floating Window）模式优雅弹出 Eta
      */
-    private fun createClickPendingIntent(context: Context): PendingIntent {
+    private fun createClickPendingIntent(context: Context, runId: String): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             // ColorOS 自由悬浮小窗意图参数
             putExtra("android.activity.windowingMode", 5) // WINDOWING_MODE_FREEFORM
             putExtra("com.oplus.intent.extra.WINDOW_MODE", 100)
             putExtra("oplus_freeform_window", true)
+            putExtra(EXTRA_RUN_ID, runId)
         }
+        val requestCode = 101 + (runId.hashCode() and 0xFFFF)
         return PendingIntent.getActivity(
             context,
-            101,
+            requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )

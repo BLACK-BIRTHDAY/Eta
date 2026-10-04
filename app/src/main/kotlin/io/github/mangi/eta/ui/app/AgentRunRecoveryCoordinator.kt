@@ -14,7 +14,49 @@ internal object AgentRunRecoveryCoordinator {
         val completed: List<Completed>,
         val reattach: AgentRunCheckpointStore.Checkpoint?,
         val interrupted: List<AgentRunCheckpointStore.Checkpoint>,
+        val reattaches: List<AgentRunCheckpointStore.Checkpoint> = listOfNotNull(reattach),
     )
+
+    fun plan(
+        checkpoints: List<AgentRunCheckpointStore.Checkpoint>,
+        completedRuns: List<AgentRuntimeWire.CompletedRun>,
+        activeStateKnown: Boolean,
+        terminalStateKnown: Boolean,
+        activeRunIds: Set<String>,
+        locallyObservedRunIds: Set<String>,
+    ): Plan {
+        val uiCheckpoints = checkpoints
+            .filter { it.handoff.source == AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE }
+            .associateBy { it.runId }
+        val completed = completedRuns
+            .asSequence()
+            .filter { it.handoff.source == AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE }
+            .filterNot { it.stableRunId in locallyObservedRunIds }
+            .sortedBy { it.createdAt }
+            .map { run -> Completed(run, uiCheckpoints[run.stableRunId]) }
+            .toList()
+        val completedRunIds = completed.mapTo(mutableSetOf()) { it.result.stableRunId }
+        val unresolved = uiCheckpoints.values
+            .filterNot { it.runId in locallyObservedRunIds || it.runId in completedRunIds }
+            .sortedBy { it.createdAt }
+        val reattaches = if (activeStateKnown) {
+            unresolved.filter { it.runId in activeRunIds }
+        } else {
+            emptyList()
+        }
+        val reattachIds = reattaches.mapTo(mutableSetOf()) { it.runId }
+
+        return Plan(
+            completed = completed,
+            reattach = reattaches.firstOrNull(),
+            reattaches = reattaches,
+            interrupted = if (activeStateKnown && terminalStateKnown) {
+                unresolved.filterNot { it.runId in reattachIds }
+            } else {
+                emptyList()
+            },
+        )
+    }
 
     fun plan(
         checkpoints: List<AgentRunCheckpointStore.Checkpoint>,
@@ -23,35 +65,14 @@ internal object AgentRunRecoveryCoordinator {
         terminalStateKnown: Boolean,
         activeRunId: String?,
         locallyObservedRunId: String?,
-    ): Plan {
-        val uiCheckpoints = checkpoints
-            .filter { it.handoff.source == AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE }
-            .associateBy { it.runId }
-        val completed = completedRuns
-            .asSequence()
-            .filter { it.handoff.source == AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE }
-            .filterNot { it.stableRunId == locallyObservedRunId }
-            .sortedBy { it.createdAt }
-            .map { run -> Completed(run, uiCheckpoints[run.stableRunId]) }
-            .toList()
-        val completedRunIds = completed.mapTo(mutableSetOf()) { it.result.stableRunId }
-        val unresolved = uiCheckpoints.values
-            .filterNot { it.runId == locallyObservedRunId || it.runId in completedRunIds }
-            .sortedBy { it.createdAt }
-        val active = unresolved
-            .takeIf { activeStateKnown }
-            ?.singleOrNull { it.runId == activeRunId }
-
-        return Plan(
-            completed = completed,
-            reattach = active,
-            interrupted = if (activeStateKnown && terminalStateKnown) {
-                unresolved.filterNot { it.runId == active?.runId }
-            } else {
-                emptyList()
-            },
-        )
-    }
+    ): Plan = plan(
+        checkpoints = checkpoints,
+        completedRuns = completedRuns,
+        activeStateKnown = activeStateKnown,
+        terminalStateKnown = terminalStateKnown,
+        activeRunIds = setOfNotNull(activeRunId),
+        locallyObservedRunIds = setOfNotNull(locallyObservedRunId),
+    )
 
     internal val AgentRuntimeWire.CompletedRun.stableRunId: String
         get() = result.runId.ifBlank { handoff.id }

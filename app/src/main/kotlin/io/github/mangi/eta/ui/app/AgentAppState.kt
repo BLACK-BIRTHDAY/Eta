@@ -468,24 +468,22 @@ internal class AgentAppState(
             .toList()
         val activeStateKnown = activeRunQuery is AgentRuntimeClient.ActiveRunQuery.Known
         val terminalStateKnown = terminalRaceQuery is AgentRuntimeClient.CompletedRunsQuery.Known
-        val activeRunId = (activeRunQuery as? AgentRuntimeClient.ActiveRunQuery.Known)?.runId
-        val locallyObservedRunId = withContext(Dispatchers.Main) {
-            selectedConversationId?.let { convId ->
-                runConversationIds.entries.firstOrNull { it.value == convId }?.key
-            } ?: activeRunJobs.keys.firstOrNull()
+        val activeRunIds = (activeRunQuery as? AgentRuntimeClient.ActiveRunQuery.Known)?.runIds.orEmpty()
+        val locallyObservedRunIds = withContext(Dispatchers.Main) {
+            (activeRunJobs.keys + runConversationIds.keys).toSet()
         }
         val plan = AgentRunRecoveryCoordinator.plan(
             checkpoints = checkpoints,
             completedRuns = completedRuns,
             activeStateKnown = activeStateKnown,
             terminalStateKnown = terminalStateKnown,
-            activeRunId = activeRunId,
-            locallyObservedRunId = locallyObservedRunId,
+            activeRunIds = activeRunIds,
+            locallyObservedRunIds = locallyObservedRunIds,
         )
         val orphanRewrites = if (activeStateKnown && terminalStateKnown) withContext(Dispatchers.Main) {
             val observed = checkpoints.mapTo(mutableSetOf()) { it.runId }.apply {
                 addAll(completedRuns.map { it.result.runId })
-                activeRunId?.let(::add)
+                addAll(activeRunIds)
                 addAll(activeRunJobs.keys)
             }
             conversationsById.flatMap { (id, state) ->
@@ -495,7 +493,7 @@ internal class AgentAppState(
         if (
             plan.completed.isEmpty() &&
             plan.interrupted.isEmpty() &&
-            plan.reattach == null && orphanRewrites.isEmpty()
+            plan.reattaches.isEmpty() && orphanRewrites.isEmpty()
         ) {
             return
         }
@@ -562,7 +560,7 @@ internal class AgentAppState(
             }
         }
 
-        plan.reattach?.let { checkpoint ->
+        plan.reattaches.forEach { checkpoint ->
             withContext(Dispatchers.Main) { startReattachedRun(checkpoint) }
         }
     }
