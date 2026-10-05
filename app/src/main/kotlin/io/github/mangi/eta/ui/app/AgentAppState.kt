@@ -89,11 +89,13 @@ import java.io.OutputStream
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
@@ -107,6 +109,7 @@ internal class AgentAppState(
     context: Context,
     private val scope: CoroutineScope,
     skillZipImportGateway: SkillZipImportGateway? = null,
+    initialConversations: AgentConversationStore.Snapshot = AgentConversationStore.load(context),
 ) {
     private val appContext = context.applicationContext
     private val skillZipImportGateway = skillZipImportGateway ?: CoreSkillZipImportGateway(appContext)
@@ -118,9 +121,12 @@ internal class AgentAppState(
     private var currentRunJob: Job? = null
     private val persistenceLock = Any()
     private var persistenceJob: Job? = null
+    // 导入期间暂停保存：旧状态的增量保存会删除刚导入的会话；导入成功后整体重载，失败时数据库已回滚。
+    private var persistencePaused = false
     private val runtimeRecoveryInProgress = AtomicBoolean(false)
     private val defaultThinkingEnabled = agentBooleanForUi(Prefs.Keys.AGENT_THINKING_ENABLED)
-    private val initialConversations = AgentConversationStore.load(appContext)
+    @Volatile
+    private var conversationPersistence = AgentConversationPersistence(initialConversations)
     private var skillNoticeSequence = 0L
     private var pendingSkillZipUri: Uri? = null
     private var pendingSkillZipSha256: String? = null
@@ -399,11 +405,28 @@ internal class AgentAppState(
             }
         }
 
-        val pendingPersistence = synchronized(persistenceLock) { persistenceJob }
-        pendingPersistence?.join()
-        val summary = EtaBackupRepository.import(appContext, input)
-        reloadConversationsAfterBackup()
-        return summary
+        val pendingPersistence = synchronized(persistenceLock) {
+            check(!persistencePaused) { "备份正在导入" }
+            persistencePaused = true
+            persistenceJob
+        }
+        var imported = false
+        var reloaded = false
+        try {
+            pendingPersistence?.join()
+            val summary = EtaBackupRepository.import(appContext, input)
+            imported = true
+            reloadConversationsAfterBackup()
+            reloaded = true
+            return summary
+        } finally {
+            // 导入已提交但重载失败时内存仍是旧状态，继续暂停，避免覆盖导入结果；重启后按库内数据加载。
+            if (!imported || reloaded) {
+                synchronized(persistenceLock) { persistencePaused = false }
+            }
+            // 导入失败时数据库已回滚并与保存基线一致，补写暂停期间的会话变更。
+            if (!imported) withContext(Dispatchers.Main.immediate + NonCancellable) { persistConversations() }
+        }
     }
 
     private suspend fun reloadConversationsAfterBackup() {
@@ -415,6 +438,7 @@ internal class AgentAppState(
             conversationsById = snapshot.conversationsById
             conversationTitles = snapshot.titles
             conversationUpdatedAt = snapshot.updatedAt
+            conversationPersistence = AgentConversationPersistence(snapshot)
             fileAttachmentOwnerVersion += 1
             homeState = selectedConversationId
                 ?.let(conversationsById::get)
@@ -2540,17 +2564,15 @@ internal class AgentAppState(
         val titles = conversationTitles
         val timestamps = conversationUpdatedAt
         return synchronized(persistenceLock) {
+            // 未保存会阻止结果回执和 write-ahead 运行，由导入后的重载或失败后的补写收尾。
+            if (persistencePaused) return CompletableDeferred(false)
             val previous = persistenceJob
+            val persistence = conversationPersistence
             scope.async(Dispatchers.IO) {
                 try {
                     previous?.join()
-                    AgentConversationStore.save(
-                        context = appContext,
-                        selectedConversationId = selected,
-                        conversationsById = conversations,
-                        titles = titles,
-                        updatedAt = timestamps,
-                    )
+                    persistence.save(appContext,
+                        AgentConversationStore.Snapshot(selected, conversations, titles, timestamps))
                     onSaved?.invoke()
                     true
                 } catch (cancelled: CancellationException) {
