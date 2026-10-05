@@ -15,15 +15,15 @@ class AgentTraceFormatterTest {
         val search = formatter.summarizeArguments(AgentModelClient.ToolCall(
             "search", "web_search", """{"query":"private-query","max_results":3}""",
         ))
-        assertEquals("搜索公开网页", search)
+        assertEquals("搜索网页", search)
         val fetch = formatter.summarizeArguments(AgentModelClient.ToolCall(
             "fetch", "fetch_url", """{"url":"https://alice:password@example.com/private-path?token=secret-query#private-fragment"}""",
         ))
-        assertEquals("读取网页正文 · example.com", fetch)
+        assertEquals("读取网页 · example.com", fetch)
         val next = formatter.summarizeArguments(AgentModelClient.ToolCall(
             "next", "fetch_url", """{"document_id":"private-document-id","offset_chars":12000}""",
         ))
-        assertEquals("续读网页正文", next)
+        assertEquals("继续读取网页", next)
     }
 
     @Test
@@ -31,11 +31,11 @@ class AgentTraceFormatterTest {
         val search = formatter.summarizeResult("web_search", AgentModelClient.ToolResult(
             """{"ok":true,"query":"private-query","results":[{"title":"private-title","url":"https://example.com/private-path","snippet":"private-body"}]}""",
         ))
-        assertEquals("已搜索公开网页 · 1 条结果", search)
+        assertEquals("1 条结果", search)
         val fetch = formatter.summarizeResult("fetch_url", AgentModelClient.ToolResult(
             """{"ok":true,"final_url":"https://alice:password@example.com/private-path?token=secret-query","title":"private-title","text":"private-body","has_more":true}""",
         ))
-        assertEquals("已读取网页正文 · example.com · 12 字 · 还有正文", fetch)
+        assertEquals("已读前 12 字", fetch)
         listOf("private-query", "private-title", "private-body", "private-path", "password", "secret-query").forEach {
             assertFalse(search.contains(it))
             assertFalse(fetch.contains(it))

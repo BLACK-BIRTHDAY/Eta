@@ -1,6 +1,7 @@
 package io.github.mangi.eta.ui.components
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Article
 import androidx.compose.material.icons.automirrored.rounded.Backspace
 import androidx.compose.material.icons.automirrored.rounded.ManageSearch
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
@@ -75,7 +76,8 @@ internal fun iconForTool(toolId: String): ImageVector = when (toolId) {
     "open_uri" -> Icons.AutoMirrored.Rounded.OpenInNew
     "browser_use", "网页浏览" -> Icons.Rounded.Language
     "web_search", "web_search_call", "网页搜索" -> Icons.Rounded.TravelExplore
-    "browser_read", "fetch_url" -> Icons.AutoMirrored.Rounded.MenuBook
+    "browser_read" -> Icons.AutoMirrored.Rounded.MenuBook
+    "fetch_url" -> Icons.AutoMirrored.Rounded.Article
     "browser_interact" -> Icons.Rounded.AdsClick
     "browser_screenshot" -> Icons.Rounded.ScreenshotMonitor
     "file_search", "file_search_call", "文件搜索" -> Icons.AutoMirrored.Rounded.ManageSearch

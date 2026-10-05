@@ -1,7 +1,7 @@
 package io.github.mangi.eta.ui.app
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.MenuBook
+import androidx.compose.material.icons.automirrored.rounded.Article
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Language
@@ -53,7 +53,7 @@ class ToolCatalogUiTest {
         assertEquals(Icons.Rounded.TravelExplore, iconForTool("网页搜索"))
         assertEquals(iconForTool("网页搜索"), iconForTool("web_search"))
         assertEquals(Icons.Rounded.Language, iconForTool("browser_use"))
-        assertEquals(Icons.AutoMirrored.Rounded.MenuBook, iconForTool("fetch_url"))
+        assertEquals(Icons.AutoMirrored.Rounded.Article, iconForTool("fetch_url"))
         assertEquals(Icons.Rounded.Extension, iconForTool("mcp_server_search_012345"))
         assertEquals(Icons.Rounded.Build, iconForTool("unknown_tool"))
     }

@@ -351,7 +351,7 @@
   <string name="ui_enable_vendor_assistant_custom_models_c8e465">Enable vendor assistant custom models</string>
   <string name="ui_enable_this_provider_683a76">Enable this provider</string>
   <string name="ui_enable_terminal_file_tools_18bb43">Enable terminal/file tools</string>
-  <string name="ui_enable_web_browsing_tools_8b6b03">启用网页搜索、读取与浏览器</string>
+  <string name="ui_enable_web_browsing_tools_8b6b03">Enable web search, reading and browser</string>
   <string name="ui_enable_memory_4b69b7">Enable memory</string>
   <string name="ui_enable_device_direct_tools_e2d595">Enable device direct tools</string>
   <string name="ui_back_to_bottom_32282e">back to bottom</string>
@@ -561,7 +561,7 @@
   <string name="state_used_to_read_recently_opened_applications_and_foregr_73e796">Used to read recently opened applications and foreground usage time</string>
   <string name="state_system_enhancement_capabilities_are_reserved_for_sub_0a8b21">System enhancement capabilities are reserved for subsequent secondary functions</string>
   <string name="state_terminal_and_files_ae7c54">Terminal and files</string>
-  <string name="state_web_browsing_e56105">网页工具</string>
+  <string name="state_web_browsing_e56105">Web tools</string>
   <string name="state_memory_b55ff5">memory</string>
   <string name="state_memory_system_4903eb">memory system</string>
   <string name="state_direct_access_to_equipment_eda92c">System and built-in apps</string>
