@@ -10,10 +10,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 
@@ -51,13 +55,9 @@ internal class SpeechPlaybackController(
                 lease?.requestPlaybackFocus { beforePlayback(); playbackActive = true }
                 val player = createOutput()
                 output = player
-                val announced = java.util.concurrent.atomic.AtomicBoolean(false)
-                for (chunk in SpeechText.chunks(readable)) {
-                    synthesize(config, secrets, chunk) { bytes ->
-                        player.write(bytes)
-                        if (announced.compareAndSet(false, true)) scope.launch(Dispatchers.Main.immediate) {
-                            if (session == generation) mutableState.value = SpeechPlaybackState(messageId)
-                        }
+                playChunks(config, secrets, SpeechText.chunks(readable), player) {
+                    scope.launch(Dispatchers.Main.immediate) {
+                        if (session == generation) mutableState.value = SpeechPlaybackState(messageId)
                     }
                 }
                 player.finish()
@@ -77,6 +77,46 @@ internal class SpeechPlaybackController(
         }
     }
 
+    /**
+     * 合成按网络速度下载，播放按实时速度写入音轨，两者经队列解耦。若在合成回调里直接写音轨，
+     * 读流会被播放节奏拖住，一段音频时长超过合成超时就会中断，服务端也会长时间等待客户端读取。
+     * 最多领先播放 [PREFETCH_CHUNKS] 段，既消除段间等待首包的停顿，也限制缓冲的 PCM 内存。
+     */
+    private suspend fun playChunks(
+        config: SpeechSettings,
+        secrets: SpeechCredentials,
+        chunks: List<String>,
+        player: SpeechAudioOutput,
+        onFirstAudio: () -> Unit,
+    ) = coroutineScope {
+        val queue = Channel<SpeechQueueItem>(Channel.UNLIMITED)
+        val ahead = Semaphore(PREFETCH_CHUNKS)
+        launch {
+            try {
+                for (chunk in chunks) {
+                    ahead.acquire()
+                    synthesize(config, secrets, chunk) { bytes -> queue.trySend(SpeechQueueItem.Audio(bytes)) }
+                    queue.send(SpeechQueueItem.ChunkEnd)
+                }
+                queue.close()
+            } catch (error: Throwable) {
+                // 合成超时是 CancellationException，子协程以它结束不会取消父作用域，必须经队列交给播放端。
+                queue.close(error)
+            }
+        }
+        withContext(Dispatchers.IO) {
+            var announced = false
+            for (item in queue) when (item) {
+                is SpeechQueueItem.Audio -> {
+                    // 音轨写满时 write 会休眠重试；可中断才能让宿主取消立即结束这里，随后关闭音轨。
+                    runInterruptible { player.write(item.bytes) }
+                    if (!announced) { announced = true; onFirstAudio() }
+                }
+                SpeechQueueItem.ChunkEnd -> ahead.release()
+            }
+        }
+    }
+
     fun stop() {
         generation++
         output?.close(); output = null
@@ -87,6 +127,13 @@ internal class SpeechPlaybackController(
         mutableState.value = SpeechPlaybackState()
     }
 }
+
+private sealed interface SpeechQueueItem {
+    class Audio(val bytes: ByteArray) : SpeechQueueItem
+    data object ChunkEnd : SpeechQueueItem
+}
+
+private const val PREFETCH_CHUNKS = 2
 
 internal interface SpeechAudioOutput : Closeable {
     fun write(bytes: ByteArray)
