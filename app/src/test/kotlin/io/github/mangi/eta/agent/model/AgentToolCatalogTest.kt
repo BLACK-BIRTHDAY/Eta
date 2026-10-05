@@ -235,8 +235,11 @@ class AgentToolCatalogTest {
         val TERMINAL_TOOLS = setOf(
             "read_image",
             "terminal",
-            "run_command",
             "read_file",
+            "edit_file",
+            "stat_file",
+            "glob_files",
+            "grep_files",
             "write_file",
             "list_directory",
         )

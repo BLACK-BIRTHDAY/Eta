@@ -30,6 +30,7 @@ class AgentLocalToolsPermissionTest {
         listOf(
             "set_setting" to "{}",
             "terminal" to "{\"action\":\"open\",\"identity\":\"root\"}",
+            "edit_file" to "{\"path\":\"x\",\"identity\":\"root\",\"old_text\":\"a\",\"new_text\":\"b\"}",
             "press_key" to "{\"button\":\"PASTE\"}",
         ).forEach { (name, args) ->
             val result = tools.execute(AgentModelClient.ToolCall("old-$name", name, args))
@@ -53,6 +54,10 @@ class AgentLocalToolsPermissionTest {
         )
 
         assertEquals("TERMINAL_TOOLS_DISABLED", JSONObject(result.content).getString("code"))
+        listOf("read_file", "edit_file", "glob_files", "grep_files", "stat_file").forEach { name ->
+            val fileResult = tools.execute(AgentModelClient.ToolCall("disabled-$name", name, "{}"))
+            assertEquals(name, "TERMINAL_TOOLS_DISABLED", JSONObject(fileResult.content).getString("code"))
+        }
         tools.close()
     }
 

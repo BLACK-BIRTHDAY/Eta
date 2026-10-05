@@ -37,6 +37,7 @@ internal object AgentToolCatalog {
             if (terminalTools) {
                 AgentFileVisionToolCatalog.appendTo(tools)
                 AgentTerminalToolCatalog.appendTo(tools)
+                AgentFileToolCatalog.appendTo(tools)
             }
         })
 }

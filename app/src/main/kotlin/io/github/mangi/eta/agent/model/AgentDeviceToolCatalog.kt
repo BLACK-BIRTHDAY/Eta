@@ -18,6 +18,17 @@ internal object AgentDeviceToolCatalog {
 
     private fun appendDirectTools(tools: JSONArray) {
         tools
+            .put(function(
+                "inspect_app",
+                "读取当前 Android 用户中指定应用的版本、UID、安装来源与路径、启用状态和请求权限，不要求应用具有桌面入口。只支持 Eta 所属用户，不跨工作资料查询。权限列表按 permission_offset/permission_limit 分页。",
+                properties(
+                    "package_name" to string("精确 Android 包名", 255),
+                    "user_id" to userId(),
+                    "permission_offset" to integer("请求权限列表的起始索引，默认 0", 0, Int.MAX_VALUE),
+                    "permission_limit" to integer("最多返回权限数量，默认 100", 1, 200),
+                ),
+                "package_name",
+            ))
             .put(
                 function(
                     "set_alarm",
@@ -70,6 +81,7 @@ internal object AgentDeviceToolCatalog {
                     properties(
                         "stream" to enumString("音量通道", "media", "alarm", "ring", "notification"),
                         "percent" to integer("0 到 100 的音量百分比", 0, 100),
+                        "user_id" to userId(),
                     ),
                     "stream", "percent",
                 ),
@@ -85,6 +97,7 @@ internal object AgentDeviceToolCatalog {
                     properties(
                         "namespace" to enumString("设置命名空间", "system", "secure", "global"),
                         "key" to string("精确设置键", 200),
+                        "user_id" to userId(),
                     ),
                     "namespace", "key",
                 ),
@@ -181,10 +194,17 @@ internal object AgentDeviceToolCatalog {
             .put(
                 function(
                     "get_logcat",
-                    "读取最近系统日志。query 只在已读取日志中做文本过滤，不会进入 Shell。",
+                    "读取设备日志环形缓冲区的有界样本，仍需 Root。先按 PID/tag/level/buffer 采集最近 scan_lines 条，再按 since/query 过滤并返回最近 max_lines 条。无匹配不代表更早记录不存在；查看 scan_start/end、scan_limited、has_more 和 complete_within_scan。日志不是按 Android 用户隔离的。",
                     properties(
                         "query" to string("可选过滤文本", 200),
-                        "max_lines" to integer("最多日志行数，默认 200", 20, 500),
+                        "max_lines" to integer("最多返回匹配行数，默认 200；另有总字符上限", 1, 500),
+                        "scan_lines" to integer("最多采集的最近日志行数，默认 2000，与返回行数不同", 1, 10_000),
+                        "pid" to integer("只采集此进程 PID", 1, Int.MAX_VALUE),
+                        "tag" to string("精确日志 tag，仅字母、数字、下划线、点或连字符", 100)
+                            .put("pattern", "^[A-Za-z0-9_.-]{1,100}$"),
+                        "level" to enumString("最低优先级，默认 V", "V", "D", "I", "W", "E", "F"),
+                        "buffer" to enumString("日志缓冲区，默认 default", "main", "system", "crash", "events", "radio", "all", "default"),
+                        "since" to string("样本中的起始时间，带时区的 ISO 8601 格式，如 2026-10-05T08:00:00Z", 64),
                     ),
                 ),
             )
@@ -212,11 +232,12 @@ internal object AgentDeviceToolCatalog {
             .put(
                 function(
                     "set_setting",
-                    "修改一个 Android Settings 值。",
+                    "修改一个 Android Settings 值，并读回验证。user_id 默认 Eta 所属用户；global 命名空间影响设备。仅 verified=true 表示已确认目标值，未确认时不要直接重放。",
                     properties(
                         "namespace" to enumString("设置命名空间", "system", "secure", "global"),
                         "key" to string("精确设置键", 200),
                         "value" to string("新值", 2_000),
+                        "user_id" to userId(),
                     ),
                     "namespace", "key", "value",
                 ),
@@ -224,10 +245,11 @@ internal object AgentDeviceToolCatalog {
             .put(
                 function(
                     "set_device_state",
-                    "直接启用或关闭 Wi‑Fi/蓝牙，不要操作设置 GUI。",
+                    "直接启用或关闭设备级 Wi‑Fi/蓝牙并读回状态。异步切换尚未完成时返回未确认，请检查状态，不要直接重放。",
                     properties(
                         "target" to enumString("设备能力", "wifi", "bluetooth"),
                         "enabled" to boolean("true 启用，false 关闭"),
+                        "user_id" to userId(),
                     ),
                     "target", "enabled",
                 ),
@@ -235,10 +257,11 @@ internal object AgentDeviceToolCatalog {
             .put(
                 function(
                     "app_state_control",
-                    "停止、冻结或解冻一个精确包名，包括系统应用。",
+                    "停止、冻结或解冻 Eta 所属 Android 用户中的一个精确包名，包括系统应用，并读回 stopped/enabled 状态。仅 verified=true 表示目标状态已确认；不跨用户或工作资料执行。",
                     properties(
                         "package_name" to string("精确 Android 包名", 255),
                         "action" to enumString("动作", "force_stop", "freeze", "unfreeze"),
+                        "user_id" to userId(),
                     ),
                     "package_name", "action",
                 ),
@@ -293,6 +316,9 @@ internal object AgentDeviceToolCatalog {
 
     private fun boolean(description: String): JSONObject =
         JSONObject().put("type", "boolean").put("description", description)
+
+    private fun userId(): JSONObject =
+        integer("Android 用户编号，默认 Eta 所属用户；其他用户或工作资料返回 USER_SCOPE_UNSUPPORTED", 0, Int.MAX_VALUE)
 
     private fun integer(description: String, minimum: Int, maximum: Int): JSONObject =
         JSONObject()

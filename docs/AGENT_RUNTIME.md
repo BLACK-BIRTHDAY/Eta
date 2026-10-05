@@ -48,7 +48,7 @@ pending steering
 - 入口请求只能缩小工具能力，不能自行授权。Runtime 在开始 run 时裁剪配置，在每次浏览器、终端和设备工具执行前重新读取用户开关，并在 thinking 关闭时移除自定义请求体中的 reasoning/thinking 覆盖字段。
 - 设备工具分为直达工具、敏感读取工具和敏感操作工具，当前均默认开启。Runtime 在每次执行前重新读取用户开关；开关允许且参数符合工具 Schema 后即可执行，不再匹配用户原话，也不维护关键包、系统应用或 Settings key 黑名单。
 - 微信发送不提供专用工具、参数协议或额外策略层，完全使用通用 GUI 工具观察和操作微信界面。
-- 通知、短信验证码、Wi‑Fi 凭据和日志属于瞬时敏感工具数据。当前模型回合可以使用原始值，但持久 transcript 会同时替换对应工具参数和结果，避免进入会话数据库或后续 IPC。
+- 通知、短信验证码、Wi‑Fi 凭据、日志及设置读写返回的原始值属于瞬时敏感工具数据。当前模型回合可以使用原始值，但持久 transcript 会同时替换对应工具参数和结果，避免进入会话数据库或后续 IPC。
 
 助理入口的 `assistant_screen_context` 是有界、可选的单次运行字段；旧入口缺失时按空内容处理。应用原始内容只保留在当前用户消息的临时元数据中，并在发给 Provider 时投影为数据文本。稳定会话编码和压缩摘要输入不包含该元数据，用户原话保持不变。截图仍使用既有图片传输协议。
 
@@ -124,14 +124,59 @@ MCP 地址由用户直接配置，HTTP、HTTPS、局域网与本机地址使用�
 
 Root 探测在 IO 线程执行：存在 `su` 时首次自动请求一次，最多等待 30 秒，仅 UID 0 视为可用；拒绝和超时不会反复弹出请求，用户可在“系统增强”手动重试。LSPosed 连接独立判断，不代替 Root 授权。
 
+## 结构化文件工具
+
+文件工具统一由 `AgentFileToolCatalog` 声明，经 `FileToolDispatcher` 分派，`AgentFileOperations` 负责文本与编辑合同，后端负责当前环境中的路径、元数据和 I/O。模型可以直接调用以下工具，不需要为常规文件操作拼接 Shell 命令：
+
+| 工具 | 当前合同 |
+| --- | --- |
+| `read_file` | 有界读取 UTF-8 文本，按字节或起始行定位，返回实际内容范围、`revision` 和 `next_offset_bytes`。 |
+| `write_file` | 创建、完整覆盖或追加 UTF-8 文件，必要时创建父目录；支持 `expected_revision` 前置检查。 |
+| `edit_file` | 精确替换 `old_text`；默认必须唯一匹配，只有显式 `replace_all=true` 才替换多处。 |
+| `stat_file` | 查询规范路径、类型、大小与版本，不读取正文。 |
+| `list_directory` | 返回直接子项的结构化分页，使用 `next_offset` 与目录版本继续列举。 |
+| `glob_files` | 以 `*`、`?`、`**` 路径模式递归查找文件，支持游标续查。 |
+| `grep_files` | 在 UTF-8 文本中搜索单行字面文本，返回文件路径、行号与有界片段；默认区分大小写，不使用正则表达式，也不依赖设备安装 `rg`。 |
+
+文件操作整体受 20 秒时间预算和 Runtime 取消约束。所有文件工具共享 `environment`、`identity`、`cwd`。`environment=android` 默认 `identity=user`，以 Eta App UID 访问普通工作区与当前已授权的共享存储；Root 文件操作必须显式传 `identity=root`。这与终端保留的默认身份规则不同。`environment=linux` 使用用户选定的发行版及 PRoot/chroot 后端，路径和符号链接在该 Linux 环境中解释，默认工作目录为 `/workspace`；不能用宿主 rootfs 路径代替 Linux 内路径，也不会在失败后自动切换环境或升级身份。PRoot 内显示 UID 0 不意味着拥有 Android Root 权限。
+
+`read_file` 单次可见文本最多 16000 字节，游标只跨过已完整解码的 UTF-8 字符。继续读取时使用返回的 `next_offset_bytes` 并携带 `expected_revision`，不能按请求的 `max_bytes` 推算下一段。非 UTF-8、二进制内容或落在字符中间的字节偏移返回明确错误。`max_lines` 与字节预算同时生效，超长单行可能分段并标记 `line_truncated`；`start_line` 定位也有扫描预算，`start_line_reached=false` 不能被当作已读到目标行或文件末尾。读取期间检测到版本变化时返回 `FILE_CHANGED`。
+
+单次写入内容、精确编辑的原文件及替换后文件均受 512 KiB 上限约束。`edit_file` 对未匹配、多处歧义或版本变化明确失败，不写入猜测结果；提交前还核对读到的完整旧内容摘要。`revision` 是后端生成的不透明元数据版本，只能在同一环境与身份中使用，不是跨进程文件锁，也不能代替编辑时的内容检查。
+
+写入返回 `atomic`，其含义取决于后端：
+
+- Android 普通身份的 Java 文件后端在同目录暂存、同步内容后以原子移动覆盖；不支持原子移动时返回 `ATOMIC_WRITE_UNSUPPORTED`，不退回普通覆盖。追加写返回 `atomic=false`。覆盖前仅在权限确有差异时尝试保留原 POSIX 模式；必要的权限复制失败会保留原文件并明确报错。`atomic=true` 只描述目标路径替换的可见性，不承诺与外部写入者互斥，也不承诺保留原 inode、硬链接关系或全部文件属性。
+- Android Root 与 Linux 的 Shell 文件后端通过既有 inode 写入，保留既有文件的属主、模式与 SELinux 标签，返回 `atomic=false`；中断可能留下部分写入。版本和内容检查不会把这种写入变成原子事务。
+
+目录续页使用 `next_offset` 和 `expected_revision`；偏移指向原始目录枚举位置，隐藏项过滤可能使一页返回较少条目，不能据此认定结束。`has_more=false` 才表示列举完成。目录变化使游标失效。整份目录分页 JSON 最多 16000 字符，达到输出预算时停在尚未返回的条目前并保留续页位置；`stop_reason` 区分 `eof`、`entry_limit` 和 `output_limit`。底层目录枚举、单条路径或元数据超限则返回明确失败。
+
+递归搜索默认跳过隐藏目录，不追踪符号链接；条目数、读取字节数、结果数量、输出文本及递归深度分别有预算。搜索另有约 5 秒的软时间预算，检查点达到预算时以 `time_limit` 返回已取得结果和续查游标；单次阻塞操作仍由整次 20 秒上限终止，硬超时、取消或执行进程失败不会伪装成普通文件跳过。继续搜索时原样传回 `next_cursor` 并保持查询条件、环境、身份不变。`partial`、`complete`、`stop_reason` 和跳过项共同说明覆盖范围；达到本轮扫描或结果预算并返回有效游标时可以续查，跳过二进制、不可访问项或过深目录等则保留不完整标记，空匹配不代表所有文件均不存在该内容。完整参数及限制以 [AgentFileToolCatalog](../app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentFileToolCatalog.kt) 与对应后端实现为准。
+
+这些工具只接受文件系统路径，不直接接受或写回 `content://` 等文档 URI。选择器导入返回的是工作区副本，编辑副本不代表修改来源文档；App 文件页面的导入、导出与模型文件工具是不同入口。当前没有专用的文件复制、移动或文档导出工具。
+
+## 结构化设备查询与操作
+
+`inspect_app` 属于设备直达工具，优先通过 PackageManager 查询精确包名，不要求目标应用具有桌面入口。结果包含版本、UID、安装来源及路径、启用/停止状态与分页权限列表。查询仅针对 Eta 所属 Android 用户；`user_id` 缺失时使用该用户，指定其他用户或工作资料时返回 `USER_SCOPE_UNSUPPORTED`。缺少包可见性时不会把查询不到直接断言成未安装，安装来源不可读也会单独标记。
+
+`get_logcat` 仍属于需要 Root 的敏感读取工具。它先按 PID、tag、最低 level 与 buffer 采集最近 `scan_lines` 条记录，再在样本中按 ISO 8601 的 `since` 和字面 `query` 筛选，最多返回 `max_lines` 条及有限文本。日志作用域为设备，不能用 `user_id` 冒充用户隔离。结果的采集起止时间、`scan_limited`、`capture_truncated`、`has_more` 与 `complete_within_scan` 分别说明采集和返回范围；`has_more` 只表示样本内有未返回匹配。日志源是环形缓冲区，`history_complete` 始终为 false，无匹配不代表更早记录不存在。
+
+`get_setting` 与系统写操作统一指定或报告 `user_id`，不再把 Root 命令中的前台用户当作 Eta 所属用户；当前不提供跨资料后端。`global` 设置和 Wi-Fi/蓝牙属于设备级状态。`set_setting`、`set_device_state`、`app_state_control`、`set_volume` 返回 `before`、`after`、`expected`、`changed` 与 `verified`，命令退出 0 或 API 接受请求不再等同于目标状态生效。读回未达到目标或过渡状态尚未结束时返回 `STATE_CHANGE_UNCONFIRMED`；无法比较前后值时 `changed` 为 null。已有目标状态可以验证成功而 `changed=false`。设置原始值按敏感工具数据处理。
+
 ## 终端环境
+
+模型目录中的命令执行统一使用 `terminal` 的 `action=exec`；`open` 创建会话后仍以 `exec/session_id` 复用。旧 `run_command` 与 `open_and_exec` 不再向模型公开，执行层保留旧入口供既有调用方兼容；新模型调用仍须通过本轮工具目录校验。`TerminalToolContract` 同时定义模型 Schema 和执行前校验，动作只接受其相关字段；使用 `session_id` 时不能再传 `cwd`、`identity`、`environment`，`async=true` 也不能复用持久会话。
 
 `terminal` 的 `environment` 明确区分设备控制与通用 Linux 工具，默认值为 `android`：
 
-- `android` 继续使用系统 Shell。`user` 身份不升级权限；`root` 身份在 `su` 内探测 Magisk、KernelSU、APatch 或系统 BusyBox，并优先进入 standalone `ash`，因此 BusyBox applet 不要求预先加入 PATH。旧 `run_command`、文件读写和目录操作保持这一环境，避免改变既有 Android 路径与命令语义。
+- `android` 继续使用系统 Shell。终端未指定身份时保留当前可用身份规则：Root 可用则默认 `root`，否则 `user`；新文件工具则始终默认 `user`。`user` 是 Eta App UID，不等同于 ADB Shell，也不会因某条命令失败而升级权限。`root` 身份在 `su` 内探测 Magisk、KernelSU、APatch 或系统 BusyBox，并优先进入 standalone `ash`，因此 BusyBox applet 不要求预先加入 PATH。
 - `linux` 解析用户选择的发行版和后端。chroot 保持原有 rootfs、独立 mount namespace、`/data/local/tmp/eta` 工作区与特权挂载。新建 PRoot 环境和普通工作区使用 App UID 独占的 `filesDir/terminal-user` 目录，避开旧 Root 目录的属主限制；已有普通环境继续使用原位置，路径统一由 `TerminalPrivateStorage` 解析，`/workspace` 映射该私有工作区。仅映射有权访问的共享目录，拒绝“所有文件访问”后仍可导入导出。Linux 内的模拟 root 不意味着 Android Root，两个后端都不构成隔离安全沙箱。
 - 已建立会话和任务保存后端与实际 rootfs/工作区，不因 Root 变化自动切换。持久任务记录的后端与宿主工作区字段为可选，兼容旧记录。获得 Root 不迁移 PRoot，失去 Root 不删除 chroot 或改变文件属主。
-- 普通 Android Shell、文件读写与图片读取使用 App UID；Root 用户保留原有特权路径。无法直接访问的选择器文件经有界复制导入工作区；目录选择不能冒充可实时访问的路径。
+- 普通 Android Shell 与文件后端使用 App UID；显式 Root 文件操作使用特权路径。图片读取沿用自身的授权文件引用规则。无法直接访问的选择器文件经有界复制导入工作区；目录选择不能冒充可实时访问的路径。
+
+终端在实际命令 Shell 中采样 `runtime` 元信息，包括 `host_identity`、`uid`、`uid_scope`、`shell_provider`、`shell_executable` 与一组命令的解析结果。Linux 的 UID 属于 guest 环境，不能据此推断宿主权限；可解析到 `cmd`、`pm` 或 `dumpsys` 也不代表当前身份获准访问对应系统服务。采样不完整时报告缺失，不根据设备版本臆测 Bash、GNU 工具或 `rg`。Android 原生进程仍受 [App UID 沙箱](https://source.android.com/docs/security/app-sandbox) 约束，Root 进程也受 [SELinux](https://source.android.com/docs/security/features/selinux) 策略影响。
+
+同步命令超时会终止执行，会话内超时同时关闭会话。异步命令通过 `read_async_result` 的 `next_offset_chars` 继续读取；`truncated` 表示保留输出尚未读完，`output_truncated` 表示采集或展示额度导致内容已丢失，两者不能混淆。`close_if_done` 只在任务已结束且当前页达到保留输出末尾时释放任务。取消 run 会封闭新调用并回收其同步进程、持久会话和异步命令；守护任务另按后台生命周期管理。
 
 用户在 Alpine 与 Debian 中选择一个当前 Linux 发行版，模型与终端统一通过 `environment=linux` 使用该选择。基础环境安装与基础工具安装是两个独立步骤：安装器先下载固定版本、大小和 SHA-256 的 rootfs，在临时目录解压，运行检查成功后才写入基础完成标记；PRoot 的流式解包校验归档路径和链接，支持取消与失败清理；用户随后安装只含通用命令的基础工具集。Python profile 只安装 uv，随后由 uv 把最新正式版 Python 安装到 `/opt/eta/python` 并把全局命令链接到 `/usr/local/bin`。Node.js profile 在 Debian 安装上游最新正式版 ARM64/x64 制品，在 Alpine 安装稳定分支提供的 `nodejs-current`；SSH 使用所选发行版的最新稳定包。App 侧只读取安装器完成标记，不再重复检查 rootfs 内的符号链接、二进制或执行权限。中国大陆网络下，Alpine 使用阿里云镜像，Debian 主仓库使用清华 TUNA、安全更新使用 Debian 官方源，各自只保留官方主仓库作为失败出口；APT 还启用重试并关闭 HTTP pipelining。
 
@@ -140,6 +185,8 @@ APK 分析在 Alpine 与 Debian 中都作为可选档案显示。JADX、Apktool�
 ## 后台执行生命周期
 
 `AgentExecutionService` 使用 `specialUse` 前台类型，为当前 Agent 运行、普通终端和 PRoot 后台进程持有任务引用。用户退出页面只断开 UI；最后一个任务结束时服务释放，通知中的停止操作回收它实际持有的任务。普通后台任务保持宿主 tracer 与输出读取，不能像 Root daemon 那样脱离 App 生命周期。Root daemon 保持原有独立生命周期，普通任务清理不会批量停止 Root daemon。Root 用户的原有 Runtime 绑定链路在新增前台服务启动受限时仍可继续，不因新增服务阻断厂商助手入口。
+
+`daemon_start` 表达跨 Agent run 的服务生命周期，不是永久存活保证；任务可能自行退出，也可能受 Android 后台限制、宿主进程回收、权限变化或设备重启影响。`daemon_list`、`daemon_logs` 与 `daemon_stop` 用于查询和管理实际任务，不以启动时拿到 `task_id` 代替后续存活检查。
 
 Kimi 使用 `kimi web --no-open`，按发行版及后端复用活跃实例。启动失败或取消只清理本次新建的进程；复用实例保留。服务使用 `START_NOT_STICKY`，系统强停或重启后不自动重放命令。通知授权被拒绝不会直接阻止合法前台启动，但系统后台启动限制与厂商进程回收策略仍然生效。
 

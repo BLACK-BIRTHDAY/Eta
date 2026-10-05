@@ -2,6 +2,7 @@ package io.github.mangi.eta.agent.tool
 
 import org.json.JSONArray
 import org.json.JSONObject
+import io.github.mangi.eta.agent.model.AgentFileToolCatalog
 
 internal enum class RootRequirement { NONE, PARTIAL, REQUIRED }
 internal enum class LsposedRequirement { NONE, OPTIONAL, REQUIRED }
@@ -31,7 +32,7 @@ internal object AgentToolRequirements {
             "long_press_element", "swipe", "scroll", "scroll_element", "input_text",
             "replace_text", "clear_text", "set_clipboard", "get_clipboard", "paste_text",
             "wait", "wait_for_text", "wait_for_package", "open_system_panel",
-            "set_alarm", "set_timer", "device_status", "media_control", "set_volume",
+            "set_alarm", "set_timer", "device_status", "inspect_app", "media_control", "set_volume",
             "search_notification_history", "recent_app_activity", "app_usage_summary",
             "get_current_location", "get_device_environment", "memory_get", "memory_write",
             "character_memory_get", "character_memory_write",
@@ -42,7 +43,7 @@ internal object AgentToolRequirements {
             RootRequirement.PARTIAL,
             "press_key", "network_info", "get_setting", "recent_notifications",
             "search_personal_orders", "terminal", "run_command", "read_file",
-            "write_file", "list_directory", "read_image",
+            "write_file", "list_directory", "read_image", "edit_file", "stat_file", "glob_files", "grep_files",
         )
         register(
             RootRequirement.REQUIRED,
@@ -92,7 +93,7 @@ internal object AgentToolRequirements {
         if (rootAvailable) return false
         if (rootRequirement(name) == RootRequirement.REQUIRED) return true
         return when (name) {
-            "terminal" -> arguments.optString("identity").equals("root", ignoreCase = true)
+            "terminal", in AgentFileToolCatalog.names -> arguments.optString("identity").equals("root", ignoreCase = true)
             "press_key" -> arguments.optString("button").equals("PASTE", ignoreCase = true)
             else -> false
         }
@@ -113,11 +114,16 @@ internal object AgentToolRequirements {
 
     private fun projectUnprivileged(function: JSONObject) {
         val properties = function.getJSONObject("parameters").optJSONObject("properties")
+        if (function.getString("name") in AgentFileToolCatalog.names) {
+            properties?.getJSONObject("identity")?.put("enum", JSONArray().put("user"))
+                ?.put("description", "宿主执行身份；当前仅支持 user（Eta App UID）。Linux 内的模拟 root 不提供 Android 特权。")
+            properties?.getJSONObject("cwd")?.put("description", "相对路径的基准目录；Android 默认 Eta 私有工作区，Linux 默认 /workspace。")
+        }
         when (function.getString("name")) {
             "terminal" -> {
                 function.put("description", "在当前设备管理普通 Android Shell 或用户选择的 Linux 环境。" +
                     "以 App UID 执行，支持会话、异步任务和后台服务；Linux 内的模拟身份不提供 Android 系统特权。" +
-                    "使用 open_and_exec 执行单次命令，open/exec 复用会话，daemon_start/list/logs/stop 管理后台服务。")
+                    "使用 exec 执行单次命令，open/exec 复用会话，daemon_start/list/logs/stop 管理后台服务。后台服务仍可能被系统回收。")
                 properties?.getJSONObject("identity")
                     ?.put("enum", JSONArray().put("user"))
                     ?.put("description", "宿主执行身份；当前仅支持 user，默认 user。")
@@ -130,13 +136,6 @@ internal object AgentToolRequirements {
                 function.put("description",
                     "通过普通 Android Shell 执行单次非交互命令，以 App UID 运行；只能访问当前应用有权访问的资源。")
                 properties?.getJSONObject("cwd")?.put("description", "工作目录，默认使用 Eta 私有工作区。")
-            }
-            "list_directory" -> {
-                function.put("description", "列出当前应用有权访问的目录，默认使用 Eta 私有工作区。")
-                properties?.optJSONObject("path")?.apply {
-                    put("description", "目录路径；未提供时使用 Eta 私有工作区。")
-                    remove("default")
-                }
             }
             "read_image" -> properties?.getJSONObject("path")?.put("description",
                 "当前应用有权读取的绝对图片路径、file URI 或已授权的 content URI。")

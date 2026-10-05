@@ -14,6 +14,7 @@ import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.model.AgentScreenObservationContract
 import io.github.mangi.eta.agent.model.AgentSensitiveToolPolicy
+import io.github.mangi.eta.agent.model.AgentFileToolCatalog
 import io.github.mangi.eta.agent.overlay.AgentHapticFeedback
 import io.github.mangi.eta.agent.overlay.GestureIndicator
 import io.github.mangi.eta.agent.runtime.AgentAppContext
@@ -201,9 +202,7 @@ internal class AgentLocalTools(
                 "read_image" -> fileVisionTool { imageTools.readImage(args) }
                 "terminal" -> textResult(terminalTool { terminal(args) })
                 "run_command" -> textResult(terminalTool { runCommand(args) })
-                "read_file" -> textResult(terminalTool { readFile(args) })
-                "write_file" -> textResult(terminalTool { writeFile(args) })
-                "list_directory" -> textResult(terminalTool { listDirectory(args) })
+                in AgentFileToolCatalog.names -> textResult(terminalTool { terminalController.fileTool(toolCall.name, args) })
                 "memory_get" -> textResult(memoryGet(args))
                 "memory_write" -> textResult(memoryWrite(args))
                 "skills_list" -> textResult(skillsList(args))
@@ -685,45 +684,7 @@ internal class AgentLocalTools(
             timeoutSeconds = args.optInt("timeout_seconds", 30)
         )
 
-    private fun terminal(args: JSONObject): String {
-        return terminalController.terminalAction(
-            action = args.optString("action", "open_and_exec"),
-            command = args.optString("command"),
-            cwd = args.optString("cwd").ifBlank { null },
-            timeoutMs = args.optInt("timeout_ms", 30_000),
-            identity = args.optString("identity"),
-            mergeStderr = args.optBoolean("merge_stderr", false),
-            sessionId = args.optString("session_id").ifBlank { null },
-            jobId = args.optString("job_id").ifBlank { null },
-            async = args.optBoolean("async", false),
-            offsetChars = args.optInt("offset_chars", 0),
-            maxChars = args.optInt("max_chars", 8_000),
-            closeIfDone = args.optBoolean("close_if_done", false),
-            environment = args.optString("environment", "android"),
-            taskId = args.optString("task_id").ifBlank { null },
-        )
-    }
-
-    private fun readFile(args: JSONObject): String =
-        terminalController.readFile(
-            path = args.optString("path"),
-            offsetBytes = args.optInt("offset_bytes", 0),
-            maxBytes = args.optInt("max_bytes", 65_536)
-        )
-
-    private fun writeFile(args: JSONObject): String =
-        terminalController.writeFile(
-            path = args.optString("path"),
-            content = args.optString("content"),
-            append = args.optBoolean("append", false)
-        )
-
-    private fun listDirectory(args: JSONObject): String =
-        terminalController.listDirectory(
-            path = args.optString("path"),
-            showHidden = args.optBoolean("show_hidden", false),
-            limit = args.optInt("limit", 80)
-        )
+    private fun terminal(args: JSONObject): String = terminalController.terminalAction(args)
 
     private fun findAppByPackage(packageName: String): AppInfo? =
         installedLauncherApps().firstOrNull { it.packageName == packageName }
@@ -1325,6 +1286,7 @@ internal class AgentLocalTools(
             "set_alarm",
             "set_timer",
             "device_status",
+            "inspect_app",
             "network_info",
             "top_memory_apps",
             "top_storage_apps",

@@ -2,6 +2,8 @@ package io.github.mangi.eta.agent.model
 
 import org.json.JSONArray
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -15,6 +17,10 @@ class AgentDeviceToolCatalogTest {
 
         assertFalse("set_alarm" in none)
         assertTrue("set_alarm" in direct)
+        assertTrue("inspect_app" in direct)
+        assertFalse("inspect_app" in reads)
+        assertFalse("get_logcat" in direct)
+        assertTrue("get_logcat" in reads)
         assertFalse("read_sms_code" in direct)
         assertTrue("read_sms_code" in reads)
         assertTrue("search_coloros_notes" in reads)
@@ -39,6 +45,20 @@ class AgentDeviceToolCatalogTest {
         assertFalse("send_message" in reads)
         assertFalse("send_message" in actions)
         assertTrue("app_state_control" in actions)
+    }
+
+    @Test
+    fun inspectionAndLogQueryParametersHaveBoundedContracts() {
+        val tools = JSONArray()
+        AgentDeviceToolCatalog.appendTo(tools, directTools = true, sensitiveReadTools = true, sensitiveActionTools = true)
+        val validator = AgentToolCallValidator(tools)
+        fun validate(name: String, args: String) = validator.validate(AgentModelClient.ToolCall("test", name, args))
+        assertNull(validate("inspect_app", """{"package_name":"example.app","permission_offset":10,"permission_limit":100}"""))
+        assertNotNull(validate("inspect_app", """{"package_name":"example.app","permission_limit":201}"""))
+        assertNotNull(validate("inspect_app", """{"package_name":"example.app","user_id":-1}"""))
+        assertNull(validate("get_logcat", """{"pid":42,"tag":"Eta","level":"W","buffer":"crash","scan_lines":2000,"max_lines":20}"""))
+        assertNotNull(validate("get_logcat", """{"tag":"Eta;echo"}"""))
+        assertNotNull(validate("get_logcat", """{"scan_lines":10001}"""))
     }
 
     private fun names(

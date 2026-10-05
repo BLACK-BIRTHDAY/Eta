@@ -112,6 +112,11 @@ internal fun toolDisplayNameResource(name: String): Int? = when (name) {
     "browser_use" -> R.string.tool_browser_use
     "terminal" -> R.string.tool_terminal
     "run_command" -> R.string.tool_run_command
+    "inspect_app" -> R.string.tool_inspect_app
+    "edit_file" -> R.string.tool_edit_file
+    "stat_file" -> R.string.tool_stat_file
+    "glob_files" -> R.string.tool_glob_files
+    "grep_files" -> R.string.tool_grep_files
     "read_file" -> R.string.tool_read_file
     "write_file" -> R.string.tool_write_file
     "list_directory" -> R.string.tool_list_directory

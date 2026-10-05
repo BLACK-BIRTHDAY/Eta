@@ -2673,6 +2673,7 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                 tools = listOf(
                     ToolItemUi("set_alarm", context.getString(R.string.tool_ui_set_alarm_25ca3c), context.getString(R.string.tool_ui_create_a_system_alarm_directly_and_open_the_cloc_9aa214)),
                     ToolItemUi("set_timer", context.getString(R.string.tool_ui_set_timer_aee60c), context.getString(R.string.tool_ui_directly_create_system_timers_up_to_24_hours_87c476)),
+                    ToolItemUi("inspect_app", context.getString(R.string.tool_inspect_app), context.getString(R.string.tool_inspect_app_description)),
                     ToolItemUi("device_status", context.getString(R.string.tool_ui_device_status_567a4c), context.getString(R.string.tool_ui_read_power_memory_storage_and_system_version_c501d5)),
                     ToolItemUi("network_info", context.getString(R.string.tool_ui_network_status_6bd556), context.getString(R.string.tool_ui_read_networking_method_and_current_wi_fi_status_68016a)),
                     ToolItemUi("media_control", context.getString(R.string.tool_ui_media_control_585edc), context.getString(R.string.tool_ui_play_pause_and_switch_songs_without_operating_th_311cb8)),
@@ -2749,7 +2750,10 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                 title = context.getString(R.string.state_terminal_and_files_ae7c54),
                 tools = listOf(
                     ToolItemUi("terminal", context.getString(R.string.tool_ui_session_terminal_09c6e6), context.getString(R.string.tool_ui_user_root_shell_conversational_execution_and_asy_13c2ab)),
-                    ToolItemUi("run_command", context.getString(R.string.tool_ui_execute_command_bf1627), context.getString(R.string.tool_ui_directly_execute_a_single_shell_command_c40cef)),
+                    ToolItemUi("edit_file", context.getString(R.string.tool_edit_file), context.getString(R.string.tool_edit_file_description)),
+                    ToolItemUi("stat_file", context.getString(R.string.tool_stat_file), context.getString(R.string.tool_stat_file_description)),
+                    ToolItemUi("glob_files", context.getString(R.string.tool_glob_files), context.getString(R.string.tool_glob_files_description)),
+                    ToolItemUi("grep_files", context.getString(R.string.tool_grep_files), context.getString(R.string.tool_grep_files_description)),
                     ToolItemUi("read_file", context.getString(R.string.tool_ui_read_file_dc995c), context.getString(R.string.tool_ui_read_the_contents_of_mobile_phone_files_bf3066)),
                     ToolItemUi("write_file", context.getString(R.string.tool_ui_write_file_e620fd), context.getString(R.string.tool_ui_write_or_overwrite_mobile_files_29fae4)),
                     ToolItemUi("list_directory", context.getString(R.string.tool_ui_list_directory_96e765), context.getString(R.string.tool_ui_list_directory_contents_feff30)),

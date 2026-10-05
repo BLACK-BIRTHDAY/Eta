@@ -18,6 +18,7 @@ import android.provider.AlarmClock
 import android.provider.Settings
 import android.view.KeyEvent
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
+import io.github.mangi.eta.agent.device.DeviceToolContract
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.core.AgentLogger
@@ -28,7 +29,7 @@ import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 常用系统动作的结构化实现；所有 Root 脚本都由本类固定生成。 */
+/** 常用设备能力的执行路由；Root 脚本由对应执行器固定生成。 */
 internal class AgentStructuredDeviceTools(
     private val context: Context,
     private val logger: AgentLogger,
@@ -41,6 +42,9 @@ internal class AgentStructuredDeviceTools(
     private val personalContextTools = AgentPersonalContextTools(context)
     private val privateDatabaseTools = AgentPrivateDatabaseTools(context, root)
     private val notificationHistory by lazy { NotificationHistoryRepository(context) }
+    private val appInspection = AppInspectionTool(context)
+    private val stateMutations = DeviceStateMutations(context) { root.execute(it, maxOutputBytes = 32 * 1024) }
+    private val logcatQuery = LogcatQuery { root.execute(it, maxOutputBytes = 512 * 1024) }
 
     fun execute(name: String, args: JSONObject): AgentModelClient.ToolResult? =
         personalDataTools.execute(name, args)
@@ -52,20 +56,21 @@ internal class AgentStructuredDeviceTools(
             "search_personal_orders" -> searchPersonalOrders(args)
             "set_alarm" -> text(setAlarm(args))
             "set_timer" -> text(setTimer(args))
+            "inspect_app" -> text(appInspection.inspect(args).toString())
             "device_status" -> text(deviceStatus())
             "network_info" -> text(networkInfo())
             "top_memory_apps" -> text(topMemoryApps(args))
             "top_storage_apps" -> text(topStorageApps(args))
             "media_control" -> text(mediaControl(args))
-            "set_volume" -> text(setVolume(args))
+            "set_volume" -> text(stateMutations.setVolume(args))
             "get_setting" -> sensitive(getSetting(args))
             "wifi_credentials" -> sensitive(wifiCredentials(args))
             "recent_notifications" -> sensitive(recentNotifications(args))
             "read_sms_code" -> sensitive(readSmsCode(args))
-            "get_logcat" -> sensitive(getLogcat(args))
-            "set_setting" -> text(setSetting(args))
-            "set_device_state" -> text(setDeviceState(args))
-            "app_state_control" -> text(appStateControl(args))
+            "get_logcat" -> sensitive(logcatQuery.execute(args).toString())
+            "set_setting" -> sensitive(stateMutations.setSetting(args))
+            "set_device_state" -> text(stateMutations.setDeviceState(args))
+            "app_state_control" -> text(stateMutations.appStateControl(args))
             else -> null
         }
 
@@ -285,33 +290,12 @@ internal class AgentStructuredDeviceTools(
         return ok("media_control").put("action", args.getString("action")).toString()
     }
 
-    private fun setVolume(args: JSONObject): String {
-        val streamName = args.getString("stream").lowercase(Locale.ROOT)
-        val stream = when (streamName) {
-            "media" -> AudioManager.STREAM_MUSIC
-            "alarm" -> AudioManager.STREAM_ALARM
-            "ring" -> AudioManager.STREAM_RING
-            "notification" -> AudioManager.STREAM_NOTIFICATION
-            else -> return error("INVALID_ARGUMENT", "不支持的音量通道")
-        }
-        val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val max = audio.getStreamMaxVolume(stream).coerceAtLeast(1)
-        val percent = args.getInt("percent")
-        val level = ((percent / 100.0) * max).toInt().coerceIn(0, max)
-        return runCatching {
-            audio.setStreamVolume(stream, level, 0)
-            ok("set_volume")
-                .put("stream", streamName)
-                .put("percent", percent)
-                .put("level", audio.getStreamVolume(stream))
-                .put("max_level", max)
-                .toString()
-        }.getOrElse { error("VOLUME_CHANGE_FAILED", "系统拒绝修改该音量通道") }
-    }
-
     private fun getSetting(args: JSONObject): String {
+        val userId = DeviceToolContract.appUserId(context)
+        DeviceToolContract.userScopeError(args, userId)?.let { return it.toString() }
         val namespace = args.getString("namespace").lowercase(Locale.ROOT)
         val key = args.getString("key")
+        if (!DeviceToolContract.validSetting(namespace, key)) return error("INVALID_ARGUMENT", "设置命名空间或键格式无效")
         var publicReadFailure: String? = null
         val publicValue = try {
             when (namespace) {
@@ -331,59 +315,23 @@ internal class AgentStructuredDeviceTools(
             return error(publicReadFailure, "系统不允许读取此设置，或设置服务暂不可用")
         }
         val rootValue = if (publicValue == null && rootAvailable()) root.execute(
-            "settings --user current get ${shellQuote(namespace)} ${shellQuote(key)}",
+            "settings --user $userId get ${shellQuote(namespace)} ${shellQuote(key)}",
         ) else null
         if (publicReadFailure != null && rootValue?.ok != true) {
             return error(publicReadFailure, "系统不允许读取此设置，或设置服务暂不可用")
         }
+        if (rootValue != null && !rootValue.ok) return rootError(rootValue)
+        if (rootValue?.truncated == true) return error("SETTING_VALUE_TRUNCATED", "设置值超过读取上限，无法返回完整值")
         val value = publicValue ?: rootValue?.takeIf { it.ok }?.stdout
-            ?.trim()
+            ?.removeSuffix("\n")
             ?.takeUnless { it == "null" }
         return ok("get_setting")
+            .put("user_id", userId)
+            .put("scope", if (namespace == "global") "device" else "app_user")
             .put("namespace", namespace)
             .put("key", key)
             .put("value", value ?: JSONObject.NULL)
             .toString()
-    }
-
-    private fun setSetting(args: JSONObject): String {
-        val namespace = args.getString("namespace").lowercase(Locale.ROOT)
-        val key = args.getString("key")
-        val result = root.execute(
-            "settings --user current put ${shellQuote(namespace)} ${shellQuote(key)} " +
-                shellQuote(args.getString("value")),
-        )
-        return rootMutationResult("set_setting", result)
-    }
-
-    private fun setDeviceState(args: JSONObject): String {
-        val enabled = args.getBoolean("enabled")
-        val command = when (args.getString("target").lowercase(Locale.ROOT)) {
-            "wifi" -> "cmd wifi set-wifi-enabled ${if (enabled) "enabled" else "disabled"}"
-            "bluetooth" -> "cmd bluetooth_manager ${if (enabled) "enable" else "disable"}"
-            else -> return error("INVALID_ARGUMENT", "不支持的设备状态")
-        }
-        return rootMutationResult("set_device_state", root.execute(command))
-    }
-
-    private fun appStateControl(args: JSONObject): String {
-        val packageName = args.getString("package_name")
-        if (!PACKAGE_NAME.matches(packageName)) return error("INVALID_PACKAGE", "包名格式无效")
-        val appExists = runCatching {
-            context.packageManager.getApplicationInfo(
-                packageName,
-                android.content.pm.PackageManager.ApplicationInfoFlags.of(0L),
-            )
-        }.isSuccess
-        if (!appExists) return error("APP_NOT_FOUND", "未找到指定应用")
-        val action = args.getString("action").lowercase(Locale.ROOT)
-        val command = when (action) {
-            "force_stop" -> "am force-stop --user current ${shellQuote(packageName)}"
-            "freeze" -> "pm disable-user --user current ${shellQuote(packageName)}"
-            "unfreeze" -> "pm enable --user current ${shellQuote(packageName)}"
-            else -> return error("INVALID_ARGUMENT", "不支持的应用状态动作")
-        }
-        return rootMutationResult("app_state_control", root.execute(command))
     }
 
     private fun topMemoryApps(args: JSONObject): String {
@@ -578,34 +526,6 @@ internal class AgentStructuredDeviceTools(
         return ok("read_sms_code").put("items", items).put("count", items.length()).toString()
     }
 
-    private fun getLogcat(args: JSONObject): String {
-        val maxLines = args.optInt("max_lines", 200).coerceIn(20, 500)
-        val query = args.optString("query").trim()
-        val result = root.execute(
-            "logcat -d -v threadtime -t $maxLines",
-            maxOutputBytes = 512 * 1024,
-        )
-        if (!result.ok) return rootError(result)
-        val lines = result.stdout.lineSequence()
-            .filter { query.isBlank() || it.contains(query, ignoreCase = true) }
-            .take(maxLines)
-            .toList()
-        return ok("get_logcat")
-            .put("lines", JSONArray(lines))
-            .put("count", lines.size)
-            .put("truncated", result.truncated)
-            .toString()
-    }
-
-    private fun rootMutationResult(
-        tool: String,
-        result: BoundedRootCommandExecutor.Result,
-    ): String = if (result.ok) {
-        ok(tool).put("changed", true).toString()
-    } else {
-        rootError(result)
-    }
-
     private fun rootError(result: BoundedRootCommandExecutor.Result): String {
         val code = when {
             result.errorCode.isNotBlank() -> result.errorCode
@@ -678,7 +598,6 @@ internal class AgentStructuredDeviceTools(
             "酒店", "电影票",
         )
         const val COLOROS_CLOCK_PACKAGE = "com.coloros.alarmclock"
-        val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+")
         val NETWORK_BLOCK = Regex("<Network>.*?</Network>", setOf(RegexOption.DOT_MATCHES_ALL))
         val XML_SSID = Regex("""<string name="SSID">(.*?)</string>""")
         val XML_PSK = Regex("""<string name="PreSharedKey">(.*?)</string>""")

@@ -102,7 +102,7 @@ internal fun iconForTool(toolId: String): ImageVector = when (toolId) {
     "read_sms_code" -> Icons.Rounded.Key
     "recent_notifications", "search_notification_history" -> Icons.Rounded.Notifications
     "get_setting", "set_setting" -> Icons.Rounded.Settings
-    "app_state_control" -> Icons.Rounded.AdminPanelSettings
+    "inspect_app", "app_state_control" -> Icons.Rounded.AdminPanelSettings
     "get_logcat" -> Icons.Rounded.Description
     "get_current_location", "search_saved_places" -> Icons.Rounded.LocationOn
     "get_health_summary" -> Icons.Rounded.MonitorHeart
@@ -123,8 +123,8 @@ internal fun iconForTool(toolId: String): ImageVector = when (toolId) {
     "search_coloros_memories" -> Icons.Rounded.Psychology
     "search_personal_orders" -> Icons.Rounded.ShoppingBag
     "terminal", "terminal_job", "run_command" -> Icons.Rounded.Terminal
-    "read_file" -> Icons.Rounded.Description
-    "write_file" -> Icons.Rounded.EditNote
-    "list_directory" -> Icons.Rounded.FolderOpen
+    "read_file", "stat_file" -> Icons.Rounded.Description
+    "write_file", "edit_file" -> Icons.Rounded.EditNote
+    "list_directory", "glob_files", "grep_files" -> Icons.Rounded.FolderOpen
     else -> if (toolId.startsWith("mcp_")) Icons.Rounded.Extension else Icons.Rounded.Build
 }

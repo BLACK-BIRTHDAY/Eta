@@ -23,7 +23,7 @@ class AgentTraceFormatterTest {
             RedactionCase(
                 toolName = "run_command",
                 argumentsJson = """{"command":"cat /data/local/tmp/private-token"}""",
-                expectedParts = listOf("执行命令", "Android", "root"),
+                expectedParts = listOf("执行命令", "Android"),
                 sensitiveParts = listOf("cat ", "/data/local/tmp/private-token", "private-token"),
             ),
             RedactionCase(
@@ -90,6 +90,15 @@ class AgentTraceFormatterTest {
     }
 
     @Test
+    fun stateChangeWithoutReadbackIsShownAsUnconfirmed() {
+        val result = AgentModelClient.ToolResult(
+            content = """{"ok":false,"status":"unconfirmed","verified":false,"code":"STATE_CHANGE_UNCONFIRMED"}""",
+        )
+        assertEquals("操作已提交，效果未确认", formatter.summarizeResult("set_device_state", result))
+        assertFalse(formatter.isSuccessResult(result))
+    }
+
+    @Test
     fun terminalCommandsAreExposedOnlyThroughDisplayField() {
         val terminal = AgentModelClient.ToolCall(
             id = "terminal-call",
@@ -105,7 +114,7 @@ class AgentTraceFormatterTest {
 
         assertEquals("git status --short", formatter.displayCommand(terminal))
         assertEquals("pm list packages | head", formatter.displayCommand(runCommand))
-        assertEquals("终端 · 单次执行 · Linux · root", formatter.summarizeArguments(terminal))
+        assertEquals("终端 · 单次执行 · Linux", formatter.summarizeArguments(terminal))
         assertFalse(formatter.summarizeArguments(terminal).contains("git status"))
         assertNull(
             formatter.displayCommand(
@@ -136,7 +145,7 @@ class AgentTraceFormatterTest {
                     ),
                 )
 
-                assertEquals("终端 · 单次执行 · $label · root", summary)
+                assertEquals("终端 · 单次执行 · $label", summary)
             }
     }
 
