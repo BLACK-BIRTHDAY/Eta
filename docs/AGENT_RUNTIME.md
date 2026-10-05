@@ -10,6 +10,7 @@ Eta 的 Agent Runtime 负责把一次用户输入组织为模型回合、工具�
 - `AgentConversationCodec`：Provider JSON 与稳定会话 DTO 的转换。
 - `AgentToolCatalog` 及分组目录：模型可见的工具 schema，不执行工具。
 - `AgentTraceFormatter`：只生成可展示、可记录的脱敏摘要。
+- `AgentWebTools`：公开网页搜索、匿名 HTTP 正文读取与当前 run 的分页快照；不占用共享 WebView 会话。
 - `AgentProviderClient`：OpenAI-compatible、Anthropic 等协议边界。
 - `AgentRunController`：取消、暂停和 steering 队列。
 - `AgentRuntimeSession`：每个 run 自持 reply channel，并保证唯一最终结果。
@@ -88,7 +89,7 @@ Anthropic 工具回合会在当前 run 的模型上下文中按原顺序回传�
 
 Chat Completions、Responses 与 Anthropic Messages 在 Provider 边界统一投影为带 `round + block index` 身份的正文、思考和工具块。Responses 额外使用 `item_id/output_index/content_index` 区分同一轮中的多个 output item；Chat Completions 在 delta 类型切换时创建新块；Anthropic 直接保留 `content_block.index`。正文、思考或工具类型一旦切换，上一段可见块立即定稿，后续同类型内容也不会跨过工具卡片回填到旧块。终态只在 Provider 的权威内容与已流式内容不一致时携带一次替换，不用整轮聚合正文覆盖最后一个块。
 
-服务端网页搜索是 Responses Provider 的独立开关，默认关闭。开启后请求只增加 `web_search` 托管工具；搜索开始和结束作为独立运行事件投影到 UI，不进入 Eta 本地工具执行器。最终回答中的 `url_citation` 会去重并转换为可点击 Markdown 引用；偏移无效时降级为回答末尾的来源列表。当前不接入 file search、code interpreter、Provider 托管 MCP 或其他托管工具。
+服务端网页搜索是 Responses Provider 的独立开关，默认关闭。开启后请求只增加 `web_search` 托管工具；搜索开始和结束作为独立运行事件投影到 UI，不进入 Eta 本地工具执行器。当前配置为 OpenAI-compatible Responses 且开启此开关时，模型目录只保留 Provider 托管搜索，不再公开同名的本地 `web_search` 函数；`fetch_url` 与 `browser_use` 仍按本地 `browserTools` 开关提供。托管搜索不受本地 `browserTools` 开关控制。该开关在其他协议下不会隐藏本地搜索，也不会把 Responses 的工具字段注入其他 Provider 协议。最终回答中的 `url_citation` 会去重并转换为可点击 Markdown 引用；偏移无效时降级为回答末尾的来源列表。当前不接入 file search、code interpreter、Provider 托管 MCP 或其他托管工具。
 
 ### 模型等待与重试
 
@@ -123,6 +124,30 @@ MCP 地址由用户直接配置，HTTP、HTTPS、局域网与本机地址使用�
 没有 Root 时，专属工具彻底移除；混合终端仅公开 `identity=user`，设备默认路径与模型提示同步调整。执行器再次核查当前 Root 与参数，旧调用返回 `ROOT_REQUIRED`。普通前台 Intent 不要求无障碍；截图、节点、手势、输入和条件等待需要真实服务连接，已开启系统保护时保留有限修复链路。当前通知来自已连接的通知监听服务，断连返回明确错误，不以历史记录替代。用户选择保存在原有本地 Agent 配置与 RemotePreferences 协调链路中，能力变化不改写保存的开关。
 
 Root 探测在 IO 线程执行：存在 `su` 时首次自动请求一次，最多等待 30 秒，仅 UID 0 视为可用；拒绝和超时不会反复弹出请求，用户可在“系统增强”手动重试。LSPosed 连接独立判断，不代替 Root 授权。
+
+## 网页搜索与正文读取
+
+本地 `web_search`、`fetch_url` 与 `browser_use` 共用既有 `browserTools` 权限；Responses 托管搜索启用时，本地同名搜索不再向模型公开，正文读取与浏览器仍可用。设置文案为“启用网页搜索、读取与浏览器”，持久化 key 仍是 `agent_browser_tools`，不新增搜索服务配置、凭据或 IPC 字段。关闭后目录不公开这三个本地工具，执行入口也逐次复查开关。它们无需 Root 或无障碍服务；模型请求、MCP 和 Provider 托管搜索仍走各自的配置与授权链路。
+
+`web_search` 通过 `PublicWebSearch` 请求 DuckDuckGo 官方公开 HTML 搜索入口，不需要额外 API Key。当前只解析首屏结果，`max_results` 默认为 5、最多 10；返回目标站点的标题、原始链接和摘要，去掉搜索跳转包装并去重。结果携带 `scope=first_page`、采集时间、截断原因和跳过数量，不能把首屏结果当作完整搜索范围。验证挑战、HTTP 限流、编码失败、过大响应或无法识别的页面结构返回明确错误；只有识别到明确的无结果提示时才返回成功的空列表。公开站点可用性及页面结构会变化，工具不绕过人工验证。
+
+`fetch_url` 使用匿名 HTTP GET，HTML 解析仅处理已下载文本，不执行 JavaScript，也不加载页面子资源。除 HTML/XHTML 外，还接受 `text/*`、Markdown、JSON 与 `application/*+json`；二进制或不支持的类型明确失败。字符编码按 BOM、响应头及可用的 HTML 声明判断；正文发生替换解码时标记 `decoding_lossy`，搜索结果则拒绝不可靠的解码。HTML 会移除脚本等非正文内容并提取有限链接；它不继承共享 WebView 的 Cookie 或登录状态，需要动态渲染、登录、表单或其他网页交互时使用 `browser_use`。
+
+首次读取传 `url`，续页传返回的 `document_id` 与 `next_offset_chars`，两种来源必须且只能选择一个。分页读取同一份缓存正文，不重复 HTTP 请求，也不会混入网站随后更新的内容。快照只属于当前 run，最多保留 4 份文档且正文合计不超过 600000 字符，按最近访问情况淘汰；run 关闭会清空，失效或跨 run 的 ID 返回 `WEB_DOCUMENT_EXPIRED`。字符偏移须使用工具返回值，不能落在 Unicode 代理项对中间。`has_more` 表示缓存正文仍有下一页，`source_truncated` 表示下载或提取本身已丢失内容；读完所有页也不能消除来源截断。
+
+网络与正文预算分别生效：
+
+| 边界 | 当前限制与结果 |
+| --- | --- |
+| HTTP 请求链 | 总计最多 30 秒，最多跟随 5 次重定向；循环、超时和无效跳转明确失败，不自动重试。 |
+| 响应正文 | 最多读取 2 MiB；搜索响应超限失败，网页正文读取保留截断标记。 |
+| 文本解析 | 最多处理 512000 字符输入；搜索超限失败，网页提取标记 `input_limit`。 |
+| 单文档正文 | 最多保留 200000 字符，超过则标记 `content_limit`。 |
+| 单页正文 | 默认 12000、最多 16000 字符；链接与标题另有独立数量、文本预算和截断标记。 |
+
+`WebHttpTransport` 只接受 HTTP(S)，拒绝带用户名或密码的 URL，并去掉片段部分。每一跳均检查协议、URL 凭据和重定向预算；允许访问当前网络可达的地址，不额外拦截 DNS、IP、局域网或本机地址，因此不能描述为网络安全沙箱。请求仍受系统网络授权和连接条件约束。取消或关闭运行会取消当前拥有的 HTTP 请求，正文提取和缓存读取也检查取消状态。参数、状态码及预算的事实源为 [AgentWebToolCatalog](../app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentWebToolCatalog.kt)、[WebHttpTransport](../app/src/main/kotlin/io/github/mangi/eta/agent/web/WebHttpTransport.kt) 与 [WebPageContent](../app/src/main/kotlin/io/github/mangi/eta/agent/web/WebPageContent.kt)。
+
+搜索摘要、网页正文和链接均标记为不可信外部数据，不能修改工具权限或覆盖 Runtime 指令。回答引用搜索结果时使用标题与返回的原始目标 URL；引用已读取页面时使用标题与 `final_url`，不能把内部文档 ID 当作来源，也不能把搜索摘要冒充完整阅读证据。运行摘要仅显示动作、主机与计数，不回显查询词、完整 URL、正文或服务端错误原文；原始工具交换仍按普通工具结果进入模型上下文与会话记录。
 
 ## 结构化文件工具
 

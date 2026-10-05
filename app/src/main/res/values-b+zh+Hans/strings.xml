@@ -339,7 +339,7 @@
   <string name="ui_enable_vendor_assistant_custom_models_c8e465">启用厂商助手自定义模型</string>
   <string name="ui_enable_this_provider_683a76">启用此 Provider</string>
   <string name="ui_enable_terminal_file_tools_18bb43">启用终端/文件工具</string>
-  <string name="ui_enable_web_browsing_tools_8b6b03">启用网页浏览工具</string>
+  <string name="ui_enable_web_browsing_tools_8b6b03">启用网页搜索、读取与浏览器</string>
   <string name="ui_enable_memory_4b69b7">启用记忆</string>
   <string name="ui_enable_device_direct_tools_e2d595">启用设备直达工具</string>
   <string name="ui_back_to_bottom_32282e">回到底部</string>
@@ -540,7 +540,7 @@
   <string name="state_used_to_read_recently_opened_applications_and_foregr_73e796">用于读取最近打开的应用和前台使用时长</string>
   <string name="state_system_enhancement_capabilities_are_reserved_for_sub_0a8b21">系统增强能力保留为后续二级功能</string>
   <string name="state_terminal_and_files_ae7c54">终端与文件</string>
-  <string name="state_web_browsing_e56105">网页浏览</string>
+  <string name="state_web_browsing_e56105">网页工具</string>
   <string name="state_memory_b55ff5">记忆</string>
   <string name="state_memory_system_4903eb">记忆系统</string>
   <string name="state_direct_access_to_equipment_eda92c">设备直达</string>
@@ -1323,4 +1323,8 @@
   <string name="tool_glob_files_description">使用路径模式递归查找文件，支持有界续查。</string>
   <string name="tool_grep_files">搜索文件内容</string>
   <string name="tool_grep_files_description">搜索 UTF-8 文本，返回匹配路径、行号与采集范围。</string>
+  <string name="tool_web_search">搜索网页</string>
+  <string name="tool_web_search_description">未使用 Provider 托管搜索时检索公开网页，返回标题、链接与摘要，无需额外 API Key。</string>
+  <string name="tool_fetch_url">读取网页正文</string>
+  <string name="tool_fetch_url_description">读取静态网页正文并分页续读；不执行网页脚本或共享浏览器登录状态。</string>
 </resources>

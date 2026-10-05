@@ -33,6 +33,8 @@ class AgentToolCatalogTest {
             ),
         )
         assertFalse("browser_use" in base)
+        assertFalse("web_search" in base)
+        assertFalse("fetch_url" in base)
         assertFalse("terminal" in base)
 
         variants.forEach { variant ->
@@ -231,7 +233,7 @@ class AgentToolCatalogTest {
     )
 
     private companion object {
-        val BROWSER_TOOLS = setOf("browser_use")
+        val BROWSER_TOOLS = setOf("browser_use", "web_search", "fetch_url")
         val TERMINAL_TOOLS = setOf(
             "read_image",
             "terminal",

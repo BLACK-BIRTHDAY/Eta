@@ -76,6 +76,10 @@ class AgentLocalToolsPermissionTest {
         )
 
         assertEquals("BROWSER_TOOLS_DISABLED", JSONObject(result.content).getString("code"))
+        listOf("web_search", "fetch_url").forEach { name ->
+            val webResult = tools.execute(AgentModelClient.ToolCall("disabled-$name", name, "{}"))
+            assertEquals(name, "BROWSER_TOOLS_DISABLED", JSONObject(webResult.content).getString("code"))
+        }
         tools.close()
     }
 

@@ -12,6 +12,10 @@ import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.device.RootShellDeviceController
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.agent.model.AgentHttpClient
+import io.github.mangi.eta.agent.device.LocalNetworkPermission
+import io.github.mangi.eta.agent.web.AgentWebTools
+import io.github.mangi.eta.agent.web.WebHttpTransport
 import io.github.mangi.eta.agent.model.AgentScreenObservationContract
 import io.github.mangi.eta.agent.model.AgentSensitiveToolPolicy
 import io.github.mangi.eta.agent.model.AgentFileToolCatalog
@@ -104,6 +108,10 @@ internal class AgentLocalTools(
         rootAvailable = rootAvailable,
     )
     private val imageTools = AgentImageTools(context, rootCommandExecutor, rootAvailable)
+    private val webTools = AgentWebTools(
+        transport = WebHttpTransport(AgentHttpClient.client),
+        localNetworkAccess = { LocalNetworkPermission.accessState(context).name.lowercase(Locale.ROOT) },
+    )
     private val terminalController = RootShellTerminalController(
         logger = logger,
         rootAvailable = rootAvailable,
@@ -142,6 +150,7 @@ internal class AgentLocalTools(
         if (!closed.compareAndSet(false, true)) return
         publishedObservation.set(PublishedObservation())
         AgentBrowserSession.interruptAgentAction(browserRunId)
+        webTools.close()
         terminalController.interruptAll()
         rootCommandExecutor.close()
         githubSkillSource?.close()
@@ -176,6 +185,10 @@ internal class AgentLocalTools(
                 "launch_app" -> textResult(launchApp(args))
                 "open_uri" -> textResult(openUri(args))
                 "browser_use" -> browserUse(args, toolCall.id)
+                "web_search", "fetch_url" -> {
+                    if (!browserToolsEnabled()) textResult(errorResult("BROWSER_TOOLS_DISABLED", "请先启用网页搜索、读取与浏览器工具"))
+                    else textResult(webTools.execute(toolCall.name, args))
+                }
                 "observe_screen" -> observeScreen(args)
                 "tap" -> textResult(tap(args))
                 "tap_area" -> textResult(tapArea(args))
