@@ -2,6 +2,7 @@ package io.github.mangi.eta.agent.voice
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -205,6 +206,13 @@ internal class EtaSpeechInput(
         downloadRecognizer = delegate
         onDownloadStatus(EtaSpeechDownloadStatus.DOWNLOADING)
         try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                delegate.triggerModelDownload(recognitionIntent())
+                downloadSource = null
+                // Android 13 没有下载回调，保留识别器到入口取消，避免服务连接前请求就被销毁。
+                onDownloadStatus(EtaSpeechDownloadStatus.SCHEDULED)
+                return
+            }
             delegate.triggerModelDownload(recognitionIntent(), context.mainExecutor, object : ModelDownloadListener {
                 private fun current() = downloadRecognizer === delegate
                 override fun onProgress(completedPercent: Int) {

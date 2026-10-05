@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
+  <string name="permission_local_network_title">Local network access</string>
+  <string name="permission_local_network_summary">Allow models, MCP, the built-in browser and terminals to access your local network when needed. Internet access remains available without this permission.</string>
+  <string name="permission_local_network_denied">Local network access was not granted. You can allow Nearby devices in the system app permission settings when you need a local service. Internet access remains available.</string>
+  <string name="permission_local_network_settings_unavailable">Could not open settings. Open Eta’s app permissions in system settings to allow Nearby devices.</string>
   <string name="settings_language">Language</string>
   <string name="settings_language_system">Follow system</string>
   <string name="app_name">Eta</string>

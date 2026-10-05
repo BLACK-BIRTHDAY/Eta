@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
+  <string name="permission_local_network_title">區域網路存取</string>
+  <string name="permission_local_network_summary">用於模型、MCP、內建瀏覽器和終端機存取區域網路，請按需授權；未授權仍可存取網際網路。</string>
+  <string name="permission_local_network_denied">尚未授予區域網路存取權限。需要連線至本機服務時，可前往系統應用程式權限設定，允許「附近的裝置」；網際網路連線不受影響。</string>
+  <string name="permission_local_network_settings_unavailable">無法開啟設定，請在系統設定中找到 Eta 的應用程式權限，允許「附近的裝置」。</string>
   <string name="settings_language">語言</string>
   <string name="settings_language_system">跟隨系統</string>
   <string name="app_name">Eta</string>

@@ -2770,7 +2770,7 @@ private fun buildPermissionHealthState(context: Context): PermissionHealthUiStat
     val usageAccessEnabled = io.github.mangi.eta.agent.tool.AgentPersonalContextTools.hasUsageAccess(context)
 
     return PermissionHealthUiState(
-        items = listOf(
+        items = listOfNotNull(
             PermissionHealthItemUi(
                 id = "background",
                 title = context.getString(R.string.state_background_running_permission_dde21b),
@@ -2792,6 +2792,7 @@ private fun buildPermissionHealthState(context: Context): PermissionHealthUiStat
                 status = if (appListEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
                 primaryActionLabel = if (appListEnabled) null else context.getString(R.string.state_ui_to_open_13ec17),
             ),
+            localNetworkPermissionHealthItem(context),
             PermissionHealthItemUi(
                 id = "location",
                 title = context.getString(R.string.state_location_permissions_b53f9c),
