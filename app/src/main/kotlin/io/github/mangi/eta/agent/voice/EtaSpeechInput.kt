@@ -56,6 +56,8 @@ internal class EtaSpeechInput(
     private val onResult: (String) -> Unit,
     private val onError: (EtaSpeechIssue) -> Unit,
     private val onDownloadStatus: (EtaSpeechDownloadStatus) -> Unit,
+    /** 期望的说完判定静音时长；系统服务可以忽略该提示，结果仍以服务回调为准。 */
+    private val completeSilenceMs: Int? = null,
 ) {
     private val handler = Handler(Looper.getMainLooper())
     private var recognizer: SpeechRecognizer? = null
@@ -301,6 +303,12 @@ internal class EtaSpeechInput(
         .putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
         .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        .apply {
+            completeSilenceMs?.let {
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, it.toLong())
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, it.toLong())
+            }
+        }
 
     private fun Bundle?.text(): String =
         this?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty().trim()

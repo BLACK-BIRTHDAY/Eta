@@ -1263,6 +1263,14 @@
   <string name="speech_qwen_base_url_hint">Base URL (leave empty for the region default)</string>
   <string name="speech_resource_id_hint">Resource ID (leave empty for the default)</string>
   <string name="speech_language_hint">Recognition language (empty = auto, e.g. zh, en, yue)</string>
+  <string name="speech_group_result">Recognition result</string>
+  <string name="speech_auto_send_title">Auto-send after pause</string>
+  <string name="speech_auto_send_off">Off</string>
+  <string name="speech_auto_send_seconds">%1$s s</string>
+  <string name="speech_auto_send_note">Applies to the assistant overlay only. When you hold the microphone, it sends on release.</string>
+  <string name="speech_refine_title">Smart correction</string>
+  <string name="speech_refine_summary">Uses the current chat model to fix homophones and mixed Chinese–English terms. Adds a little latency and cost.</string>
+  <string name="voice_release_to_send">Release to send, slide away to cancel</string>
   <string name="speech_legacy_auth">Use legacy authentication</string>
   <string name="speech_advanced">Advanced</string>
   <string name="speech_expand">Expand</string>

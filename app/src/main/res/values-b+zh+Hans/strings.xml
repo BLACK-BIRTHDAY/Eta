@@ -1240,6 +1240,14 @@
   <string name="speech_qwen_base_url_hint">服务地址（留空使用地域默认地址）</string>
   <string name="speech_resource_id_hint">资源 ID（留空使用默认值）</string>
   <string name="speech_language_hint">识别语言（留空自动识别，如 zh、en、yue）</string>
+  <string name="speech_group_result">识别结果</string>
+  <string name="speech_auto_send_title">停顿后自动发送</string>
+  <string name="speech_auto_send_off">不自动发送</string>
+  <string name="speech_auto_send_seconds">%1$s 秒</string>
+  <string name="speech_auto_send_note">仅对助手浮窗生效；按住麦克风说话时，松手才发送。</string>
+  <string name="speech_refine_title">智能纠错</string>
+  <string name="speech_refine_summary">用当前对话模型修正同音字和中英文术语，会增加少量延迟和费用</string>
+  <string name="voice_release_to_send">松开发送，移出取消</string>
   <string name="speech_legacy_auth">使用旧版鉴权</string>
   <string name="speech_advanced">高级设置</string>
   <string name="speech_expand">展开</string>
