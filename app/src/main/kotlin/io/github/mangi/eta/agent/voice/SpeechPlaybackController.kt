@@ -81,6 +81,7 @@ internal class SpeechPlaybackController(
      * 合成按网络速度下载，播放按实时速度写入音轨，两者经队列解耦。若在合成回调里直接写音轨，
      * 读流会被播放节奏拖住，一段音频时长超过合成超时就会中断，服务端也会长时间等待客户端读取。
      * 最多领先播放 [PREFETCH_CHUNKS] 段，既消除段间等待首包的停顿，也限制缓冲的 PCM 内存。
+     * 段与段无缝相接，接缝处由 [SpeechSegmentFade] 淡入淡出。
      */
     private suspend fun playChunks(
         config: SpeechSettings,
@@ -106,13 +107,20 @@ internal class SpeechPlaybackController(
         }
         withContext(Dispatchers.IO) {
             var announced = false
+            val fade = SpeechSegmentFade()
+            // 音轨写满时 write 会休眠重试；可中断才能让宿主取消立即结束这里，随后关闭音轨。
+            suspend fun play(bytes: ByteArray) {
+                if (bytes.isNotEmpty()) runInterruptible { player.write(bytes) }
+            }
             for (item in queue) when (item) {
                 is SpeechQueueItem.Audio -> {
-                    // 音轨写满时 write 会休眠重试；可中断才能让宿主取消立即结束这里，随后关闭音轨。
-                    runInterruptible { player.write(item.bytes) }
                     if (!announced) { announced = true; onFirstAudio() }
+                    play(fade.write(item.bytes))
                 }
-                SpeechQueueItem.ChunkEnd -> ahead.release()
+                SpeechQueueItem.ChunkEnd -> {
+                    play(fade.end())
+                    ahead.release()
+                }
             }
         }
     }
