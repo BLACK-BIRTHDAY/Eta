@@ -13,8 +13,9 @@ internal object DeviceMutationResult {
         expected: Any,
         commandAccepted: Boolean,
         failureCode: String? = null,
+        matchesExpected: Boolean = after == expected,
     ): JSONObject {
-        val verified = commandAccepted && after != null && after == expected
+        val verified = commandAccepted && after != null && matchesExpected
         val changed: Any = if (before != null && after != null) before != after else JSONObject.NULL
         return JSONObject()
             .put("ok", verified).put("tool", tool).put("user_id", userId).put("scope", scope)

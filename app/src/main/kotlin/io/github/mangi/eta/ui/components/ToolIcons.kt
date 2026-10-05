@@ -119,12 +119,22 @@ internal fun iconForTool(toolId: String): ImageVector = when (toolId) {
     "search_files" -> Icons.Rounded.FolderOpen
     "search_downloads" -> Icons.Rounded.Download
     "search_clipboard_history" -> Icons.Rounded.ContentPaste
-    "search_coloros_notes" -> Icons.AutoMirrored.Rounded.StickyNote2
-    "search_coloros_memories" -> Icons.Rounded.Psychology
+    "search_notes", "search_coloros_notes" -> Icons.AutoMirrored.Rounded.StickyNote2
+    "search_system_memories", "search_coloros_memories" -> Icons.Rounded.Psychology
     "search_personal_orders" -> Icons.Rounded.ShoppingBag
     "terminal", "terminal_job", "run_command" -> Icons.Rounded.Terminal
     "read_file", "stat_file" -> Icons.Rounded.Description
     "write_file", "edit_file" -> Icons.Rounded.EditNote
     "list_directory", "glob_files", "grep_files" -> Icons.Rounded.FolderOpen
-    else -> if (toolId.startsWith("mcp_")) Icons.Rounded.Extension else Icons.Rounded.Build
+    else -> when {
+        toolId in io.github.mangi.eta.agent.context.PersonalSearchTools.names -> Icons.Rounded.Insights
+        toolId in io.github.mangi.eta.agent.model.AgentPhoneToolCatalog.names -> when {
+            "calendar" in toolId -> Icons.Rounded.CalendarMonth
+            "alarm" in toolId -> Icons.Rounded.Alarm
+            "note" in toolId -> Icons.AutoMirrored.Rounded.StickyNote2
+            else -> Icons.Rounded.Smartphone
+        }
+        toolId.startsWith("mcp_") -> Icons.Rounded.Extension
+        else -> Icons.Rounded.Build
+    }
 }

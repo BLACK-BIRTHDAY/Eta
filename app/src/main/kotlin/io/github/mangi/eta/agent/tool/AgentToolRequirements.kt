@@ -3,11 +3,13 @@ package io.github.mangi.eta.agent.tool
 import org.json.JSONArray
 import org.json.JSONObject
 import io.github.mangi.eta.agent.model.AgentFileToolCatalog
+import io.github.mangi.eta.agent.model.AgentPhoneToolCatalog
+import io.github.mangi.eta.agent.context.PersonalSearchTools
 
 internal enum class RootRequirement { NONE, PARTIAL, REQUIRED }
 internal enum class LsposedRequirement { NONE, OPTIONAL, REQUIRED }
 
-internal enum class ToolSystemAccess { NONE, NOTIFICATIONS, USAGE, LOCATION }
+internal enum class ToolSystemAccess { NONE, NOTIFICATIONS, USAGE, LOCATION, CALENDAR_READ, CALENDAR_WRITE }
 
 internal data class LocalToolRequirement(
     val rootRequirement: RootRequirement,
@@ -52,10 +54,18 @@ internal object AgentToolRequirements {
             "list_alarms", "list_active_timers", "get_health_summary", "search_clipboard_history",
             "search_media", "search_audio", "search_recordings", "search_files",
             "search_calendar_events", "search_contacts", "search_call_history", "search_messages",
-            "search_downloads", "search_coloros_notes", "search_coloros_recordings",
-            "search_recording_summaries", "search_coloros_memories", "search_saved_places",
+            "search_downloads", "search_notes", "search_coloros_recordings",
+            "search_recording_summaries", "search_system_memories", "search_saved_places",
             "search_qq_chat_images", "search_wechat_chat_images",
         )
+        PersonalSearchTools.names.forEach { put(it, LocalToolRequirement(RootRequirement.REQUIRED, colorOs = true)) }
+        AgentPhoneToolCatalog.entries.forEach { entry ->
+            put(entry.name, LocalToolRequirement(entry.root, colorOs = entry.colorOs,
+                systemAccess = if (entry.name.contains("calendar")) {
+                    if (entry.write) ToolSystemAccess.CALENDAR_WRITE else ToolSystemAccess.CALENDAR_READ
+                } else ToolSystemAccess.NONE))
+        }
+        put("search_calendar_events", LocalToolRequirement(RootRequirement.PARTIAL, systemAccess = ToolSystemAccess.CALENDAR_READ))
         listOf(
             "observe_screen", "tap", "tap_area", "tap_element", "long_press",
             "long_press_element", "swipe", "scroll", "scroll_element", "input_text",
@@ -71,18 +81,18 @@ internal object AgentToolRequirements {
             "get_current_location" to ToolSystemAccess.LOCATION,
         ).forEach { (name, access) -> put(name, getValue(name).copy(systemAccess = access)) }
         listOf(
-            "search_coloros_notes", "search_coloros_recordings", "search_recording_summaries",
-            "search_coloros_memories", "search_saved_places",
+            "search_notes", "search_coloros_recordings", "search_recording_summaries",
+            "search_system_memories", "search_saved_places",
         ).forEach { name -> put(name, getValue(name).copy(colorOs = true)) }
         // 系统记忆优先使用 Hook 桥接，框架失联时仍有独立的 Root 快照来源。
-        listOf("search_coloros_memories", "search_saved_places", "search_personal_orders").forEach { name ->
+        listOf("search_system_memories", "search_saved_places", "search_personal_orders").forEach { name ->
             put(name, getValue(name).copy(lsposedRequirement = LsposedRequirement.OPTIONAL))
         }
     }
 
     val toolNames: Set<String> get() = definitions.keys
 
-    fun find(name: String): LocalToolRequirement? = definitions[name]
+    fun find(name: String): LocalToolRequirement? = definitions[PersonalSearchTools.canonical(name)]
 
     fun rootRequirement(name: String): RootRequirement =
         requireNotNull(find(name)) { "Missing tool requirements: $name" }.rootRequirement

@@ -28,6 +28,7 @@ class AgentLocalToolsPermissionTest {
         )
         root.set(false)
         listOf(
+            "search_bills" to "{}",
             "set_setting" to "{}",
             "terminal" to "{\"action\":\"open\",\"identity\":\"root\"}",
             "edit_file" to "{\"path\":\"x\",\"identity\":\"root\",\"old_text\":\"a\",\"new_text\":\"b\"}",
@@ -37,6 +38,19 @@ class AgentLocalToolsPermissionTest {
             assertEquals("ROOT_REQUIRED", JSONObject(result.content).getString("code"))
         }
         tools.close()
+    }
+
+    @Test
+    fun personalContextRechecksSensitiveReadPermissionAndRedactsDeniedCalls() {
+        val enabled = AtomicBoolean(true)
+        val tools = tools(rootAvailable = { true }, sensitiveReadEnabled = enabled::get,
+            beforeToolExecution = { error("已关闭个人信息读取时不能进入数据源执行阶段") })
+        tools.use {
+            enabled.set(false)
+            val result = it.execute(AgentModelClient.ToolCall("personal", "search_bills", "{}"))
+            assertEquals("DEVICE_SENSITIVE_READ_TOOLS_DISABLED", JSONObject(result.content).getString("code"))
+            assertTrue(result.sensitive)
+        }
     }
 
     @Test
@@ -268,6 +282,7 @@ class AgentLocalToolsPermissionTest {
         memoryEnabled: () -> Boolean = { false },
         memoryWritable: Boolean = true,
         rootAvailable: () -> Boolean = { false },
+        sensitiveReadEnabled: () -> Boolean = { false },
         screenObservationProvider: (
             (AgentScreenObservationContract.Options) -> RootShellDeviceController.Observation
         )? = null,
@@ -284,6 +299,7 @@ class AgentLocalToolsPermissionTest {
             memoryToolsEnabled = memoryEnabled,
             memoryWritable = memoryWritable,
             rootAvailable = rootAvailable,
+            deviceSensitiveReadToolsEnabled = sensitiveReadEnabled,
             screenObservationProvider = screenObservationProvider,
             beforeToolExecution = beforeToolExecution,
         )

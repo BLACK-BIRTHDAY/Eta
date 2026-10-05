@@ -1295,7 +1295,7 @@ internal class AgentLocalTools(
     )
 
     private companion object {
-        val DEVICE_DIRECT_TOOL_NAMES = setOf(
+        val DEVICE_DIRECT_TOOL_NAMES = io.github.mangi.eta.agent.model.AgentPhoneToolCatalog.direct + setOf(
             "set_alarm",
             "set_timer",
             "device_status",
@@ -1306,7 +1306,8 @@ internal class AgentLocalTools(
             "media_control",
             "set_volume",
         )
-        val DEVICE_SENSITIVE_READ_TOOL_NAMES = setOf(
+        val DEVICE_SENSITIVE_READ_TOOL_NAMES = io.github.mangi.eta.agent.context.PersonalSearchTools.names + io.github.mangi.eta.agent.model.AgentPhoneToolCatalog.reads + setOf(
+            "search_notes", "search_system_memories",
             "get_setting",
             "wifi_credentials",
             "recent_notifications",
@@ -1339,7 +1340,7 @@ internal class AgentLocalTools(
             "search_qq_chat_images",
             "search_wechat_chat_images",
         )
-        val DEVICE_SENSITIVE_ACTION_TOOL_NAMES = setOf(
+        val DEVICE_SENSITIVE_ACTION_TOOL_NAMES = io.github.mangi.eta.agent.model.AgentPhoneToolCatalog.writes + setOf(
             "set_setting",
             "set_device_state",
             "app_state_control",

@@ -506,7 +506,9 @@
   <string name="state_hook_secondary_ability_95afe3">Hook 二级能力</string>
   <string name="state_root_permissions_958906">Root 权限</string>
   <string name="state_runtime_displays_a_status_pop_up_window_when_the_ser_54f285">Runtime 服务运行时显示状态浮窗</string>
-  <string name="state_direct_access_to_personal_data_387d7b">个人数据直达</string>
+  <string name="state_direct_access_to_personal_data_387d7b">个人上下文</string>
+  <string name="tool_personal_context">个人上下文</string>
+  <string name="tool_personal_context_description">按内容与时间检索照片、便签、记忆、账单和行程索引，读取详情并统计汇总。</string>
   <string name="state_location_permissions_b53f9c">位置权限</string>
   <string name="state_usage_access_20f1f8">使用情况访问</string>
   <string name="state_the_built_in_skills_have_not_changed_please_try_agai_34e5e3">内置 Skills 未发生变化，请稍后重试。</string>
@@ -543,7 +545,7 @@
   <string name="state_web_browsing_e56105">网页工具</string>
   <string name="state_memory_b55ff5">记忆</string>
   <string name="state_memory_system_4903eb">记忆系统</string>
-  <string name="state_direct_access_to_equipment_eda92c">设备直达</string>
+  <string name="state_direct_access_to_equipment_eda92c">系统与一方应用操作</string>
   <string name="state_please_select_the_zip_file_provided_by_the_system_fi_fea145">请选择由系统文件选择器提供的 ZIP 文件。</string>
   <string name="state_run_floating_window_48af02">运行浮窗</string>
   <string name="state_notice_of_use_rights_1ae29a">通知使用权</string>

@@ -188,6 +188,38 @@ Root 探测在 IO 线程执行：存在 `su` 时首次自动请求一次，最�
 
 `get_setting` 与系统写操作统一指定或报告 `user_id`，不再把 Root 命令中的前台用户当作 Eta 所属用户；当前不提供跨资料后端。`global` 设置和 Wi-Fi/蓝牙属于设备级状态。`set_setting`、`set_device_state`、`app_state_control`、`set_volume` 返回 `before`、`after`、`expected`、`changed` 与 `verified`，命令退出 0 或 API 接受请求不再等同于目标状态生效。读回未达到目标或过渡状态尚未结束时返回 `STATE_CHANGE_UNCONFIRMED`；无法比较前后值时 `changed` 为 null。已有目标状态可以验证成功而 `changed=false`。设置原始值按敏感工具数据处理。
 
+## 个人上下文与一方应用操作
+
+工具页将“个人上下文”和“系统与应用操作”分组展示：前者查找和理解用户信息，后者修改日历、闹钟、便签和系统状态。分组描述产品职责，权限仍沿用设备直达、敏感读取、敏感操作等独立开关。模型直接调用领域工具，基本应用操作不依赖 Skills。
+
+### 个人上下文
+
+模型目录使用 `search_notes`、`search_system_memories`、`search_bills`、`search_flights` 等明确入口，不公开 `personal_context(action, source)` 万能工具。旧 `search_coloros_notes`、`search_coloros_memories` 名称只在执行层兼容，不重复出现在模型目录中。合同分别见 [AgentPersonalSearchToolCatalog](../app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentPersonalSearchToolCatalog.kt) 和 [AgentDeviceToolCatalog](../app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentDeviceToolCatalog.kt)。
+
+- 媒体、文件、联系人、短信、通话、录音和便签等原始来源使用类型化 Provider 查询；日程读取使用 Calendar Provider。固定 URI、字段与参数由执行器管理，不向模型开放 SQL 或任意 Provider。
+- `search_media`、`search_files` 默认按原始来源检索名称，`match=content` 查询 ColorOS 内容索引。`search_notes` 优先读取原始便签；来源不可用时可返回明确标记的历史索引，`current_only=true` 禁止这种回退。空游标接口与零条记录分别处理。
+- 账单、待办线索、日历待办、记忆合集、生活事件和行程工具使用 ColorOS DMP 索引，需要 Root 与兼容的系统来源。来源可用性、字段覆盖与结果新鲜度以本次结果为准。索引可能延迟、遗漏或保留旧记录，不能证明“刚创建”“当前仍存在”；推断事件也不是已核实事实。
+- 索引查询返回 `ref`，由 `read_personal_item` 读取详情。该引用不能作为日历 event_id、闹钟 alarm_id 或便签 UUID；操作前必须查找并核对原始对象身份。
+
+索引查询关键词最多 200 字，单页默认 10 条、最多 30 条，偏移范围为 0 到 10000。时间使用带偏移的 ISO 8601，范围为包含起点、不包含终点的 `[start_time, end_time)`。记忆合集没有已确认的业务时间字段，不支持时间筛选。分页面对变化中的索引，不承诺跨页快照；结果分别报告续页、截断、字段缺失与时间语义。录音转写路径不等于转写正文，历史通知也不代表当前通知栏。
+
+`summarize_bills` 最多完整处理 1000 条匹配记录，使用 `BigDecimal` 按元、CNY 汇总；超过上限、金额无效或输入截断时失败，不返回部分总额。收入、支出、转账和未知类型分列；负金额按原值累加，不推断退款净额。最多展示 20 个分类，其余合并进 `other_categories`。结果只覆盖匹配的系统索引，不承诺银行账本完整性。
+
+原始个人数据参数与结果只供当前模型回合使用，不进入持久 transcript；模型组织的最终答复仍按普通会话保存。
+
+### 一方应用操作
+
+[AgentPhoneToolCatalog](../app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentPhoneToolCatalog.kt) 集中声明新增入口及其权限元数据。`agent/phone/` 按日历、时钟、便签和系统操作划分执行器；Root 通道以标准输入传输类型化请求，通过 `app_process` 调用 Eta 的固定入口，参数不拼入 Shell 命令。Root 身份使用真实调用归属，不冒充系统助手包名。
+
+| 领域 | 能力与边界 |
+| --- | --- |
+| 日历 | 列出可写日历、读取日程、创建单条或批量日程、修改及删除。可使用普通日历读写权限或 Root；多日历时必须明确选择。事件和提醒在事务中写入，批量最多 30 条。当前不编辑重复事件，删除整组须显式指定 `scope=series`。全天时间使用 UTC 零点与排他的结束日期。 |
+| 闹钟 | 保留标准 Intent 创建与计时器入口；兼容 ColorOS 的 Root 通道支持创建、读取、修改时间、启停和精确删除。修改时间保留原启用状态；显式震动参数使用标准 Intent，避免厂商接口忽略该参数。 |
+| 便签 | 兼容 ColorOS 的 Root 接口支持创建、按 UUID 读取、移入回收站；尚不提供富文本修改。创建前检查读取接口是否就绪，解析业务返回值并读回核对，不能凭非空 URI 宣称成功。 |
+| 系统 | 手电筒开关及状态；亮度、自动亮度、旋转、息屏时间、深色和护眼模式；音量、响铃和勿扰；Wi-Fi、蓝牙、移动数据、飞行模式、定位、NFC、省电和个人热点。具体 Root、权限和 ROM 条件由工具元数据与执行结果报告。 |
+
+手电筒使用 CameraManager 回调核对状态；系统开关读取实际状态，应用操作读取原始记录。请求被接受、命令退出成功与状态已确认分别处理。写入后超时、响应不完整或读回失败返回 `unconfirmed`，应先查状态，不能自动重试创建。系统接口不可用时返回具体失败，不写未经确认的数据库字段冒充业务操作完成。
+
 ## 终端环境
 
 模型目录中的命令执行统一使用 `terminal` 的 `action=exec`；`open` 创建会话后仍以 `exec/session_id` 复用。旧 `run_command` 与 `open_and_exec` 不再向模型公开，执行层保留旧入口供既有调用方兼容；新模型调用仍须通过本轮工具目录校验。`TerminalToolContract` 同时定义模型 Schema 和执行前校验，动作只接受其相关字段；使用 `session_id` 时不能再传 `cwd`、`identity`、`environment`，`async=true` 也不能复用持久会话。

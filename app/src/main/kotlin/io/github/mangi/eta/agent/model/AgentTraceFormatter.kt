@@ -58,6 +58,9 @@ internal class AgentTraceFormatter {
             "skills_install_from_github" -> "安装技能"
             else -> {
                 val label = DEVICE_ACTION_LABELS[toolCall.name]
+                    ?: AgentPhoneToolCatalog.entries.firstOrNull { it.name == toolCall.name }?.title
+                    ?: io.github.mangi.eta.agent.context.PersonalSearchTools.searches.firstOrNull { it.name == toolCall.name }?.title
+                    ?: when (toolCall.name) { "search_notes" -> "查询便签"; "search_system_memories" -> "查询系统记忆"; "read_personal_item" -> "读取检索详情"; "summarize_bills" -> "汇总账单"; else -> null }
                 when {
                     label == null -> "准备执行"
                     toolCall.name.startsWith("search_") ->

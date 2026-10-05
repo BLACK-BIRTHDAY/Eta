@@ -37,6 +37,7 @@ internal class DeviceStateMutations(
         DeviceToolContract.userScopeError(args, userId)?.let { return it.toString() }
         val target = args.optString("target").lowercase(Locale.ROOT)
         val enabled = args.opt("enabled") as? Boolean ?: return invalid("enabled 必须是布尔值")
+        if (target !in setOf("wifi", "bluetooth")) return SystemStateControls(context, executeRoot).set(target, enabled).toString()
         val command = when (target) {
             "wifi" -> "cmd wifi set-wifi-enabled ${if (enabled) "enabled" else "disabled"}"
             "bluetooth" -> "cmd bluetooth_manager ${if (enabled) "enable" else "disable"}"
@@ -82,6 +83,8 @@ internal class DeviceStateMutations(
             "alarm" -> AudioManager.STREAM_ALARM
             "ring" -> AudioManager.STREAM_RING
             "notification" -> AudioManager.STREAM_NOTIFICATION
+            "voice_call" -> AudioManager.STREAM_VOICE_CALL
+            "system" -> AudioManager.STREAM_SYSTEM
             else -> return invalid("不支持的音量通道")
         }
         val percent = args.optInt("percent", -1)
@@ -122,7 +125,7 @@ internal class DeviceStateMutations(
         null
     }
 
-    private fun readDeviceState(target: String): Boolean? = if (target == "wifi") {
+    internal fun readDeviceState(target: String): Boolean? = if (target == "wifi") {
         try {
             when (context.applicationContext.getSystemService(WifiManager::class.java)?.wifiState) {
                 WifiManager.WIFI_STATE_ENABLED -> true

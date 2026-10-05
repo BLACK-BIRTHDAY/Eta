@@ -525,7 +525,9 @@
   <string name="state_hook_secondary_ability_95afe3">Hook secondary ability</string>
   <string name="state_root_permissions_958906">Root permissions</string>
   <string name="state_runtime_displays_a_status_pop_up_window_when_the_ser_54f285">Runtime displays a status pop-up window when the service is running</string>
-  <string name="state_direct_access_to_personal_data_387d7b">Direct access to personal data</string>
+  <string name="state_direct_access_to_personal_data_387d7b">Personal context</string>
+  <string name="tool_personal_context">Personal context</string>
+  <string name="tool_personal_context_description">Search indexed photos, notes, memories, bills and travel by content or time; read details and calculate totals.</string>
   <string name="state_location_permissions_b53f9c">location permissions</string>
   <string name="state_usage_access_20f1f8">usage access</string>
   <string name="state_the_built_in_skills_have_not_changed_please_try_agai_34e5e3">The built-in skills have not changed, please try again later.</string>
@@ -562,7 +564,7 @@
   <string name="state_web_browsing_e56105">网页工具</string>
   <string name="state_memory_b55ff5">memory</string>
   <string name="state_memory_system_4903eb">memory system</string>
-  <string name="state_direct_access_to_equipment_eda92c">Direct access to equipment</string>
+  <string name="state_direct_access_to_equipment_eda92c">System and built-in apps</string>
   <string name="state_please_select_the_zip_file_provided_by_the_system_fi_fea145">Please select the ZIP file provided by the system file selector.</string>
   <string name="state_run_floating_window_48af02">Run floating window</string>
   <string name="state_notice_of_use_rights_1ae29a">Notice of use rights</string>

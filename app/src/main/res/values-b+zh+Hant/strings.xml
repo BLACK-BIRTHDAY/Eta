@@ -494,7 +494,9 @@
   <string name="state_hook_secondary_ability_95afe3">Hook 二級能力</string>
   <string name="state_root_permissions_958906">Root 權限</string>
   <string name="state_runtime_displays_a_status_pop_up_window_when_the_ser_54f285">Runtime 服務運作時顯示狀態浮窗</string>
-  <string name="state_direct_access_to_personal_data_387d7b">個人資料直達</string>
+  <string name="state_direct_access_to_personal_data_387d7b">個人上下文</string>
+  <string name="tool_personal_context">個人上下文</string>
+  <string name="tool_personal_context_description">按內容與時間檢索照片、便箋、記憶、帳單和行程索引，讀取詳情並統計彙總。</string>
   <string name="state_location_permissions_b53f9c">位置權限</string>
   <string name="state_usage_access_20f1f8">使用情況存取權</string>
   <string name="state_the_built_in_skills_have_not_changed_please_try_agai_34e5e3">內建 Skills 未發生變化，請稍後重試。</string>

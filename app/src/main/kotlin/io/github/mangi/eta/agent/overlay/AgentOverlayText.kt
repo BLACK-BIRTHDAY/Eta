@@ -79,7 +79,8 @@ internal fun AgentOverlayStatus.localizedText(): String = when (this) {
 
 @Composable
 internal fun toolDisplayName(name: String): String {
-    val resource = toolDisplayNameResource(name) ?: return name
+    val resource = toolDisplayNameResource(name) ?: return io.github.mangi.eta.agent.model.AgentPhoneToolCatalog.entries.firstOrNull { it.name == name }?.title
+        ?: io.github.mangi.eta.agent.context.PersonalSearchTools.searches.firstOrNull { it.name == name }?.title ?: name
     return stringResource(resource)
 }
 

@@ -67,6 +67,18 @@ class ToolCatalogUiTest {
     }
 
     @Test
+    fun personalQueriesAndNativeOperationsHaveSeparateGroups() {
+        val group = buildToolsState(RuntimeEnvironment.getApplication()).groups.first { it.id == "personal_data" }
+        assertTrue(group.tools.any { it.id == "search_bills" })
+        assertTrue(group.tools.none { it.id == "personal_context" || it.id == "create_note" })
+        val operations = buildToolsState(RuntimeEnvironment.getApplication()).groups.first { it.id == "device_direct" }
+        assertTrue(operations.tools.any { it.id == "set_flashlight" })
+        assertTrue(operations.tools.any { it.id == "create_calendar_event" })
+        assertEquals(RootRequirement.REQUIRED, toolCardRequirement("search_bills").rootRequirement)
+        assertTrue(toolCardRequirement("search_bills").colorOs)
+    }
+
+    @Test
     fun everyDisplayedCardHasExplicitMetadataAndKeepsItsOriginalOrder() {
         val groups = buildToolsState(RuntimeEnvironment.getApplication()).groups
         val allCards = groups.flatMap { it.tools }

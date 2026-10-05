@@ -88,6 +88,16 @@ class AgentToolRequirementsTest {
             .unavailableCode("search_coloros_memories"))
     }
 
+    @Test
+    fun indexedSearchNeedsRootAndColorOsButDoesNotRequireAnXposedConnection() {
+        assertEquals("ROOT_REQUIRED", AgentToolCapabilities(rootAvailable = false, colorOs = true)
+            .unavailableCode("search_bills"))
+        assertEquals("DEVICE_UNSUPPORTED", AgentToolCapabilities(rootAvailable = true, colorOs = false)
+            .unavailableCode("search_bills"))
+        assertEquals(null, AgentToolCapabilities(rootAvailable = true, colorOs = true, lsposedAvailable = false)
+            .unavailableCode("search_bills"))
+    }
+
     private fun catalog(root: Boolean) = AgentToolCatalog.build(
         terminalTools = true, browserTools = true, deviceDirectTools = true,
         deviceSensitiveReadTools = true, deviceSensitiveActionTools = true,
