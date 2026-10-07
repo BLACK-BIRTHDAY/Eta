@@ -13,6 +13,8 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.overlay.AgentOverlayStatus
+import io.github.mangi.eta.agent.overlay.localizedText
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.ui.MainActivity
@@ -92,8 +94,16 @@ internal class AgentExecutionService : Service() {
     }
 
     private fun notification(): Notification {
+        val status = runStatus
+        val openIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            // ColorOS 自由悬浮小窗意图参数
+            putExtra("android.activity.windowingMode", 5) // WINDOWING_MODE_FREEFORM
+            putExtra("com.oplus.intent.extra.WINDOW_MODE", 100)
+            putExtra("oplus_freeform_window", true)
+        }
         val open = PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java),
+            this, 0, openIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val stop = PendingIntent.getService(
@@ -101,15 +111,37 @@ internal class AgentExecutionService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val taskCount = leases.count()
-        return Notification.Builder(this, CHANNEL)
+        val builder = Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.execution_title))
-            .setContentText(resources.getQuantityString(R.plurals.execution_summary, taskCount, taskCount))
+            .setContentText(
+                status?.localizedText(resources)
+                    ?: resources.getQuantityString(R.plurals.execution_summary, taskCount, taskCount)
+            )
             .setContentIntent(open)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null, getString(R.string.execution_stop), stop).build())
-            .build()
+        // 只有 Agent run 在跑且处于后台时才申请提升为 Live Update（前台保持纯净视觉）；终端会话、Linux 启动等长驻任务保持普通通知。
+        val shouldPromote = status != null && !EtaLiveUpdateManager.isAppInForeground
+        val isAndroid16OrBaklava = Build.VERSION.SDK_INT >= 36 ||
+            (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1)
+        if (shouldPromote && isAndroid16OrBaklava) {
+            builder
+                .setStyle(Notification.ProgressStyle().setProgressIndeterminate(true))
+                .setShortCriticalText(status.shortText())
+                .setRequestPromotedOngoing(true)
+        }
+        return builder.build()
+    }
+
+    /** 状态栏胶囊约 7 个字符可完整显示；更长时只取动作，工具名留在展开态。 */
+    private fun AgentOverlayStatus.shortText(): String = when (this) {
+        is AgentOverlayStatus.RunningTool, is AgentOverlayStatus.HostedToolRunning -> "⚙️ " + getString(R.string.execution_chip_running)
+        AgentOverlayStatus.Paused -> "⏸️ " + getString(R.string.overlay_paused)
+        AgentOverlayStatus.Stopping -> "⏹️ " + getString(R.string.overlay_stopping)
+        AgentOverlayStatus.GeneratingAnswer -> "💬 " + getString(R.string.execution_chip_answering)
+        else -> "🧠 " + getString(R.string.overlay_reasoning)
     }
 
     companion object {
@@ -120,6 +152,29 @@ internal class AgentExecutionService : Service() {
         private val ownerSequence = AtomicLong()
         private val mainHandler = Handler(Looper.getMainLooper())
         @Volatile private var instance: AgentExecutionService? = null
+        private var runStatus: AgentOverlayStatus? = null
+        private var publishedStatusText: String? = null
+
+        /** 前后台切换时，触发状态栏胶囊升起/收回更新 */
+        fun onForegroundStateChanged() {
+            mainHandler.post {
+                instance?.takeIf { it.foregroundActive }?.refreshNotification()
+            }
+        }
+
+        /**
+         * Agent run 的当前状态，供通知与状态栏胶囊展示；null 表示没有 Agent run 在跑。
+         * 只在显示文字变化时刷新通知，避免流式事件把通知更新频率推到系统限流。
+         */
+        fun updateRunStatus(context: Context, status: AgentOverlayStatus?) {
+            mainHandler.post {
+                runStatus = status
+                val text = status?.localizedText(context.resources)
+                if (text == publishedStatusText) return@post
+                publishedStatusText = text
+                instance?.takeIf { it.foregroundActive }?.refreshNotification()
+            }
+        }
 
         /** 必须从有效的用户入口取得引用，再创建会话或子进程；失败时调用方不启动任务。 */
         fun acquire(

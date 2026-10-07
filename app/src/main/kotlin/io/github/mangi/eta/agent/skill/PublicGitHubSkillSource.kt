@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import okhttp3.Call
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
@@ -184,6 +185,7 @@ internal object GitHubSkillRepositoryParser {
 internal class PublicGitHubSkillSource(
     cacheRoot: File,
     baseClient: OkHttpClient,
+    private val tokenProvider: () -> String? = { null },
 ) : Closeable {
     private val client = baseClient.newBuilder()
         .followRedirects(false)
@@ -192,6 +194,10 @@ internal class PublicGitHubSkillSource(
     private val cacheDirectory = File(cacheRoot, "skill-github")
     private val activeCalls = ConcurrentHashMap.newKeySet<Call>()
     private val closed = AtomicBoolean(false)
+
+    private fun resolveToken(tokenOverride: String?): String? =
+        tokenOverride?.trim()?.takeIf { it.isNotBlank() }
+            ?: tokenProvider()?.trim()?.takeIf { it.isNotBlank() }
 
     fun listCurated(): GitHubSkillInspection = inspect(
         GitHubSkillRepository(
@@ -202,10 +208,14 @@ internal class PublicGitHubSkillSource(
         ),
     )
 
-    fun inspect(repository: GitHubSkillRepository): GitHubSkillInspection {
+    fun inspect(
+        repository: GitHubSkillRepository,
+        tokenOverride: String? = null,
+    ): GitHubSkillInspection {
         ensureOpen()
-        val ref = repository.ref ?: resolveDefaultBranch(repository)
-        val commit = resolveCommit(repository, ref)
+        val token = resolveToken(tokenOverride)
+        val ref = repository.ref ?: resolveDefaultBranch(repository, token)
+        val commit = resolveCommit(repository, ref, token)
         val tree = getJson(
             apiUrl(
                 "repos",
@@ -217,6 +227,7 @@ internal class PublicGitHubSkillSource(
                 query = "recursive" to "1",
             ),
             MAX_TREE_RESPONSE_BYTES,
+            token = token,
         )
         if (tree.optBoolean("truncated", false)) {
             throw GitHubSkillSourceException(
@@ -262,10 +273,14 @@ internal class PublicGitHubSkillSource(
         )
     }
 
-    fun downloadArchive(repository: GitHubSkillRepository): DownloadedGitHubArchive {
+    fun downloadArchive(
+        repository: GitHubSkillRepository,
+        tokenOverride: String? = null,
+    ): DownloadedGitHubArchive {
         ensureOpen()
-        val ref = repository.ref ?: resolveDefaultBranch(repository)
-        val resolvedCommitSha = resolveCommit(repository, ref).sha
+        val token = resolveToken(tokenOverride)
+        val ref = repository.ref ?: resolveDefaultBranch(repository, token)
+        val resolvedCommitSha = resolveCommit(repository, ref, token).sha
         if (
             COMMIT_SHA_PATTERN.matches(ref) &&
             !resolvedCommitSha.equals(ref, ignoreCase = true)
@@ -280,8 +295,11 @@ internal class PublicGitHubSkillSource(
         cleanupStaleArchives()
         val target = File.createTempFile("eta-skill-github-", ".zip", cacheDirectory)
         return try {
-            val url = codeloadUrl(repository, commitSha)
-            downloadTo(url, target, MAX_ARCHIVE_BYTES)
+            if (!token.isNullOrBlank()) {
+                downloadAuthenticatedArchive(repository, commitSha, token, target)
+            } else {
+                downloadTo(codeloadUrl(repository, commitSha), target, MAX_ARCHIVE_BYTES)
+            }
             DownloadedGitHubArchive(
                 file = target,
                 repository = repository.slug,
@@ -294,16 +312,33 @@ internal class PublicGitHubSkillSource(
         }
     }
 
+    private fun downloadAuthenticatedArchive(
+        repository: GitHubSkillRepository,
+        commitSha: String,
+        token: String,
+        target: File,
+    ) {
+        val zipballUrl = apiUrl("repos", repository.owner, repository.repository, "zipball", commitSha)
+        try {
+            execute(zipballUrl, accept = "application/vnd.github+json", token = token, allowRedirect = true) { response ->
+                saveResponseBody(response, target, MAX_ARCHIVE_BYTES)
+            }
+        } catch (ex: GitHubSkillSourceException) {
+            downloadTo(codeloadUrl(repository, commitSha), target, MAX_ARCHIVE_BYTES)
+        }
+    }
+
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
         activeCalls.forEach(Call::cancel)
         activeCalls.clear()
     }
 
-    private fun resolveDefaultBranch(repository: GitHubSkillRepository): String {
+    private fun resolveDefaultBranch(repository: GitHubSkillRepository, token: String?): String {
         val metadata = getJson(
             apiUrl("repos", repository.owner, repository.repository),
             MAX_METADATA_RESPONSE_BYTES,
+            token = token,
         )
         return metadata.optString("default_branch").trim()
             .takeIf { it.isNotBlank() }
@@ -314,10 +349,15 @@ internal class PublicGitHubSkillSource(
             )
     }
 
-    private fun resolveCommit(repository: GitHubSkillRepository, ref: String): CommitPointer {
+    private fun resolveCommit(
+        repository: GitHubSkillRepository,
+        ref: String,
+        token: String?,
+    ): CommitPointer {
         val commit = getJson(
             apiUrl("repos", repository.owner, repository.repository, "commits", ref),
             MAX_METADATA_RESPONSE_BYTES,
+            token = token,
         )
         val sha = commit.optString("sha").takeIf { COMMIT_SHA_PATTERN.matches(it) }
         val treeSha = commit.optJSONObject("commit")
@@ -333,8 +373,8 @@ internal class PublicGitHubSkillSource(
         return CommitPointer(sha = sha, treeSha = treeSha)
     }
 
-    private fun getJson(url: HttpUrl, maxBytes: Long): JSONObject {
-        val bytes = execute(url) { response ->
+    private fun getJson(url: HttpUrl, maxBytes: Long, token: String? = null): JSONObject {
+        val bytes = execute(url, token = token) { response ->
             val contentLength = response.body.contentLength()
             if (contentLength > maxBytes) responseTooLarge()
             response.body.byteStream().use { input ->
@@ -361,29 +401,35 @@ internal class PublicGitHubSkillSource(
             }
     }
 
-    private fun downloadTo(url: HttpUrl, target: File, maxBytes: Long) {
-        execute(url, accept = "application/zip") { response ->
-            val contentLength = response.body.contentLength()
-            if (contentLength > maxBytes) archiveTooLarge()
-            response.body.byteStream().use { input ->
-                FileOutputStream(target).use { output ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var total = 0L
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read < 0) break
-                        total += read
-                        if (total > maxBytes) archiveTooLarge()
-                        output.write(buffer, 0, read)
-                    }
+    private fun saveResponseBody(response: okhttp3.Response, target: File, maxBytes: Long) {
+        val contentLength = response.body.contentLength()
+        if (contentLength > maxBytes) archiveTooLarge()
+        response.body.byteStream().use { input ->
+            FileOutputStream(target).use { output ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                var total = 0L
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    total += read
+                    if (total > maxBytes) archiveTooLarge()
+                    output.write(buffer, 0, read)
                 }
             }
+        }
+    }
+
+    private fun downloadTo(url: HttpUrl, target: File, maxBytes: Long, token: String? = null) {
+        execute(url, accept = "application/zip", token = token) { response ->
+            saveResponseBody(response, target, maxBytes)
         }
     }
 
     private fun <T> execute(
         url: HttpUrl,
         accept: String = "application/vnd.github+json",
+        token: String? = null,
+        allowRedirect: Boolean = false,
         block: (okhttp3.Response) -> T,
     ): T {
         ensureOpen()
@@ -392,6 +438,11 @@ internal class PublicGitHubSkillSource(
             .header("Accept", accept)
             .header("User-Agent", USER_AGENT)
             .header("X-GitHub-Api-Version", GITHUB_API_VERSION)
+            .apply {
+                if (!token.isNullOrBlank()) {
+                    header("Authorization", "Bearer $token")
+                }
+            }
             .build()
         val call = client.newCall(request)
         activeCalls += call
@@ -399,6 +450,17 @@ internal class PublicGitHubSkillSource(
         return try {
             call.execute().use { response ->
                 if (response.isRedirect) {
+                    if (allowRedirect) {
+                        val location = response.header("Location")
+                            ?: throw GitHubSkillSourceException("GITHUB_REDIRECT_REJECTED", "GitHub 重定向缺少 Location")
+                        val redirectUrl = location.toHttpUrlOrNull()
+                            ?: throw GitHubSkillSourceException("GITHUB_REDIRECT_REJECTED", "GitHub 重定向地址无效")
+                        val host = redirectUrl.host.lowercase(Locale.ROOT)
+                        if (host !in ALLOWED_DOWNLOAD_REDIRECT_HOSTS) {
+                            throw GitHubSkillSourceException("GITHUB_REDIRECT_REJECTED", "已拒绝重定向至未授权域名: $host")
+                        }
+                        return execute(redirectUrl, accept = "application/zip", token = null, allowRedirect = false, block = block)
+                    }
                     throw GitHubSkillSourceException(
                         "GITHUB_REDIRECT_REJECTED",
                         "GitHub 下载发生重定向，已拒绝访问其他主机",
@@ -406,11 +468,13 @@ internal class PublicGitHubSkillSource(
                 }
                 if (!response.isSuccessful) {
                     val code = when (response.code) {
+                        401 -> "GITHUB_UNAUTHORIZED"
                         403, 429 -> "GITHUB_RATE_LIMITED"
                         404 -> "GITHUB_NOT_FOUND"
                         else -> "GITHUB_REQUEST_FAILED"
                     }
                     val message = when (code) {
+                        "GITHUB_UNAUTHORIZED" -> "GitHub 访问令牌无效或已过期"
                         "GITHUB_RATE_LIMITED" -> "GitHub 请求受限，请稍后重试"
                         "GITHUB_NOT_FOUND" -> "未找到公开 GitHub 仓库、ref 或路径"
                         else -> "GitHub 请求失败（HTTP ${response.code}）"
@@ -424,7 +488,7 @@ internal class PublicGitHubSkillSource(
         } catch (failure: IOException) {
             throw GitHubSkillSourceException(
                 code = if (closed.get()) "GITHUB_REQUEST_CANCELLED" else "GITHUB_NETWORK_ERROR",
-                message = if (closed.get()) "GitHub 请求已取消" else "无法访问 GitHub 公共仓库",
+                message = if (closed.get()) "GitHub 请求已取消" else "无法访问 GitHub 仓库",
                 cause = failure,
             )
         } finally {
@@ -525,5 +589,11 @@ internal class PublicGitHubSkillSource(
         const val MAX_ARCHIVE_BYTES = 32L * 1024 * 1024
         const val STALE_ARCHIVE_AGE_MILLIS = 24L * 60 * 60 * 1_000
         val COMMIT_SHA_PATTERN = Regex("[a-fA-F0-9]{40,64}")
+        val ALLOWED_DOWNLOAD_REDIRECT_HOSTS = setOf(
+            "codeload.github.com",
+            "objects.githubusercontent.com",
+            "github.com",
+            "raw.githubusercontent.com",
+        )
     }
 }

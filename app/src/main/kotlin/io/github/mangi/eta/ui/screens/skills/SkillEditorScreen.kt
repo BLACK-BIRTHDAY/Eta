@@ -29,7 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.skill.SkillParser
-import io.github.mangi.eta.ui.app.AgentAppState
+import io.github.mangi.eta.ui.app.AgentSkillsStore
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.markdown.MarkdownTone
 import io.github.mangi.eta.ui.markdown.StaticMarkdown
@@ -53,21 +53,21 @@ private val CardBottomPadding = 12.dp
 @Composable
 internal fun SkillEditorScreen(
     skillId: String,
-    agentState: AgentAppState,
+    skills: AgentSkillsStore,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val initialContent = remember(skillId) {
-        agentState.loadSkillFileContent(skillId).orEmpty()
+        skills.loadSkillFileContent(skillId).orEmpty()
     }
-    val skillItem = agentState.skillsState.skills.firstOrNull { it.id == skillId }
+    val skillItem = skills.skillsState.skills.firstOrNull { it.id == skillId }
     val skillName = skillItem?.name?.takeIf { it.isNotBlank() } ?: skillId
 
     SkillEditorScreen(
         skillId = skillId,
         skillName = skillName,
         initialContent = initialContent,
-        onSave = { newContent -> agentState.saveSkillFileContent(skillId, newContent, fallbackName = skillName) },
+        onSave = { newContent -> skills.saveSkillFileContent(skillId, newContent, fallbackName = skillName) },
         onBack = onBack,
         modifier = modifier,
     )

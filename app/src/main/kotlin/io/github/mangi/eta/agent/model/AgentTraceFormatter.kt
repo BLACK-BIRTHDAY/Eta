@@ -54,8 +54,8 @@ internal class AgentTraceFormatter {
             "skills_read" -> "读取技能"
             "skills_read_resource" -> "读取技能资源"
             "skills_list_curated" -> "浏览精选技能"
-            "skills_inspect_github" -> "查看技能详情"
-            "skills_install_from_github" -> "安装技能"
+            "skills_inspect_github" -> summarizeGitHubInspect(toolCall.argumentsJson)
+            "skills_install_from_github" -> summarizeGitHubInstall(toolCall.argumentsJson)
             else -> {
                 val label = DEVICE_ACTION_LABELS[toolCall.name]
                     ?: AgentPhoneToolCatalog.entries.firstOrNull { it.name == toolCall.name }?.title
@@ -146,6 +146,20 @@ internal class AgentTraceFormatter {
                 if (arguments.optBoolean("async", false)) add("后台")
             }.joinToString(" · ")
         }.getOrDefault("终端")
+
+    private fun summarizeGitHubInspect(argumentsJson: String): String = runCatching {
+        val json = JSONObject(argumentsJson)
+        val repo = json.optString("repository").trim()
+        if (repo.isNotBlank()) "检查技能 · $repo" else "检查技能"
+    }.getOrDefault("检查技能")
+
+    private fun summarizeGitHubInstall(argumentsJson: String): String = runCatching {
+        val json = JSONObject(argumentsJson)
+        val repo = json.optString("repository").trim()
+        val paths = json.optJSONArray("paths")
+        val count = paths?.length() ?: 0
+        if (repo.isNotBlank()) "安装技能 · $repo ($count 个)" else "安装技能"
+    }.getOrDefault("安装技能")
 
     private fun summarizeTextLength(
         label: String,

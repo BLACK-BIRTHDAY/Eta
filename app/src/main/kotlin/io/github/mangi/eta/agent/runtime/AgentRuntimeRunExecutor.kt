@@ -31,6 +31,7 @@ import io.github.mangi.eta.agent.tool.ToolExecutionDecision
 import io.github.mangi.eta.agent.voice.EtaAssistantOverlayService
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
+import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
@@ -77,7 +78,7 @@ internal class AgentRuntimeRunExecutor(
         val timing = AgentRunTiming(AndroidAgentLogger)
 
         val result = try {
-            val contextWindow = request.config.requireContextWindow()
+            val contextWindow = request.config.knownContextWindow
             checkpointRecorder = AgentRunCheckpointRecorder.create(appContext, request)
             entrySurfaceGuard = EntrySurfaceGuard.from(
                 handoff = request.handoff,
@@ -93,6 +94,7 @@ internal class AgentRuntimeRunExecutor(
             val githubSkillSource = PublicGitHubSkillSource(
                 cacheRoot = appContext.cacheDir,
                 baseClient = AgentHttpClient.client,
+                tokenProvider = { runBlocking { SettingsDataStore.githubToken() } },
             )
             val skillContext = SkillContext(
                 installedSkills = skillIndexService.listInstalledSkills()

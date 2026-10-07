@@ -141,6 +141,13 @@ internal object AgentSkillToolCatalog {
                                         .put("type", "string")
                                         .put("maxLength", 1_000)
                                         .put("description", "Optional repository-relative directory used to narrow discovery."),
+                                )
+                                .put(
+                                    "token",
+                                    JSONObject()
+                                        .put("type", "string")
+                                        .put("maxLength", 200)
+                                        .put("description", "Optional GitHub Personal Access Token. If omitted, uses the token configured in app settings (if any)."),
                                 ),
                         )
                         .put("required", JSONArray().put("repository")),
@@ -199,6 +206,13 @@ internal object AgentSkillToolCatalog {
                                     .put("type", "string")
                                     .put("maxLength", 500)
                                     .put("description", "Required when replaceExisting is true. Copy the exact id from the single prior SKILL_CONFLICT result; never infer it."),
+                            )
+                            .put(
+                                "token",
+                                JSONObject()
+                                    .put("type", "string")
+                                    .put("maxLength", 200)
+                                    .put("description", "Optional GitHub Personal Access Token. If omitted, uses the token configured in app settings (if any)."),
                             ),
                     )
                     .put("required", JSONArray().put("repository").put("paths")),

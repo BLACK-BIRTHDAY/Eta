@@ -2,22 +2,31 @@ package io.github.mangi.eta.ui.screens.skills
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FolderZip
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.EtaPreference
 import io.github.mangi.eta.ui.components.EtaPreferenceColors
@@ -34,8 +43,11 @@ import io.github.mangi.eta.ui.model.AgentSkillsAction
 import io.github.mangi.eta.ui.model.AgentSkillsUiState
 import io.github.mangi.eta.ui.model.SkillItemUi
 import io.github.mangi.eta.ui.model.canDeleteUserSkill
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.InfiniteProgressIndicator
+import top.yukonga.miuix.kmp.basic.TextField
 
 private val CardHorizontalPadding = 16.dp
 private val CardBottomPadding = 16.dp
@@ -47,6 +59,10 @@ fun AgentSkillsScreen(
     modifier: Modifier = Modifier,
 ) {
     var deleteTarget by remember { mutableStateOf<SkillItemUi?>(null) }
+    val scope = rememberCoroutineScope()
+    val githubToken by SettingsDataStore.githubTokenFlow().collectAsState(initial = null)
+    var showTokenDialog by remember { mutableStateOf(false) }
+    var editingToken by remember { mutableStateOf("") }
     val operationPending = state.isImporting || state.busySkillId != null
     val zipPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
@@ -104,6 +120,27 @@ fun AgentSkillsScreen(
                     enabled = !operationPending,
                     onClick = openZipPicker,
                     onClickLabel = stringResource(R.string.skills_choose_zip),
+                )
+                EtaPreferenceDivider()
+                EtaPreference(
+                    title = "GitHub 访问令牌 (Token)",
+                    summary = if (githubToken.isNullOrBlank()) {
+                        "未配置（受每小时 60 次 API 限流限制）"
+                    } else {
+                        "已配置访问令牌（享受 5,000 次/小时高配额）"
+                    },
+                    startAction = {
+                        EtaPreferenceIcon(
+                            Icons.Rounded.Lock,
+                            enabled = !operationPending,
+                            tint = if (githubToken.isNullOrBlank()) EtaPreferenceColors.Orange else EtaPreferenceColors.Blue,
+                        )
+                    },
+                    enabled = !operationPending,
+                    onClick = {
+                        editingToken = githubToken.orEmpty()
+                        showTokenDialog = true
+                    },
                 )
             }
         }
@@ -210,6 +247,38 @@ fun AgentSkillsScreen(
                 onCancel = { onAction(AgentSkillsAction.CancelZipReplacement) },
                 onConfirm = { onAction(AgentSkillsAction.ConfirmZipReplacement) },
             )
+        }
+    }
+
+    if (showTokenDialog) {
+        EtaWindowDialog(
+            show = true,
+            title = "GitHub 访问令牌",
+            summary = "配置 GitHub Personal Access Token (PAT)，用于 skills_inspect_github 与 skills_install_from_github 解除 60 次/小时匿名 API 限流。保存空白内容可清除令牌。",
+            onDismissRequest = { showTokenDialog = false },
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextField(
+                    value = editingToken,
+                    onValueChange = { editingToken = it },
+                    label = "GitHub Token (ghp_... / github_pat_...)",
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                MiuixDialogActions(
+                    confirmText = stringResource(R.string.action_save),
+                    onCancel = { showTokenDialog = false },
+                    onConfirm = {
+                        val tokenToSave = editingToken.trim().takeIf(String::isNotBlank)
+                        scope.launch(Dispatchers.IO) {
+                            SettingsDataStore.setGithubToken(tokenToSave)
+                        }
+                        showTokenDialog = false
+                    },
+                )
+            }
         }
     }
 
