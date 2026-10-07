@@ -130,7 +130,6 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
     private fun checkForegroundState(foreground: Boolean) {
         if (isAppInForeground == foreground) return
         isAppInForeground = foreground
-        AgentExecutionService.onForegroundStateChanged()
 
         if (foreground) {
             // 用户回到前台看着对话框：立即撤销通知栏与胶囊，保持前台视觉纯净

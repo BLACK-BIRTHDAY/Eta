@@ -111,7 +111,7 @@ internal class AgentExecutionService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val taskCount = leases.count()
-        val builder = Notification.Builder(this, CHANNEL)
+        return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.execution_title))
             .setContentText(
@@ -122,26 +122,7 @@ internal class AgentExecutionService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null, getString(R.string.execution_stop), stop).build())
-        // 只有 Agent run 在跑且处于后台时才申请提升为 Live Update（前台保持纯净视觉）；终端会话、Linux 启动等长驻任务保持普通通知。
-        val shouldPromote = status != null && !EtaLiveUpdateManager.isAppInForeground
-        val isAndroid16OrBaklava = Build.VERSION.SDK_INT >= 36 ||
-            (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1)
-        if (shouldPromote && isAndroid16OrBaklava) {
-            builder
-                .setStyle(Notification.ProgressStyle().setProgressIndeterminate(true))
-                .setShortCriticalText(status.shortText())
-                .setRequestPromotedOngoing(true)
-        }
-        return builder.build()
-    }
-
-    /** 状态栏胶囊约 7 个字符可完整显示；更长时只取动作，工具名留在展开态。 */
-    private fun AgentOverlayStatus.shortText(): String = when (this) {
-        is AgentOverlayStatus.RunningTool, is AgentOverlayStatus.HostedToolRunning -> "⚙️ " + getString(R.string.execution_chip_running)
-        AgentOverlayStatus.Paused -> "⏸️ " + getString(R.string.overlay_paused)
-        AgentOverlayStatus.Stopping -> "⏹️ " + getString(R.string.overlay_stopping)
-        AgentOverlayStatus.GeneratingAnswer -> "💬 " + getString(R.string.execution_chip_answering)
-        else -> "🧠 " + getString(R.string.overlay_reasoning)
+            .build()
     }
 
     companion object {
@@ -154,13 +135,6 @@ internal class AgentExecutionService : Service() {
         @Volatile private var instance: AgentExecutionService? = null
         private var runStatus: AgentOverlayStatus? = null
         private var publishedStatusText: String? = null
-
-        /** 前后台切换时，触发状态栏胶囊升起/收回更新 */
-        fun onForegroundStateChanged() {
-            mainHandler.post {
-                instance?.takeIf { it.foregroundActive }?.refreshNotification()
-            }
-        }
 
         /**
          * Agent run 的当前状态，供通知与状态栏胶囊展示；null 表示没有 Agent run 在跑。
