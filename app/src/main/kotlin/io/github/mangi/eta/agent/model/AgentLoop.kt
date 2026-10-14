@@ -45,7 +45,7 @@ internal class AgentLoop(
         val result: AgentModelClient.ToolResult,
     )
 
-    private var toolCallValidator = AgentToolCallValidator(tools)
+    private var availableToolNames = emptySet<String>()
     private val accumulatedReasoning = StringBuilder()
     private val sensitiveToolCallIds = linkedSetOf<String>()
     private var pendingToolImageMessage: JSONObject? = null
@@ -97,7 +97,9 @@ internal class AgentLoop(
                 JSONArray()
             }
             precedingTools = roundTools
-            toolCallValidator = AgentToolCallValidator(roundTools)
+            availableToolNames = (0 until roundTools.length()).mapNotNullTo(mutableSetOf()) { index ->
+                roundTools.optJSONObject(index)?.optJSONObject("function")?.optString("name")
+            }
             publishTranscript()
             if (purpose.allowsTools) context.compact()
             val requestMessages = AssistantScreenContextProjection.project(
@@ -283,32 +285,26 @@ internal class AgentLoop(
         toolCall: AgentModelClient.ToolCall,
     ): ToolOutcome {
         runController.throwIfCancelled()
-        val normalizedCall = toolCallValidator.normalize(toolCall)
-        toolCallValidator.validate(normalizedCall)?.let { validationError ->
-            runCatching {
-                io.github.mangi.eta.core.AndroidAgentLogger.warn(
-                    "Tool validation rejected [${normalizedCall.name}]: $validationError, raw args: '${toolCall.argumentsJson}', normalized: '${normalizedCall.argumentsJson}'"
-                )
-            }
+        if (toolCall.name !in availableToolNames) {
             return rejectedToolOutcome(
                 round = round,
-                toolCall = normalizedCall,
-                code = "INVALID_TOOL_ARGUMENTS",
-                message = validationError,
+                toolCall = toolCall,
+                code = "TOOL_NOT_AVAILABLE",
+                message = "工具未在本轮能力目录中提供，请使用当前可用工具",
             )
         }
         onEvent(
             AgentEvent.ToolStarted(
                 round = round,
-                toolCallId = normalizedCall.id,
-                name = normalizedCall.name,
-                argsPreview = traceFormatter.summarizeArguments(normalizedCall),
-                command = traceFormatter.displayCommand(normalizedCall),
+                toolCallId = toolCall.id,
+                name = toolCall.name,
+                argsPreview = traceFormatter.summarizeArguments(toolCall),
+                command = traceFormatter.displayCommand(toolCall),
             )
         )
 
         val result = try {
-            toolExecutor.execute(normalizedCall)
+            toolExecutor.execute(toolCall)
         } catch (throwable: Exception) {
             runController.throwIfCancelled()
             AgentModelClient.ToolResult(
@@ -319,13 +315,13 @@ internal class AgentLoop(
                     .toString(),
             )
         }
-        if (result.sensitive || AgentSensitiveToolPolicy.isSensitive(normalizedCall.name)) {
-            sensitiveToolCallIds += normalizedCall.id
+        if (result.sensitive || AgentSensitiveToolPolicy.isSensitive(toolCall.name)) {
+            sensitiveToolCallIds += toolCall.id
         }
 
         runController.throwIfCancelled()
-        emitToolFinished(round, normalizedCall, result)
-        return ToolOutcome(normalizedCall, result)
+        emitToolFinished(round, toolCall, result)
+        return ToolOutcome(toolCall, result)
     }
 
     private fun rejectedToolOutcome(
