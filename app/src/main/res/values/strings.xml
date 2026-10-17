@@ -379,8 +379,10 @@
   <string name="ui_supports_files_and_folders_under_internal_storage_or_520786">Supports files and folders at any local absolute path</string>
   <string name="ui_support_thinking_5b9e4c">Supports reasoning</string>
   <string name="ui_new_anthropic_db6098">Add Anthropic provider</string>
-  <string name="ui_new_gemini">Add Google Gemini provider</string>
-  <string name="ui_support_gemini_official_api">Support Google Gemini 3.x / 2.5 official API</string>
+  <string name="ui_new_gemini">Add Google Gemini / Vertex AI provider</string>
+  <string name="ui_support_gemini_official_api">Support Google Gemini 3.x / 2.5 official API &amp; Gemini Enterprise (Vertex AI) Service Account</string>
+  <string name="ui_import_vertex_sa_json">Import Service Account JSON (Gemini Enterprise / Vertex AI)</string>
+  <string name="ui_import_vertex_sa_json_summary">Select a Google Cloud Service Account JSON key file to auto-fill credentials and endpoint</string>
   <string name="ui_added_openai_compatible_6bd471">Add OpenAI-compatible provider</string>
   <string name="ui_add_new_provider_74df54">Add new provider</string>
   <string name="ui_accessibility_enhancement_tools_8fd257">Accessibility enhancement tools</string>
@@ -1209,6 +1211,25 @@
   <string name="mcp_delete_confirm">Delete %1$s? This cannot be undone.</string>
   <string name="mcp_read_only_tool">Read-only tool</string>
   <string name="mcp_may_modify_data">May modify data or call an external service</string>
+  <string name="mcp_transport_http">HTTP / SSE</string>
+  <string name="mcp_transport_stdio">STDIO Process</string>
+  <string name="mcp_mode_json_import">Import JSON</string>
+  <string name="mcp_stdio_command">Command (e.g. npx, uvx, python3)</string>
+  <string name="mcp_stdio_args">Arguments (optional, space or newline separated)</string>
+  <string name="mcp_stdio_cwd">Working directory (optional, e.g. /workspace)</string>
+  <string name="mcp_stdio_env">Environment variables (optional, KEY=VALUE per line)</string>
+  <string name="mcp_stdio_env_label">Execution environment</string>
+  <string name="mcp_stdio_env_linux">Linux Container (Alpine / Debian)</string>
+  <string name="mcp_stdio_env_android_root">Android Root Shell</string>
+  <string name="mcp_stdio_env_android_user">Android User Shell</string>
+  <string name="mcp_json_input_label">Paste mcpServers JSON config</string>
+  <string name="mcp_json_import_added">Imported %1$d server(s), %2$d tools discovered</string>
+  <string name="mcp_edit_stdio_config">Command &amp; environment</string>
+  <string name="mcp_update_env_vars">Environment variables</string>
+  <string name="mcp_env_vars_configured">Environment variables configured</string>
+  <string name="mcp_no_env_vars">No environment variables</string>
+  <string name="mcp_update_env_vars_summary">Enter one KEY=VALUE per line, or leave blank to clear</string>
+  <string name="mcp_server_row_summary_with_transport">%3$s · %1$d of %2$d tools enabled</string>
   <string name="data_backup_title">Data backup</string>
   <string name="data_backup_actions">Backup</string>
   <string name="data_backup_warning_title">Keep the backup file safe</string>

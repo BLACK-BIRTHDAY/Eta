@@ -15,6 +15,7 @@ internal class McpRunTool(
     val server: McpServerSetting,
     val definition: McpToolDefinition,
     val bearerToken: String?,
+    val envVars: Map<String, String> = emptyMap(),
 )
 
 /** 一次 run 使用冻结的 MCP 工具目录，设置变更从下一次 run 生效。 */
@@ -56,12 +57,13 @@ internal class McpRunSnapshot(
             val now = System.currentTimeMillis()
             McpServerRepository.enabledServers().forEach { configured ->
                 val bearerToken = McpServerRepository.bearerToken(configured.id)
+                val envVars = McpServerRepository.envVars(configured.id)
                 val needsRefresh = configured.lastProtocolVersion == null ||
                     configured.lastProtocolVersion == McpProtocolMode.LATEST &&
                     (configured.toolsExpireAt == null || configured.toolsExpireAt <= now)
                 val server = if (needsRefresh) {
                     runCatching {
-                        McpServerManager.discover(configured, bearerToken).also {
+                        McpServerManager.discover(configured, bearerToken, envVars).also {
                             McpServerRepository.update(it)
                         }
                     }.getOrNull()
@@ -76,6 +78,7 @@ internal class McpRunSnapshot(
                         server = server,
                         definition = tool,
                         bearerToken = bearerToken,
+                        envVars = envVars,
                     )
                 }
             }
@@ -102,9 +105,16 @@ internal class McpRunSnapshot(
 
 internal class McpToolExecutor(
     private val snapshot: McpRunSnapshot,
+    private val clientFactory: (McpRunTool) -> McpClient = { tool ->
+        McpServerManager.openClient(
+            server = tool.server,
+            bearerToken = tool.bearerToken,
+            envVars = tool.envVars,
+        )
+    },
 ) : AgentModelClient.ToolExecutor, AutoCloseable {
     private val lifecycleLock = Any()
-    private val clients = mutableMapOf<String, McpHttpClient>()
+    private val clients = mutableMapOf<String, McpClient>()
     private var closed = false
 
     override fun execute(toolCall: AgentModelClient.ToolCall): AgentModelClient.ToolResult {
@@ -123,15 +133,12 @@ internal class McpToolExecutor(
             try {
                 val client = synchronized(lifecycleLock) {
                     if (closed) return failure("MCP_EXECUTOR_CLOSED", "MCP 工具执行器已关闭")
-                    clients[tool.server.id] ?: McpHttpClient(
-                        server = tool.server,
-                        bearerToken = tool.bearerToken,
-                    ).also { clients[tool.server.id] = it }
+                    clients[tool.server.id] ?: clientFactory(tool).also { clients[tool.server.id] = it }
                 }
                 return adaptResult(tool, client.callTool(tool.definition, arguments))
             } catch (throwable: Throwable) {
                 lastThrowable = throwable
-                // 仅对首轮失败且属于网络 IO / 容器冷启动抖动时进行延迟重试
+                // 仅对首轮失败且属于网络 IO / 管道中断 / 容器冷启动抖动时进行延迟重试
                 if (attempt == 1 && isRetryableNetworkError(throwable)) {
                     synchronized(lifecycleLock) {
                         clients.remove(tool.server.id)?.runCatching { close() }

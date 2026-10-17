@@ -20,12 +20,8 @@ import org.json.JSONObject
 internal class McpHttpClient(
     private val server: McpServerSetting,
     private val bearerToken: String?,
-) : AutoCloseable {
-    data class Discovery(
-        val protocolVersion: String,
-        val tools: List<McpToolDefinition>,
-        val cacheTtlMs: Long?,
-    )
+) : McpClient {
+    typealias Discovery = McpClient.Discovery
 
     private data class ToolList(
         val tools: List<McpToolDefinition>,
@@ -48,7 +44,7 @@ internal class McpHttpClient(
     @Volatile
     private var legacySessionId: String? = null
 
-    fun discoverTools(): Discovery {
+    override fun discoverTools(): Discovery {
         val requestedMode = server.protocolMode
         if (requestedMode == McpProtocolMode.LEGACY) return discoverLegacy()
         if (requestedMode == McpProtocolMode.LATEST) return discoverLatest()
@@ -59,7 +55,7 @@ internal class McpHttpClient(
         }
     }
 
-    fun callTool(tool: McpToolDefinition, arguments: JSONObject): JSONObject {
+    override fun callTool(tool: McpToolDefinition, arguments: JSONObject): JSONObject {
         val version = negotiatedVersion ?: when (
             server.lastProtocolVersion ?: server.protocolMode
         ) {

@@ -66,6 +66,9 @@ internal object AgentConversationCodec {
                 if (message.reasoningContent.isNotBlank()) {
                     target.put("reasoning_content", message.reasoningContent)
                 }
+                if (message.thoughtSignature.isNotBlank()) {
+                    target.put("thoughtSignature", message.thoughtSignature)
+                }
                 if (message.toolCallsJson.isNotBlank()) {
                     target.put("tool_calls", JSONTokener(message.toolCallsJson).nextValue())
                 }
@@ -73,6 +76,8 @@ internal object AgentConversationCodec {
 
     fun fromJsonObject(message: JSONObject): AgentModelClient.ConversationMessage {
         val contentValue = message.opt("content")
+        val ownSig = message.optString("thoughtSignature")
+            .ifBlank { message.optString("thought_signature") }
         return AgentModelClient.ConversationMessage(
             messageId = message.optString("_eta_message_id"),
             role = message.optString("role"),
@@ -92,6 +97,7 @@ internal object AgentConversationCodec {
             toolCallId = message.optString("tool_call_id"),
             reasoningContent = message.optString("reasoning_content"),
             toolCallsJson = message.optJSONArray("tool_calls")?.toString().orEmpty(),
+            thoughtSignature = ownSig,
         )
     }
 
@@ -183,6 +189,8 @@ internal object AgentConversationCodec {
                         .map { suffix -> "${candidateId}_$suffix" }
                         .first(usedIds::add)
                 }
+                val tcSig = rawCall.optString("thoughtSignature")
+                    .ifBlank { rawCall.optString("thought_signature") }
                 add(
                     AgentModelClient.ToolCall(
                         id = stableId,
@@ -192,6 +200,7 @@ internal object AgentConversationCodec {
                             is String -> arguments.ifBlank { "{}" }
                             else -> "{}"
                         },
+                        thoughtSignature = tcSig,
                     )
                 )
             }
@@ -208,6 +217,12 @@ internal object AgentConversationCodec {
                     .put("name", name)
                     .put("arguments", argumentsJson),
             )
+            .also { obj ->
+                if (thoughtSignature.isNotBlank()) {
+                    obj.put("thoughtSignature", thoughtSignature)
+                    obj.put("thought_signature", thoughtSignature)
+                }
+            }
 
     fun transcript(
         messages: JSONArray,
@@ -303,6 +318,7 @@ internal object AgentConversationCodec {
             toolCallId = message.toolCallId,
             reasoningContent = message.reasoningContent,
             toolCallsJson = message.toolCallsJson,
+            thoughtSignature = message.thoughtSignature,
         )
 
     private fun sanitizeContentJson(raw: String): String {

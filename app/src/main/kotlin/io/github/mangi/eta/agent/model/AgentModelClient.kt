@@ -337,6 +337,7 @@ internal object AgentModelClient {
         val toolCallId: String = "",
         val reasoningContent: String = "",
         val toolCallsJson: String = "",
+        val thoughtSignature: String = "",
         val contextSummary: Boolean = false,
         val compactedUserTurns: Int = 0,
         val summaryThroughUserTurn: Int = 0,
@@ -350,7 +351,8 @@ internal object AgentModelClient {
     data class ToolCall(
         val id: String,
         val name: String,
-        val argumentsJson: String
+        val argumentsJson: String,
+        val thoughtSignature: String = "",
     )
 
     data class ToolResult(

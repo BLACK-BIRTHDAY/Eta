@@ -3,6 +3,7 @@ package io.github.mangi.eta.ui.pages.providers
 import androidx.compose.runtime.saveable.mapSaver
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.model.CustomHeaderFilter
+import io.github.mangi.eta.agent.model.VertexAiServiceAccountAuth
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.CustomHeader
 import io.github.mangi.eta.data.model.CustomProviderSetting
@@ -138,6 +139,11 @@ internal fun validateProviderDraft(context: android.content.Context, draft: Prov
     val uri = runCatching { java.net.URI(draft.baseUrl.trim()) }.getOrNull()
     if (uri == null || uri.scheme !in setOf("http", "https") || uri.host.isNullOrBlank()) {
         return context.getString(R.string.page_base_url_must_be_a_valid_http_s_address_0e7d58)
+    }
+    if (VertexAiServiceAccountAuth.looksLikeServiceAccountJson(draft.apiKey)) {
+        runCatching { VertexAiServiceAccountAuth.parseServiceAccountJson(draft.apiKey) }
+            .exceptionOrNull()
+            ?.let { return it.message ?: "无效的服务账号 JSON" }
     }
     return CustomHeaderFilter.validationError(draft.headers.map { it.header })
 }

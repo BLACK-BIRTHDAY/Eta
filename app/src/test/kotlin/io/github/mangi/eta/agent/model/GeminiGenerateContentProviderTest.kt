@@ -120,10 +120,11 @@ class GeminiGenerateContentProviderTest {
         val method = GeminiGenerateContentProvider::class.java.getDeclaredMethod(
             "convertAssistantContent",
             JSONObject::class.java,
-            String::class.java
+            String::class.java,
+            Boolean::class.javaPrimitiveType,
         )
         method.isAccessible = true
-        val parts = method.invoke(GeminiGenerateContentProvider, message, null) as JSONArray
+        val parts = method.invoke(GeminiGenerateContentProvider, message, null, false) as JSONArray
 
         // 验证 parts 结构：
         // 1. 思考块：thought=true, text="内部权衡过程", 无签名（对齐官方）
@@ -174,10 +175,11 @@ class GeminiGenerateContentProviderTest {
         val method = GeminiGenerateContentProvider::class.java.getDeclaredMethod(
             "convertAssistantContent",
             JSONObject::class.java,
-            String::class.java
+            String::class.java,
+            Boolean::class.javaPrimitiveType,
         )
         method.isAccessible = true
-        val parts = method.invoke(GeminiGenerateContentProvider, message, null) as JSONArray
+        val parts = method.invoke(GeminiGenerateContentProvider, message, null, false) as JSONArray
 
         assertEquals(2, parts.length())
         val fnPart = parts.getJSONObject(0)
@@ -208,10 +210,11 @@ class GeminiGenerateContentProviderTest {
         val method = GeminiGenerateContentProvider::class.java.getDeclaredMethod(
             "convertAssistantContent",
             JSONObject::class.java,
-            String::class.java
+            String::class.java,
+            Boolean::class.javaPrimitiveType,
         )
         method.isAccessible = true
-        val parts = method.invoke(GeminiGenerateContentProvider, round2Message, sessionSig) as JSONArray
+        val parts = method.invoke(GeminiGenerateContentProvider, round2Message, sessionSig, false) as JSONArray
 
         assertEquals(1, parts.length())
         val fnPart = parts.getJSONObject(0)

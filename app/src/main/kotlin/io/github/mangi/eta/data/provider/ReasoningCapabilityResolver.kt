@@ -89,7 +89,7 @@ internal object ReasoningCapabilityResolver {
                 else -> null
             }
             ProviderSourceTypes.GEMINI -> when {
-                model.startsWith("gemini-") && !model.contains("image") -> capabilities(
+                model.startsWith("gemini-") && !model.contains("image") && !model.contains("nano-banana") -> capabilities(
                     supported = lowToMax,
                     canDisable = true,
                     supportsBudget = true,

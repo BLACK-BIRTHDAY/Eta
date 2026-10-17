@@ -15,6 +15,7 @@ import io.github.mangi.eta.agent.roleplay.CharacterCardFormat
 import io.github.mangi.eta.agent.roleplay.CharacterMacros
 import io.github.mangi.eta.agent.roleplay.RoleplayBinding
 import io.github.mangi.eta.ui.app.CharacterLibraryStore
+import io.github.mangi.eta.ui.components.ChooseSingleImageContract
 import io.github.mangi.eta.ui.components.EtaArrowPreference
 import io.github.mangi.eta.ui.components.EtaPreferenceDivider
 import io.github.mangi.eta.ui.components.EtaPreferenceGroup
@@ -51,7 +52,7 @@ internal fun CharacterDetailScreen(
     val jsonExporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) {
         if (it != null) store.export(id, CharacterCardFormat.JSON, it)
     }
-    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val avatarPicker = rememberLauncherForActivityResult(ChooseSingleImageContract()) { uri ->
         if (uri != null) store.changeAvatar(id, uri)
     }
     val profile = store.selected?.takeIf { it.id == id }
@@ -65,7 +66,7 @@ internal fun CharacterDetailScreen(
             CharacterHero(
                 profile = profile,
                 busy = store.busy,
-                onChangeAvatar = { avatarPicker.launch("image/*") },
+                onChangeAvatar = { avatarPicker.launch(Unit) },
                 onToggleFavorite = { store.toggleFavorite(id) },
                 onStart = { store.startConversation(id, onStart) },
                 onReadDescription = {

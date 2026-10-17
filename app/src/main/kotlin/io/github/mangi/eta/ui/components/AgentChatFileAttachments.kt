@@ -1,8 +1,12 @@
 package io.github.mangi.eta.ui.components
 
+import android.app.Activity
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.provider.MediaStore
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -34,7 +38,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,20 +80,13 @@ internal fun AgentAttachmentPickerButton(
     onAttachFilePath: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     var showPopup by remember { mutableStateOf(false) }
     var showPathDialog by remember { mutableStateOf(false) }
     var pathInput by remember { mutableStateOf("") }
     val photoPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickMultipleVisualMedia(),
+        contract = ChooseMultipleImagesContract(),
     ) { uris ->
         uris.forEach { uri ->
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    uri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                )
-            }
             onAttachImage(uri.toString())
         }
     }
@@ -144,9 +140,7 @@ internal fun AgentAttachmentPickerButton(
                         onSelectedIndexChange = {
                             dismiss?.invoke()
                             when (index) {
-                                0 -> photoPicker.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
+                                0 -> photoPicker.launch(Unit)
                                 1 -> filePicker.launch(arrayOf("*/*"))
                                 2 -> folderPicker.launch(null)
                                 3 -> {
@@ -358,4 +352,56 @@ internal class InputPopupPositionProvider(
     }
 
     override fun getMargins(): PaddingValues = PaddingValues(vertical = ChatInputPopupMargin)
+}
+
+internal class ChooseMultipleImagesContract : ActivityResultContract<Unit, List<Uri>>() {
+    override fun createIntent(context: Context, input: Unit): Intent =
+        createImageChooserIntent(context, allowMultiple = true)
+
+    override fun parseResult(resultCode: Int, intent: Intent?): List<Uri> =
+        parseChosenImageUris(resultCode, intent)
+}
+
+internal class ChooseSingleImageContract : ActivityResultContract<Unit, Uri?>() {
+    override fun createIntent(context: Context, input: Unit): Intent =
+        createImageChooserIntent(context, allowMultiple = false)
+
+    override fun parseResult(resultCode: Int, intent: Intent?): Uri? =
+        parseChosenImageUris(resultCode, intent).firstOrNull()
+}
+
+private const val GOOGLE_PHOTOS_PACKAGE = "com.google.android.apps.photos"
+
+private fun createImageChooserIntent(context: Context, allowMultiple: Boolean): Intent {
+    // ColorOS 16 的 IntentResolver 对不指定包名的 ACTION_GET_CONTENT 存在强制优先级劫持（priority=110），
+    // 会跳过应用选择器直接拉起系统 com.android.photopicker。
+    // 若已安装 Google Photos，直接定向至 Google Photos 选图器（同时包含本机相册与云端备份照片）；
+    // 否则回退到 ACTION_PICK 选择器（避开 PhotopickerGetContentActivity 劫持）。
+    val googlePhotosIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+        addCategory(Intent.CATEGORY_OPENABLE)
+        type = "image/*"
+        setPackage(GOOGLE_PHOTOS_PACKAGE)
+        if (allowMultiple) putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+    }
+    if (context.packageManager.queryIntentActivities(googlePhotosIntent, 0).isNotEmpty()) {
+        return googlePhotosIntent
+    }
+    val pickIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI).apply {
+        type = "image/*"
+        if (allowMultiple) putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+    }
+    return Intent.createChooser(pickIntent, null)
+}
+
+private fun parseChosenImageUris(resultCode: Int, intent: Intent?): List<Uri> {
+    if (resultCode != Activity.RESULT_OK || intent == null) return emptyList()
+    val uris = LinkedHashSet<Uri>()
+    intent.data?.let(uris::add)
+    val clipData = intent.clipData
+    if (clipData != null) {
+        for (i in 0 until clipData.itemCount) {
+            clipData.getItemAt(i)?.uri?.let(uris::add)
+        }
+    }
+    return uris.toList()
 }

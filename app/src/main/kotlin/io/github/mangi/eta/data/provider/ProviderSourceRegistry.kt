@@ -78,6 +78,10 @@ internal object ProviderSourceRegistry {
             httpUrl.host == "api.openai.com" -> ProviderSourceTypes.OPENAI
             httpUrl.host == "api.anthropic.com" -> ProviderSourceTypes.ANTHROPIC
             httpUrl.host == "generativelanguage.googleapis.com" -> ProviderSourceTypes.GEMINI
+            httpUrl.host == "aiplatform.googleapis.com" ||
+                httpUrl.host.endsWith("-aiplatform.googleapis.com") ||
+                httpUrl.host.endsWith(".aiplatform.googleapis.com") ||
+                httpUrl.host == "aiplatform.eu.rep.googleapis.com" -> ProviderSourceTypes.GEMINI
             httpUrl.host == "api.deepseek.com" -> ProviderSourceTypes.DEEPSEEK
             httpUrl.host == "api.moonshot.cn" -> ProviderSourceTypes.MOONSHOT
             httpUrl.host == "api.moonshot.ai" -> ProviderSourceTypes.MOONSHOT

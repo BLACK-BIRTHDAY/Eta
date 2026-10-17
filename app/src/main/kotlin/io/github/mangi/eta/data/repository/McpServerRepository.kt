@@ -30,13 +30,25 @@ internal object McpServerRepository {
 
     suspend fun serverById(id: String): McpServerSetting? = dao().serverById(id)?.toDomain()
 
-    suspend fun add(server: McpServerSetting, bearerToken: String): McpServerSetting {
+    fun appContextOrNull(): Context? =
+        if (::applicationContext.isInitialized) applicationContext else null
+
+    suspend fun add(
+        server: McpServerSetting,
+        bearerToken: String = "",
+        envVars: Map<String, String> = emptyMap(),
+    ): McpServerSetting {
+        val cleanedEnv = envVars.entries
+            .mapNotNull { (k, v) -> k.trim().takeIf { it.isNotEmpty() }?.to(v) }
+            .toMap()
         val added = server.copy(
             id = server.id.ifBlank { UUID.randomUUID().toString() },
             sortOrder = (servers().maxOfOrNull { it.sortOrder } ?: -1) + 1,
+            hasEnvVars = cleanedEnv.isNotEmpty(),
         )
         val secretStore = secrets()
         updateSecret(secretStore, added, bearerToken)
+        secretStore.setEnvVars(added.id, cleanedEnv)
         try {
             dao().insert(added.toEntity())
         } catch (failure: Throwable) {
@@ -46,22 +58,42 @@ internal object McpServerRepository {
         return added
     }
 
-    suspend fun update(server: McpServerSetting, bearerToken: String? = null) {
+    suspend fun update(
+        server: McpServerSetting,
+        bearerToken: String? = null,
+        envVars: Map<String, String>? = null,
+    ) {
         val previous = requireNotNull(serverById(server.id)) { "MCP 服务器不存在" }
         val secretStore = secrets()
         val previousToken = secretStore.bearerToken(server.id)
+        val previousEnv = secretStore.envVars(server.id)
         val changesSecret = bearerToken != null || server.authorizationType == McpAuthorizationType.NONE
-        val updated = if (bearerToken != null) {
-            server.copy(lastProtocolVersion = null, toolsExpireAt = null)
-        } else {
-            server
-        }
+        val cleanedEnv = envVars?.entries
+            ?.mapNotNull { (k, v) -> k.trim().takeIf { it.isNotEmpty() }?.to(v) }
+            ?.toMap()
+        val configChanged = bearerToken != null ||
+            envVars != null ||
+            previous.transportType != server.transportType ||
+            previous.url != server.url ||
+            previous.command != server.command ||
+            previous.args != server.args ||
+            previous.stdioEnvironment != server.stdioEnvironment ||
+            previous.cwd != server.cwd
+        val updated = server.copy(
+            hasEnvVars = cleanedEnv?.isNotEmpty() ?: server.hasEnvVars,
+            lastProtocolVersion = if (configChanged) null else server.lastProtocolVersion,
+            toolsExpireAt = if (configChanged) null else server.toolsExpireAt,
+        )
         if (changesSecret) updateSecret(secretStore, updated, bearerToken.orEmpty())
+        if (cleanedEnv != null) secretStore.setEnvVars(updated.id, cleanedEnv)
         try {
             require(dao().update(updated.toEntity()) == 1) { "MCP 服务器不存在" }
         } catch (failure: Throwable) {
             if (changesSecret) runCatching {
                 updateSecret(secretStore, previous, previousToken.orEmpty())
+            }
+            if (cleanedEnv != null) runCatching {
+                secretStore.setEnvVars(previous.id, previousEnv)
             }
             throw failure
         }
@@ -78,16 +110,22 @@ internal object McpServerRepository {
         val previous = requireNotNull(serverById(serverId)) { "MCP 服务器不存在" }
         val secretStore = secrets()
         val previousToken = secretStore.bearerToken(serverId)
+        val previousEnv = secretStore.envVars(serverId)
         secretStore.clear(serverId)
         try {
             require(dao().delete(serverId) == 1) { "MCP 服务器不存在" }
         } catch (failure: Throwable) {
-            runCatching { updateSecret(secretStore, previous, previousToken.orEmpty()) }
+            runCatching {
+                updateSecret(secretStore, previous, previousToken.orEmpty())
+                secretStore.setEnvVars(previous.id, previousEnv)
+            }
             throw failure
         }
     }
 
     fun bearerToken(serverId: String): String? = secrets().bearerToken(serverId)
+
+    fun envVars(serverId: String): Map<String, String> = secrets().envVars(serverId)
 
     private fun updateSecret(
         secretStore: McpSecretStore,
@@ -97,7 +135,7 @@ internal object McpServerRepository {
         if (server.authorizationType == McpAuthorizationType.BEARER) {
             secretStore.setBearerToken(server.id, bearerToken)
         } else {
-            secretStore.clear(server.id)
+            secretStore.setBearerToken(server.id, "")
         }
     }
 

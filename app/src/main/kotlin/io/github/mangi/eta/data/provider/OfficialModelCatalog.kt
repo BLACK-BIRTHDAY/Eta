@@ -418,7 +418,7 @@ internal object OfficialModelCatalog {
         ),
     )
 
-    private val MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})\..*""", RegexOption.IGNORE_CASE)
+    private val MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})(?:[.-].*|$)""", RegexOption.IGNORE_CASE)
 
     fun modelsForProvider(provider: ProviderSetting): List<Model> =
         modelsForCatalogId(catalogIdFor(provider))
@@ -470,10 +470,16 @@ internal object OfficialModelCatalog {
                 model
             }
 
-            if (MODERN_GEMINI_REGEX.matches(enriched.modelId) && !enriched.modelId.contains("image", ignoreCase = true)) {
+            val isGeminiImageModel = enriched.modelId.contains("image", ignoreCase = true) ||
+                enriched.modelId.contains("nano-banana", ignoreCase = true)
+            if (MODERN_GEMINI_REGEX.matches(enriched.modelId) && !isGeminiImageModel) {
+                val resolvedCapabilities = enriched.reasoningCapabilities
+                    ?: ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, enriched.modelId)
                 enriched.copy(
                     contextWindow = maxOf(enriched.contextWindow ?: 0, 1_048_576),
                     toolCall = enriched.toolCall ?: true,
+                    reasoning = enriched.reasoning ?: true,
+                    reasoningCapabilities = if (enriched.reasoning == false) null else resolvedCapabilities,
                     inputModalities = (enriched.inputModalities + listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY, "audio", "video")).distinct(),
                     outputModalities = enriched.outputModalities.ifEmpty { listOf(Model.TEXT_MODALITY) },
                 )

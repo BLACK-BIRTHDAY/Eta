@@ -4,10 +4,21 @@ import io.github.mangi.eta.data.model.McpServerSetting
 import io.github.mangi.eta.data.repository.McpServerRepository
 
 internal object McpServerManager {
+    fun openClient(
+        server: McpServerSetting,
+        bearerToken: String? = null,
+        envVars: Map<String, String> = emptyMap(),
+    ): McpClient = if (server.isStdio) {
+        McpStdioClient(server = server, envVars = envVars)
+    } else {
+        McpHttpClient(server = server, bearerToken = bearerToken)
+    }
+
     fun discover(
         server: McpServerSetting,
         bearerToken: String?,
-    ): McpServerSetting = McpHttpClient(server, bearerToken).use { client ->
+        envVars: Map<String, String> = emptyMap(),
+    ): McpServerSetting = openClient(server, bearerToken, envVars).use { client ->
         val discovery = client.discoverTools()
         val availableNames = discovery.tools.mapTo(mutableSetOf()) { it.name }
         val refreshedAt = System.currentTimeMillis()
@@ -26,7 +37,11 @@ internal object McpServerManager {
         val server = requireNotNull(McpServerRepository.serverById(serverId)) {
             "MCP 服务器不存在"
         }
-        val refreshed = discover(server, McpServerRepository.bearerToken(serverId))
+        val refreshed = discover(
+            server = server,
+            bearerToken = McpServerRepository.bearerToken(serverId),
+            envVars = McpServerRepository.envVars(serverId),
+        )
         McpServerRepository.update(refreshed)
         return refreshed
     }

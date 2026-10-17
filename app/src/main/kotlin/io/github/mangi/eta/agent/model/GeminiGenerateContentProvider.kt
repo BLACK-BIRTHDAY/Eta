@@ -36,7 +36,24 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         onEvent: (ProviderEvent) -> Unit
     ): ProviderResponse {
         val config = request.config
-        val url = ProviderUrls.geminiStreamGenerateContentUrl(config.baseUrl, config.model)
+        val isServiceAccount = VertexAiServiceAccountAuth.looksLikeServiceAccountJson(config.apiKey)
+        val isVertexBaseUrl = config.baseUrl.contains("aiplatform.googleapis.com", ignoreCase = true) ||
+            config.baseUrl.contains("/publishers/google/models", ignoreCase = true) ||
+            Regex("""/projects/[^/?#]+/locations/[^/?#]+""", RegexOption.IGNORE_CASE).containsMatchIn(config.baseUrl)
+        val saCredentials = if (isServiceAccount) {
+            VertexAiServiceAccountAuth.parseServiceAccountJson(config.apiKey)
+        } else {
+            null
+        }
+        val url = if (saCredentials != null || isVertexBaseUrl) {
+            VertexAiServiceAccountAuth.buildStreamGenerateContentUrl(
+                baseUrl = config.baseUrl,
+                model = config.model,
+                credentials = saCredentials,
+            )
+        } else {
+            ProviderUrls.geminiStreamGenerateContentUrl(config.baseUrl, config.model)
+        }
         val fallbackSignature = extractLatestSignature(request.messages)
         val payload = buildRequestJson(config, request.messages, request.tools, fallbackSignature)
 
@@ -44,7 +61,11 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         val headers = Headers.Builder()
             .add("Accept", "text/event-stream")
             .apply {
-                if (config.apiKey.isNotBlank()) {
+                if (saCredentials != null) {
+                    val accessToken = VertexAiServiceAccountAuth.getAccessToken(saCredentials)
+                    add("Authorization", "Bearer $accessToken")
+                    add("x-goog-user-project", saCredentials.projectId)
+                } else if (config.apiKey.isNotBlank()) {
                     add("x-goog-api-key", config.apiKey)
                     if (!isOfficialGoogle) {
                         add("Authorization", "Bearer ${config.apiKey}")
@@ -126,6 +147,12 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             }
         }
 
+        val isServiceAccount = VertexAiServiceAccountAuth.looksLikeServiceAccountJson(config.apiKey)
+        val isVertexEndpoint = isServiceAccount ||
+            config.baseUrl.contains("aiplatform.googleapis.com", ignoreCase = true) ||
+            config.baseUrl.contains("/publishers/google/models", ignoreCase = true) ||
+            Regex("""/projects/[^/?#]+/locations/[^/?#]+""", RegexOption.IGNORE_CASE).containsMatchIn(config.baseUrl)
+
         // 2. Group into alternating user and model turns
         var currentRole: String? = null
         var currentParts = JSONArray()
@@ -160,6 +187,23 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     if (text.isNotBlank()) systemParts.add(text)
                 }
                 "user" -> {
+                    // 当上一条是 tool (functionResponse) 且紧接着因为超时/重试中断后用户输入新指令（如“继续”），
+                    // 若将 user text 与 functionResponse 合并进同一个 user turn，Vertex AI 会把整条视为纯粹的
+                    // 工具返回并报 400: "Requests ending with a model turn are not supported."。
+                    // 因此需要在 functionResponse 与后续新 user 消息之间插入过渡 model turn。
+                    if (currentRole == "user" && hasFunctionResponsePart(currentParts)) {
+                        flushCurrentTurn()
+                        contents.put(
+                            JSONObject()
+                                .put("role", "model")
+                                .put(
+                                    "parts",
+                                    JSONArray().put(
+                                        JSONObject().put("text", "（工具执行结果已接收，等待继续指令）")
+                                    )
+                                )
+                        )
+                    }
                     ensureTurn("user")
                     val parts = convertUserContent(message.opt("content"))
                     for (p in 0 until parts.length()) {
@@ -171,7 +215,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     if (!ownSig.isNullOrBlank()) {
                         runningSignature = ownSig
                     }
-                    val parts = convertAssistantContent(message, runningSignature)
+                    val parts = convertAssistantContent(message, runningSignature, isVertexEndpoint)
                     if (parts.length() > 0) {
                         ensureTurn("model")
                         for (p in 0 until parts.length()) {
@@ -224,33 +268,22 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         }
 
         val generationConfig = JSONObject()
-        val thinkingConfig = JSONObject()
-        if (config.thinkingEnabled) {
-            thinkingConfig.put("includeThoughts", true)
-            // 精准对齐 Antigravity Manager 网关的 variant_mapping 阈值：
-            // b < 2000 -> Low (0.25)
-            // 2000 <= b < 7000 -> Medium (0.50)
-            // b >= 7000 -> High (1.00)
-            val budget = when (config.effectiveReasoningEffort) {
-                ReasoningEffort.OFF -> 0
-                ReasoningEffort.LOW -> 1024
-                ReasoningEffort.MEDIUM -> 4096
-                ReasoningEffort.DEFAULT -> 4096
-                ReasoningEffort.HIGH, ReasoningEffort.XHIGH, ReasoningEffort.MAX -> 16384
-                else -> 4096
-            }
-            thinkingConfig.put("thinkingBudget", budget)
-        } else {
-            thinkingConfig.put("includeThoughts", false)
-            thinkingConfig.put("thinkingBudget", 0)
+        val isImageGenerationModel = config.model.contains("image", ignoreCase = true) ||
+            config.model.contains("nano-banana", ignoreCase = true)
+
+        if (!isImageGenerationModel) {
+            val thinkingConfig = buildThinkingConfig(config, isVertexEndpoint)
+            generationConfig.put("thinkingConfig", thinkingConfig)
         }
-        generationConfig.put("thinkingConfig", thinkingConfig)
-        // 若是生图模型（modelId 含 image 或包含图片输出模态）：
-        if (config.model.contains("image", ignoreCase = true)) {
+        // 若是生图模型（modelId 含 image / nano-banana）：
+        if (isImageGenerationModel) {
             generationConfig.put("responseModalities", JSONArray().put("TEXT").put("IMAGE"))
             generationConfig.put("imageConfig", JSONObject().apply {
                 put("aspectRatio", "1:1")
-                put("outputMimeType", "image/png")
+                // Vertex AI (aiplatform.googleapis.com) 的 imageConfig 不支持 outputMimeType 字段，传了会报 400
+                if (!isVertexEndpoint) {
+                    put("outputMimeType", "image/png")
+                }
             })
         }
 
@@ -323,9 +356,18 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         return latest
     }
 
+    private fun hasFunctionResponsePart(parts: JSONArray): Boolean {
+        for (i in 0 until parts.length()) {
+            val part = parts.optJSONObject(i) ?: continue
+            if (part.has("functionResponse")) return true
+        }
+        return false
+    }
+
     private fun convertAssistantContent(
         message: JSONObject,
         sessionFallbackSig: String? = null,
+        isVertexEndpoint: Boolean = false,
     ): JSONArray {
         val parts = JSONArray()
 
@@ -365,6 +407,9 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     .ifBlank { toolCall.optString("thought_signature") }
                     .takeIf { it.isNotBlank() && it != "skip_thought_signature_validator" }
                     ?: signature
+                    // 对于旧存档中未持久化签名的历史会话，直连官方 Vertex AI 时使用 Google 官方文档规定的
+                    // skip_thought_signature_validator 豁免哨兵，使已中断的老会话也能直接恢复。
+                    ?: "skip_thought_signature_validator".takeIf { isVertexEndpoint && index == 0 }
 
                 // 首个 functionCall 作为权威锚点，必须携带真实签名（自身或继承）
                 if (!tcSig.isNullOrBlank() && index == 0) {
@@ -429,24 +474,72 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         return JSONObject().put("functionDeclarations", declarations)
     }
 
+    private val ALLOWED_GEMINI_SCHEMA_KEYS = setOf(
+        "type",
+        "format",
+        "title",
+        "description",
+        "nullable",
+        "default",
+        "items",
+        "minItems",
+        "maxItems",
+        "enum",
+        "properties",
+        "propertyOrdering",
+        "required",
+        "minProperties",
+        "maxProperties",
+        "minimum",
+        "maximum",
+        "minLength",
+        "maxLength",
+        "pattern",
+        "example",
+        "anyOf",
+    )
+
     private fun sanitizeGeminiParameters(source: JSONObject): JSONObject {
-        val copy = JSONObject(source.toString())
-        fun clean(obj: JSONObject) {
-            obj.remove("${'$'}schema")
-            obj.remove("${'$'}id")
-            obj.remove("additionalProperties")
-            val properties = obj.optJSONObject("properties")
-            if (properties != null) {
-                for (k in properties.keys()) {
-                    val p = properties.optJSONObject(k)
-                    if (p != null) clean(p)
+        fun clean(obj: JSONObject): JSONObject {
+            val result = JSONObject()
+            val keys = obj.keys().asSequence().toList()
+            for (key in keys) {
+                if (key !in ALLOWED_GEMINI_SCHEMA_KEYS) continue
+                val value = obj.opt(key) ?: continue
+                when (key) {
+                    "properties" -> if (value is JSONObject) {
+                        val cleanedProps = JSONObject()
+                        for (propKey in value.keys()) {
+                            val propSchema = value.optJSONObject(propKey)
+                            if (propSchema != null) {
+                                cleanedProps.put(propKey, clean(propSchema))
+                            }
+                        }
+                        result.put("properties", cleanedProps)
+                    }
+                    "items" -> when (value) {
+                        is JSONObject -> result.put("items", clean(value))
+                        is JSONArray -> {
+                            val firstObj = value.optJSONObject(0)
+                            if (firstObj != null) result.put("items", clean(firstObj))
+                        }
+                    }
+                    "anyOf" -> if (value is JSONArray) {
+                        val cleanedAnyOf = JSONArray()
+                        for (i in 0 until value.length()) {
+                            val itemObj = value.optJSONObject(i)
+                            if (itemObj != null) cleanedAnyOf.put(clean(itemObj))
+                        }
+                        if (cleanedAnyOf.length() > 0) {
+                            result.put("anyOf", cleanedAnyOf)
+                        }
+                    }
+                    else -> result.put(key, value)
                 }
             }
-            val items = obj.optJSONObject("items")
-            if (items != null) clean(items)
+            return result
         }
-        clean(copy)
-        return copy
+        return clean(source)
     }
 
     private fun readStreamingAssistantMessage(
@@ -686,10 +779,56 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             .replace('\r', ' ')
             .let { if (it.length > MAX_ERROR_CHARS) it.take(MAX_ERROR_CHARS) + "..." else it }
 
-    private val MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})\..*""", RegexOption.IGNORE_CASE)
+    private val MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})(?:[.-].*|$)""", RegexOption.IGNORE_CASE)
 
     private fun isModernGemini(model: String): Boolean {
-        val lower = model.lowercase()
-        return MODERN_GEMINI_REGEX.matches(lower) || lower.contains("gemini-3")
+        val lower = VertexAiServiceAccountAuth.normalizeVertexModelId(model).lowercase()
+        return MODERN_GEMINI_REGEX.matches(lower) || lower.contains("gemini-3") || lower.contains("gemini-4")
+    }
+
+    private fun buildThinkingConfig(
+        config: AgentModelClient.ModelConfig,
+        isVertexEndpoint: Boolean,
+    ): JSONObject {
+        val thinkingConfig = JSONObject()
+        val normalizedModel = VertexAiServiceAccountAuth.normalizeVertexModelId(config.model).lowercase()
+        // Vertex AI 原生 Gemini 3.x / 4.x（如 gemini-4-argon, gemini-3.8-flash）使用 thinkingLevel，
+        // 且 gemini-4-argon 严格禁止传 thinkingBudget（传了即报 400: Thinking budget is not supported for this model. Use thinking level instead）。
+        // 而 Gemini 2.5 系列在 Vertex AI 上仅支持 thinkingBudget。
+        val usesVertexThinkingLevel = isVertexEndpoint && isModernGemini(normalizedModel)
+
+        if (!config.thinkingEnabled || config.effectiveReasoningEffort == ReasoningEffort.OFF) {
+            thinkingConfig.put("includeThoughts", false)
+            if (!usesVertexThinkingLevel) {
+                thinkingConfig.put("thinkingBudget", 0)
+            }
+            return thinkingConfig
+        }
+
+        thinkingConfig.put("includeThoughts", true)
+        if (usesVertexThinkingLevel) {
+            val level = when (config.effectiveReasoningEffort) {
+                ReasoningEffort.MINIMAL, ReasoningEffort.LOW -> "LOW"
+                ReasoningEffort.MEDIUM -> "MEDIUM"
+                ReasoningEffort.HIGH, ReasoningEffort.XHIGH, ReasoningEffort.MAX -> "HIGH"
+                ReasoningEffort.DEFAULT, ReasoningEffort.OFF -> null
+            }
+            if (level != null) {
+                thinkingConfig.put("thinkingLevel", level)
+            }
+        } else {
+            // 精准对齐 Antigravity Manager 网关及 Gemini 2.5 的 thinkingBudget 阈值：
+            // b < 2000 -> Low (0.25)
+            // 2000 <= b < 7000 -> Medium (0.50)
+            // b >= 7000 -> High (1.00)
+            val budget = when (config.effectiveReasoningEffort) {
+                ReasoningEffort.OFF -> 0
+                ReasoningEffort.MINIMAL, ReasoningEffort.LOW -> 1024
+                ReasoningEffort.MEDIUM, ReasoningEffort.DEFAULT -> 4096
+                ReasoningEffort.HIGH, ReasoningEffort.XHIGH, ReasoningEffort.MAX -> 16384
+            }
+            thinkingConfig.put("thinkingBudget", budget)
+        }
+        return thinkingConfig
     }
 }

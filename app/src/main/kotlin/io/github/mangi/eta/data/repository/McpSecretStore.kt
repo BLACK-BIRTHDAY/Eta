@@ -9,8 +9,9 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import org.json.JSONObject
 
-/** MCP 凭据只以 Android Keystore 密文保存在 App 私有偏好中。 */
+/** MCP 凭据与环境变量只以 Android Keystore 密文保存在 App 私有偏好中。 */
 internal class McpSecretStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(
         PREFERENCES_NAME,
@@ -18,8 +19,78 @@ internal class McpSecretStore(context: Context) {
     )
 
     @Synchronized
-    fun bearerToken(serverId: String): String? {
-        val encoded = preferences.getString(tokenKey(serverId), null) ?: return null
+    fun bearerToken(serverId: String): String? =
+        decryptValue(preferences.getString(tokenKey(serverId), null))
+            ?.takeIf { it.isNotBlank() }
+
+    @Synchronized
+    fun setBearerToken(serverId: String, token: String) {
+        val normalized = token.trim()
+        if (normalized.isBlank()) {
+            check(preferences.edit().remove(tokenKey(serverId)).commit()) { "MCP 凭据删除失败" }
+            return
+        }
+        check(
+            preferences.edit()
+                .putString(tokenKey(serverId), encryptValue(normalized))
+                .commit()
+        ) { "MCP 凭据保存失败" }
+    }
+
+    @Synchronized
+    fun envVars(serverId: String): Map<String, String> {
+        val raw = decryptValue(preferences.getString(envKey(serverId), null)) ?: return emptyMap()
+        return runCatching {
+            val json = JSONObject(raw)
+            buildMap {
+                json.keys().forEach { key ->
+                    val trimmedKey = key.trim()
+                    if (trimmedKey.isNotEmpty()) {
+                        put(trimmedKey, json.optString(key))
+                    }
+                }
+            }
+        }.getOrDefault(emptyMap())
+    }
+
+    @Synchronized
+    fun setEnvVars(serverId: String, envVars: Map<String, String>) {
+        val cleaned = envVars.entries
+            .mapNotNull { (k, v) -> k.trim().takeIf { it.isNotEmpty() }?.to(v) }
+            .toMap()
+        if (cleaned.isEmpty()) {
+            check(preferences.edit().remove(envKey(serverId)).commit()) { "MCP 环境变量删除失败" }
+            return
+        }
+        val json = JSONObject()
+        cleaned.forEach { (k, v) -> json.put(k, v) }
+        check(
+            preferences.edit()
+                .putString(envKey(serverId), encryptValue(json.toString()))
+                .commit()
+        ) { "MCP 环境变量保存失败" }
+    }
+
+    @Synchronized
+    fun clear(serverId: String) {
+        check(
+            preferences.edit()
+                .remove(tokenKey(serverId))
+                .remove(envKey(serverId))
+                .commit()
+        ) { "MCP 凭据删除失败" }
+    }
+
+    private fun encryptValue(plainText: String): String {
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
+        val encrypted = cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))
+        val payload = cipher.iv + encrypted
+        return Base64.encodeToString(payload, Base64.NO_WRAP)
+    }
+
+    private fun decryptValue(encoded: String?): String? {
+        if (encoded == null) return null
         return runCatching {
             val payload = Base64.decode(encoded, Base64.NO_WRAP)
             require(payload.size > GCM_IV_BYTES)
@@ -31,30 +102,7 @@ internal class McpSecretStore(context: Context) {
             )
             cipher.doFinal(payload, GCM_IV_BYTES, payload.size - GCM_IV_BYTES)
                 .toString(Charsets.UTF_8)
-        }.getOrNull()?.takeIf { it.isNotBlank() }
-    }
-
-    @Synchronized
-    fun setBearerToken(serverId: String, token: String) {
-        val normalized = token.trim()
-        if (normalized.isBlank()) {
-            clear(serverId)
-            return
-        }
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
-        val encrypted = cipher.doFinal(normalized.toByteArray(Charsets.UTF_8))
-        val payload = cipher.iv + encrypted
-        check(
-            preferences.edit()
-            .putString(tokenKey(serverId), Base64.encodeToString(payload, Base64.NO_WRAP))
-            .commit()
-        ) { "MCP 凭据保存失败" }
-    }
-
-    @Synchronized
-    fun clear(serverId: String) {
-        check(preferences.edit().remove(tokenKey(serverId)).commit()) { "MCP 凭据删除失败" }
+        }.getOrNull()
     }
 
     private fun secretKey(): SecretKey {
@@ -76,6 +124,8 @@ internal class McpSecretStore(context: Context) {
     }
 
     private fun tokenKey(serverId: String): String = "bearer_$serverId"
+
+    private fun envKey(serverId: String): String = "env_$serverId"
 
     private companion object {
         const val PREFERENCES_NAME = "eta_mcp_secrets"

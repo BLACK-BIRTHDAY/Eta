@@ -369,8 +369,10 @@
   <string name="ui_supports_files_and_folders_under_internal_storage_or_520786">支持任意本地绝对路径下的文件和文件夹</string>
   <string name="ui_support_thinking_5b9e4c">支持思考</string>
   <string name="ui_new_anthropic_db6098">新增 Anthropic</string>
-  <string name="ui_new_gemini">新增 Google Gemini</string>
-  <string name="ui_support_gemini_official_api">支持 Google Gemini 3.x / 2.5 官方原生 API</string>
+  <string name="ui_new_gemini">新增 Google Gemini / Vertex AI</string>
+  <string name="ui_support_gemini_official_api">支持 Google Gemini 3.x / 2.5 官方原生 API 及 Gemini Enterprise (Vertex AI) 服务账号导入</string>
+  <string name="ui_import_vertex_sa_json">从 JSON 导入服务账号 (Gemini Enterprise / Vertex AI)</string>
+  <string name="ui_import_vertex_sa_json_summary">选择 Google Cloud Service Account JSON 密钥文件，自动填充凭证与端点</string>
   <string name="ui_added_openai_compatible_6bd471">新增 OpenAI-compatible</string>
   <string name="ui_add_new_provider_74df54">新增提供商</string>
   <string name="ui_accessibility_enhancement_tools_8fd257">无障碍增强工具</string>
@@ -1190,6 +1192,25 @@
   <string name="mcp_delete_confirm">删除 %1$s？此操作无法撤销。</string>
   <string name="mcp_read_only_tool">只读工具</string>
   <string name="mcp_may_modify_data">可能修改数据或访问外部服务</string>
+  <string name="mcp_transport_http">HTTP / SSE</string>
+  <string name="mcp_transport_stdio">STDIO 本地进程</string>
+  <string name="mcp_mode_json_import">粘贴 JSON 导入</string>
+  <string name="mcp_stdio_command">启动命令（如 npx、uvx、python3）</string>
+  <string name="mcp_stdio_args">参数（可选，空格或换行分隔）</string>
+  <string name="mcp_stdio_cwd">工作目录（可选，如 /workspace）</string>
+  <string name="mcp_stdio_env">环境变量（可选，每行 KEY=VALUE）</string>
+  <string name="mcp_stdio_env_label">运行环境</string>
+  <string name="mcp_stdio_env_linux">Linux 容器（Alpine / Debian）</string>
+  <string name="mcp_stdio_env_android_root">Android Root Shell</string>
+  <string name="mcp_stdio_env_android_user">Android 普通 Shell</string>
+  <string name="mcp_json_input_label">粘贴 mcpServers JSON 配置</string>
+  <string name="mcp_json_import_added">已导入 %1$d 个服务器，共发现 %2$d 个工具</string>
+  <string name="mcp_edit_stdio_config">启动命令与环境</string>
+  <string name="mcp_update_env_vars">环境变量</string>
+  <string name="mcp_env_vars_configured">已配置环境变量</string>
+  <string name="mcp_no_env_vars">未配置环境变量</string>
+  <string name="mcp_update_env_vars_summary">每行输入一个 KEY=VALUE，留空则清空环境变量</string>
+  <string name="mcp_server_row_summary_with_transport">%3$s · 已启用 %1$d/%2$d 个工具</string>
   <string name="data_backup_title">数据备份</string>
   <string name="data_backup_actions">备份</string>
   <string name="data_backup_warning_title">请妥善保管备份文件</string>

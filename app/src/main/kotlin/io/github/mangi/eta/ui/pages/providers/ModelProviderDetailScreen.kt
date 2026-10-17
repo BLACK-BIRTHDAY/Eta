@@ -2,6 +2,8 @@
 
 package io.github.mangi.eta.ui.pages.providers
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.runtime.Composable
@@ -39,6 +42,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.model.VertexAiServiceAccountAuth
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.data.model.GeminiProviderSetting
@@ -49,11 +53,14 @@ import io.github.mangi.eta.data.model.withId
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.components.EtaArrowPreference
 import io.github.mangi.eta.ui.components.EtaCard
 import io.github.mangi.eta.ui.components.EtaOverlayDialog
 import io.github.mangi.eta.ui.components.EtaPreference
+import io.github.mangi.eta.ui.components.EtaPreferenceColors
 import io.github.mangi.eta.ui.components.EtaPreferenceDefaults
 import io.github.mangi.eta.ui.components.EtaPreferenceDivider
+import io.github.mangi.eta.ui.components.EtaPreferenceIcon
 import io.github.mangi.eta.ui.components.EtaSwitchPreference
 import io.github.mangi.eta.ui.components.EtaTextButton
 import io.github.mangi.eta.ui.components.EtaWindowSpinnerPreference
@@ -218,6 +225,50 @@ private fun ProviderConfigTab(
     var isWorking by remember { mutableStateOf(false) }
     var creationCommitted by remember { mutableStateOf(false) }
 
+    val serviceAccountImportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        runCatching {
+            val rawJson = context.contentResolver.openInputStream(uri)?.use { stream ->
+                stream.bufferedReader(Charsets.UTF_8).readText()
+            } ?: error("无法读取所选 JSON 文件")
+            val parsed = VertexAiServiceAccountAuth.parseServiceAccountJson(rawJson)
+            val currentBase = draft.baseUrl.trim()
+            val shouldUpdateBaseUrl = currentBase.isBlank() ||
+                currentBase == "https://generativelanguage.googleapis.com" ||
+                currentBase.contains("aiplatform.googleapis.com", ignoreCase = true)
+            val currentLocation = if (currentBase.contains("aiplatform.googleapis.com", ignoreCase = true)) {
+                VertexAiServiceAccountAuth.resolveLocation(currentBase, parsed.defaultLocation)
+            } else {
+                parsed.defaultLocation
+            }
+            val newBaseUrl = if (shouldUpdateBaseUrl) {
+                VertexAiServiceAccountAuth.buildDefaultVertexBaseUrl(parsed.projectId, currentLocation)
+            } else {
+                draft.baseUrl
+            }
+            val newName = if (draft.name.isBlank()) {
+                "Gemini Enterprise (${parsed.projectId})"
+            } else {
+                draft.name
+            }
+            onDraftChange(
+                draft.copy(
+                    name = newName,
+                    baseUrl = newBaseUrl,
+                    apiKey = rawJson.trim(),
+                )
+            )
+            testStatus = "已导入服务账号：${parsed.clientEmail} (项目: ${parsed.projectId})"
+        }.onFailure { throwable ->
+            testStatus = context.getString(
+                R.string.provider_error,
+                throwable.message ?: "导入 JSON 服务账号失败",
+            )
+        }
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -277,6 +328,37 @@ private fun ProviderConfigTab(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
+                }
+                if (provider is GeminiProviderSetting) {
+                    val parsedSa = remember(draft.apiKey) {
+                        if (VertexAiServiceAccountAuth.looksLikeServiceAccountJson(draft.apiKey)) {
+                            runCatching { VertexAiServiceAccountAuth.parseServiceAccountJson(draft.apiKey) }.getOrNull()
+                        } else {
+                            null
+                        }
+                    }
+                    EtaPreferenceDivider(hasLeading = false)
+                    EtaArrowPreference(
+                        title = stringResource(R.string.ui_import_vertex_sa_json),
+                        summary = if (parsedSa != null) {
+                            "${parsedSa.clientEmail} · ${parsedSa.projectId}"
+                        } else {
+                            stringResource(R.string.ui_import_vertex_sa_json_summary)
+                        },
+                        enabled = !isWorking,
+                        startAction = {
+                            EtaPreferenceIcon(
+                                icon = Icons.Rounded.FileUpload,
+                                enabled = !isWorking,
+                                tint = EtaPreferenceColors.Blue,
+                            )
+                        },
+                        onClick = {
+                            serviceAccountImportLauncher.launch(
+                                arrayOf("application/json", "text/plain", "*/*")
+                            )
+                        },
+                    )
                 }
                 if (provider !is AnthropicProviderSetting && provider !is GeminiProviderSetting) {
                     EtaPreferenceDivider(hasLeading = false)

@@ -55,6 +55,7 @@ class EtaDatabaseMigrationTest {
                 EtaDatabase.MIGRATION_19_20,
                 EtaDatabase.MIGRATION_20_21,
                 EtaDatabase.MIGRATION_21_22,
+                EtaDatabase.MIGRATION_22_23,
             )
             .build()
         try {
@@ -124,6 +125,11 @@ class EtaDatabaseMigrationTest {
             assertEquals(emptyList<RuntimeInFlightRunWithEvents>(), inFlightRuns)
             assertEquals(listOf("mcp-1"), mcpServers.map { it.id })
             assertEquals(null, mcpServers.single().toolsExpireAt)
+            assertEquals("http", mcpServers.single().transportType)
+            assertEquals("", mcpServers.single().command)
+            assertEquals("[]", mcpServers.single().argsJson)
+            assertEquals("linux", mcpServers.single().stdioEnvironment)
+            assertEquals(false, mcpServers.single().hasEnvVars)
             assertEquals(null, provider.models.first().contextWindowOverride)
             assertEquals(null, provider.models.first().reasoningOverride)
             assertEquals(null, provider.models.first().reasoningCapabilitiesOverride)

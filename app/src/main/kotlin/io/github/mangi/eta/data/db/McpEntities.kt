@@ -4,7 +4,9 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import io.github.mangi.eta.data.model.McpServerSetting
+import io.github.mangi.eta.data.model.McpStdioEnvironment
 import io.github.mangi.eta.data.model.McpToolDefinition
+import io.github.mangi.eta.data.model.McpTransportType
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
@@ -25,6 +27,12 @@ internal data class McpServerEntity(
     @ColumnInfo(name = "last_refreshed_at") val lastRefreshedAt: Long?,
     @ColumnInfo(name = "last_protocol_version") val lastProtocolVersion: String?,
     @ColumnInfo(name = "tools_expire_at") val toolsExpireAt: Long?,
+    @ColumnInfo(name = "transport_type") val transportType: String = McpTransportType.HTTP,
+    val command: String = "",
+    @ColumnInfo(name = "args_json") val argsJson: String = "[]",
+    @ColumnInfo(name = "stdio_environment") val stdioEnvironment: String = McpStdioEnvironment.LINUX,
+    val cwd: String = "",
+    @ColumnInfo(name = "has_env_vars") val hasEnvVars: Boolean = false,
 )
 
 private val mcpJson = Json {
@@ -46,12 +54,26 @@ internal fun McpServerSetting.toEntity(): McpServerEntity = McpServerEntity(
     lastRefreshedAt = lastRefreshedAt,
     lastProtocolVersion = lastProtocolVersion,
     toolsExpireAt = toolsExpireAt,
+    transportType = transportType,
+    command = command,
+    argsJson = mcpJson.encodeToString(ListSerializer(String.serializer()), args),
+    stdioEnvironment = stdioEnvironment,
+    cwd = cwd,
+    hasEnvVars = hasEnvVars,
 )
 
 internal fun McpServerEntity.toDomain(): McpServerSetting = McpServerSetting(
     id = id,
     name = name,
     url = url,
+    transportType = transportType.ifBlank { McpTransportType.HTTP },
+    command = command,
+    args = runCatching {
+        mcpJson.decodeFromString(ListSerializer(String.serializer()), argsJson)
+    }.getOrDefault(emptyList()),
+    stdioEnvironment = stdioEnvironment.ifBlank { McpStdioEnvironment.LINUX },
+    cwd = cwd,
+    hasEnvVars = hasEnvVars,
     enabled = enabled,
     protocolMode = protocolMode,
     authorizationType = authorizationType,

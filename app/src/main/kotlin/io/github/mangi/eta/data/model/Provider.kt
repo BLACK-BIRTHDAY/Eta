@@ -147,10 +147,21 @@ internal val ProviderSetting.typeLabel: String
     }
 
 internal val ProviderSetting.displayApiKeySummary: String
-    get() = when {
-        apiKey.isBlank() -> "未填写"
-        apiKey.length <= 8 -> "*".repeat(apiKey.length)
-        else -> "${apiKey.take(4)}${"*".repeat(apiKey.length - 8)}${apiKey.takeLast(4)}"
+    get() {
+        val trimmed = apiKey.trim()
+        if (trimmed.isBlank()) return "未填写"
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            val email = Regex(""""client_email"\s*:\s*"([^"]+)"""").find(trimmed)?.groupValues?.getOrNull(1)
+            val project = Regex(""""project_id"\s*:\s*"([^"]+)"""").find(trimmed)?.groupValues?.getOrNull(1)
+            if (!email.isNullOrBlank()) {
+                return if (!project.isNullOrBlank()) "$email ($project)" else email
+            }
+        }
+        return if (trimmed.length <= 8) {
+            "*".repeat(trimmed.length)
+        } else {
+            "${trimmed.take(4)}${"*".repeat(trimmed.length - 8)}${trimmed.takeLast(4)}"
+        }
     }
 
 internal fun ProviderSetting.withModels(models: List<Model>): ProviderSetting =

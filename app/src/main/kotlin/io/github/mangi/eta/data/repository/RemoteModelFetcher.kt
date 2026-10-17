@@ -4,6 +4,7 @@ import io.github.mangi.eta.agent.model.AgentHttpClient
 import io.github.mangi.eta.agent.model.CustomHeaderFilter
 import io.github.mangi.eta.agent.model.ProviderRequestHeaders
 import io.github.mangi.eta.agent.model.ProviderUrls
+import io.github.mangi.eta.agent.model.VertexAiServiceAccountAuth
 import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.Model
@@ -54,18 +55,23 @@ internal object RemoteModelFetcher {
     }
 
     internal fun parseGeminiModels(body: String): List<Model> {
-        val data = json.parseToJsonElement(body)
-            .jsonObjectOrNull()
-            ?.get("models")
-            ?.jsonArrayOrNull()
+        val root = json.parseToJsonElement(body).jsonObjectOrNull() ?: return emptyList()
+        val data = root["models"]?.jsonArrayOrNull()
+            ?: root["publisherModels"]?.jsonArrayOrNull()
             ?: return emptyList()
+        val isPublisherCatalog = "publisherModels" in root ||
+            data.any { it.jsonObjectOrNull()?.string("name")?.contains("publishers/google/models/") == true }
         return data.mapNotNull { element ->
             val obj = element.jsonObjectOrNull() ?: return@mapNotNull null
-            val rawName = obj.string("name") ?: return@mapNotNull null
-            val modelId = rawName.removePrefix("models/")
+            val rawName = obj.string("name", "id") ?: return@mapNotNull null
+            val modelId = VertexAiServiceAccountAuth.normalizeVertexModelId(rawName)
+            if (modelId.isBlank()) return@mapNotNull null
             val supportedMethods = obj.stringList("supportedGenerationMethods").orEmpty()
-            val isImageModel = modelId.contains("image", ignoreCase = true)
-            val isSupportedMethod = "generateContent" in supportedMethods || "generateImages" in supportedMethods
+            val isImageModel = modelId.contains("image", ignoreCase = true) ||
+                modelId.contains("nano-banana", ignoreCase = true)
+            val isSupportedMethod = "generateContent" in supportedMethods ||
+                "generateImages" in supportedMethods ||
+                (isPublisherCatalog && supportedMethods.isEmpty() && modelId.startsWith("gemini-", ignoreCase = true))
             if (!isImageModel && !isSupportedMethod) return@mapNotNull null
             val displayName = obj.string("displayName") ?: modelId
             Model(
@@ -87,6 +93,9 @@ internal object RemoteModelFetcher {
     }
 
     private fun fetchGemini(provider: GeminiProviderSetting): List<Model> {
+        if (VertexAiServiceAccountAuth.looksLikeServiceAccountJson(provider.apiKey)) {
+            return fetchVertexGemini(provider)
+        }
         val url = ProviderUrls.geminiModelsUrl(provider.baseUrl, provider.apiKey)
         val isOfficialGoogle = provider.baseUrl.contains("generativelanguage.googleapis.com")
         val request = Request.Builder()
@@ -108,6 +117,60 @@ internal object RemoteModelFetcher {
             .get()
             .build()
         return OfficialModelCatalog.enrich(provider, executeJson(request, "获取 Gemini 模型失败").let(::parseGeminiModels))
+    }
+
+    private fun fetchVertexGemini(provider: GeminiProviderSetting): List<Model> {
+        val credentials = VertexAiServiceAccountAuth.parseServiceAccountJson(provider.apiKey)
+        val accessToken = VertexAiServiceAccountAuth.getAccessToken(credentials)
+        val headers = okhttp3.Headers.Builder()
+            .add("Accept", "application/json")
+            .add("Authorization", "Bearer $accessToken")
+            .add("x-goog-user-project", credentials.projectId)
+            .apply {
+                CustomHeaderFilter.mergeInto(this, provider.customHeaders)
+            }
+            .build()
+
+        val collected = linkedMapOf<String, Model>()
+
+        // 1. 优先尝试 Google Generative Language API (带 inputTokenLimit 等完整元数据)
+        runCatching {
+            val req = Request.Builder()
+                .url("https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000")
+                .headers(headers)
+                .get()
+                .build()
+            parseGeminiModels(executeJson(req, "获取 Gemini 模型失败")).forEach { model ->
+                collected[model.modelId.lowercase()] = model
+            }
+        }
+
+        // 2. 尝试 Vertex AI Model Garden publishers/google/models 目录
+        runCatching {
+            val req = Request.Builder()
+                .url("https://aiplatform.googleapis.com/v1beta1/publishers/google/models?pageSize=300")
+                .headers(headers)
+                .get()
+                .build()
+            parseGeminiModels(executeJson(req, "获取 Vertex AI 模型失败")).forEach { model ->
+                val key = model.modelId.lowercase()
+                if (key !in collected) {
+                    collected[key] = model
+                }
+            }
+        }
+
+        // 3. 若当前服务账号被 IAM 限制了 models.list，确保至少返回官方预置 Gemini 目录并验证令牌有效
+        if (collected.isEmpty()) {
+            OfficialModelCatalog.modelsForProvider(provider).forEach { model ->
+                collected[model.modelId.lowercase()] = model.copy(
+                    id = UUID.randomUUID().toString(),
+                    source = ModelSource.REMOTE,
+                )
+            }
+        }
+
+        return OfficialModelCatalog.enrich(provider, collected.values.toList())
     }
 
     internal fun parseAnthropicModels(body: String): List<Model> {
@@ -190,8 +253,8 @@ internal object RemoteModelFetcher {
     }
 
     private val NON_CHAT_MODEL_ID_MARKERS = listOf(
-        // 语音识别
-        "asr", "whisper", "paraformer", "sensevoice", "gummy",
+        // 语音识别与实时转写翻译
+        "asr", "whisper", "paraformer", "sensevoice", "gummy", "transcribe", "live-translate", "native-audio",
         // 语音合成与声音模型
         "tts", "speech", "voice", "cosyvoice", "sambert",
         // 向量与排序
