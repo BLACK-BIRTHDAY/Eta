@@ -4,6 +4,8 @@ import android.content.SharedPreferences
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.ReasoningEffort
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -11,6 +13,10 @@ import org.json.JSONObject
 
 /** Runtime 自己裁决可选能力，不能把入口进程提交的布尔值当作授权。 */
 internal object AgentRuntimePolicy {
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
     data class Permissions(
         val terminalTools: Boolean,
         val browserTools: Boolean,
@@ -41,6 +47,16 @@ internal object AgentRuntimePolicy {
         val requestedEffort = config.effectiveReasoningEffort
         val effectiveEffort = if (permissions.thinking) requestedEffort else ReasoningEffort.OFF
         val thinkingEnabled = effectiveEffort.enablesReasoning
+        val effectiveSubagentEffort = if (permissions.thinking) config.subagentReasoningEffort else ReasoningEffort.OFF
+        val constrainedSubagentConfigJson = if (!permissions.thinking && config.subagentConfigJson.isNotBlank()) {
+            runCatching {
+                val decoded = json.decodeFromString<AgentModelClient.ModelConfig>(config.subagentConfigJson)
+                val constrainedSub = constrain(decoded.copy(subagentConfigJson = ""), permissions)
+                json.encodeToString(constrainedSub)
+            }.getOrDefault(config.subagentConfigJson)
+        } else {
+            config.subagentConfigJson
+        }
         val constrained = config.copy(
             terminalTools = config.terminalTools && permissions.terminalTools,
             browserTools = config.browserTools && permissions.browserTools,
@@ -51,6 +67,8 @@ internal object AgentRuntimePolicy {
                 config.deviceSensitiveActionTools && permissions.deviceSensitiveActionTools,
             thinkingEnabled = thinkingEnabled,
             reasoningEffort = effectiveEffort,
+            subagentReasoningEffort = effectiveSubagentEffort,
+            subagentConfigJson = constrainedSubagentConfigJson,
             autoCompactionEnabled = config.autoCompactionEnabled && permissions.autoCompaction,
         )
         if (thinkingEnabled) return constrained

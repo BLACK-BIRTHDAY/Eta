@@ -221,6 +221,9 @@ internal object AgentModelClient {
                 providerResolver = providerResolver,
                 runController = runController,
                 skillContext = skillContext,
+                memoryContext = memoryContext,
+                additionalTools = additionalTools,
+                executionContext = executionContext,
                 capabilitiesProvider = capabilitiesProvider,
                 parentOnEvent = onEvent,
             )
@@ -350,14 +353,41 @@ internal object AgentModelClient {
         val autoCompactionEnabled: Boolean = Prefs.Keys.BOOLEAN_DEFAULTS.getValue(Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED),
         val subagentModel: String = DEFAULT_SUBAGENT_MODEL,
         val subagentEnabled: Boolean = true,
+        val subagentReasoningEffort: ReasoningEffort = ReasoningEffort.DEFAULT,
+        val subagentContextWindow: Int? = null,
+        val subagentConfigJson: String = "",
     ) {
-        fun toSubagentConfig(): ModelConfig = copy(
-            model = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
-            modelDisplayName = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
-            subagentEnabled = false,
-            thinkingEnabled = true,
-            reasoningEffort = ReasoningEffort.DEFAULT,
-        )
+        fun toSubagentConfig(): ModelConfig {
+            if (subagentConfigJson.isNotBlank()) {
+                val decoded = runCatching {
+                    json.decodeFromString<ModelConfig>(subagentConfigJson)
+                }.getOrNull()
+                if (decoded != null) {
+                    return decoded.copy(
+                        terminalTools = terminalTools,
+                        browserTools = browserTools,
+                        deviceDirectTools = deviceDirectTools,
+                        deviceSensitiveReadTools = deviceSensitiveReadTools,
+                        deviceSensitiveActionTools = deviceSensitiveActionTools,
+                        autoCompactionEnabled = autoCompactionEnabled,
+                        subagentEnabled = false,
+                        subagentConfigJson = "",
+                        thinkingEnabled = subagentReasoningEffort.enablesReasoning,
+                        reasoningEffort = subagentReasoningEffort,
+                        contextWindow = subagentContextWindow ?: decoded.contextWindow ?: contextWindow,
+                    )
+                }
+            }
+            return copy(
+                model = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
+                modelDisplayName = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
+                contextWindow = subagentContextWindow ?: contextWindow,
+                subagentEnabled = false,
+                subagentConfigJson = "",
+                thinkingEnabled = subagentReasoningEffort.enablesReasoning,
+                reasoningEffort = subagentReasoningEffort,
+            )
+        }
 
         val usesHostedWebSearch: Boolean
             get() = hostedWebSearchEnabled && providerType == ProviderTypes.OPENAI_COMPATIBLE &&

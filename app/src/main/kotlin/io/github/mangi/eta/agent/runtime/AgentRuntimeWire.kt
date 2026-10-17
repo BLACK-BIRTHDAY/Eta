@@ -119,6 +119,9 @@ internal object AgentRuntimeWire {
     private const val KEY_CUSTOM_BODY_JSON = "custom_body_json"
     private const val KEY_SUBAGENT_MODEL = "subagent_model"
     private const val KEY_SUBAGENT_ENABLED = "subagent_enabled"
+    private const val KEY_SUBAGENT_REASONING_EFFORT = "subagent_reasoning_effort"
+    private const val KEY_SUBAGENT_CONTEXT_WINDOW = "subagent_context_window"
+    private const val KEY_SUBAGENT_CONFIG_JSON = "subagent_config_json"
     private const val KEY_IMAGES = "images"
     private const val KEY_HISTORY = "history"
     const val KEY_HISTORY_FD = "history_fd"
@@ -413,6 +416,9 @@ internal object AgentRuntimeWire {
         putString(KEY_CUSTOM_BODY_JSON, json.encodeToString(request.config.customBody))
         putString(KEY_SUBAGENT_MODEL, request.config.subagentModel)
         putBoolean(KEY_SUBAGENT_ENABLED, request.config.subagentEnabled)
+        putString(KEY_SUBAGENT_REASONING_EFFORT, request.config.subagentReasoningEffort.wireValue)
+        request.config.subagentContextWindow?.let { putInt(KEY_SUBAGENT_CONTEXT_WINDOW, it) }
+        putString(KEY_SUBAGENT_CONFIG_JSON, request.config.subagentConfigJson)
         request.handoff?.let { putBundle(KEY_HANDOFF, toBundle(it)) }
         putParcelableArrayList(
             KEY_IMAGES,
@@ -560,6 +566,14 @@ internal object AgentRuntimeWire {
                 } else {
                     true
                 },
+                subagentReasoningEffort = if (bundle.containsKey(KEY_SUBAGENT_REASONING_EFFORT)) {
+                    ReasoningEffort.fromWireValue(bundle.getString(KEY_SUBAGENT_REASONING_EFFORT))
+                        ?: ReasoningEffort.DEFAULT
+                } else {
+                    ReasoningEffort.DEFAULT
+                },
+                subagentContextWindow = bundle.optionalInt(KEY_SUBAGENT_CONTEXT_WINDOW),
+                subagentConfigJson = bundle.getString(KEY_SUBAGENT_CONFIG_JSON).orEmpty(),
             ),
             history = when {
                 !readText -> emptyList()

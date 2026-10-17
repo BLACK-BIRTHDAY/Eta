@@ -108,8 +108,8 @@ internal object AgentPromptBuilder {
                     "若工具返回 ACCESSIBILITY_UNAVAILABLE、ACCESSIBILITY_PROTECTION_UNAVAILABLE 或 ACCESSIBILITY_REPAIR_TIMEOUT，说明动作未执行，" +
                     "不要改用坐标或 Shell 重放 GUI 动作。" +
                     (if (roleplayContext == null && config.subagentEnabled) {
-                        "面对多步、机械或重复性的界面微操作、列表翻找、连续文本输入或排查时，应作为规划与验收者（Planner & Verifier）调用 delegate_task（由 ${config.subagentModel} 驱动的高速子代理）完成具体执行；" +
-                            "子代理返回执行轨迹摘要与最终状态后，由你核对验收结果并推进下一步或给出最终答复。"
+                        "面对多步连续执行、机械排查、终端/Linux 命令执行、文件批处理读写、网页搜索与浏览器交互、设备与个人数据查询，以及多步界面微操作时，应作为规划与验收者（Planner & Verifier）调用 delegate_task（由 ${config.subagentModel} 驱动的全能力子代理）完成具体执行；" +
+                            "子代理在独立上下文中连续推进，返回执行轨迹摘要与最终状态后，由你核对验收结果并推进下一步或给出最终答复。"
                     } else {
                         ""
                     })

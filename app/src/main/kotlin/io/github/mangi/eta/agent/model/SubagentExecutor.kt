@@ -4,6 +4,7 @@ import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.skill.SkillContext
+import io.github.mangi.eta.agent.terminal.TerminalExecutionContext
 import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import org.json.JSONArray
 import org.json.JSONObject
@@ -16,6 +17,9 @@ internal class SubagentExecutor(
     },
     private val runController: AgentRunController = AgentRunController(),
     private val skillContext: SkillContext = SkillContext.EMPTY,
+    private val memoryContext: AgentMemoryContext = AgentMemoryContext.DISABLED,
+    private val additionalTools: JSONArray = JSONArray(),
+    private val executionContext: TerminalExecutionContext? = null,
     private val capabilitiesProvider: () -> AgentToolCapabilities = { AgentToolCapabilities(rootAvailable = false) },
     private val parentOnEvent: (AgentEvent) -> Unit = {},
     private val parentRound: Int = 1,
@@ -88,6 +92,17 @@ internal class SubagentExecutor(
 
         val subagentPrompt = buildPrompt(task, acceptanceCriteria)
 
+        val filteredAdditionalTools = JSONArray().apply {
+            for (i in 0 until additionalTools.length()) {
+                val toolObj = additionalTools.optJSONObject(i)
+                val toolName = toolObj?.optJSONObject("function")?.optString("name")
+                    ?: toolObj?.optString("name")
+                if (toolName != AgentSubagentToolCatalog.TOOL_NAME) {
+                    put(additionalTools.opt(i))
+                }
+            }
+        }
+
         val response = try {
             AgentModelClient.complete(
                 config = workerConfig,
@@ -96,7 +111,9 @@ internal class SubagentExecutor(
                 provider = providerResolver(workerConfig),
                 runController = runController,
                 skillContext = skillContext,
-                memoryContext = AgentMemoryContext.DISABLED,
+                memoryContext = memoryContext,
+                additionalTools = filteredAdditionalTools,
+                executionContext = executionContext,
                 capabilitiesProvider = capabilitiesProvider,
                 onEvent = childOnEvent,
             )
@@ -139,10 +156,10 @@ internal class SubagentExecutor(
         }
         appendLine()
         appendLine("执行说明：")
-        appendLine("1. 快速、机械、连续地调用工具完成上述任务。")
-        appendLine("2. 成功操作后优先使用返回的 after 界面信息判断界面变化，不必重复调用 observe_screen。")
+        appendLine("1. 快速、高效、连续地调用工具完成上述任务。你具备与主模型同等的全套工具能力（终端与命令执行、文件管理、网页搜索与浏览器交互、设备与个人数据查询、GUI 微操作、技能与外部 MCP 工具）。")
+        appendLine("2. 进行 GUI 界面操作时，成功操作后优先使用返回的 after 界面信息判断变化，不必重复调用 observe_screen；进行终端、文件或网络查询时，根据实际返回结果推进下一步。")
         appendLine("3. 一旦满足完成条件，或工具返回 SUBAGENT_MAX_STEPS_REACHED，立即停止调用工具。")
-        appendLine("4. 任务结束时，输出简明扼要的执行总结，汇报完成的具体操作及最终界面/任务状态。")
+        appendLine("4. 任务结束时，输出简明扼要的执行总结，汇报完成的具体操作、产物及最终状态。")
     }
 
     internal fun createWorkerToolExecutor(

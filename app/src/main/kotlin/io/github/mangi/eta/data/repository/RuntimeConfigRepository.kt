@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.datastore.SettingsDataStore
+import io.github.mangi.eta.data.model.Settings
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.data.model.GeminiProviderSetting
@@ -73,16 +74,52 @@ internal object RuntimeConfigRepository {
         val settings = ProviderRepository.repairSelection()
         val provider = settings.selectedProviderId?.let { ProviderRepository.providerById(it) } ?: return null
         val model = provider.selectedOrFirstModel(settings.selectedModelId) ?: return null
-        return buildRuntimeConfig(provider, model)
+        val base = buildRuntimeConfig(provider, model)
+        return applySubagentSettings(base)
     }
 
     /** 会话绑定的模型仍可用时使用它，否则回落到默认模型。 */
     suspend fun runtimeConfigFor(modelId: String?): AgentModelClient.ModelConfig? {
         ProviderRepository.ensureBuiltInsMerged()
         ProviderRepository.allProviders().enabledModel(modelId)?.let { (provider, model) ->
-            return buildRuntimeConfig(provider, model)
+            val base = buildRuntimeConfig(provider, model)
+            return applySubagentSettings(base)
         }
         return currentRuntimeConfig()
+    }
+
+    suspend fun applySubagentSettings(base: AgentModelClient.ModelConfig): AgentModelClient.ModelConfig {
+        val settings = runCatching { SettingsDataStore.settings() }.getOrElse { Settings() }
+        val thinkingAllowed = Prefs.isEnabled(Prefs.Keys.AGENT_THINKING_ENABLED)
+        val effectiveEffort = if (thinkingAllowed) {
+            settings.subagentReasoningEffort
+        } else {
+            ReasoningEffort.OFF
+        }
+
+        val subModelPair = settings.subagentModelId?.takeIf { it.isNotBlank() }?.let { modelId ->
+            ProviderRepository.allProviders().enabledModel(modelId)
+        }
+
+        return if (subModelPair != null) {
+            val (subProvider, subModel) = subModelPair
+            val subConfig = buildRuntimeConfig(subProvider, subModel)
+            base.copy(
+                subagentEnabled = settings.subagentEnabled,
+                subagentModel = subModel.modelId.trim(),
+                subagentReasoningEffort = effectiveEffort,
+                subagentContextWindow = subModel.effectiveContextWindow,
+                subagentConfigJson = runtimeConfigJson(subConfig),
+            )
+        } else {
+            base.copy(
+                subagentEnabled = settings.subagentEnabled,
+                subagentModel = AgentModelClient.DEFAULT_SUBAGENT_MODEL,
+                subagentReasoningEffort = effectiveEffort,
+                subagentContextWindow = null,
+                subagentConfigJson = "",
+            )
+        }
     }
 
     suspend fun syncToRemotePreferences(service: XposedService?): Boolean {

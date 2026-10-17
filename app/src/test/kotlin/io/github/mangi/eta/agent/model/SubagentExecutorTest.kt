@@ -1,13 +1,20 @@
 package io.github.mangi.eta.agent.model
 
+import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentRunController
+import io.github.mangi.eta.agent.runtime.AgentRuntimePolicy
 import io.github.mangi.eta.agent.runtime.AgentRuntimeWire
+import io.github.mangi.eta.agent.terminal.TerminalEnvironment
+import io.github.mangi.eta.agent.terminal.TerminalExecutionContext
 import io.github.mangi.eta.data.model.ReasoningEffort
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,6 +24,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class SubagentExecutorTest {
+    private val testJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     @Test
     fun mainModelDelegatesToWorkerSubagentAndVerifiesExecution() {
@@ -277,11 +285,229 @@ class SubagentExecutorTest {
     }
 
     @Test
-    fun agentRuntimeWireRoundTripsSubagentModelAndSubagentEnabled() {
+    fun subagentExecutorForwardsFullCapabilitiesAndFiltersDelegateTask() {
+        val capturedWorkerTools = mutableListOf<String>()
+        val executedTools = mutableListOf<String>()
+
+        val mainProvider = ScriptedProvider(
+            assistant(
+                finishReason = "tool_calls",
+                toolCalls = listOf(
+                    toolCall(
+                        id = "call_delegate",
+                        name = "delegate_task",
+                        arguments = """{"task":"运行命令并查询MCP工具","max_steps":5}""",
+                    ),
+                ),
+            ),
+            assistant(
+                content = "主模型已收到子代理汇报：已完成命令与查询。",
+                finishReason = "stop",
+            ),
+        )
+
+        val workerProvider = ScriptedProvider(
+            listOf(
+                // Worker Round 1: execute terminal tool
+                { request: ProviderRequest, _: AgentRunController ->
+                    val toolNames = (0 until request.tools.length()).map { i ->
+                        val tool = request.tools.getJSONObject(i)
+                        tool.optJSONObject("function")?.optString("name") ?: tool.optString("name")
+                    }
+                    capturedWorkerTools.addAll(toolNames)
+                    assistant(
+                        finishReason = "tool_calls",
+                        toolCalls = listOf(
+                            toolCall(
+                                id = "call_worker_term",
+                                name = "terminal",
+                                arguments = """{"command":"ls"}""",
+                            ),
+                        ),
+                    )
+                },
+                // Worker Round 2: execute mcp_weather
+                { _: ProviderRequest, _: AgentRunController ->
+                    assistant(
+                        finishReason = "tool_calls",
+                        toolCalls = listOf(
+                            toolCall(
+                                id = "call_worker_mcp",
+                                name = "mcp_weather",
+                                arguments = """{"city":"Beijing"}""",
+                            ),
+                        ),
+                    )
+                },
+                // Worker Round 3: finish
+                { _: ProviderRequest, _: AgentRunController ->
+                    assistant(
+                        content = "命令和MCP查询均已执行成功。",
+                        finishReason = "stop",
+                    )
+                },
+            ),
+        )
+
+        val mainConfig = modelConfig(
+            model = "gemini-4-argon",
+            subagentModel = "gemini-3.8-flash-tiered",
+            subagentEnabled = true,
+        ).copy(
+            terminalTools = true,
+            browserTools = true,
+        )
+
+        val mcpTool = JSONObject()
+            .put("type", "function")
+            .put(
+                "function",
+                JSONObject()
+                    .put("name", "mcp_weather")
+                    .put("description", "Get weather")
+                    .put("parameters", JSONObject().put("type", "object")),
+            )
+        val sneakyDelegateTool = JSONObject()
+            .put("type", "function")
+            .put(
+                "function",
+                JSONObject()
+                    .put("name", "delegate_task")
+                    .put("description", "Sneaky duplicate"),
+            )
+        val additionalTools = JSONArray().put(mcpTool).put(sneakyDelegateTool)
+        val memoryContext = AgentMemoryContext.DISABLED.copy(enabled = true)
+        val executionContext = TerminalExecutionContext(TerminalEnvironment.DEBIAN, linuxRootfsPath = null)
+
+        val toolExecutor = AgentModelClient.ToolExecutor { call ->
+            executedTools += call.name
+            when (call.name) {
+                "terminal" -> AgentModelClient.ToolResult("""{"ok":true,"stdout":"file1\nfile2"}""")
+                "mcp_weather" -> AgentModelClient.ToolResult("""{"ok":true,"temp":22}""")
+                else -> AgentModelClient.ToolResult("""{"ok":true}""")
+            }
+        }
+
+        val result = AgentModelClient.complete(
+            config = mainConfig,
+            prompt = "请执行复杂全能力委派任务",
+            toolExecutor = toolExecutor,
+            providerResolver = { config ->
+                if (config.model == "gemini-4-argon") mainProvider else workerProvider
+            },
+            additionalTools = additionalTools,
+            memoryContext = memoryContext,
+            executionContext = executionContext,
+        )
+
+        assertEquals("主模型已收到子代理汇报：已完成命令与查询。", result.content)
+        assertEquals(listOf("terminal", "mcp_weather"), executedTools)
+
+        // Verify tools available to worker
+        assertTrue("Worker must have terminal tool", capturedWorkerTools.contains("terminal"))
+        assertTrue("Worker must have memory_get tool", capturedWorkerTools.contains("memory_get"))
+        assertTrue("Worker must have mcp_weather tool", capturedWorkerTools.contains("mcp_weather"))
+        assertFalse("Worker must NOT have delegate_task tool", capturedWorkerTools.contains("delegate_task"))
+
+        // Verify subagent execution trace
+        val mainSecondRequest = mainProvider.requests[1]
+        val toolResultJson = JSONObject(
+            mainSecondRequest.getJSONObject(mainSecondRequest.length() - 1).getString("content"),
+        )
+        assertTrue(toolResultJson.getBoolean("ok"))
+        assertEquals(2, toolResultJson.getInt("steps_taken"))
+        val trace = toolResultJson.getJSONArray("actions_trace")
+        assertEquals(2, trace.length())
+        assertEquals("terminal", trace.getJSONObject(0).getString("tool"))
+        assertEquals("mcp_weather", trace.getJSONObject(1).getString("tool"))
+    }
+
+    @Test
+    fun toSubagentConfigHandlesConfigJsonEffortAndContextWindow() {
+        // Case 1: subagentConfigJson is blank, uses subagentModel, subagentReasoningEffort, subagentContextWindow
+        val base = modelConfig(
+            model = "main-model",
+            subagentModel = "custom-worker-model",
+            subagentReasoningEffort = ReasoningEffort.HIGH,
+            subagentContextWindow = 64_000,
+            subagentConfigJson = "",
+        )
+        val worker1 = base.toSubagentConfig()
+        assertEquals("custom-worker-model", worker1.model)
+        assertEquals("custom-worker-model", worker1.modelDisplayName)
+        assertFalse(worker1.subagentEnabled)
+        assertEquals("", worker1.subagentConfigJson)
+        assertTrue(worker1.thinkingEnabled)
+        assertEquals(ReasoningEffort.HIGH, worker1.reasoningEffort)
+        assertEquals(64_000, worker1.contextWindow)
+
+        // Case 2: subagentReasoningEffort is OFF
+        val worker2 = base.copy(subagentReasoningEffort = ReasoningEffort.OFF).toSubagentConfig()
+        assertFalse(worker2.thinkingEnabled)
+        assertEquals(ReasoningEffort.OFF, worker2.reasoningEffort)
+
+        // Case 3: subagentConfigJson is provided from another provider
+        val customSubConfig = AgentModelClient.ModelConfig(
+            providerId = "provider-claude",
+            providerName = "Anthropic",
+            providerType = "anthropic",
+            baseUrl = "https://api.anthropic.com",
+            apiKey = "sk-ant-test",
+            model = "claude-3-7-sonnet",
+            modelDisplayName = "Claude 3.7 Sonnet",
+            contextWindow = 200_000,
+            systemPrompt = "sub-prompt",
+            terminalTools = false,
+            browserTools = false,
+            deviceDirectTools = false,
+            deviceSensitiveReadTools = false,
+            deviceSensitiveActionTools = false,
+            autoCompactionEnabled = false,
+        )
+        val jsonStr = testJson.encodeToString(customSubConfig)
+
+        val parentWithJson = base.copy(
+            subagentConfigJson = jsonStr,
+            subagentReasoningEffort = ReasoningEffort.LOW,
+            subagentContextWindow = 128_000,
+            terminalTools = true,
+            browserTools = true,
+            deviceDirectTools = true,
+            deviceSensitiveReadTools = true,
+            deviceSensitiveActionTools = true,
+            autoCompactionEnabled = true,
+        )
+        val worker3 = parentWithJson.toSubagentConfig()
+        // Decoded from subagentConfigJson
+        assertEquals("provider-claude", worker3.providerId)
+        assertEquals("Anthropic", worker3.providerName)
+        assertEquals("claude-3-7-sonnet", worker3.model)
+        assertEquals("https://api.anthropic.com", worker3.baseUrl)
+        assertEquals("sk-ant-test", worker3.apiKey)
+        // Inherits tool permissions and runtime flags from parent
+        assertTrue(worker3.terminalTools)
+        assertTrue(worker3.browserTools)
+        assertTrue(worker3.deviceDirectTools)
+        assertTrue(worker3.deviceSensitiveReadTools)
+        assertTrue(worker3.deviceSensitiveActionTools)
+        assertTrue(worker3.autoCompactionEnabled)
+        // Controlled subagent flags
+        assertFalse(worker3.subagentEnabled)
+        assertEquals("", worker3.subagentConfigJson)
+        assertTrue(worker3.thinkingEnabled)
+        assertEquals(ReasoningEffort.LOW, worker3.reasoningEffort)
+        assertEquals(128_000, worker3.contextWindow)
+    }
+
+    @Test
+    fun agentRuntimeWireRoundTripsAllSubagentFields() {
         val baseConfig = modelConfig(
             model = "custom-main",
             subagentModel = "custom-worker-model",
             subagentEnabled = false,
+            subagentReasoningEffort = ReasoningEffort.XHIGH,
+            subagentContextWindow = 32_000,
+            subagentConfigJson = """{"custom":"subagent"}""",
         )
 
         val request = AgentRuntimeWire.RunRequest(
@@ -296,19 +522,70 @@ class SubagentExecutorTest {
         val deserialized = AgentRuntimeWire.runRequestFromBundle(bundle)
         assertEquals("custom-worker-model", deserialized.config.subagentModel)
         assertEquals(false, deserialized.config.subagentEnabled)
+        assertEquals(ReasoningEffort.XHIGH, deserialized.config.subagentReasoningEffort)
+        assertEquals(32_000, deserialized.config.subagentContextWindow)
+        assertEquals("""{"custom":"subagent"}""", deserialized.config.subagentConfigJson)
 
         // 2. Default fallback when keys are absent
         bundle.remove("subagent_model")
         bundle.remove("subagent_enabled")
+        bundle.remove("subagent_reasoning_effort")
+        bundle.remove("subagent_context_window")
+        bundle.remove("subagent_config_json")
         val fallbackDeserialized = AgentRuntimeWire.runRequestFromBundle(bundle)
         assertEquals(AgentModelClient.DEFAULT_SUBAGENT_MODEL, fallbackDeserialized.config.subagentModel)
         assertEquals(true, fallbackDeserialized.config.subagentEnabled)
+        assertEquals(ReasoningEffort.DEFAULT, fallbackDeserialized.config.subagentReasoningEffort)
+        assertNull(fallbackDeserialized.config.subagentContextWindow)
+        assertEquals("", fallbackDeserialized.config.subagentConfigJson)
+    }
+
+    @Test
+    fun agentRuntimePolicyConstrainsSubagentThinking() {
+        val subConfig = AgentModelClient.ModelConfig(
+            baseUrl = "https://example.invalid",
+            apiKey = "key",
+            model = "worker",
+            systemPrompt = "",
+            thinkingEnabled = true,
+            reasoningEffort = ReasoningEffort.HIGH,
+        )
+        val jsonStr = testJson.encodeToString(subConfig)
+
+        val config = modelConfig(
+            model = "main",
+            subagentModel = "worker",
+            subagentReasoningEffort = ReasoningEffort.MEDIUM,
+            subagentConfigJson = jsonStr,
+        ).copy(
+            thinkingEnabled = true,
+            reasoningEffort = ReasoningEffort.HIGH,
+        )
+
+        val permissionsNoThinking = AgentRuntimePolicy.Permissions(
+            terminalTools = true,
+            browserTools = true,
+            thinking = false,
+        )
+
+        val constrained = AgentRuntimePolicy.constrain(config, permissionsNoThinking)
+        assertEquals(ReasoningEffort.OFF, constrained.reasoningEffort)
+        assertFalse(constrained.thinkingEnabled)
+        assertEquals(ReasoningEffort.OFF, constrained.subagentReasoningEffort)
+
+        // When converted to subagent config, worker also has thinking disabled
+        val worker = constrained.toSubagentConfig()
+        assertFalse(worker.thinkingEnabled)
+        assertEquals(ReasoningEffort.OFF, worker.reasoningEffort)
     }
 
     private fun modelConfig(
         model: String = "test-model",
         subagentModel: String = AgentModelClient.DEFAULT_SUBAGENT_MODEL,
         subagentEnabled: Boolean = true,
+        subagentReasoningEffort: ReasoningEffort = ReasoningEffort.DEFAULT,
+        subagentContextWindow: Int? = null,
+        subagentConfigJson: String = "",
     ): AgentModelClient.ModelConfig =
         AgentModelClient.ModelConfig(
             baseUrl = "https://example.invalid/v1",
@@ -319,6 +596,9 @@ class SubagentExecutorTest {
             browserTools = false,
             subagentModel = subagentModel,
             subagentEnabled = subagentEnabled,
+            subagentReasoningEffort = subagentReasoningEffort,
+            subagentContextWindow = subagentContextWindow,
+            subagentConfigJson = subagentConfigJson,
         )
 
     private fun assistant(

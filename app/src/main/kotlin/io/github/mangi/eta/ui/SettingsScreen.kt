@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
-import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.MenuBook
@@ -62,8 +61,12 @@ import io.github.mangi.eta.agent.accessibility.AccessibilityProtectionClient
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.config.Prefs
+import io.github.mangi.eta.data.datastore.SettingsDataStore
+import io.github.mangi.eta.data.model.ReasoningEffort
+import io.github.mangi.eta.data.model.Settings
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
+import io.github.mangi.eta.ui.model.formatCompactTokenCount
 import io.github.mangi.eta.data.update.AppLatestRelease
 import io.github.mangi.eta.data.update.AppUpdateChecker
 import io.github.mangi.eta.systemizer.GoogleAppSystemizerInstaller
@@ -134,7 +137,7 @@ private fun SettingsPageContent(
     var accessibilityProtectionPending by remember { mutableStateOf(false) }
     val openAssistantSettings: () -> Unit = {
         val failed = runCatching {
-            context.startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
+            context.startActivity(Intent(android.provider.Settings.ACTION_VOICE_INPUT_SETTINGS))
         }.isFailure
         if (failed) {
             Toast.makeText(context, context.getString(R.string.settings_open_assistant_failed), Toast.LENGTH_SHORT).show()
@@ -247,6 +250,63 @@ private fun SettingsPageContent(
         DropdownItem(text = target.displayName(context))
     }
 
+    val settings by SettingsDataStore.settingsFlow().collectAsState(initial = Settings())
+    val enabledSubagentModels = remember(providers) {
+        providers.filter { it.isEnabled }.flatMap { provider ->
+            provider.models.filter { it.isEnabled }.map { model ->
+                provider to model
+            }
+        }
+    }
+    val subagentModelItems = remember(enabledSubagentModels) {
+        listOf(
+            DropdownItem(
+                text = "自动默认 (Gemini 3.8 Flash Tiered)",
+                summary = "使用默认高速子代理模型",
+            ),
+            DropdownItem(
+                text = "关闭子代理",
+                summary = "所有任务均由主模型直接执行",
+            ),
+        ) + enabledSubagentModels.map { (provider, model) ->
+            DropdownItem(
+                text = "${provider.name} / ${model.displayName}",
+                summary = listOfNotNull(
+                    model.modelId,
+                    model.effectiveContextWindow?.let { "${formatCompactTokenCount(it)} 上下文" },
+                    "可在模型提供商中编辑上下文窗口与参数",
+                ).joinToString(" · "),
+            )
+        }
+    }
+    val subagentModelSelectedIndex = when {
+        !settings.subagentEnabled -> 1
+        settings.subagentModelId.isNullOrBlank() -> 0
+        else -> {
+            val modelIndex = enabledSubagentModels.indexOfFirst { (_, model) -> model.id == settings.subagentModelId }
+            if (modelIndex >= 0) modelIndex + 2 else 0
+        }
+    }
+    val subagentEffortOptions = remember {
+        listOf(
+            ReasoningEffort.DEFAULT,
+            ReasoningEffort.OFF,
+            ReasoningEffort.MINIMAL,
+            ReasoningEffort.LOW,
+            ReasoningEffort.MEDIUM,
+            ReasoningEffort.HIGH,
+            ReasoningEffort.MAX,
+        )
+    }
+    val subagentEffortItems = remember(subagentEffortOptions) {
+        subagentEffortOptions.map { effort ->
+            DropdownItem(text = effort.displayName)
+        }
+    }
+    val subagentEffortSelectedIndex = subagentEffortOptions.indexOf(settings.subagentReasoningEffort).let {
+        if (it >= 0) it else 0
+    }
+
     MiuixScaffoldPage(
         title = stringResource(R.string.ui_set_up_7debf9),
         onBack = onBack,
@@ -276,6 +336,67 @@ private fun SettingsPageContent(
                         icon = Icons.Rounded.Psychology,
                         iconTint = EtaPreferenceColors.Blue,
                     )
+
+                    EtaPreferenceDivider()
+                    EtaDropdownPreference(
+                        title = "子代理模型",
+                        items = subagentModelItems,
+                        selectedIndex = subagentModelSelectedIndex,
+                        summary = subagentModelItems.getOrNull(subagentModelSelectedIndex)?.summary,
+                        onSelectedIndexChange = { index ->
+                            coroutineScope.launch {
+                                when (index) {
+                                    0 -> {
+                                        SettingsDataStore.updateSettings {
+                                            it.copy(subagentEnabled = true, subagentModelId = null)
+                                        }
+                                    }
+                                    1 -> {
+                                        SettingsDataStore.updateSettings {
+                                            it.copy(subagentEnabled = false)
+                                        }
+                                    }
+                                    else -> {
+                                        val selected = enabledSubagentModels.getOrNull(index - 2)
+                                        if (selected != null) {
+                                            SettingsDataStore.updateSettings {
+                                                it.copy(subagentEnabled = true, subagentModelId = selected.second.id)
+                                            }
+                                        }
+                                    }
+                                }
+                                RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                            }
+                        },
+                        startAction = {
+                            EtaPreferenceIcon(
+                                icon = Icons.Rounded.SupportAgent,
+                                tint = EtaPreferenceColors.Blue,
+                            )
+                        },
+                    )
+
+                    if (settings.subagentEnabled) {
+                        EtaPreferenceDivider()
+                        EtaDropdownPreference(
+                            title = "子代理思考深度",
+                            items = subagentEffortItems,
+                            selectedIndex = subagentEffortSelectedIndex,
+                            onSelectedIndexChange = { index ->
+                                val effort = subagentEffortOptions.getOrNull(index) ?: return@EtaDropdownPreference
+                                coroutineScope.launch {
+                                    SettingsDataStore.setSubagentReasoningEffort(effort)
+                                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                                }
+                            },
+                            startAction = {
+                                EtaPreferenceIcon(
+                                    icon = Icons.Rounded.Psychology,
+                                    tint = EtaPreferenceColors.Blue,
+                                )
+                            },
+                        )
+                    }
                 }
             }
 
