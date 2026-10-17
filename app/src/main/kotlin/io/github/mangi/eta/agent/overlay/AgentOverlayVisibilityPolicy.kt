@@ -63,6 +63,7 @@ internal object AgentOverlayVisibilityPolicy {
         this?.trim()?.lowercase() in entrySurfaceDismissalTools
 
     private val foregroundDrivingTools = setOf(
+        "delegate_task",
         "launch_app",
         "open_uri",
         "tap",

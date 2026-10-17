@@ -117,6 +117,8 @@ internal object AgentRuntimeWire {
     private const val KEY_EXTRA_BODY_JSON = "extra_body_json"
     private const val KEY_CUSTOM_HEADERS_JSON = "custom_headers_json"
     private const val KEY_CUSTOM_BODY_JSON = "custom_body_json"
+    private const val KEY_SUBAGENT_MODEL = "subagent_model"
+    private const val KEY_SUBAGENT_ENABLED = "subagent_enabled"
     private const val KEY_IMAGES = "images"
     private const val KEY_HISTORY = "history"
     const val KEY_HISTORY_FD = "history_fd"
@@ -409,6 +411,8 @@ internal object AgentRuntimeWire {
         putString(KEY_EXTRA_BODY_JSON, request.config.extraBodyJson)
         putString(KEY_CUSTOM_HEADERS_JSON, json.encodeToString(request.config.customHeaders))
         putString(KEY_CUSTOM_BODY_JSON, json.encodeToString(request.config.customBody))
+        putString(KEY_SUBAGENT_MODEL, request.config.subagentModel)
+        putBoolean(KEY_SUBAGENT_ENABLED, request.config.subagentEnabled)
         request.handoff?.let { putBundle(KEY_HANDOFF, toBundle(it)) }
         putParcelableArrayList(
             KEY_IMAGES,
@@ -548,7 +552,14 @@ internal object AgentRuntimeWire {
                 ),
                 extraBodyJson = bundle.getString(KEY_EXTRA_BODY_JSON).orEmpty(),
                 customHeaders = decodeCustomHeaders(bundle.getString(KEY_CUSTOM_HEADERS_JSON)),
-                customBody = decodeCustomBody(bundle.getString(KEY_CUSTOM_BODY_JSON))
+                customBody = decodeCustomBody(bundle.getString(KEY_CUSTOM_BODY_JSON)),
+                subagentModel = bundle.getString(KEY_SUBAGENT_MODEL)?.ifBlank { null }
+                    ?: AgentModelClient.DEFAULT_SUBAGENT_MODEL,
+                subagentEnabled = if (bundle.containsKey(KEY_SUBAGENT_ENABLED)) {
+                    bundle.getBoolean(KEY_SUBAGENT_ENABLED)
+                } else {
+                    true
+                },
             ),
             history = when {
                 !readText -> emptyList()

@@ -56,6 +56,7 @@ internal class AgentTraceFormatter {
             "skills_list_curated" -> "浏览精选技能"
             "skills_inspect_github" -> summarizeGitHubInspect(toolCall.argumentsJson)
             "skills_install_from_github" -> summarizeGitHubInstall(toolCall.argumentsJson)
+            AgentSubagentToolCatalog.TOOL_NAME -> summarizeSubagentArguments(toolCall.argumentsJson)
             else -> {
                 val label = DEVICE_ACTION_LABELS[toolCall.name]
                     ?: AgentPhoneToolCatalog.entries.firstOrNull { it.name == toolCall.name }?.title
@@ -183,6 +184,15 @@ internal class AgentTraceFormatter {
             if (query.isNotBlank()) "$label · $query" else label
         }.getOrDefault(label)
 
+    private fun summarizeSubagentArguments(argumentsJson: String): String =
+        runCatching {
+            val task = sanitizeSummaryValue(
+                JSONObject(argumentsJson).optString("task"),
+                MAX_QUERY_SUMMARY_CHARS,
+            )
+            if (task.isNotBlank()) "委派子代理 · $task" else "委派子代理"
+        }.getOrDefault("委派子代理")
+
     private fun summarizePointArguments(label: String, argumentsJson: String): String =
         runCatching {
             val arguments = JSONObject(argumentsJson)
@@ -288,6 +298,10 @@ internal class AgentTraceFormatter {
                 json?.let { summarizeMemoryResult(toolName, it) } ?: "完成"
             "search_apps" -> json?.let(::summarizeSearchAppsResult) ?: "完成"
             "launch_app" -> json?.let(::summarizeLaunchAppResult) ?: "已打开"
+            AgentSubagentToolCatalog.TOOL_NAME -> {
+                val steps = json?.optInt("steps_taken") ?: 0
+                "子代理完成 · $steps 步"
+            }
             else -> json?.let { summarizeGenericResult(it, result) } ?: "完成"
         }
     }

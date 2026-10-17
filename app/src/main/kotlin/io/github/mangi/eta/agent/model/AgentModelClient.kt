@@ -24,6 +24,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal object AgentModelClient {
+    const val DEFAULT_SUBAGENT_MODEL = "gemini-3.8-flash-tiered"
+
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = false
@@ -91,7 +93,10 @@ internal object AgentModelClient {
         toolExecutor: ToolExecutor,
         images: List<ModelImage> = emptyList(),
         history: List<ConversationMessage> = emptyList(),
-        provider: AgentProviderClient = ProviderClientFactory.getClient(config),
+        provider: AgentProviderClient? = null,
+        providerResolver: (ModelConfig) -> AgentProviderClient = {
+            if (it.model == config.model && provider != null) provider else ProviderClientFactory.getClient(it)
+        },
         runController: AgentRunController = AgentRunController(),
         skillContext: SkillContext = SkillContext.EMPTY,
         memoryContext: AgentMemoryContext = AgentMemoryContext.DISABLED,
@@ -157,6 +162,9 @@ internal object AgentModelClient {
             for (index in 0 until additionalTools.length()) {
                 tools.put(additionalTools.opt(index))
             }
+            if (config.subagentEnabled && !compactOnly) {
+                tools.put(AgentSubagentToolCatalog.schema())
+            }
             return tools
         }
         val tools = toolsFor(initialCapabilities)
@@ -194,6 +202,32 @@ internal object AgentModelClient {
             }
             return publishedTools
         }
+        val checkedToolExecutor = AgentModelClient.ToolExecutor { call ->
+            val unavailable = AgentToolRequirements.find(call.name)
+                ?.let { capabilitiesProvider().unavailableCode(call.name) }
+            if (unavailable == null) {
+                toolExecutor.execute(call)
+            } else {
+                ToolResult(
+                    JSONObject().put("ok", false).put("code", unavailable)
+                        .put("message", "该工具当前不可用（$unavailable），本次未执行").toString(),
+                )
+            }
+        }
+        val subagentExecutor = if (config.subagentEnabled && !rewriteReply && !compactOnly) {
+            SubagentExecutor(
+                parentConfig = config,
+                parentToolExecutor = checkedToolExecutor,
+                providerResolver = providerResolver,
+                runController = runController,
+                skillContext = skillContext,
+                capabilitiesProvider = capabilitiesProvider,
+                parentOnEvent = onEvent,
+            )
+        } else {
+            null
+        }
+        val resolvedProvider = provider ?: providerResolver(config)
         val loop = AgentLoop(
             transcript = transcript,
             systemCount = systemCount,
@@ -204,19 +238,17 @@ internal object AgentModelClient {
             config = config,
             messages = messages,
             tools = tools,
-            provider = provider,
+            provider = resolvedProvider,
             // 目录在运行内只增不减，可见不再等于可用：执行前用同一规则复核，
             // 中途失去的能力返回与目录过滤一致的错误码，而不是让底层接口给出含糊的失败。
             toolExecutor = AgentModelClient.ToolExecutor { call ->
-                val unavailable = AgentToolRequirements.find(call.name)
-                    ?.let { capabilitiesProvider().unavailableCode(call.name) }
-                if (unavailable == null) {
-                    toolExecutor.execute(call)
-                } else {
-                    ToolResult(
-                        JSONObject().put("ok", false).put("code", unavailable)
-                            .put("message", "该工具当前不可用（$unavailable），本次未执行").toString(),
+                if (call.name == AgentSubagentToolCatalog.TOOL_NAME) {
+                    subagentExecutor?.execute(call) ?: ToolResult(
+                        JSONObject().put("ok", false).put("code", "SUBAGENT_NOT_ENABLED")
+                            .put("message", "子代理功能未启用").toString(),
                     )
+                } else {
+                    checkedToolExecutor.execute(call)
                 }
             },
             runController = runController,
@@ -316,7 +348,17 @@ internal object AgentModelClient {
         val customHeaders: List<CustomHeader> = emptyList(),
         val customBody: List<CustomBody> = emptyList(),
         val autoCompactionEnabled: Boolean = Prefs.Keys.BOOLEAN_DEFAULTS.getValue(Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED),
+        val subagentModel: String = DEFAULT_SUBAGENT_MODEL,
+        val subagentEnabled: Boolean = true,
     ) {
+        fun toSubagentConfig(): ModelConfig = copy(
+            model = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
+            modelDisplayName = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
+            subagentEnabled = false,
+            thinkingEnabled = false,
+            reasoningEffort = if (reasoningCapabilities?.mandatory == true) ReasoningEffort.LOW else ReasoningEffort.OFF,
+        )
+
         val usesHostedWebSearch: Boolean
             get() = hostedWebSearchEnabled && providerType == ProviderTypes.OPENAI_COMPATIBLE &&
                 openAiEndpointMode == OpenAiEndpointMode.RESPONSES

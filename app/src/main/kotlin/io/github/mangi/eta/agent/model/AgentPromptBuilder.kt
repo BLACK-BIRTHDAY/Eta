@@ -106,7 +106,13 @@ internal object AgentPromptBuilder {
                     "以及任务结束前确实需要确认最终结果时，才重新观察；仅当后续操作依赖特定文本或应用出现时使用 wait_for_text/wait_for_package。" +
                     "屏幕观察与 GUI 操作前会确认 Eta 无障碍服务；只有系统保护后端可用时才会请求有限重绑。" +
                     "若工具返回 ACCESSIBILITY_UNAVAILABLE、ACCESSIBILITY_PROTECTION_UNAVAILABLE 或 ACCESSIBILITY_REPAIR_TIMEOUT，说明动作未执行，" +
-                    "不要改用坐标或 Shell 重放 GUI 动作。"
+                    "不要改用坐标或 Shell 重放 GUI 动作。" +
+                    (if (roleplayContext == null && config.subagentEnabled) {
+                        "面对多步、机械或重复性的界面微操作、列表翻找、连续文本输入或排查时，应作为规划与验收者（Planner & Verifier）调用 delegate_task（由 ${config.subagentModel} 驱动的高速子代理）完成具体执行；" +
+                            "子代理返回执行轨迹摘要与最终状态后，由你核对验收结果并推进下一步或给出最终答复。"
+                    } else {
+                        ""
+                    })
             )
         )
         if (config.terminalTools) {
