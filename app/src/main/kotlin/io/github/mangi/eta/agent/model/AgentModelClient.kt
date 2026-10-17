@@ -162,7 +162,7 @@ internal object AgentModelClient {
             for (index in 0 until additionalTools.length()) {
                 tools.put(additionalTools.opt(index))
             }
-            if (config.subagentEnabled && !compactOnly) {
+            if (config.subagentEnabled && !rewriteReply && !compactOnly) {
                 tools.put(AgentSubagentToolCatalog.schema())
             }
             return tools

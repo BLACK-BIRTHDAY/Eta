@@ -102,6 +102,7 @@ internal class SubagentExecutor(
             )
         } catch (e: Exception) {
             runController.throwIfCancelled()
+            if (e is java.util.concurrent.CancellationException) throw e
             return AgentModelClient.ToolResult(
                 content = JSONObject()
                     .put("ok", false)
