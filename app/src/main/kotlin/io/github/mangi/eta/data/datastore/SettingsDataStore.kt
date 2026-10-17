@@ -287,7 +287,7 @@ internal object SettingsDataStore {
         selectedProviderId = this[SELECTED_PROVIDER_ID],
         selectedModelId = this[SELECTED_MODEL_ID],
         memoryEnabled = this[MEMORY_ENABLED] ?: true,
-        subagentEnabled = this[SUBAGENT_ENABLED] ?: true,
+        subagentEnabled = this[SUBAGENT_ENABLED] ?: false,
         subagentModelId = this[SUBAGENT_MODEL_ID],
         subagentReasoningEffort = this[SUBAGENT_REASONING_EFFORT]?.let { ReasoningEffort.fromWireValue(it) } ?: ReasoningEffort.DEFAULT,
         appearance = AppearanceSettings(

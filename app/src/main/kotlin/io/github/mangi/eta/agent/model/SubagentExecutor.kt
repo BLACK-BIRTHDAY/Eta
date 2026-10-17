@@ -26,6 +26,10 @@ internal class SubagentExecutor(
 ) {
     private val traceFormatter = AgentTraceFormatter()
 
+    companion object {
+        private const val MAX_COLLECTED_OUTPUT_CHARS = 2_000
+    }
+
     fun execute(
         call: AgentModelClient.ToolCall,
         round: Int = parentRound,
@@ -56,11 +60,13 @@ internal class SubagentExecutor(
         var stepsTaken = 0
         var limitTriggered = false
         val stepsTrace = mutableListOf<JSONObject>()
+        val collectedOutputs = mutableListOf<JSONObject>()
         var latestObservation: JSONObject? = null
 
         val wrappedToolExecutor = createWorkerToolExecutor(
             maxSteps = maxSteps,
             stepsTrace = stepsTrace,
+            collectedOutputs = collectedOutputs,
             onObservationCaptured = { latestObservation = it },
             onLimitTriggered = { limitTriggered = true },
             getStepsTaken = { stepsTaken },
@@ -120,6 +126,25 @@ internal class SubagentExecutor(
         } catch (e: Exception) {
             runController.throwIfCancelled()
             if (e is java.util.concurrent.CancellationException) throw e
+            if (stepsTaken > 0) {
+                val partialJson = JSONObject()
+                    .put("ok", true)
+                    .put("partial", true)
+                    .put("limit_reached", stepsTaken >= maxSteps && limitTriggered)
+                    .put("interrupted_code", "SUBAGENT_PARTIAL_RESULTS")
+                    .put("interrupted_message", e.message ?: e.javaClass.simpleName)
+                    .put("worker_model", workerConfig.model)
+                    .put("steps_taken", stepsTaken)
+                    .put("max_steps", maxSteps)
+                    .put("actions_trace", JSONArray(stepsTrace))
+                    .put("collected_outputs", JSONArray(collectedOutputs))
+                    .put(
+                        "worker_report",
+                        "子代理在完成 $stepsTaken 步后结束（${e.message ?: e.javaClass.simpleName}），已保留全部阶段性执行结果，请结合 collected_outputs 与 actions_trace 继续处理。",
+                    )
+                latestObservation?.let { partialJson.put("latest_observation", it) }
+                return AgentModelClient.ToolResult(content = partialJson.toString())
+            }
             return AgentModelClient.ToolResult(
                 content = JSONObject()
                     .put("ok", false)
@@ -136,11 +161,13 @@ internal class SubagentExecutor(
 
         val finalResultJson = JSONObject()
             .put("ok", true)
+            .put("partial", stepsTaken >= maxSteps && limitTriggered)
             .put("worker_model", workerConfig.model)
             .put("steps_taken", stepsTaken)
             .put("max_steps", maxSteps)
             .put("limit_reached", stepsTaken >= maxSteps && limitTriggered)
             .put("actions_trace", JSONArray(stepsTrace))
+            .put("collected_outputs", JSONArray(collectedOutputs))
             .put("worker_report", response.content)
 
         latestObservation?.let { finalResultJson.put("latest_observation", it) }
@@ -165,6 +192,7 @@ internal class SubagentExecutor(
     internal fun createWorkerToolExecutor(
         maxSteps: Int,
         stepsTrace: MutableList<JSONObject>,
+        collectedOutputs: MutableList<JSONObject> = mutableListOf(),
         onObservationCaptured: (JSONObject) -> Unit,
         onLimitTriggered: () -> Unit,
         getStepsTaken: () -> Int,
@@ -185,9 +213,13 @@ internal class SubagentExecutor(
                 onLimitTriggered()
                 return@ToolExecutor AgentModelClient.ToolResult(
                     content = JSONObject()
-                        .put("ok", false)
+                        .put("ok", true)
+                        .put("limit_reached", true)
                         .put("code", "SUBAGENT_MAX_STEPS_REACHED")
-                        .put("message", "已达到子代理步数上限 ($maxSteps)，请立即停止调用工具并输出当前执行总结。")
+                        .put(
+                            "message",
+                            "已达到规划模型设定的步数上限 ($maxSteps 步)。请不要再调用任何工具，立即将前面 $maxSteps 步已经获取到的所有结果与进展整理成详细报告交回主模型，不要丢弃任何已有信息。",
+                        )
                         .toString(),
                 )
             }
@@ -204,6 +236,13 @@ internal class SubagentExecutor(
                     .put("args_summary", argsSummary)
                     .put("result_summary", resultSummary)
                     .put("ok", ok),
+            )
+            collectedOutputs.add(
+                JSONObject()
+                    .put("step", nextStep)
+                    .put("tool", childCall.name)
+                    .put("ok", ok)
+                    .put("output", result.content.take(MAX_COLLECTED_OUTPUT_CHARS)),
             )
 
             val resultJson = runCatching { JSONObject(result.content) }.getOrNull()

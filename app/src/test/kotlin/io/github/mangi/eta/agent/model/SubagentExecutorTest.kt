@@ -8,6 +8,7 @@ import io.github.mangi.eta.agent.runtime.AgentRuntimeWire
 import io.github.mangi.eta.agent.terminal.TerminalEnvironment
 import io.github.mangi.eta.agent.terminal.TerminalExecutionContext
 import io.github.mangi.eta.data.model.ReasoningEffort
+import io.github.mangi.eta.data.model.Settings
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.json.JSONArray
@@ -125,6 +126,7 @@ class SubagentExecutorTest {
             mainSecondRequest.getJSONObject(mainSecondRequest.length() - 1).getString("content"),
         )
         assertTrue(toolResultJson.getBoolean("ok"))
+        assertFalse(toolResultJson.getBoolean("partial"))
         assertEquals("gemini-3.8-flash-tiered", toolResultJson.getString("worker_model"))
         assertEquals(2, toolResultJson.getInt("steps_taken"))
         assertEquals(5, toolResultJson.getInt("max_steps"))
@@ -138,6 +140,13 @@ class SubagentExecutorTest {
         assertTrue(traceArray.getJSONObject(0).getBoolean("ok"))
         assertEquals("scroll", traceArray.getJSONObject(1).getString("tool"))
         assertTrue(traceArray.getJSONObject(1).getBoolean("ok"))
+
+        val collectedOutputs = toolResultJson.getJSONArray("collected_outputs")
+        assertEquals(2, collectedOutputs.length())
+        assertEquals("tap_element", collectedOutputs.getJSONObject(0).getString("tool"))
+        assertTrue(collectedOutputs.getJSONObject(0).getString("output").contains("obs_2"))
+        assertEquals("scroll", collectedOutputs.getJSONObject(1).getString("tool"))
+        assertTrue(collectedOutputs.getJSONObject(1).getString("output").contains("obs_3"))
 
         // Verify forwarded child events have "[子代理]" prefix and correct IDs
         val toolStartedEvents = events.filterIsInstance<AgentEvent.ToolStarted>()
@@ -280,8 +289,10 @@ class SubagentExecutorTest {
         assertEquals(2, resultJson.getInt("steps_taken"))
         assertEquals(2, resultJson.getInt("max_steps"))
         assertTrue("limit_reached must be true", resultJson.getBoolean("limit_reached"))
+        assertTrue("partial must be true when step limit reached", resultJson.getBoolean("partial"))
         assertEquals("已达到2步上限，当前列表已滚动到底部。", resultJson.getString("worker_report"))
         assertEquals(2, resultJson.getJSONArray("actions_trace").length())
+        assertEquals(2, resultJson.getJSONArray("collected_outputs").length())
     }
 
     @Test
@@ -577,6 +588,193 @@ class SubagentExecutorTest {
         val worker = constrained.toSubagentConfig()
         assertFalse(worker.thinkingEnabled)
         assertEquals(ReasoningEffort.OFF, worker.reasoningEffort)
+    }
+
+    @Test
+    fun settingsDefaultSubagentDisabled() {
+        val defaultSettings = Settings()
+        assertFalse(defaultSettings.subagentEnabled)
+        assertNull(defaultSettings.subagentModelId)
+        assertEquals(ReasoningEffort.DEFAULT, defaultSettings.subagentReasoningEffort)
+    }
+
+    @Test
+    fun maxStepsUpTo200SupportedAndPreservesPartialResultsOnLimit() {
+        assertEquals(25, AgentSubagentToolCatalog.DEFAULT_MAX_STEPS)
+        assertEquals(1, AgentSubagentToolCatalog.MIN_MAX_STEPS)
+        assertEquals(200, AgentSubagentToolCatalog.MAX_MAX_STEPS)
+
+        val workerProvider = ScriptedProvider(
+            listOf(
+                { _: ProviderRequest, _: AgentRunController ->
+                    assistant(
+                        finishReason = "tool_calls",
+                        toolCalls = listOf(toolCall("s1", "tap_element", """{"index":1,"observation_id":"obs_1"}""")),
+                    )
+                },
+                { _: ProviderRequest, _: AgentRunController ->
+                    assistant(
+                        finishReason = "tool_calls",
+                        toolCalls = listOf(toolCall("s2", "scroll", """{"direction":"down"}""")),
+                    )
+                },
+                { _: ProviderRequest, _: AgentRunController ->
+                    assistant(
+                        finishReason = "tool_calls",
+                        toolCalls = listOf(toolCall("s3", "tap_element", """{"index":2,"observation_id":"obs_2"}""")),
+                    )
+                },
+                { _: ProviderRequest, _: AgentRunController ->
+                    assistant(
+                        finishReason = "tool_calls",
+                        toolCalls = listOf(toolCall("s4", "scroll", """{"direction":"down"}""")),
+                    )
+                },
+                { request: ProviderRequest, _: AgentRunController ->
+                    val lastResult = request.messages.getJSONObject(request.messages.length() - 1).getString("content")
+                    val resultJson = JSONObject(lastResult)
+                    assertTrue(resultJson.getBoolean("ok"))
+                    assertTrue(resultJson.getBoolean("limit_reached"))
+                    assertEquals("SUBAGENT_MAX_STEPS_REACHED", resultJson.getString("code"))
+                    assistant(content = "已完成前3步数据收集。", finishReason = "stop")
+                },
+            ),
+        )
+
+        val parentToolExecutor = AgentModelClient.ToolExecutor { call ->
+            AgentModelClient.ToolResult("""{"ok":true,"result_of":"${call.name}"}""")
+        }
+
+        val mainConfig = modelConfig(
+            model = "main-model",
+            subagentModel = "worker-model",
+            subagentEnabled = true,
+        )
+
+        val executor = SubagentExecutor(
+            parentConfig = mainConfig,
+            parentToolExecutor = parentToolExecutor,
+            providerResolver = { workerProvider },
+        )
+
+        val toolCall = AgentModelClient.ToolCall(
+            id = "call_p",
+            name = "delegate_task",
+            argumentsJson = """{"task":"多步任务","max_steps":3}""",
+        )
+
+        val result = executor.execute(toolCall)
+        val resultJson = JSONObject(result.content)
+
+        assertTrue(resultJson.getBoolean("ok"))
+        assertTrue("partial must be true", resultJson.getBoolean("partial"))
+        assertTrue("limit_reached must be true", resultJson.getBoolean("limit_reached"))
+        assertEquals(3, resultJson.getInt("steps_taken"))
+        assertEquals(3, resultJson.getInt("max_steps"))
+        assertEquals("worker-model", resultJson.getString("worker_model"))
+        assertEquals("已完成前3步数据收集。", resultJson.getString("worker_report"))
+
+        val collectedOutputs = resultJson.getJSONArray("collected_outputs")
+        assertEquals(3, collectedOutputs.length())
+        assertEquals("tap_element", collectedOutputs.getJSONObject(0).getString("tool"))
+        assertTrue(collectedOutputs.getJSONObject(0).getString("output").contains("result_of"))
+        assertEquals("scroll", collectedOutputs.getJSONObject(1).getString("tool"))
+        assertEquals("tap_element", collectedOutputs.getJSONObject(2).getString("tool"))
+    }
+
+    @Test
+    fun midRunExceptionPreservesCollectedOutputsAndReturnsPartialResults() {
+        val workerProvider = ScriptedProvider(
+            listOf(
+                { _: ProviderRequest, _: AgentRunController ->
+                    assistant(
+                        finishReason = "tool_calls",
+                        toolCalls = listOf(toolCall("call_1", "tap_element", """{"index":1,"observation_id":"obs_1"}""")),
+                    )
+                },
+                { _: ProviderRequest, _: AgentRunController ->
+                    throw RuntimeException("Network connection lost mid-execution")
+                },
+            ),
+        )
+
+        val parentToolExecutor = AgentModelClient.ToolExecutor { call ->
+            AgentModelClient.ToolResult("""{"ok":true,"stdout":"data chunk 1"}""")
+        }
+
+        val mainConfig = modelConfig(
+            model = "main-model",
+            subagentModel = "worker-model",
+            subagentEnabled = true,
+        )
+
+        val executor = SubagentExecutor(
+            parentConfig = mainConfig,
+            parentToolExecutor = parentToolExecutor,
+            providerResolver = { workerProvider },
+        )
+
+        val toolCall = AgentModelClient.ToolCall(
+            id = "call_mid_fail",
+            name = "delegate_task",
+            argumentsJson = """{"task":"抓取数据","max_steps":10}""",
+        )
+
+        val result = executor.execute(toolCall)
+        val resultJson = JSONObject(result.content)
+
+        assertTrue("ok must be true for partial results hand-off", resultJson.getBoolean("ok"))
+        assertTrue("partial must be true", resultJson.getBoolean("partial"))
+        assertEquals("SUBAGENT_PARTIAL_RESULTS", resultJson.getString("interrupted_code"))
+        assertTrue(resultJson.getString("interrupted_message").contains("Network connection lost"))
+        assertEquals(1, resultJson.getInt("steps_taken"))
+        assertEquals(10, resultJson.getInt("max_steps"))
+        assertEquals("worker-model", resultJson.getString("worker_model"))
+
+        val collected = resultJson.getJSONArray("collected_outputs")
+        assertEquals(1, collected.length())
+        assertEquals("tap_element", collected.getJSONObject(0).getString("tool"))
+        assertTrue(collected.getJSONObject(0).getString("output").contains("data chunk 1"))
+
+        val trace = resultJson.getJSONArray("actions_trace")
+        assertEquals(1, trace.length())
+        assertEquals("tap_element", trace.getJSONObject(0).getString("tool"))
+
+        val report = resultJson.getString("worker_report")
+        assertTrue(report.contains("子代理在完成 1 步后结束"))
+        assertTrue(report.contains("collected_outputs"))
+    }
+
+    @Test
+    fun zeroStepExceptionReturnsExecutionFailed() {
+        val workerProvider = ScriptedProvider(
+            listOf(
+                { _: ProviderRequest, _: AgentRunController ->
+                    throw RuntimeException("Initial provider connection failed")
+                },
+            ),
+        )
+
+        val executor = SubagentExecutor(
+            parentConfig = modelConfig(),
+            parentToolExecutor = AgentModelClient.ToolExecutor { AgentModelClient.ToolResult("""{"ok":true}""") },
+            providerResolver = { workerProvider },
+        )
+
+        val toolCall = AgentModelClient.ToolCall(
+            id = "call_zero_fail",
+            name = "delegate_task",
+            argumentsJson = """{"task":"初始化即失败的任务","max_steps":10}""",
+        )
+
+        val result = executor.execute(toolCall)
+        val resultJson = JSONObject(result.content)
+
+        assertFalse("ok must be false when stepsTaken == 0", resultJson.getBoolean("ok"))
+        assertEquals("SUBAGENT_EXECUTION_FAILED", resultJson.getString("code"))
+        assertEquals("Initial provider connection failed", resultJson.getString("message"))
+        assertEquals(0, resultJson.getInt("steps_taken"))
+        assertEquals(10, resultJson.getInt("max_steps"))
     }
 
     private fun modelConfig(

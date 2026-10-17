@@ -109,7 +109,9 @@ internal object AgentPromptBuilder {
                     "不要改用坐标或 Shell 重放 GUI 动作。" +
                     (if (roleplayContext == null && config.subagentEnabled) {
                         "面对多步连续执行、机械排查、终端/Linux 命令执行、文件批处理读写、网页搜索与浏览器交互、设备与个人数据查询，以及多步界面微操作时，应作为规划与验收者（Planner & Verifier）调用 delegate_task（由 ${config.subagentModel} 驱动的全能力子代理）完成具体执行；" +
-                            "子代理在独立上下文中连续推进，返回执行轨迹摘要与最终状态后，由你核对验收结果并推进下一步或给出最终答复。"
+                            "根据任务复杂度自主设定 max_steps（1～200，默认 25；简单任务设 10～20，复杂多源检索或批量长链路操作设 30～100）。" +
+                            "子代理在独立上下文中连续推进，返回执行轨迹摘要与最终状态后，由你核对验收结果并推进下一步或给出最终答复；" +
+                            "若子代理返回 limit_reached=true 或 partial=true，说明已达到设定步数上限或中途结束，其已完成步骤的输出已保存在 collected_outputs 与 worker_report 中完整交回，不要丢弃已有成果，应基于已获取信息继续综合分析、推进下一步或向用户汇报阶段性结论。"
                     } else {
                         ""
                     })

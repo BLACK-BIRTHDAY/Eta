@@ -97,15 +97,17 @@ internal object RuntimeConfigRepository {
             ReasoningEffort.OFF
         }
 
-        val subModelPair = settings.subagentModelId?.takeIf { it.isNotBlank() }?.let { modelId ->
-            ProviderRepository.allProviders().enabledModel(modelId)
+        val subModelPair = if (settings.subagentEnabled && !settings.subagentModelId.isNullOrBlank()) {
+            ProviderRepository.allProviders().enabledModel(settings.subagentModelId)
+        } else {
+            null
         }
 
         return if (subModelPair != null) {
             val (subProvider, subModel) = subModelPair
             val subConfig = buildRuntimeConfig(subProvider, subModel)
             base.copy(
-                subagentEnabled = settings.subagentEnabled,
+                subagentEnabled = true,
                 subagentModel = subModel.modelId.trim(),
                 subagentReasoningEffort = effectiveEffort,
                 subagentContextWindow = subModel.effectiveContextWindow,
@@ -113,8 +115,8 @@ internal object RuntimeConfigRepository {
             )
         } else {
             base.copy(
-                subagentEnabled = settings.subagentEnabled,
-                subagentModel = AgentModelClient.DEFAULT_SUBAGENT_MODEL,
+                subagentEnabled = false,
+                subagentModel = "",
                 subagentReasoningEffort = effectiveEffort,
                 subagentContextWindow = null,
                 subagentConfigJson = "",

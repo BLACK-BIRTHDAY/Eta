@@ -251,24 +251,20 @@ private fun SettingsPageContent(
     }
 
     val settings by SettingsDataStore.settingsFlow().collectAsState(initial = Settings())
-    val enabledSubagentModels = remember(providers) {
+    val subagentModelCandidates = remember(providers) {
         providers.filter { it.isEnabled }.flatMap { provider ->
             provider.models.filter { it.isEnabled }.map { model ->
                 provider to model
             }
         }
     }
-    val subagentModelItems = remember(enabledSubagentModels) {
+    val subagentModelItems = remember(subagentModelCandidates) {
         listOf(
-            DropdownItem(
-                text = "自动默认 (Gemini 3.8 Flash Tiered)",
-                summary = "使用默认高速子代理模型",
-            ),
             DropdownItem(
                 text = "关闭子代理",
                 summary = "所有任务均由主模型直接执行",
             ),
-        ) + enabledSubagentModels.map { (provider, model) ->
+        ) + subagentModelCandidates.map { (provider, model) ->
             DropdownItem(
                 text = "${provider.name} / ${model.displayName}",
                 summary = listOfNotNull(
@@ -279,13 +275,11 @@ private fun SettingsPageContent(
             )
         }
     }
-    val subagentModelSelectedIndex = when {
-        !settings.subagentEnabled -> 1
-        settings.subagentModelId.isNullOrBlank() -> 0
-        else -> {
-            val modelIndex = enabledSubagentModels.indexOfFirst { (_, model) -> model.id == settings.subagentModelId }
-            if (modelIndex >= 0) modelIndex + 2 else 0
-        }
+    val subagentModelSelectedIndex = if (!settings.subagentEnabled || settings.subagentModelId.isNullOrBlank()) {
+        0
+    } else {
+        val idx = subagentModelCandidates.indexOfFirst { (_, model) -> model.id == settings.subagentModelId }
+        if (idx >= 0) idx + 1 else 0
     }
     val subagentEffortOptions = remember {
         listOf(
@@ -345,25 +339,13 @@ private fun SettingsPageContent(
                         summary = subagentModelItems.getOrNull(subagentModelSelectedIndex)?.summary,
                         onSelectedIndexChange = { index ->
                             coroutineScope.launch {
-                                when (index) {
-                                    0 -> {
-                                        SettingsDataStore.updateSettings {
-                                            it.copy(subagentEnabled = true, subagentModelId = null)
-                                        }
-                                    }
-                                    1 -> {
-                                        SettingsDataStore.updateSettings {
-                                            it.copy(subagentEnabled = false)
-                                        }
-                                    }
-                                    else -> {
-                                        val selected = enabledSubagentModels.getOrNull(index - 2)
-                                        if (selected != null) {
-                                            SettingsDataStore.updateSettings {
-                                                it.copy(subagentEnabled = true, subagentModelId = selected.second.id)
-                                            }
-                                        }
-                                    }
+                                if (index == 0) {
+                                    SettingsDataStore.setSubagentEnabled(false)
+                                    SettingsDataStore.setSubagentModelId(null)
+                                } else {
+                                    val picked = subagentModelCandidates.getOrNull(index - 1) ?: return@launch
+                                    SettingsDataStore.setSubagentEnabled(true)
+                                    SettingsDataStore.setSubagentModelId(picked.second.id)
                                 }
                                 RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
                             }
@@ -376,7 +358,7 @@ private fun SettingsPageContent(
                         },
                     )
 
-                    if (settings.subagentEnabled) {
+                    if (subagentModelSelectedIndex > 0) {
                         EtaPreferenceDivider()
                         EtaDropdownPreference(
                             title = "子代理思考深度",
