@@ -355,8 +355,8 @@ internal object AgentModelClient {
             model = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
             modelDisplayName = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
             subagentEnabled = false,
-            thinkingEnabled = false,
-            reasoningEffort = if (reasoningCapabilities?.mandatory == true) ReasoningEffort.LOW else ReasoningEffort.OFF,
+            thinkingEnabled = true,
+            reasoningEffort = ReasoningEffort.DEFAULT,
         )
 
         val usesHostedWebSearch: Boolean

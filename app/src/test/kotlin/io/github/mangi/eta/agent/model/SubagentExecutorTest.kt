@@ -3,6 +3,7 @@ package io.github.mangi.eta.agent.model
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.runtime.AgentRuntimeWire
+import io.github.mangi.eta.data.model.ReasoningEffort
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -155,7 +156,8 @@ class SubagentExecutorTest {
         // 1. Worker config has subagentEnabled = false and correct model
         assertFalse(workerConfig.subagentEnabled)
         assertEquals("gemini-3.8-flash-tiered", workerConfig.model)
-        assertFalse(workerConfig.thinkingEnabled)
+        assertTrue(workerConfig.thinkingEnabled)
+        assertEquals(ReasoningEffort.DEFAULT, workerConfig.reasoningEffort)
 
         // 2. Worker complete() does not expose delegate_task in tools catalog
         var publishedToolsString = ""
