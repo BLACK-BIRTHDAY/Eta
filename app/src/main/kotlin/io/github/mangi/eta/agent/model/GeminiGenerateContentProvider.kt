@@ -112,6 +112,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         }
     }
 
+    @JvmName("buildRequestJson")
     internal fun buildRequestJson(
         config: AgentModelClient.ModelConfig,
         messages: JSONArray = JSONArray(),
