@@ -43,6 +43,14 @@ internal object EtaBackupValidation {
                 if (!checkpointIds.add(row.conversationId)) throw EtaBackupException("备份中的上下文检查点重复")
             }
             header.roleplay?.let { CharacterBackupTransfer.validate(it, bindingIds) }
+            header.skills?.let { SkillBackupTransfer.validate(it) }
+            header.mcpServers?.let { McpBackupTransfer.validate(it) }
+            val skillCount = when {
+                header.skills == null -> 0
+                header.skills.packages.isNotEmpty() -> header.skills.packages.size
+                else -> header.skills.registry.count { it.installState == "installed" }
+            }
+            val mcpServerCount = header.mcpServers?.size ?: 0
             return EtaBackupSummary(
                 providerCount = header.providers.size,
                 modelCount = header.providers.sumOf { it.models.size },
@@ -50,10 +58,12 @@ internal object EtaBackupValidation {
                 messageCount = messageCount,
                 memoryBytes = header.memoryMd.toByteArray(Charsets.UTF_8).size,
                 characterCount = header.roleplay?.characters?.size ?: 0,
+                skillCount = skillCount,
+                mcpServerCount = mcpServerCount,
             )
         } catch (failure: IllegalArgumentException) {
             if (failure is EtaBackupException) throw failure
-            throw EtaBackupException("备份中的记录或角色数据无效", failure)
+            throw EtaBackupException(failure.message ?: "备份中的记录或角色数据无效", failure)
         }
     }
 

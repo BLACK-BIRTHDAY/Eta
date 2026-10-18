@@ -3,8 +3,10 @@ package io.github.mangi.eta.data.db
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 @Entity(tableName = "skill_registry")
+@Serializable
 internal data class SkillRegistryEntity(
     @PrimaryKey @ColumnInfo(name = "skill_id") val skillId: String,
     val enabled: Boolean,

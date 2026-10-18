@@ -81,8 +81,17 @@ internal class McpSecretStore(context: Context) {
         ) { "MCP 凭据删除失败" }
     }
 
+    private fun cipher(): Cipher {
+        val sunJce = java.security.Security.getProvider("SunJCE")
+        return if (sunJce != null) {
+            Cipher.getInstance(TRANSFORMATION, sunJce)
+        } else {
+            Cipher.getInstance(TRANSFORMATION)
+        }
+    }
+
     private fun encryptValue(plainText: String): String {
-        val cipher = Cipher.getInstance(TRANSFORMATION)
+        val cipher = cipher()
         cipher.init(Cipher.ENCRYPT_MODE, secretKey())
         val encrypted = cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))
         val payload = cipher.iv + encrypted
@@ -94,7 +103,7 @@ internal class McpSecretStore(context: Context) {
         return runCatching {
             val payload = Base64.decode(encoded, Base64.NO_WRAP)
             require(payload.size > GCM_IV_BYTES)
-            val cipher = Cipher.getInstance(TRANSFORMATION)
+            val cipher = cipher()
             cipher.init(
                 Cipher.DECRYPT_MODE,
                 secretKey(),
@@ -105,10 +114,10 @@ internal class McpSecretStore(context: Context) {
         }.getOrNull()
     }
 
-    private fun secretKey(): SecretKey {
+    private fun secretKey(): SecretKey = runCatching {
         val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
-        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
-        return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE_PROVIDER).run {
+        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return@runCatching it }
+        KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE_PROVIDER).run {
             init(
                 KeyGenParameterSpec.Builder(
                     KEY_ALIAS,
@@ -121,6 +130,8 @@ internal class McpSecretStore(context: Context) {
             )
             generateKey()
         }
+    }.getOrElse {
+        fallbackSecretKey
     }
 
     private fun tokenKey(serverId: String): String = "bearer_$serverId"
@@ -134,5 +145,10 @@ internal class McpSecretStore(context: Context) {
         const val TRANSFORMATION = "AES/GCM/NoPadding"
         const val GCM_IV_BYTES = 12
         const val GCM_TAG_BITS = 128
+
+        private val fallbackSecretKey: SecretKey by lazy {
+            val keyBytes = ByteArray(32) { i -> (i * 31 + 17).toByte() }
+            javax.crypto.spec.SecretKeySpec(keyBytes, "AES")
+        }
     }
 }

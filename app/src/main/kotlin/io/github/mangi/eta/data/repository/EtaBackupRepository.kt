@@ -42,11 +42,13 @@ internal data class EtaBackupDocument(
     val conversationState: ConversationStateEntity? = null,
     val memoryMd: String = "",
     val roleplay: CharacterBackupData? = null,
+    val skills: SkillBackupData? = null,
+    val mcpServers: List<McpBackupServer>? = null,
 ) {
     companion object {
         const val FORMAT = "eta-backup"
-        // 3：会话记录携带最近使用的模型；旧版本备份缺省该字段，导入后跟随默认模型。
-        const val SCHEMA_VERSION = 3
+        // 4：支持 Skill 包与 MCP 设置导出；旧版本备份缺省该字段，导入后保留设备现有设置。
+        const val SCHEMA_VERSION = 4
     }
 }
 
@@ -63,6 +65,8 @@ internal data class EtaBackupSummary(
     val messageCount: Int,
     val memoryBytes: Int,
     val characterCount: Int = 0,
+    val skillCount: Int = 0,
+    val mcpServerCount: Int = 0,
 )
 
 internal class EtaBackupException(message: String, cause: Throwable? = null) :
@@ -123,8 +127,24 @@ internal object EtaBackupRepository {
                     phase = "export_roleplay"
                     val roleplay = CharacterBackupTransfer.snapshot(appContext, boundAvatars)
                     writer.value("roleplay", CharacterBackupData.serializer().nullable, roleplay)
-                    EtaBackupSummary(providers.size, providers.sumOf { it.models.size }, conversationCount,
-                        messageCount, memory.toByteArray(Charsets.UTF_8).size, roleplay.characters.size)
+                    phase = "export_skills"
+                    val skills = SkillBackupTransfer.snapshot(appContext)
+                    writer.value("skills", SkillBackupData.serializer().nullable, skills)
+                    phase = "export_mcp"
+                    val mcpServers = McpBackupTransfer.snapshot(appContext)
+                    writer.value("mcpServers", ListSerializer(McpBackupServer.serializer()).nullable, mcpServers)
+                    val skillCount = if (skills.packages.isNotEmpty()) skills.packages.size else skills.registry.count { it.installState == "installed" }
+                    val mcpServerCount = mcpServers.size
+                    EtaBackupSummary(
+                        providers.size,
+                        providers.sumOf { it.models.size },
+                        conversationCount,
+                        messageCount,
+                        memory.toByteArray(Charsets.UTF_8).size,
+                        roleplay.characters.size,
+                        skillCount,
+                        mcpServerCount,
+                    )
                 }
             }
         } catch (failure: Throwable) {
@@ -146,8 +166,22 @@ internal object EtaBackupRepository {
                 val previousRoleMemories = document.roleplay?.assets.orEmpty().associate {
                     it.characterId to CharacterMemoryRepository.snapshot(appContext, it.characterId).content
                 }
+                val previousMcpIds = if (document.mcpServers != null) {
+                    database.mcpServerDao().servers().mapTo(mutableSetOf()) { it.id }
+                } else {
+                    emptySet()
+                }
+                val previousSecrets = if (document.mcpServers != null) {
+                    McpBackupTransfer.captureSecrets(appContext, previousMcpIds)
+                } else {
+                    emptyMap()
+                }
                 phase = "restore_assets"
                 val avatarPaths = document.roleplay?.let { CharacterBackupTransfer.restoreAssets(appContext, it) }.orEmpty()
+                phase = "stage_skills"
+                val stagedSkillSwap = document.skills?.let {
+                    SkillBackupTransfer.stageAndSwapDirectories(appContext, it)
+                }
                 var memoryWriteStarted = false
                 try {
                     database.withTransaction {
@@ -176,13 +210,31 @@ internal object EtaBackupRepository {
                                 roleplay.characters.map { it.copy(avatarPath = avatarPaths[it.id]) }, roleplay.persona,
                             )
                         }
+                        if (document.mcpServers != null) {
+                            phase = "restore_mcp_servers"
+                            database.mcpServerDao().replaceAll(document.mcpServers.map { it.server })
+                        }
+                        if (document.skills != null) {
+                            phase = "restore_skill_registry"
+                            database.skillDao().replaceRegistry(document.skills.registry)
+                        }
                         // 文件写入失败使数据库事务回滚，再补偿已经替换的记忆文件。
                         phase = "restore_memory"
                         memoryWriteStarted = true
                         AgentMemoryRepository.replaceAll(document.memoryMd)
                         document.roleplay?.let { CharacterBackupTransfer.restoreMemories(appContext, it) }
+                        if (document.mcpServers != null) {
+                            phase = "restore_mcp_secrets"
+                            McpBackupTransfer.restoreSecrets(appContext, previousMcpIds, document.mcpServers)
+                        }
                     }
+                    stagedSkillSwap?.commit()
                 } catch (failure: Throwable) {
+                    if (document.mcpServers != null) {
+                        val currentMcpIds = document.mcpServers.map { it.server.id }.toSet()
+                        McpBackupTransfer.rollbackSecrets(appContext, currentMcpIds, previousSecrets, failure)
+                    }
+                    stagedSkillSwap?.rollback(failure)
                     if (memoryWriteStarted) {
                         try { AgentMemoryRepository.replaceAll(previousMemory) } catch (restoreFailure: Throwable) {
                             failure.addSuppressed(restoreFailure)
@@ -195,6 +247,8 @@ internal object EtaBackupRepository {
                     }
                     CharacterBackupTransfer.discardAssets(avatarPaths, failure)
                     throw failure
+                } finally {
+                    stagedSkillSwap?.close()
                 }
                 phase = "restore_settings"
                 SettingsDataStore.setSelection(document.selectedProviderId, document.selectedModelId)

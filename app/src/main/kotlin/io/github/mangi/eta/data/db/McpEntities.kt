@@ -7,12 +7,14 @@ import io.github.mangi.eta.data.model.McpServerSetting
 import io.github.mangi.eta.data.model.McpStdioEnvironment
 import io.github.mangi.eta.data.model.McpToolDefinition
 import io.github.mangi.eta.data.model.McpTransportType
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.SetSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 
 @Entity(tableName = "mcp_servers")
+@Serializable
 internal data class McpServerEntity(
     @PrimaryKey val id: String,
     val name: String,
