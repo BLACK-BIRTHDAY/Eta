@@ -793,6 +793,148 @@ class SubagentExecutorTest {
         assertEquals(10, resultJson.getInt("max_steps"))
     }
 
+    @Test
+    fun multipleSubagentsInSameTurnExecuteConcurrentlyInParallel() {
+        val events = java.util.Collections.synchronizedList(mutableListOf<AgentEvent>())
+        val latch = java.util.concurrent.CountDownLatch(2)
+
+        val mainProvider = ScriptedProvider(
+            // Main Round 1: Emit 2 delegate_task calls in the same turn
+            assistant(
+                finishReason = "tool_calls",
+                toolCalls = listOf(
+                    toolCall(
+                        id = "call-sub-1",
+                        name = "delegate_task",
+                        arguments = """{"task":"搜索主题A","max_steps":5}""",
+                    ),
+                    toolCall(
+                        id = "call-sub-2",
+                        name = "delegate_task",
+                        arguments = """{"task":"搜索主题B","max_steps":5}""",
+                    ),
+                ),
+            ),
+            // Main Round 2: Verify both results and return final answer
+            assistant(
+                content = "主题A和主题B均已并行搜索完成。",
+                finishReason = "stop",
+            ),
+        )
+
+        val workerProvider = object : AgentProviderClient {
+            override val id: String = "concurrent-worker"
+            override val capabilities: ProviderCapabilities = ProviderCapabilities(
+                endpoint = EndpointKind.CHAT_COMPLETIONS,
+                streamingText = true,
+                streamingToolCalls = true,
+                imageInput = true,
+                toolResultImages = false,
+                strictTools = false,
+                parallelToolCalls = false,
+            )
+
+            override fun complete(
+                request: ProviderRequest,
+                runController: AgentRunController,
+                onEvent: (ProviderEvent) -> Unit,
+            ): ProviderResponse {
+                val messagesStr = request.messages.toString()
+                val isSub1 = messagesStr.contains("搜索主题A")
+                val lastRole = request.messages.getJSONObject(request.messages.length() - 1).optString("role")
+                return if (lastRole != "tool") {
+                    val query = if (isSub1) "topic-A" else "topic-B"
+                    val callId = if (isSub1) "w-call-1" else "w-call-2"
+                    ProviderResponse(
+                        assistant(
+                            finishReason = "tool_calls",
+                            toolCalls = listOf(
+                                toolCall(
+                                    id = callId,
+                                    name = "web_search",
+                                    arguments = """{"query":"$query"}""",
+                                ),
+                            ),
+                        ),
+                    )
+                } else {
+                    val summary = if (isSub1) "主题A搜索报告" else "主题B搜索报告"
+                    ProviderResponse(
+                        assistant(
+                            content = summary,
+                            finishReason = "stop",
+                        ),
+                    )
+                }
+            }
+        }
+
+        val mainConfig = modelConfig(
+            model = "gemini-4-argon",
+            subagentModel = "gemini-3.8-flash-tiered",
+            subagentEnabled = true,
+        ).copy(browserTools = true)
+
+        val toolExecutor = AgentModelClient.ToolExecutor { call ->
+            if (call.name == "web_search") {
+                latch.countDown()
+                assertTrue(
+                    "两个子代理必须真正并发执行",
+                    latch.await(3, java.util.concurrent.TimeUnit.SECONDS),
+                )
+                val query = JSONObject(call.argumentsJson).optString("query")
+                AgentModelClient.ToolResult(
+                    content = JSONObject()
+                        .put("ok", true)
+                        .put("query", query)
+                        .toString(),
+                )
+            } else {
+                AgentModelClient.ToolResult("""{"ok":true}""")
+            }
+        }
+
+        val result = AgentModelClient.complete(
+            config = mainConfig,
+            prompt = "同时搜索主题A和主题B",
+            toolExecutor = toolExecutor,
+            providerResolver = { config ->
+                if (config.model == "gemini-4-argon") mainProvider else workerProvider
+            },
+            onEvent = events::add,
+        )
+
+        assertEquals("主题A和主题B均已并行搜索完成。", result.content)
+
+        // Verify main model Round 2 received both tool results in exact order (call-sub-1, call-sub-2)
+        val mainSecondRequest = mainProvider.requests[1]
+        val sub1ToolMsg = mainSecondRequest.getJSONObject(mainSecondRequest.length() - 2)
+        val sub2ToolMsg = mainSecondRequest.getJSONObject(mainSecondRequest.length() - 1)
+        assertEquals("tool", sub1ToolMsg.getString("role"))
+        assertEquals("call-sub-1", sub1ToolMsg.getString("tool_call_id"))
+        assertEquals("tool", sub2ToolMsg.getString("role"))
+        assertEquals("call-sub-2", sub2ToolMsg.getString("tool_call_id"))
+
+        val sub1ResultJson = JSONObject(sub1ToolMsg.getString("content"))
+        val sub2ResultJson = JSONObject(sub2ToolMsg.getString("content"))
+        assertTrue(sub1ResultJson.getBoolean("ok"))
+        assertEquals("主题A搜索报告", sub1ResultJson.getString("worker_report"))
+        assertTrue(sub2ResultJson.getBoolean("ok"))
+        assertEquals("主题B搜索报告", sub2ResultJson.getString("worker_report"))
+
+        // Verify forwarded [子代理] events for both subagents
+        val subagentToolStarted = events.filterIsInstance<AgentEvent.ToolStarted>()
+            .filter { it.name == "web_search" }
+        assertEquals(2, subagentToolStarted.size)
+        assertTrue(subagentToolStarted.all { it.argsPreview.startsWith("[子代理]") })
+        assertTrue(subagentToolStarted.any { it.toolCallId.startsWith("call-sub-1-sub-") })
+        assertTrue(subagentToolStarted.any { it.toolCallId.startsWith("call-sub-2-sub-") })
+
+        val subagentToolFinished = events.filterIsInstance<AgentEvent.ToolFinished>()
+            .filter { it.name == "web_search" }
+        assertEquals(2, subagentToolFinished.size)
+    }
+
     private fun modelConfig(
         model: String = "test-model",
         subagentModel: String = AgentModelClient.DEFAULT_SUBAGENT_MODEL,

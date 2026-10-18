@@ -3,6 +3,11 @@ package io.github.mangi.eta.agent.model
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.roleplay.RoleplayRunContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -45,13 +50,20 @@ internal class AgentLoop(
         val result: AgentModelClient.ToolResult,
     )
 
+    private val eventLock = Any()
+    private fun emitEvent(event: AgentEvent) {
+        synchronized(eventLock) {
+            onEvent(event)
+        }
+    }
+
     private var availableToolNames = emptySet<String>()
     private val accumulatedReasoning = StringBuilder()
-    private val sensitiveToolCallIds = linkedSetOf<String>()
+    private val sensitiveToolCallIds = java.util.Collections.synchronizedSet(linkedSetOf<String>())
     private var pendingToolImageMessage: JSONObject? = null
     private val context = AgentContextSession(
         config, messages, systemCount, operationId, provider, runController,
-        { sensitiveToolCallIds }, onEvent, onContextSnapshot, { transcript.length() },
+        { sensitiveToolCallIdsSnapshot() }, ::emitEvent, onContextSnapshot, { transcript.length() },
         roleplay = roleplayContext != null,
     )
     private var supplementIndex = initialSupplementIndex
@@ -67,7 +79,7 @@ internal class AgentLoop(
 
     private fun publishTranscript() {
         if (publishedTranscriptSize == transcript.length()) return
-        onTranscript(AgentConversationCodec.transcript(transcript, 0, sensitiveToolCallIds))
+        onTranscript(AgentConversationCodec.transcript(transcript, 0, sensitiveToolCallIdsSnapshot()))
         publishedTranscriptSize = transcript.length()
     }
 
@@ -78,7 +90,9 @@ internal class AgentLoop(
 
     fun reasoningSnapshot(): String = accumulatedReasoning.toString().trim()
 
-    fun sensitiveToolCallIdsSnapshot(): Set<String> = sensitiveToolCallIds.toSet()
+    fun sensitiveToolCallIdsSnapshot(): Set<String> = synchronized(sensitiveToolCallIds) {
+        sensitiveToolCallIds.toSet()
+    }
 
     fun run(): Result {
         var round = 1
@@ -115,7 +129,7 @@ internal class AgentLoop(
                     controller = runController,
                     onEvent = { event ->
                         if (event is AgentEvent.RoundStarted) roundInputTokens = null
-                        onEvent(event)
+                        emitEvent(event)
                     },
                     onProviderEvent = { attemptRound, providerEvent ->
                         if (!purpose.allowsTools && (providerEvent is ProviderEvent.HostedToolStarted ||
@@ -130,7 +144,7 @@ internal class AgentLoop(
                         ) {
                             accumulatedReasoning.append(providerEvent.delta)
                         }
-                        providerEvent.toAgentEvent(attemptRound)?.let(onEvent)
+                        providerEvent.toAgentEvent(attemptRound)?.let(::emitEvent)
                     },
                     discardAttemptReasoning = { accumulatedReasoning.setLength(reasoningLengthBeforeRound) },
                 ).also { response ->
@@ -168,7 +182,7 @@ internal class AgentLoop(
                     toolCalls = toolCalls,
                 ).put("_eta_message_id", "assistant-$operationId-$round")
             )
-            onEvent(
+            emitEvent(
                 AgentEvent.AssistantReceived(
                     round = round,
                     contentChars = assistantMessage.optString("content").length,
@@ -178,21 +192,40 @@ internal class AgentLoop(
             )
 
             if (toolCalls.isNotEmpty()) {
-                val outcomes = toolCalls.map { call ->
-                    val outcome = when (providerResponse.stopReason) {
-                        AssistantStopReason.TOOL_USE -> executeTool(round, call)
-                        AssistantStopReason.OUTPUT_LIMIT -> rejectedToolOutcome(
-                            round, call, "TRUNCATED_TOOL_CALL",
-                            "模型输出达到长度上限，工具参数可能不完整；本次调用未执行，请重新提交完整参数。",
-                        )
-                        else -> rejectedToolOutcome(
-                            round, call, "UNEXPECTED_TOOL_CALL",
-                            "模型在 ${providerResponse.stopReason.name} 终止状态下返回了工具调用；本批调用未执行，请重新规划。",
-                        )
+                val parallelSubagents = providerResponse.stopReason == AssistantStopReason.TOOL_USE &&
+                    toolCalls.count { it.name == AgentSubagentToolCatalog.TOOL_NAME } > 1
+                val outcomes = if (parallelSubagents) {
+                    val executed = runBlocking {
+                        coroutineScope {
+                            toolCalls.map { call ->
+                                async(Dispatchers.IO) {
+                                    executeTool(round, call)
+                                }
+                            }.awaitAll()
+                        }
                     }
-                    appendMessage(AgentConversationCodec.toolResultMessage(outcome.call, outcome.result))
-                    publishTranscript()
-                    outcome
+                    executed.forEach { outcome ->
+                        appendMessage(AgentConversationCodec.toolResultMessage(outcome.call, outcome.result))
+                        publishTranscript()
+                    }
+                    executed
+                } else {
+                    toolCalls.map { call ->
+                        val outcome = when (providerResponse.stopReason) {
+                            AssistantStopReason.TOOL_USE -> executeTool(round, call)
+                            AssistantStopReason.OUTPUT_LIMIT -> rejectedToolOutcome(
+                                round, call, "TRUNCATED_TOOL_CALL",
+                                "模型输出达到长度上限，工具参数可能不完整；本次调用未执行，请重新提交完整参数。",
+                            )
+                            else -> rejectedToolOutcome(
+                                round, call, "UNEXPECTED_TOOL_CALL",
+                                "模型在 ${providerResponse.stopReason.name} 终止状态下返回了工具调用；本批调用未执行，请重新规划。",
+                            )
+                        }
+                        appendMessage(AgentConversationCodec.toolResultMessage(outcome.call, outcome.result))
+                        publishTranscript()
+                        outcome
+                    }
                 }
                 appendToolImages(round, outcomes)
                 publishTranscript()
@@ -216,11 +249,11 @@ internal class AgentLoop(
 
             publishTranscript()
             if (purpose.allowsTools) context.compact(final = true)
-            onEvent(AgentEvent.RunFinished(round = round, contentChars = content.length))
+            emitEvent(AgentEvent.RunFinished(round = round, contentChars = content.length))
             return Result(
                 content = content,
                 reasoningContent = reasoningSnapshot(),
-                sensitiveToolCallIds = sensitiveToolCallIds.toSet(),
+                sensitiveToolCallIds = sensitiveToolCallIdsSnapshot(),
             )
         }
     }
@@ -293,7 +326,7 @@ internal class AgentLoop(
                 message = "工具未在本轮能力目录中提供，请使用当前可用工具",
             )
         }
-        onEvent(
+        emitEvent(
             AgentEvent.ToolStarted(
                 round = round,
                 toolCallId = toolCall.id,
@@ -330,7 +363,7 @@ internal class AgentLoop(
         code: String,
         message: String,
     ): ToolOutcome {
-        onEvent(
+        emitEvent(
             AgentEvent.ToolStarted(
                 round = round,
                 toolCallId = toolCall.id,
@@ -366,7 +399,7 @@ internal class AgentLoop(
         toolCall: AgentModelClient.ToolCall,
         result: AgentModelClient.ToolResult,
     ) {
-        onEvent(
+        emitEvent(
             AgentEvent.ToolFinished(
                 round = round,
                 toolCallId = toolCall.id,
@@ -402,7 +435,7 @@ internal class AgentLoop(
         ).put("_eta_observation", true).also(messages::put)
 
         imageOutcomes.forEach { outcome ->
-            onEvent(
+            emitEvent(
                 AgentEvent.ToolImagesAttached(
                     round = round,
                     toolName = outcome.call.name,

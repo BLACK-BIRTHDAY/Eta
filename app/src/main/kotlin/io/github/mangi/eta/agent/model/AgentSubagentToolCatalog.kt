@@ -12,7 +12,7 @@ internal object AgentSubagentToolCatalog {
     fun schema(): JSONObject =
         AgentToolSchema.function(
             name = TOOL_NAME,
-            description = "委派具备全能力的高速子代理（Worker Subagent）在独立上下文中连续执行多步任务（涵盖系统终端/Linux 命令、内置文件读写/编辑/检索、网页搜索与浏览器操作、设备状态与个人数据查询、GUI 界面微操作、技能调用、长期记忆及外部 MCP 工具等）。子代理完成操作或达到停止条件后，向主模型返回执行轨迹摘要与最终状态供主模型核对验收。子代理内部禁止再次调用 delegate_task。",
+            description = "委派具备全能力的高速子代理（Worker Subagent）在独立上下文中连续执行多步任务（涵盖系统终端/Linux 命令、内置文件读写/编辑/检索、网页搜索与浏览器操作、设备状态与个人数据查询、GUI 界面微操作、技能调用、长期记忆及外部 MCP 工具等）。支持在同一轮同时发起多个 delegate_task 并行执行互不依赖的子任务。子代理完成操作或达到停止条件后，向主模型返回执行轨迹摘要与最终状态供主模型核对验收。子代理内部禁止再次调用 delegate_task。",
             parameters = JSONObject()
                 .put("type", "object")
                 .put("additionalProperties", false)

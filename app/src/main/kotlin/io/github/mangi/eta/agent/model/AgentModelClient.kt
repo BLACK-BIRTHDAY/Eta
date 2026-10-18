@@ -168,7 +168,13 @@ internal object AgentModelClient {
             return tools
         }
         val tools = toolsFor(initialCapabilities)
-        onEvent(
+        val eventLock = Any()
+        val synchronizedOnEvent: (AgentEvent) -> Unit = { event ->
+            synchronized(eventLock) {
+                onEvent(event)
+            }
+        }
+        synchronizedOnEvent(
             AgentEvent.RunStarted(
                 initialImages = images.size,
                 initialImageBytes = images.sumOf { it.bytes },
@@ -225,7 +231,7 @@ internal object AgentModelClient {
                 additionalTools = additionalTools,
                 executionContext = executionContext,
                 capabilitiesProvider = capabilitiesProvider,
-                parentOnEvent = onEvent,
+                parentOnEvent = synchronizedOnEvent,
             )
         } else {
             null
@@ -256,7 +262,7 @@ internal object AgentModelClient {
             },
             runController = runController,
             traceFormatter = traceFormatter,
-            onEvent = onEvent,
+            onEvent = synchronizedOnEvent,
             purpose = if (rewriteReply) ProviderRequestPurpose.REPLY_REWRITE else ProviderRequestPurpose.CHAT,
             roleplayContext = roleplayContext,
             initialSupplementIndex = initialSupplementIndex,
