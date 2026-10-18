@@ -1233,13 +1233,13 @@
   <string name="data_backup_title">Data backup</string>
   <string name="data_backup_actions">Backup</string>
   <string name="data_backup_warning_title">Keep the backup file safe</string>
-  <string name="data_backup_warning_summary">The file contains provider API keys. It only includes conversations, model providers, and MEMORY.md.</string>
+  <string name="data_backup_warning_summary">The file contains provider API keys and MCP credentials. It only includes conversations, model providers, MEMORY.md, Skills, and MCP settings.</string>
   <string name="data_backup_export">Export data</string>
-  <string name="data_backup_export_summary">Save conversations, providers, and MEMORY.md to a JSON file</string>
+  <string name="data_backup_export_summary">Save conversations, providers, MEMORY.md, Skills, and MCP settings to a JSON file</string>
   <string name="data_backup_import">Import data</string>
-  <string name="data_backup_import_summary">Replace conversations, providers, and MEMORY.md from a backup file</string>
+  <string name="data_backup_import_summary">Replace conversations, providers, MEMORY.md, Skills, and MCP settings from a backup file</string>
   <string name="data_backup_import_confirm_title">Import Eta data?</string>
-  <string name="data_backup_import_confirm_summary">Current conversations, providers, and MEMORY.md will be replaced. The backup may contain API keys.</string>
+  <string name="data_backup_import_confirm_summary">Current conversations, providers, MEMORY.md, Skills, and MCP settings will be replaced. The backup may contain API keys and credentials.</string>
   <string name="data_backup_working">Working…</string>
   <string name="data_backup_exported">Exported %1$d conversations and %2$d providers</string>
   <string name="data_backup_imported">Imported %1$d conversations and %2$d providers</string>

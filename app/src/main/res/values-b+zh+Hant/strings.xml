@@ -1202,13 +1202,13 @@
   <string name="data_backup_title">資料備份</string>
   <string name="data_backup_actions">備份</string>
   <string name="data_backup_warning_title">請妥善保管備份檔案</string>
-  <string name="data_backup_warning_summary">檔案包含模型供應商 API Key，僅包含對話、模型供應商與 MEMORY.md。</string>
+  <string name="data_backup_warning_summary">檔案包含模型供應商 API Key 與 MCP 憑據，僅包含對話、模型供應商、MEMORY.md、Skill 技能與 MCP 設定。</string>
   <string name="data_backup_export">匯出資料</string>
-  <string name="data_backup_export_summary">將對話、模型供應商與 MEMORY.md 儲存為 JSON 檔案</string>
+  <string name="data_backup_export_summary">將對話、模型供應商、MEMORY.md、Skill 技能與 MCP 設定儲存為 JSON 檔案</string>
   <string name="data_backup_import">匯入資料</string>
-  <string name="data_backup_import_summary">從備份檔案取代對話、模型供應商與 MEMORY.md</string>
+  <string name="data_backup_import_summary">從備份檔案取代對話、模型供應商、MEMORY.md、Skill 技能與 MCP 設定</string>
   <string name="data_backup_import_confirm_title">匯入 Eta 資料？</string>
-  <string name="data_backup_import_confirm_summary">目前的對話、模型供應商與 MEMORY.md 將被取代，備份檔案可能包含 API Key。</string>
+  <string name="data_backup_import_confirm_summary">目前的對話、模型供應商、MEMORY.md、Skill 技能與 MCP 設定將被取代，備份檔案可能包含 API Key 與憑據。</string>
   <string name="data_backup_working">處理中…</string>
   <string name="data_backup_exported">已匯出 %1$d 個對話與 %2$d 個模型供應商</string>
   <string name="data_backup_imported">已匯入 %1$d 個對話與 %2$d 個模型供應商</string>

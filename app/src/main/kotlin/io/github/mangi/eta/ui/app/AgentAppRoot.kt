@@ -663,7 +663,12 @@ fun AgentAppRoot(
                     context = context,
                     onBack = ::popRoute,
                     onExport = agentState::exportBackup,
-                    onImport = agentState::importBackup,
+                    onImport = { input ->
+                        val summary = agentState.importBackup(input)
+                        skills.refreshSkills()
+                        memory.refreshMemory()
+                        summary
+                    },
                 )
             }
             entry<AppRoute.Memory>(swipeDismiss = swipeDismiss) {

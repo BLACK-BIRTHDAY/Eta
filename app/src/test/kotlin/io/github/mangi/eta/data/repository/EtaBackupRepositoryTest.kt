@@ -49,6 +49,8 @@ class EtaBackupRepositoryTest {
     fun setUp() {
         EtaDatabase.closeForTests()
         context.deleteDatabase("eta.db")
+        File(context.filesDir, "skills").deleteRecursively()
+        context.getSharedPreferences("eta_mcp_secrets", 0).edit().clear().commit()
         SettingsDataStore.init(context)
         runBlocking {
             SettingsDataStore.setSelection(null, null)
@@ -283,6 +285,8 @@ class EtaBackupRepositoryTest {
     fun exportAndImportRestoresMcpServersAndSecrets() = runBlocking {
         val database = EtaDatabase.get(context)
         val secretStore = McpSecretStore(context)
+        val httpTools = """[{"name":"web_search","description":"Search the web","inputSchema":{"type":"object"}}]"""
+        val httpEnabledTools = """["web_search"]"""
         val httpServer = McpServerEntity(
             id = "http-server",
             name = "Test HTTP Server",
@@ -290,8 +294,8 @@ class EtaBackupRepositoryTest {
             enabled = true,
             protocolMode = McpProtocolMode.AUTO,
             authorizationType = McpAuthorizationType.BEARER,
-            toolsJson = "[]",
-            enabledToolNamesJson = "[]",
+            toolsJson = httpTools,
+            enabledToolNamesJson = httpEnabledTools,
             createdAt = 1000L,
             sortOrder = 0,
             lastRefreshedAt = null,
@@ -299,6 +303,8 @@ class EtaBackupRepositoryTest {
             toolsExpireAt = null,
             transportType = McpTransportType.HTTP,
         )
+        val stdioTools = """[{"name":"calculate","description":"Perform calculations","inputSchema":{"type":"object"}}]"""
+        val stdioEnabledTools = """["calculate"]"""
         val stdioServer = McpServerEntity(
             id = "stdio-server",
             name = "Test STDIO Server",
@@ -306,8 +312,8 @@ class EtaBackupRepositoryTest {
             enabled = true,
             protocolMode = McpProtocolMode.LATEST,
             authorizationType = McpAuthorizationType.NONE,
-            toolsJson = "[]",
-            enabledToolNamesJson = "[]",
+            toolsJson = stdioTools,
+            enabledToolNamesJson = stdioEnabledTools,
             createdAt = 2000L,
             sortOrder = 1,
             lastRefreshedAt = null,
@@ -345,11 +351,16 @@ class EtaBackupRepositoryTest {
         assertEquals("Test HTTP Server", restoredHttp.name)
         assertEquals("https://example.com/mcp", restoredHttp.url)
         assertEquals(McpAuthorizationType.BEARER, restoredHttp.authorizationType)
+        assertEquals(httpTools, restoredHttp.toolsJson)
+        assertEquals(httpEnabledTools, restoredHttp.enabledToolNamesJson)
         assertEquals("secret-token-xyz", secretStore.bearerToken("http-server"))
 
         val restoredStdio = restoredServers.first { it.id == "stdio-server" }
         assertEquals("Test STDIO Server", restoredStdio.name)
         assertEquals("python3", restoredStdio.command)
+        assertEquals("[\"-m\",\"test\"]", restoredStdio.argsJson)
+        assertEquals(stdioTools, restoredStdio.toolsJson)
+        assertEquals(stdioEnabledTools, restoredStdio.enabledToolNamesJson)
         assertEquals(mapOf("MY_API_KEY" to "k-123", "MY_ENV" to "prod"), secretStore.envVars("stdio-server"))
     }
 
@@ -357,12 +368,17 @@ class EtaBackupRepositoryTest {
     fun exportAndImportRestoresSkillsAndPackages() = runBlocking {
         val database = EtaDatabase.get(context)
         val skillsRoot = SkillRuntime.skillsRoot(context)
+
+        // 1. User skill with scripts and references
         val userSkillDir = File(skillsRoot, "custom-calc")
         userSkillDir.mkdirs()
         File(userSkillDir, "SKILL.md").writeText("---\nname: custom-calc\ndescription: A calculation skill\n---\n# Custom Calc")
         val scriptsDir = File(userSkillDir, "scripts")
         scriptsDir.mkdirs()
         File(scriptsDir, "calc.py").writeText("print(42)")
+        val referencesDir = File(userSkillDir, "references")
+        referencesDir.mkdirs()
+        File(referencesDir, "guide.md").writeText("# User Guide\nHow to use custom-calc")
 
         val userRegistry = SkillRegistryEntity(
             skillId = "custom-calc",
@@ -370,30 +386,65 @@ class EtaBackupRepositoryTest {
             source = "user",
             installState = "installed",
         )
+
+        // 2. Overridden builtin skill
+        val overriddenDir = File(skillsRoot, "builtin-weather")
+        overriddenDir.mkdirs()
+        File(overriddenDir, "SKILL.md").writeText("---\nname: builtin-weather\ndescription: Custom weather prompt\n---\n# Overridden Weather")
+        val dataDir = File(overriddenDir, "data")
+        dataDir.mkdirs()
+        File(dataDir, "ERRORS.md").writeText("# Learned Error Patterns")
+
+        val overriddenRegistry = SkillRegistryEntity(
+            skillId = "builtin-weather",
+            enabled = true,
+            source = "builtin",
+            installState = "installed",
+        )
+
+        // 3. Disabled builtin skill
+        val disabledDir = File(skillsRoot, "builtin-translator")
+        disabledDir.mkdirs()
+        File(disabledDir, "SKILL.md").writeText("---\nname: builtin-translator\ndescription: Translation skill\n---\n# Disabled Translator")
+
+        val disabledRegistry = SkillRegistryEntity(
+            skillId = "builtin-translator",
+            enabled = false,
+            source = "builtin",
+            installState = "installed",
+        )
+
+        // 4. Removed builtin skill (no directory on disk)
         val removedBuiltin = SkillRegistryEntity(
             skillId = "removed-skill",
             enabled = false,
             source = "builtin",
             installState = "removed_builtin",
         )
-        database.skillDao().replaceRegistry(listOf(userRegistry, removedBuiltin))
+
+        database.skillDao().replaceRegistry(listOf(userRegistry, overriddenRegistry, disabledRegistry, removedBuiltin))
 
         val output = ByteArrayOutputStream()
         val summary = EtaBackupRepository.export(context, output)
-        assertTrue(summary.skillCount >= 1)
+        assertTrue(summary.skillCount >= 3)
 
         // Clear local skills directory and registry
         userSkillDir.deleteRecursively()
+        overriddenDir.deleteRecursively()
+        disabledDir.deleteRecursively()
         database.skillDao().deleteRegistryEntries()
         SkillRuntime.createIndexService(context).listSkillsForManagement(forceRefresh = true)
 
         val imported = EtaBackupRepository.import(context, ByteArrayInputStream(output.toByteArray()))
-        assertTrue(imported.skillCount >= 1)
+        assertTrue(imported.skillCount >= 3)
 
         val restoredRegistry = database.skillDao().registryEntries()
-        assertTrue(restoredRegistry.any { it.skillId == "custom-calc" && it.enabled && it.source == "user" })
-        assertTrue(restoredRegistry.any { it.skillId == "removed-skill" && !it.enabled && it.installState == "removed_builtin" })
+        assertTrue(restoredRegistry.any { it.skillId == "custom-calc" && it.enabled && it.source == "user" && it.installState == "installed" })
+        assertTrue(restoredRegistry.any { it.skillId == "builtin-weather" && it.enabled && it.source == "builtin" && it.installState == "installed" })
+        assertTrue(restoredRegistry.any { it.skillId == "builtin-translator" && !it.enabled && it.source == "builtin" && it.installState == "installed" })
+        assertTrue(restoredRegistry.any { it.skillId == "removed-skill" && !it.enabled && it.source == "builtin" && it.installState == "removed_builtin" })
 
+        // Check user skill files (SKILL.md, scripts, references)
         val restoredSkillMd = File(skillsRoot, "custom-calc/SKILL.md")
         assertTrue(restoredSkillMd.isFile)
         assertTrue(restoredSkillMd.readText().contains("custom-calc"))
@@ -401,6 +452,28 @@ class EtaBackupRepositoryTest {
         val restoredScript = File(skillsRoot, "custom-calc/scripts/calc.py")
         assertTrue(restoredScript.isFile)
         assertEquals("print(42)", restoredScript.readText())
+
+        val restoredReference = File(skillsRoot, "custom-calc/references/guide.md")
+        assertTrue(restoredReference.isFile)
+        assertEquals("# User Guide\nHow to use custom-calc", restoredReference.readText())
+
+        // Check overridden builtin files (SKILL.md and data/ERRORS.md)
+        val restoredOverriddenMd = File(skillsRoot, "builtin-weather/SKILL.md")
+        assertTrue(restoredOverriddenMd.isFile)
+        assertTrue(restoredOverriddenMd.readText().contains("Overridden Weather"))
+
+        val restoredErrorsMd = File(skillsRoot, "builtin-weather/data/ERRORS.md")
+        assertTrue(restoredErrorsMd.isFile)
+        assertEquals("# Learned Error Patterns", restoredErrorsMd.readText())
+
+        // Check disabled builtin files
+        val restoredDisabledMd = File(skillsRoot, "builtin-translator/SKILL.md")
+        assertTrue(restoredDisabledMd.isFile)
+        assertTrue(restoredDisabledMd.readText().contains("Disabled Translator"))
+
+        // Check removed builtin has no directory restored
+        val removedDir = File(skillsRoot, "removed-skill")
+        assertFalse(removedDir.exists())
     }
 
     @Test
@@ -425,6 +498,7 @@ class EtaBackupRepositoryTest {
         )
         database.mcpServerDao().replaceAll(listOf(existingServer))
         secretStore.setBearerToken("existing-server", "existing-secret")
+        secretStore.setEnvVars("existing-server", mapOf("EXISTING_KEY" to "existing-val"))
 
         val skillsRoot = SkillRuntime.skillsRoot(context)
         val existingSkillDir = File(skillsRoot, "existing-skill")
@@ -438,40 +512,44 @@ class EtaBackupRepositoryTest {
         )
         database.skillDao().replaceRegistry(listOf(existingRegistry))
 
-        // Legacy backup without skills or mcpServers (version 3)
-        val legacyDocument = EtaBackupDocument(
-            schemaVersion = 3,
-            exportedAt = 1000L,
-            conversations = listOf(ConversationEntity("c1", "Title", false, createdAt = 1, updatedAt = 1)),
-            skills = null,
-            mcpServers = null,
+        // Test legacy payloads: v1, v2, and v3 backups where skills and mcpServers are null
+        val legacyPayloads = listOf(
+            """{"format":"eta-backup","schemaVersion":1,"exportedAt":500}""",
+            """{"format":"eta-backup","schemaVersion":2,"exportedAt":800}""",
+            """{"format":"eta-backup","schemaVersion":3,"exportedAt":1000,"conversations":[{"id":"c1","title":"Title","thinkingEnabled":false,"createdAt":1,"updatedAt":1}]}""",
         )
-        val bytes = Json.encodeToString(legacyDocument).toByteArray()
-        val summary = EtaBackupRepository.import(context, ByteArrayInputStream(bytes))
-        assertEquals(0, summary.mcpServerCount)
-        assertEquals(0, summary.skillCount)
 
-        // Verify existing MCP server and secrets are preserved
-        val currentServers = database.mcpServerDao().servers()
-        assertEquals(listOf("existing-server"), currentServers.map { it.id })
-        assertEquals("existing-secret", secretStore.bearerToken("existing-server"))
+        for (payload in legacyPayloads) {
+            val summary = EtaBackupRepository.import(context, ByteArrayInputStream(payload.toByteArray()))
+            assertEquals(0, summary.mcpServerCount)
+            assertEquals(0, summary.skillCount)
 
-        // Verify existing skill and registry are preserved
-        val currentRegistry = database.skillDao().registryEntries()
-        assertEquals(listOf("existing-skill"), currentRegistry.map { it.skillId })
-        assertTrue(File(skillsRoot, "existing-skill/SKILL.md").isFile)
+            // Verify existing MCP server and secrets are preserved
+            val currentServers = database.mcpServerDao().servers()
+            assertEquals(listOf("existing-server"), currentServers.map { it.id })
+            assertEquals("existing-secret", secretStore.bearerToken("existing-server"))
+            assertEquals(mapOf("EXISTING_KEY" to "existing-val"), secretStore.envVars("existing-server"))
+
+            // Verify existing skill and registry are preserved
+            val currentRegistry = database.skillDao().registryEntries()
+            assertEquals(listOf("existing-skill"), currentRegistry.map { it.skillId })
+            assertTrue(File(skillsRoot, "existing-skill/SKILL.md").isFile)
+        }
     }
 
     @Test
     fun invalidMcpOrSkillBackupIsRejectedBeforeModifyingData() = runBlocking {
         val database = EtaDatabase.get(context)
+        val secretStore = McpSecretStore(context)
+        val skillsRoot = SkillRuntime.skillsRoot(context)
+
         val initialServer = McpServerEntity(
             id = "safe-server",
             name = "Safe Server",
             url = "https://safe.com",
             enabled = true,
             protocolMode = McpProtocolMode.AUTO,
-            authorizationType = McpAuthorizationType.NONE,
+            authorizationType = McpAuthorizationType.BEARER,
             toolsJson = "[]",
             enabledToolNamesJson = "[]",
             createdAt = 100L,
@@ -482,9 +560,17 @@ class EtaBackupRepositoryTest {
             transportType = McpTransportType.HTTP,
         )
         database.mcpServerDao().replaceAll(listOf(initialServer))
+        secretStore.setBearerToken("safe-server", "safe-token")
+        secretStore.setEnvVars("safe-server", mapOf("SAFE_ENV" to "1"))
+
+        val safeSkillDir = File(skillsRoot, "safe-skill")
+        safeSkillDir.mkdirs()
+        File(safeSkillDir, "SKILL.md").writeText("---\nname: safe-skill\ndescription: Safe\n---\n# Safe Skill")
+        val safeRegistry = SkillRegistryEntity("safe-skill", true, "user", "installed")
+        database.skillDao().replaceRegistry(listOf(safeRegistry))
 
         val invalidBackups = listOf(
-            // Unsafe skill relative path
+            // Unsafe skill relative path with ..
             EtaBackupDocument(
                 exportedAt = 0,
                 skills = SkillBackupData(
@@ -500,6 +586,22 @@ class EtaBackupRepositoryTest {
                     ),
                 ),
             ),
+            // Unsafe skill relative path with backslash
+            EtaBackupDocument(
+                exportedAt = 0,
+                skills = SkillBackupData(
+                    registry = listOf(SkillRegistryEntity("skill-bs", true, "user", "installed")),
+                    packages = listOf(
+                        SkillBackupPackage(
+                            skillId = "skill-bs",
+                            files = listOf(
+                                SkillBackupFile("SKILL.md", Base64.getEncoder().encodeToString("---\nname: skill-bs\ndescription: desc\n---\n".toByteArray())),
+                                SkillBackupFile("sub\\file.txt", Base64.getEncoder().encodeToString("malicious".toByteArray())),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
             // Missing SKILL.md
             EtaBackupDocument(
                 exportedAt = 0,
@@ -510,6 +612,71 @@ class EtaBackupRepositoryTest {
                             skillId = "skill-b",
                             files = listOf(
                                 SkillBackupFile("other.txt", Base64.getEncoder().encodeToString("data".toByteArray())),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            // Invalid skill ID with uppercase / underscore
+            EtaBackupDocument(
+                exportedAt = 0,
+                skills = SkillBackupData(
+                    registry = listOf(SkillRegistryEntity("Invalid_Skill_ID", true, "user", "installed")),
+                    packages = listOf(
+                        SkillBackupPackage(
+                            skillId = "Invalid_Skill_ID",
+                            files = listOf(
+                                SkillBackupFile("SKILL.md", Base64.getEncoder().encodeToString("---\nname: Invalid_Skill_ID\ndescription: desc\n---\n".toByteArray())),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            // Invalid skill source
+            EtaBackupDocument(
+                exportedAt = 0,
+                skills = SkillBackupData(
+                    registry = listOf(SkillRegistryEntity("skill-src", true, "third_party", "installed")),
+                ),
+            ),
+            // User skill with removed_builtin state
+            EtaBackupDocument(
+                exportedAt = 0,
+                skills = SkillBackupData(
+                    registry = listOf(SkillRegistryEntity("skill-user-rm", true, "user", "removed_builtin")),
+                ),
+            ),
+            // SKILL.md without valid name
+            EtaBackupDocument(
+                exportedAt = 0,
+                skills = SkillBackupData(
+                    registry = listOf(SkillRegistryEntity("skill-noname", true, "user", "installed")),
+                    packages = listOf(
+                        SkillBackupPackage(
+                            skillId = "skill-noname",
+                            files = listOf(
+                                SkillBackupFile("SKILL.md", Base64.getEncoder().encodeToString("No frontmatter here".toByteArray())),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            // Duplicate package skill IDs
+            EtaBackupDocument(
+                exportedAt = 0,
+                skills = SkillBackupData(
+                    registry = listOf(SkillRegistryEntity("skill-dup", true, "user", "installed")),
+                    packages = listOf(
+                        SkillBackupPackage(
+                            skillId = "skill-dup",
+                            files = listOf(
+                                SkillBackupFile("SKILL.md", Base64.getEncoder().encodeToString("---\nname: skill-dup\ndescription: desc\n---\n".toByteArray())),
+                            ),
+                        ),
+                        SkillBackupPackage(
+                            skillId = "skill-dup",
+                            files = listOf(
+                                SkillBackupFile("SKILL.md", Base64.getEncoder().encodeToString("---\nname: skill-dup\ndescription: desc\n---\n".toByteArray())),
                             ),
                         ),
                     ),
@@ -534,6 +701,39 @@ class EtaBackupRepositoryTest {
                     ),
                 ),
             ),
+            // Invalid stdio command with null character
+            EtaBackupDocument(
+                exportedAt = 0,
+                mcpServers = listOf(
+                    McpBackupServer(
+                        server = initialServer.copy(
+                            id = "bad-stdio-cmd",
+                            transportType = McpTransportType.STDIO,
+                            command = "python\u00003",
+                        ),
+                    ),
+                ),
+            ),
+            // Malformed toolsJson
+            EtaBackupDocument(
+                exportedAt = 0,
+                mcpServers = listOf(
+                    McpBackupServer(
+                        server = initialServer.copy(
+                            id = "bad-tools-json",
+                            toolsJson = "not-a-valid-json-array",
+                        ),
+                    ),
+                ),
+            ),
+            // Duplicate MCP server ID
+            EtaBackupDocument(
+                exportedAt = 0,
+                mcpServers = listOf(
+                    McpBackupServer(server = initialServer.copy(id = "dup-mcp")),
+                    McpBackupServer(server = initialServer.copy(id = "dup-mcp")),
+                ),
+            ),
         )
 
         invalidBackups.forEach { invalidDoc ->
@@ -546,6 +746,10 @@ class EtaBackupRepositoryTest {
             assertTrue(failed)
             // Ensure data was untouched
             assertEquals(listOf("safe-server"), database.mcpServerDao().servers().map { it.id })
+            assertEquals("safe-token", secretStore.bearerToken("safe-server"))
+            assertEquals(mapOf("SAFE_ENV" to "1"), secretStore.envVars("safe-server"))
+            assertEquals(listOf("safe-skill"), database.skillDao().registryEntries().map { it.skillId })
+            assertTrue(File(skillsRoot, "safe-skill/SKILL.md").isFile)
         }
     }
 
@@ -574,6 +778,7 @@ class EtaBackupRepositoryTest {
         )
         database.mcpServerDao().replaceAll(listOf(originalServer))
         secretStore.setBearerToken("original-server", "original-token")
+        secretStore.setEnvVars("original-server", mapOf("ORIG_KEY" to "orig-val"))
 
         val originalSkillDir = File(skillsRoot, "original-skill")
         originalSkillDir.mkdirs()
@@ -605,7 +810,13 @@ class EtaBackupRepositoryTest {
         )
         val document = EtaBackupDocument(
             exportedAt = 0,
-            mcpServers = listOf(McpBackupServer(newServer, bearerToken = "new-token")),
+            mcpServers = listOf(
+                McpBackupServer(
+                    newServer,
+                    bearerToken = "new-token",
+                    envVars = mapOf("NEW_KEY" to "new-val"),
+                )
+            ),
             skills = SkillBackupData(
                 registry = listOf(SkillRegistryEntity("new-skill", true, "user", "installed")),
                 packages = listOf(
@@ -635,7 +846,9 @@ class EtaBackupRepositoryTest {
             // Verify MCP servers and secrets are rolled back
             assertEquals(listOf("original-server"), database.mcpServerDao().servers().map { it.id })
             assertEquals("original-token", secretStore.bearerToken("original-server"))
+            assertEquals(mapOf("ORIG_KEY" to "orig-val"), secretStore.envVars("original-server"))
             assertTrue(secretStore.bearerToken("new-server") == null)
+            assertTrue(secretStore.envVars("new-server").isEmpty())
 
             // Verify skills and registry are rolled back
             val currentRegistryIds = database.skillDao().registryEntries().map { it.skillId }
