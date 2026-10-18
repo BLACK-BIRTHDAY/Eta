@@ -1,72 +1,72 @@
-# Graph Report - ETA  (2026-10-17)
+# Graph Report - ETA  (2026-10-18)
 
 ## Corpus Check
-- 856 files · ~2,796,301 words
+- 851 files · ~2,793,400 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 77 file(s) not represented in the graph (top: .xml 42, .so 8, (none) 5)
+- Unclassified: 76 file(s) not represented in the graph (top: .xml 42, .so 8, (none) 4)
 
 ## Summary
-- 11628 nodes · 34906 edges · 584 communities (390 shown, 194 thin omitted)
-- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 1576 edges (avg confidence: 0.86)
+- 12506 nodes · 38781 edges · 446 communities (285 shown, 161 thin omitted)
+- Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 1794 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `0266528e`
+- Built from commit: `701fd00e`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- TerminalEnvironment
-- AgentHapticFeedback.kt
-- AgentLocalTools.kt
-- AgentPersonalContextTools.kt
+- DetachedTaskSupervisor
+- AgentAppShell.kt
+- PublicGitHubSkillSource
+- AgentPersonalContextTools
 - GestureIndicator.kt
 - AgentLocalTools
-- .error
-- EtaBackupRepository.kt
+- AgentAppState
+- ProviderEntities.kt
 - AgentTraceFormatter
 - .appUserId
-- RootShellTerminalController
+- TerminalEnvironment
 - EtaAssistantOverlayService.kt
-- AgentTerminalToolCatalog
+- 终端环境
 - MarkdownInline.kt
-- ChatMessageItem.kt
+- .backendOf
 - .warn
-- AgentEvent
-- SpeechOssConfig
-- EtaBackupJsonStreams
+- .append
+- SpeechCredentials
+- EtaBackupJsonStreams.kt
 - GoogleAppSystemizerInstaller
 - XiaoAiQueryCache
-- LinuxFilesScreen.kt
-- CharacterLibraryStore
+- .fadeIn
+- ConsoleKeyBar.kt
 - AgentRuntimeWire
 - AgentStructuredDeviceTools
 - AgentHomeAction
-- CharacterAvatar.kt
+- UserTerminalController
 - SkillPackageInstaller
 - MarkdownBlock
-- shellQuote
-- ModelRepositoryTest.kt
+- runblocking
+- SettingsDataStore
 - AgentPrivateDatabaseTools
 - Model
-- UserTerminalController
-- .complete
+- Model
+- AgentRunController
 - ShellProcessSupervisor
-- AgentChatBody.kt
-- CircleToSearchInvoker
+- AgentBrowserScreen
+- AgentLocalTools.kt
 - CharacterRepository
 - BreenoHooks
 - SkillResourceReader
 - HookRegistrar
-- .mergeInto
-- GeminiGenerateContentProvider
+- WebHttpTransportTest.kt
+- SkillParser
 - AgentRuntimeClient
-- ProviderResponse
-- TerminalToolbar.kt
-- ProviderComponentsTest
+- EtaLiveUpdateManager
+- UserTerminalScreen.kt
+- AgentChatBody.kt
 - SharedFolderMount
 - HookInstallJournal
-- AccessibilityNodeInfo
+- AgentExecutionService
 - AgentRuntimeSession
 - PhoneProviderAccess.kt
 - AgentImageCodecTest
@@ -78,1522 +78,1222 @@
 - SkillRecoveryJournal.kt
 - AppRoute
 - LinuxPackageProfiles.kt
-- McpHttpClient
+- McpHttpClient.kt
 - RuntimeRunDao
-- AlpineEnvironmentInstaller
-- AccessibilityServiceEnforcerTest
+- VerifiedArtifact
+- AccessibilityServiceEnforcer
 - UserTerminalStore
-- What You Must Do When Invoked
+- AgentTraceFormatterTest
 - PersonalContextSource
 - ConsoleSessionController
 - MainThreadCallGate
 - .parse
-- WebHttpTransport
+- .install
 - SmoothTextRevealPolicyTest
-- ConsoleKeyBar.kt
+- AgentModelPickerUiState
 - .validatePath
 - AgentModelClientLoopTest
 - AgentOverlayStatus
-- AgentAppShell.kt
+- ConversationPanePanel.kt
 - ProviderRepositoryTest.kt
-- BrowserToolResult
+- ReasoningEffort
 - .parseToolCalls
 - ScrollDirection
-- ElementObservation
-- .dispatchStandardCsi
-- .rootScroll
+- SubagentExecutorTest
+- CharacterAvatar.kt
+- SkillRegistryEntity
 - KimiWebUiStateTest.kt
 - SettingsScreen.kt
-- AgentToolsScreen.kt
+- AgentModelImageEncoder
 - RemoteModelFetcher
-- .resolve
+- BreenoRequestImages
 - AgentLocalToolsPermissionTest
 - AgentTokenUsage
-- .captureClientResult
+- .currentBreenoMultiImageClientResultPrefersCompletedUploadUrls
 - AgentMemorySnapshot
-- NodeActionResult
+- SkillIndexService
 - AnthropicMessagesProvider
 - .get
 - SpeechHttp.kt
 - McpServerSetting
 - .extract
-- ColorOsMemoryDatabaseQuery
-- 技术实现
+- EtaPreferenceRenderingTest.kt
+- SpeechControls.kt
 - SpeechPcmOutput
 - AgentConversationStoreTest.kt
 - StreamingGfmParserSession
-- SpeechCredentials
-- MainActivity.kt
-- AgentChatBody
+- SpeechFailure
+- EtaApp
+- PopupPositionProvider
 - AgentModelFailure
 - TerminalKey
-- AgentBrowserSession
-- EtaDatabase
+- AgentBrowserSession.kt
+- EtaDatabaseMigrationTest.kt
 - ConsoleTextInput.kt
 - RootShellDeviceController
-- AgentSkillsStore
+- EtaVoiceInteractionSession
 - ScrollEvidence
 - LinuxFileExplorer
-- ChooseMultipleImagesContract
-- getvalue
+- .execute
+- AgentImageTools.kt
 - LinuxDistribution
-- PowerAssistantTarget
+- Handler
 - AgentColorOsMemoryTools
-- EtaVoiceInteractionSession
+- ContentProvider
 - McpStdioClient
-- .applyOpenAiCompatibleRequest
+- AgentSkillsAction
 - CharacterCard
-- EtaApp
-- .captureScreenshotExcludingOverlays
+- AccessibilityProtectionClient
+- ProviderComponents.kt
 - AgentDeviceToolCatalog
 - ProviderRequest
-- AgentConversationCodec
+- AgentSkillsStore
 - SkillInstallErrorCode
 - .remember
-- AgentRuntimeAttachDelivery
-- SpeechControls.kt
-- AgentChatUiState
+- AgentConversationCodec
+- .error
+- .conversation
 - McpServerRepository
 - .build
 - uniqueBreenoInstanceMethod
 - ScrollEventObservationGate
-- agentoverlayglow
-- AgentAppViewModel
+- TerminalEnvironment
+- OpenAiChatCompletionsProvider
 - PersonalContextQueryServiceTest
 - AgentChatScrollPolicyTest
 - Agent Runtime
-- CharacterBackupData.kt
-- ansiToAnnotatedString
-- ConversationPanePanel.kt
 - .resolve
-- .toolResult
-- AgentChatFileAttachments.kt
+- ansiToAnnotatedString
+- toolCardRequirement
+- getvalue
+- AgentAccessibilityService
+- .schema
 - CharacterDao
 - McpEntities.kt
 - MAP.md
-- AgentRuntimePolicyTest
-- BreenoRequestImages
-- Snapshot
-- EtaBackupRepositoryTest.kt
+- .constrain
+- .collectFromJsonObject
+- SnapshotCache
+- .captureScreenshotExcludingOverlays
 - AgentRuntimeService
-- SkillParser
-- EtaVoicePanel.kt
+- SkillPackageInstallerTest
+- ConsoleStore
 - BackgroundTerminalJobs
-- AgentHomeScreen.kt
+- StartupSplash.kt
 - Eta
 - .install
-- XiaoAiStreamRenderer
+- BreenoHooks.kt
 - .userTextMessage
 - StreamingGfmProjection
-- ExecutionLeaseRegistry
+- AgentRuntimeAttachDelivery
 - SpeechLifecycleTest
-- ColorOsMemoryBridgeProtocol
+- .refiner
 - AgentToolCapabilities
-- ProviderUrls
+- EtaSpeechInput.kt
 - ReasoningEffort
-- .complete
-- CalendarOperations
+- .mergeInto
+- SkillZipImportOutcome
 - SettingsDataStore
 - DebianEnvironmentInstaller
 - SpeechPcmDecoder
 - .user
-- BoundedRootCommandExecutor
+- SkillRecoveryJournalTest
 - .decide
 - Skill Creator
-- etaspeechphase
-- SpeechOssUpload.kt
+- .run
+- LinuxFilesScreen.kt
 - .complete
 - ScrollGestureContractTest
-- UserMessageUi
-- AgentAccessibilityHealthProvider
-- ModuleLogger
-- AgentMemoryScreen
+- .drainRuntimeAcks
+- AgentWebTools
+- LogThrottleTest.kt
 - TerminalModifiers
-- EtaPreferenceRenderingTest.kt
+- FailureCode
 - AgentLogger
-- ActionDispatch
-- CharacterCard.kt
+- ChatMessageItem.kt
+- StreamingMarkdownRestoreState
 - AgentConversationPersistenceTest.kt
 - ContextualSearchCallerPolicyTest
 - McpToolDefinition
-- CommunityCatalogRepositoryTest.kt
+- CommunityCatalogRepositoryTest
 - ProviderSourceRegistry
 - GitHubSkillRepositoryParser
 - PermissionHealthStore.kt
-- .execute
-- DeviceContextTool.kt
-- .decode
+- .applyRuntimeConfig
+- PermissionHealthStore.kt
+- .toolResult
 - TerminalScreenBuffer
-- AgentHistoryRetentionTest.kt
+- ChatImageSearchTools
 - ConsoleGridLine.kt
-- DexKitTargets
-- AgentTraceFormatterTest
-- SkillZipImportOutcome
-- RootlessDeviceToolsTest
-- GoogleAppHooks.kt
+- .serialize
+- AgentAppViewModel.kt
+- SystemSpeechRecognizerTest.kt
+- DetachedTaskSupervisorTest
+- .build
 - .isNewer
 - AgentFileReferenceGateway
-- AgentSkillsAction
-- .refiner
-- McpToolHeaders.kt
-- EtaPreferenceRow.kt
-- BrowserDomScripts
+- FileToolSearch
+- ShellFileToolBackendTest
+- .resolve
+- AgentChatMessageUi
+- AgentHapticFeedback.kt
 - RunStatusUi
 - .normalize
-- AccessibilityNodeIdentityTest
+- .execute
 - .insertAtSelection
 - ScreenshotQuality
-- AgentMessageUi
-- ColorOsMemoryDatabaseQueryTest.kt
-- SystemStateControls.kt
+- McpToolHeaders.kt
+- ColorOsMemoryDatabaseQuery
+- ProviderComponentsTest
 - EtaSpeechInputTest
-- EntrySurfaceGuardTest
+- AgentLocalSkillResourceToolTest.kt
 - .validate
 - AgentToolRequirements
 - SpeechSettingsRepository.kt
-- ProviderModelsTab
-- PersonalContextQueryService
-- FileToolSearch
+- ChooseMultipleImagesContract
+- PersonalContextRequest
+- FileToolException
 - Self Improving Agent
 - AgentLocalSkillInstallAuthorizationTest
 - .classify
 - MarkdownRenderScope
-- AgentStructuredDeviceTools.kt
-- AgentWebTools
-- .failure
-- AgentModelImageEncoder
+- FileToolDispatcherTest.kt
+- WebHttpTransport
+- AgentLocalTools.kt
+- EtaWaveShaderTest.kt
 - DmpSourceResolverTest
 - Eta
-- .verifyInterruptedTransition
-- AgentRuntimeImageTransfer
-- .installLocked
-- .export
-- .project
+- RuntimeConfigRepository
+- .put
+- ExecutionStopQueue
+- ModuleConfig
+- Test
 - 第三方声明
 - FailureCode
 - Line
-- AgentAppTheme.kt
+- .verifyInterruptedTransition
 - ConversationDao
-- .exposesOnlyOppositeAxis
-- WebResponseDecoder.kt
-- ChatImageSearchTools
-- FailureCode
+- ShellFileToolBackend
+- ColorOsMemoryDatabaseQueryTest.kt
+- WorkspaceFileStoreTest.kt
+- EnhancementSettingsHistoryTest.kt
 - NotificationHistoryRepositoryTest.kt
 - RootShellTerminalControllerCancellationTest
-- ProviderComponents.kt
-- ShellFileToolBackend
+- .longPressElement
+- 可选角色
 - SgrStyle
 - .decode
 - SpeechSegmentFadeTest
-- HookSupport
+- RemoteModelFetcherTest
 - AgentFileToolCatalog
-- AgentRuntimeRunExecutor.kt
+- .build
 - .parse
 - .parse
-- AgentImageTools.kt
+- AgentContextPersistenceTest.kt
 - AgentDeviceToolCatalogTest
 - .resolve
 - Test
-- AgentAccessibilityService
+- AgentHomeScreen.kt
 - EtaAssistantScreenContext
-- .fadeIn
+- FileToolSearchTest
 - ConsoleInputConnection
 - .function
-- SkillZipImportGatewayTest.kt
-- AgentFileOperations
-- WorkspaceFileStore.kt
-- .serialize
-- MarkdownStyle.kt
-- TtsProvider
-- locale
-- AgentRunCheckpointStoreTest.kt
-- .import
+- .decode
+- NoOpLogger
+- AgentUiHandoffPayload
+- ColorOsMemoryBridgeProtocol
+- SpeechRecorder.kt
+- FakeImagePayload
+- LocaleResourcesTest.kt
+- AgentOverlayVisibilityPolicy
+- .get
 - RootCommandEnvelope
 - .attach
-- FileToolStat
-- DmpQueryResult
-- .conversationState
-- .accessState
+- ProviderUrls
+- DmpQueryTransport.kt
+- .apply
+- PackageManager
 - HtmlPageContent.kt
 - assertequals
-- PrefsDefaultsTest.kt
-- FileToolException
-- gradlew
+- AgentLocalSkillInstallIntegrationTest
+- XiaoAiStreamRenderer
 - GestureFallbackPolicyTest.kt
 - AppProcessPolicyTest.kt
-- AgentUiHandoffPayload
+- AgentAppTheme.kt
 - PersonalContextBillSummaryTest
 - Panel
-- SpeechSocket
-- .millis
+- BackgroundTerminalJobsTest
+- AssistantPanel
 - SpeechInputController
-- .append
+- CharacterMemoryTools
 - AGENTS.md
 - RootAccess
-- filetoolkind
-- .build
-- AppInspectionTool
-- graphify reference: add a URL and watch a folder
-- graphify reference: commit hook and native CLAUDE.md integration
-- AgentModelClient
-- graphify reference: GitHub clone and cross-repo merge
-- graphify reference: transcribe video and audio
-- extraction-spec.md
+- DeviceContextToolTest
+- .add
+- .install
+- EtaDatabase.kt
+- GitHubSkillRepository
+- .runRootProcess
+- .extract
+- .consumeEscape
+- DexKitNativeLibraryFileTest
 - MarkdownInlineTest
 - .aggregate
-- HookInstallation
+- ModuleMain.kt
 - AgentRuntimeSafetyTest
 - RoleplayRunContext
 - detectSlashCommandTrigger
-- 验证
-- .data
-- ToolCatalogUiTest.kt
-- WorkspaceFileStoreTest.kt
-- .drainRuntimeAcks
+- ChatToolCallHistoryTest
 - InstallTarget
-- CharacterWorldbookDraft.kt
-- .decode
-- ProviderRequestPurpose
-- .readable
+- ToolActivityMessageUi
+- .build
+- AgentBrowserSession
+- BrowserDomScripts
+- PersonalContextQueryService
+- BrowserActionArgumentsTest.kt
+- SkillRuntimeTest
+- CharacterBackupData.kt
 - README.md
 - AgentLoop
 - .read
 - AgentOverlayClearance
-- HyperOsScreenSearchRequestTest
-- StreamingMarkdownRestoreState
-- .main
-- EtaWaveShaderTest.kt
-- .decode
+- HyperOsScreenSearchRequestTest.kt
+- AgentAccessibilityHealthProvider
+- .appendTo
+- HyperOsLongPressGestureTest.kt
+- SubagentExecutorTest.kt
 - AgentRunRecoveryCoordinatorTest
 - LogcatQuery
 - eta_pty.c
-- SkillDao
+- AccessibilityNodeIdentityTest
 - PersonalContextRequestTest
-- .observed
-- McpSecretStore
-- SkillInstallToolCatalogTest
-- .runRootProcess
-- .tool
+- AgentMessageUi
+- .ensureAvailable
+- FlashlightController.kt
+- EtaVoiceInteractionService.kt
+- .install
 - build-terminal-native.sh
 - update-models-dev-catalog.py
 - AgentExternalArchivePayload
-- instant
-- AgentWorkSteps.kt
-- AgentRunControllerTest
-- Reasoning.kt
-- HyperOsLongPressGestureTest.kt
-- file
-- SpeechCredentialField
-- AgentContextPersistenceTest.kt
-- EtaFluidCloudStateMapper
-- Error
-- AgentOverlayVisibilityPolicy
-- .constrain
-- enabledmodel
-- safeStackTrace
-- .applyRuntimeConfig
-- 实现边界
-- EtaBackupJsonStreams.kt
-- ReadAloudPlaybackService.kt
+- AgentFileOperationsTest
+- StartupSplashTest.kt
+- BrowserToolResult
+- AlpineEnvironmentInstallerTest
+- DexKitTargetCache
+- .failure
+- AccessibilityPlatformCompatibilityTest
+- AgentNotificationHistoryService
+- .contextFor
+- SkillInstallToolCatalogTest
+- AgentRunCheckpointStoreTest.kt
+- RootlessTerminalAccessTest
+- .main
+- .decode
+- LocalFileToolBackend
+- AgentMemoryStoreTest.kt
+- SkillDeletionPolicyTest.kt
+- ReadAloudPlaybackService
 - sync-upstream-release.sh
 - .printCodePoint
-- .capturePayload
-- EtaVoiceInteractionService.kt
+- FakeDocPayload
+- CharacterMemoryRepositoryTest.kt
 - Domain Glossary (Eta)
-- .appendTo
+- BackgroundCommandNotificationTest.kt
 - HyperOsPowerPolicyTest.kt
-- WebHttpTransportTest.kt
+- RootlessDeviceToolsTest
 - GestureDispatch
 - ConversationPaneMotionTest
 - native/README.md
 - PendingSkillConflictCapabilityParser
-- agentmemoryexception
-- PendingSkillRecoveryJournal
+- .snapshot
+- .install
 - characterCardImportMessage
 - .build
-- .copyValue
-- ConversationTimeLabels.kt
-- .execute
-- ConsoleScreen
+- AgentModelClient
+- EtaInjectedStrings
+- HyperOsLongPressGesture
+- SkillItemUi
 - SectionHeader.kt
 - BrowserOverlay
-- EnhancementSettingsHistoryTest.kt
-- robolectrictestrunner
-- BrowserActionArgumentsTest.kt
-- SkillDeletionPolicyTest.kt
+- .capture
+- DisplaySoundControls.kt
+- SpeechPlaybackTest.kt
+- .powerAssistantTarget
 - Eta 发布流程
-- GestureResultCallback
-- State
-- SpeechAudioLease.kt
+- MainActivityTaskPolicyTest.kt
+- .releaseLegacySession
+- .function
 - McpConfigJsonParser
-- AgentNavigator
+- AppRouteSerializationTest.kt
 - ConversationPaneMotion
-- agentconversationtoolcatalog
-- agentfiletoolcatalog
-- agenthomeaction
+- GestureResultCallback
+- AgentResultMailbox
+- .acquire
 - GeminiGenerateContentProviderTest
-- DeviceControlUnavailableException
-- agentfilereferencekind
-- agentfilereferencepromptcodec
-- agentmemoryaction
-- agentmemorycontextbuilder
-- NoOpLogger
-- agentmemorymutation
-- agentmemorysnapshot
-- EtaVoiceStatus
-- .stdioClientHandshakesDiscoversAndCallsToolsOverStreams
-- agentmemorywriteresult
-- characterdetailscreen
-- agentphonetoolcatalog
-- characterlibraryscreen
-- agentresultcard
-- agentskillsaction
-- agentsystemenhanceaction
-- agenttoolsaction
-- characterrepository
-- communitycatalogproviderscreen
-- communitycatalogscreen
-- pickvisualmediarequest
-- conversationsummaryui
-- AgentImageCodecTest.kt
-- agentwebtools
-- alpineenvironmentstate
-- alpineinstallprogress
-- alpineinstallresult
-- alpineinstallstage
-- androidagentlogger
-- anthropicprovidersetting
-- apkanalysisinstallprogress
-- apkanalysisinstallresult
-- installstartupsplash
-- apkanalysisinstallstage
-- linuxpackageprofileready
-- appearanceaccentcolor
-- appearancepalettestyle
-- SmoothTextReveal.kt
-- ioexception
-- mcpserverdetailscreen
-- appearancetopbarblurstyle
-- applyevent
-- openspeechsettings
-- broadcastreceiver
-- capturefortopbar
-- charactercardcodec
-- permissionhealthitemui
-- permissionstatusui
-- charactereditorscreen
-- providerwithmodelsseed
-- characterentity
-- roleplaybinding
-- roleplaymessagelink
-- charactermemoryrepository
-- charactermemoryscreen
-- charactermemorytools
-- characterpersonascreen
-- scrollevidence
-- scrollmovementsource
-- chatconversationcompositionkey
-- communitycatalogprovider
-- communitycatalogsource
-- skillreplacementui
-- conversationhistorytool
-- speechossscreen
-- speechplaybackerrors
-- speechrecognitionscreen
-- debianenvironmentstate
-- speechsettingsscreen
-- speechsynthesisscreen
-- debianinstallprogress
-- terminalentryscreen
-- debianinstallresult
-- debianinstallstage
-- ttsprovider
-- SpeechPlaybackController.kt
-- devicemutationresult
-- etaarrowpreference
-- etabackupsummary
-- etacard
-- etacheckboxpreference
-- etaoverlaydialog
-- etaoverlaydropdownpreference
-- etapreference
-- etapreferencecolors
-- etapreferencedefaults
-- etapreferencedivider
-- etapreferencegroup
-- etapreferencegrouptitle
-- etapreferenceicon
-- etaswitch
-- etaswitchpreference
-- etatextbutton
-- etawindowdialog
-- etawindowspinnerpreference
-- filetoolstat
-- geminiprovidersetting
-- githubskillrepositoryparser
-- githubskillsourceexception
-- horizontalcutoutpadding
-- kimiweblaunchresult
-- launchforegroundexecution
-- linuxpackageprofileinstaller
-- localnetworkpermission
-- markdowntone
-- mcpauthorizationtype
-- mcpprotocolmode
-- mcprunsnapshot
-- mcpserversetting
-- mcptoolexecutor
-- modelsource
-- normalizeinterfacescale
-- openaicompatibleprovidersetting
-- openaiendpointmode
-- outputstream
-- packageprofileinstallprogress
-- packageprofileinstallresult
-- packageprofileinstallstage
-- pendingskillconflictcapabilityparser
-- permissionhealthaction
-- personalcontexttimeunit
-- personalsearchtools
-- projecttoolgroups
-- providerbrandlogores
-- providersourcetypes
-- providertypes
-- reasoningeffort
-- rememberdevicecapabilities
-- rememberexecutionnotificationrequest
-- remembertopbarbackdrop
-- routingtoolexecutor
-- safelogtype
-- safestacktrace
-- skillcontext
-- skillindexentry
-- skillinstallerrorcode
-- skillitemui
-- skillresourcereadresult
-- speechsettingsrepository
-- staticmarkdown
-- streamingmarkdown
-- toolcardrequirement
-- toolgroupui
-- topbarcontainercolor
-- userpersonaentity
-- validatemcpendpoint
-- validatespeechsettings
-- webhttptransport
-- widepagecontent
-- withid
-- Prefs
-- ExecutionStopQueue
-- StagedDocument
-- NewProviderType
-- FileToolTextReader.kt
-- EtaVoiceInteractionSessionService.kt
+- .inferScrollDelta
+- AgentMemoryRepository
+- IndexedPersonalSearch
+- AssistantSpeechForeground
+- EtaSpeechIssueKind
+- .createTextChunkCleanup
+- NotificationHistoryRepository
 - MarkdownAlertKind
-- SettingsTest.kt
-- BoundedFileCopy.kt
+- AgentFileVisionToolCatalogTest
+- EtaSpeechDownloadStatus
+- .migrate
 - FileToolGlob
-- AddMcpMode
-- AgentSensitiveTranscriptTest
+- LaunchResult
+- catalogSummary
+- SmoothTextReveal.kt
+- AgentFileReferenceGateway.kt
+- PrefsDefaultsTest.kt
+- SpeechPlaybackController.kt
+- SpeechSettings
 - ModuleConfigEntryPackagesTest.kt
-- AtomicSkillDirectoryMover
+- DeviceControlUnavailableException
+- .stdioClientHandshakesDiscoversAndCallsToolsOverStreams
+- ExtensionBackupData.kt
+- GeminiGenerateContentProvider
+- SettingsTest.kt
+- AddMcpMode
+- NativeSystemOperations.kt
 
 ## God Nodes (most connected - your core abstractions)
-1. `AgentModelClient` - 246 edges
-2. `AgentAccessibilityService` - 109 edges
-3. `AgentRuntimeWire` - 101 edges
-4. `AgentLocalTools` - 97 edges
-5. `AgentEvent` - 91 edges
-6. `BreenoHooks` - 90 edges
-7. `ModuleLogger` - 89 edges
-8. `Model` - 85 edges
-9. `TerminalScreenBuffer` - 84 edges
-10. `ReasoningEffort` - 79 edges
+1. `AgentModelClient` - 258 edges
+2. `AgentRunController` - 150 edges
+3. `ModuleLogger` - 127 edges
+4. `AgentAccessibilityService` - 109 edges
+5. `AgentRuntimeWire` - 104 edges
+6. `AgentLocalTools` - 101 edges
+7. `AgentEvent` - 97 edges
+8. `Model` - 92 edges
+9. `BreenoHooks` - 90 edges
+10. `ReasoningEffort` - 89 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `后台执行生命周期` --references--> `AgentExecutionService`  [INFERRED]
+  docs/AGENT_RUNTIME.md → app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentExecutionService.kt
 - `Loop 语义` --references--> `AgentRuntimeSession`  [INFERRED]
   docs/AGENT_RUNTIME.md → app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentRuntimeSession.kt
 - `会话级 Thinking Effort` --references--> `ReasoningEffort`  [INFERRED]
   docs/TECHNICAL.md → app/src/main/kotlin/io/github/mangi/eta/data/model/Reasoning.kt
-- `Google App 系统化` --references--> `GoogleAppSystemizerInstaller`  [INFERRED]
-  docs/TECHNICAL.md → app/src/main/kotlin/io/github/mangi/eta/systemizer/GoogleAppSystemizerInstaller.kt
-- `Question` --references--> `AgentChatInputBar()`  [INFERRED]
-  docs/wayfinder/tickets/001-slash-command-autocomplete-state.md → app/src/main/kotlin/io/github/mangi/eta/ui/components/AgentChatInputBar.kt
-- `组件选择` --references--> `EtaCardDefaults`  [INFERRED]
-  docs/UI_COMPONENTS.md → app/src/main/kotlin/io/github/mangi/eta/ui/components/EtaCard.kt
+- `HyperOS 4 导航识屏服务入口` --references--> `HyperOsScreenSearchHooks`  [INFERRED]
+  docs/HYPEROS_SYSTEM_ENTRY.md → app/src/main/kotlin/io/github/mangi/eta/hook/hyperos/HyperOsScreenSearchHooks.kt
+- `system_server` --references--> `AssistantManager`  [INFERRED]
+  docs/TECHNICAL.md → app/src/main/kotlin/io/github/mangi/eta/hook/system/AssistantManager.kt
 
 ## Import Cycles
 - None detected.
 
-## Communities (584 total, 194 thin omitted)
+## Communities (446 total, 161 thin omitted)
 
-### Community 0 - "TerminalEnvironment"
-Cohesion: 0.07
-Nodes (27): DaemonLogsResult, DaemonStartResult, DetachedTask, DetachedTaskStatus, Failed, JSONObject, Started, toDetachedTask() (+19 more)
+### Community 0 - "DetachedTaskSupervisor"
+Cohesion: 0.10
+Nodes (15): DaemonLogsResult, DaemonStartResult, DetachedTask, DetachedTaskStatus, Failed, Started, toDetachedTask(), toRecordJson() (+7 more)
 
-### Community 1 - "AgentHapticFeedback.kt"
+### Community 1 - "AgentAppShell.kt"
+Cohesion: 0.05
+Nodes (19): AgentAppShell(), AgentTopBar(), CharacterTopBarIdentity(), titleForRoute(), TopBarOverflowMenu(), AdaptiveTopAppBar(), RoleplayChatUi, MiuixBackButton() (+11 more)
+
+### Community 2 - "PublicGitHubSkillSource"
 Cohesion: 0.17
-Nodes (11): AgentHapticFeedback, Context, Suppress, Type, LONG_PRESS, RUN_STARTED, SWIPE, TAP (+3 more)
-
-### Community 2 - "AgentLocalTools.kt"
-Cohesion: 0.13
-Nodes (17): AgentSensitiveToolPolicy, CommitPointer, DownloadedGitHubArchive, GitHubSkillCandidate, GitHubSkillInspection, GitHubSkillRepository, GitHubSkillSourceException, Closeable (+9 more)
-
-### Community 3 - "AgentPersonalContextTools.kt"
-Cohesion: 0.16
-Nodes (9): AgentPersonalContextTools, Context, JSONObject, appopsmanager, audiodeviceinfo, displaymanager, keyguardmanager, usageevents (+1 more)
+Nodes (6): CommitPointer, DownloadedGitHubArchive, GitHubSkillCandidate, GitHubSkillInspection, GitHubSkillSourceException, PublicGitHubSkillSource
 
 ### Community 4 - "GestureIndicator.kt"
-Cohesion: 0.05
-Nodes (39): animationutils, AnimatorSet, ActiveIndicator, AnimatedIndicatorView, GestureIndicator, Animator, AnimatorListenerAdapter, Canvas (+31 more)
+Cohesion: 0.10
+Nodes (9): ActiveIndicator, AnimatedIndicatorView, GestureIndicator, PressIndicatorView, PressKind, LONG_PRESS, TAP, SwipeIndicatorView (+1 more)
 
 ### Community 5 - "AgentLocalTools"
-Cohesion: 0.09
-Nodes (13): AgentLocalTools, AppInfo, GitHubInspectionSnapshot, InvalidToolArgumentException, AutoCloseable, Context, IllegalArgumentException, io (+5 more)
+Cohesion: 0.11
+Nodes (4): AgentLocalTools, AppInfo, GitHubInspectionSnapshot, PublishedObservation
 
-### Community 6 - ".error"
-Cohesion: 0.23
-Nodes (8): ClockOperations, Bundle, JSONObject, JSONObject, RuntimeException, PhoneOperation, PhoneOperationFailure, zoneid
+### Community 6 - "AgentAppState"
+Cohesion: 0.08
+Nodes (3): AgentAppState, agentBooleanForUi(), ContentMatchCacheEntry
 
-### Community 7 - "EtaBackupRepository.kt"
+### Community 7 - "ProviderEntities.kt"
 Cohesion: 0.10
-Nodes (23): Dao, Flow, Insert, Query, Transaction, Update, ProviderDao, ProviderWithModelsSeed (+15 more)
+Nodes (8): ProviderDao, ProviderWithModelsSeed, ProviderEntity, ProviderJson, ProviderModelEntity, ProviderWithModels, toEntity(), toModelEntities()
 
 ### Community 9 - ".appUserId"
-Cohesion: 0.10
-Nodes (15): DeviceToolContract, Context, JSONObject, DeviceStateMutations, Context, JSONObject, DisplaySoundControls, Context (+7 more)
-
-### Community 10 - "RootShellTerminalController"
 Cohesion: 0.08
-Nodes (16): AutoCloseable, ByteArray, ByteArrayOutputCollector, JSONObject, ShellTextResult, Volatile, RootShellTerminalController, SessionCommandResult (+8 more)
+Nodes (5): DeviceToolContract, AppInspectionTool, DeviceStateMutations, SystemStateControls, DeviceStateMutationsTest
+
+### Community 10 - "TerminalEnvironment"
+Cohesion: 0.06
+Nodes (10): RootShellTerminalController, ShellTextResult, TerminalSession, Output, TerminalExecutionProbe, FileToolIntegrationTest, NoopLogger, NoopLogger (+2 more)
 
 ### Community 11 - "EtaAssistantOverlayService.kt"
-Cohesion: 0.08
-Nodes (25): EtaAssistantOverlayService, OnAttachStateChangeListener, ComposeView, IBinder, Intent, Job, Lifecycle, LifecycleOwner (+17 more)
-
-### Community 12 - "AgentTerminalToolCatalog"
-Cohesion: 0.37
-Nodes (4): AgentTerminalToolCatalog, JSONArray, JSONObject, 终端环境
+Cohesion: 0.05
+Nodes (12): EtaAssistantOverlayService, OnAttachStateChangeListener, EtaSpeechState, Completed, EtaVoiceStatus, Failed, InputRequest, Reasoning (+4 more)
 
 ### Community 13 - "MarkdownInline.kt"
-Cohesion: 0.08
-Nodes (34): StaticDocumentCache, child(), decodeEntity(), decodeMarkdownText(), inlineText(), AnnotatedString, ASTNode, Color (+26 more)
+Cohesion: 0.09
+Nodes (13): StaticDocumentCache, child(), decodeEntity(), decodeMarkdownText(), inlineText(), LineState, MarkdownInlineBuilder, MarkdownInlineStyle (+5 more)
 
-### Community 14 - "ChatMessageItem.kt"
-Cohesion: 0.06
-Nodes (74): AgentContextUsageButton(), Composable, Modifier, BrowserPagePreview(), dotColor(), isTerminalTool(), Composable, Modifier (+66 more)
+### Community 14 - ".backendOf"
+Cohesion: 0.08
+Nodes (24): AlpineEnvironmentInstaller, AlpineEnvironmentState, BASE_READY, NOT_INSTALLED, READY, AlpineEnvironmentStatus, AlpineInstallProgress, AlpineInstallResult (+16 more)
 
 ### Community 15 - ".warn"
-Cohesion: 0.07
-Nodes (27): EtaSpeechDownloadStatus, DOWNLOADING, FAILED, READY, SCHEDULED, EtaSpeechInput, ModelDownloadListener, RecognitionListener (+19 more)
+Cohesion: 0.13
+Nodes (5): speechIssueMessage(), EtaSpeechInput, ModelDownloadListener, RecognitionListener, EtaSpeechIssue
 
-### Community 16 - "AgentEvent"
-Cohesion: 0.05
-Nodes (25): AgentEvent, AssistantBlockDelta, AssistantBlockEnd, AssistantBlockKind, TEXT, THINKING, TOOL_CALL, AssistantBlockStart (+17 more)
+### Community 16 - ".append"
+Cohesion: 0.27
+Nodes (3): AgentRunEventCoalescer, PendingDelta, AgentRunEventCoalescerTest
 
-### Community 17 - "SpeechOssConfig"
-Cohesion: 0.19
-Nodes (10): ByteArray, OssSpeechSigner, SpeechOssConfig, Test, OssSpeechSignerTest, mac, RequestBody, secretkeyspec (+2 more)
+### Community 17 - "SpeechCredentials"
+Cohesion: 0.09
+Nodes (7): OssSpeechSigner, Pending, SpeechOssUpload, SpeechCredentials, SpeechOssConfig, OssSpeechSignerTest, SpeechOssUploadTest
 
-### Community 18 - "EtaBackupJsonStreams"
-Cohesion: 0.24
-Nodes (7): EtaBackupJsonStreams, ByteArray, Context, OptIn, LimitedInput, LimitedOutput, FilterOutputStream
+### Community 18 - "EtaBackupJsonStreams.kt"
+Cohesion: 0.09
+Nodes (5): DocumentWriter, EtaBackupJsonStreams, LimitedInput, LimitedOutput, StagedDocument
 
 ### Community 19 - "GoogleAppSystemizerInstaller"
 Cohesion: 0.08
-Nodes (25): AlreadySystemized, escapeForSingleQuotedShell(), Failed, GoogleAppMissing, GoogleAppSystemizerInstaller, hasPrivilegedPrivateFlag(), InstalledRebootRequired, InstallPreflight (+17 more)
+Nodes (22): AlreadySystemized, escapeForSingleQuotedShell(), Failed, GoogleAppMissing, GoogleAppSystemizerInstaller, hasPrivilegedPrivateFlag(), InstalledRebootRequired, InstallPreflight (+14 more)
 
 ### Community 20 - "XiaoAiQueryCache"
-Cohesion: 0.09
-Nodes (14): Decision, Synchronized, T, QueryInfo, Turn, XiaoAiQueryCache, XiaoAiRecentIds, XiaoAiRendererSlot (+6 more)
+Cohesion: 0.08
+Nodes (10): Decision, QueryInfo, Turn, XiaoAiQueryCache, XiaoAiRecentIds, XiaoAiRendererSlot, XiaoAiRunSlot, XiaoAiTakeoverPolicy (+2 more)
 
-### Community 21 - "LinuxFilesScreen.kt"
-Cohesion: 0.16
-Nodes (20): EtaPreferenceGroupItem(), Composable, Modifier, FileRow(), HintText(), Composable, Context, ImageVector (+12 more)
+### Community 21 - ".fadeIn"
+Cohesion: 0.07
+Nodes (28): AgentOverlayCapsule(), CapsuleAction(), PhaseIndicator(), ThoughtLine(), AgentOverlayGlow(), AgentResultCard(), overlayPhaseAccent(), OverlaySupplementInput() (+20 more)
 
-### Community 22 - "CharacterLibraryStore"
-Cohesion: 0.12
-Nodes (11): CharacterCardFormat, JSON, PNG, CharacterLibraryStore, CharacterLibraryViewModel, AndroidViewModel, Context, CoroutineScope (+3 more)
+### Community 22 - "ConsoleKeyBar.kt"
+Cohesion: 0.10
+Nodes (15): Alt, BarKey, ConsoleKeyBar(), ConsoleModifierKeys, Ctrl, description(), fadingEnd(), KeyCap() (+7 more)
 
 ### Community 23 - "AgentRuntimeWire"
 Cohesion: 0.08
-Nodes (24): AgentLegacyConversationProjection, AgentRuntimeWire, CompletedRun, EntryHandoff, IncomingRunRequest, Bundle, Closeable, IllegalArgumentException (+16 more)
+Nodes (13): ClientHandler, AgentRuntimeWire, CompletedRun, EntryHandoff, IncomingRunRequest, PayloadTooLargeException, PreparedHistory, RunRequest (+5 more)
 
 ### Community 24 - "AgentStructuredDeviceTools"
-Cohesion: 0.19
-Nodes (5): AgentStructuredDeviceTools, JSONObject, Suppress, ProcessUsage, StorageUsage
+Cohesion: 0.12
+Nodes (3): AgentStructuredDeviceTools, ProcessUsage, StorageUsage
 
 ### Community 25 - "AgentHomeAction"
 Cohesion: 0.08
 Nodes (26): AgentHomeAction, AgentToolsAction, CancelMessageEdit, CompactContext, DeleteMessage, EditMessage, ExpandRunTrace, FilePathAttached (+18 more)
 
-### Community 26 - "CharacterAvatar.kt"
-Cohesion: 0.14
-Nodes (24): CharacterAvatar(), CharacterImageCache, CharacterMonogram(), Color, Composable, Dp, ImageBitmap, Immutable (+16 more)
+### Community 26 - "UserTerminalController"
+Cohesion: 0.07
+Nodes (13): SessionCommandResult, SessionStatusProtocol, Status, ExecResult, Failed, InternalResult, OpenResult, Ready (+5 more)
 
 ### Community 27 - "SkillPackageInstaller"
 Cohesion: 0.16
-Nodes (12): SkillInstallResult, deletePathTreeWithoutFollowingLinks(), deleteSkillPathWithoutFollowingLinks(), ArchiveOperation, RuntimeException, SkillIndexService, PreparedCandidate, SkillInstallException (+4 more)
+Nodes (10): SkillInstallResult, deletePathTreeWithoutFollowingLinks(), deleteSkillPathWithoutFollowingLinks(), ArchiveOperation, PreparedCandidate, SkillInstallException, SkillPackageInstaller, SkillPackageLimits (+2 more)
 
 ### Community 28 - "MarkdownBlock"
 Cohesion: 0.12
-Nodes (28): BlockConverter, CachedBlock, firstRevealKey(), AnnotatedString, ASTNode, LinkMap, MarkdownDocumentBuilder, parseAlignments() (+20 more)
+Nodes (22): BlockConverter, CachedBlock, MarkdownDocumentBuilder, parseAlignments(), removeIndent(), revealKeys(), MarkdownAlert, MarkdownBlock (+14 more)
 
-### Community 29 - "shellQuote"
-Cohesion: 0.06
-Nodes (25): InstallerShellRunner, AndroidBusyBox, Context, LinuxApkAnalysisInstaller, Context, ManagedLinuxTool, NODE, UV (+17 more)
-
-### Community 30 - "ModelRepositoryTest.kt"
-Cohesion: 0.13
-Nodes (10): Flow, ModelRepository, RemoteModelSyncResult, CommunityCatalogProvider, Before, Config, Context, RunWith (+2 more)
-
-### Community 31 - "AgentPrivateDatabaseTools"
-Cohesion: 0.20
-Nodes (7): AgentPrivateDatabaseTools, DatabaseSource, Context, JSONArray, JSONObject, SQLiteDatabase, LongArray
+### Community 30 - "SettingsDataStore"
+Cohesion: 0.05
+Nodes (30): AppearanceAccentColor, BLUE, GREEN, ORANGE, PINK, PURPLE, RED, SYSTEM (+22 more)
 
 ### Community 32 - "Model"
-Cohesion: 0.07
-Nodes (49): Serializable, ModelConfig, ProviderJson, toDomain(), toEntity(), toModelEntities(), CustomBody, JsonElement (+41 more)
-
-### Community 33 - "UserTerminalController"
 Cohesion: 0.10
-Nodes (15): SessionStatusProtocol, Status, ExecResult, Failed, InternalResult, AutoCloseable, ByteArrayOutputCollector, Volatile (+7 more)
+Nodes (22): ModelConfig, toDomain(), CustomBody, AnthropicProviderSetting, CustomProviderSetting, enabledModel(), GeminiProviderSetting, OpenAiCompatibleProviderSetting (+14 more)
 
-### Community 34 - ".complete"
-Cohesion: 0.06
-Nodes (32): CallResultPair, ChatToolCallHistory, JSONArray, JSONObject, AgentProviderClient, AgentRunController, AssistantBlockKind, java (+24 more)
+### Community 33 - "Model"
+Cohesion: 0.09
+Nodes (10): Model, ModelSource, CATALOG, MANUAL, REMOTE, OfficialModelCatalog, ModelRepository, RemoteModelSyncResult (+2 more)
+
+### Community 34 - "AgentRunController"
+Cohesion: 0.10
+Nodes (9): readProviderSse(), AgentRunCancelledException, AgentRunController, CancellableResource, ResourceBinding, OpenAiChatCompletionsProviderTest, ProviderSseReaderTest, TrackedStream (+1 more)
 
 ### Community 35 - "ShellProcessSupervisor"
-Cohesion: 0.15
-Nodes (7): Volatile, ProcessMetadata, ProcessOwnership, ShellProcessOwnership, ShellProcessSupervisor, Test, ShellProcessSupervisorTest
+Cohesion: 0.12
+Nodes (6): AndroidBusyBox, ProcessMetadata, ProcessOwnership, ShellProcessOwnership, ShellProcessSupervisor, ShellProcessSupervisorTest
 
-### Community 36 - "AgentChatBody.kt"
+### Community 36 - "AgentBrowserScreen"
+Cohesion: 0.35
+Nodes (11): BrowserSessionSnapshot, AgentBrowserScreen(), BrowserEmptyState(), BrowserFailedState(), BrowserLoadingProgress(), BrowserLoadingState(), BrowserOverlayIcon(), BrowserStateOverlay() (+3 more)
+
+### Community 37 - "AgentLocalTools.kt"
 Cohesion: 0.05
-Nodes (185): addsquirclerect, alignment, alpha, androidview, animatable, animatecolorasstate, animatedcontent, animatedvisibility (+177 more)
-
-### Community 37 - "CircleToSearchInvoker"
-Cohesion: 0.21
-Nodes (8): HyperOsSearchTrigger, Context, CircleToSearchInvoker, Context, IBinder, Method, Volatile, StartContextualSearchMethod
+Nodes (14): SkillCompatibilityChecker, SkillLoader, Allow, Reject, ToolExecutionDecision, Keys, Prefs, HookInstallation (+6 more)
 
 ### Community 38 - "CharacterRepository"
-Cohesion: 0.14
-Nodes (12): CharacterProfile, UserPersona, CharacterRepository, ByteArray, Volatile, readRoleplayBytes(), CharacterRepositoryTest, Before (+4 more)
+Cohesion: 0.06
+Nodes (17): CharacterCard, CharacterCardFormat, JSON, PNG, CharacterDepthPrompt, CharacterProfile, RoleplayBinding, UserPersona (+9 more)
 
 ### Community 39 - "BreenoHooks"
-Cohesion: 0.06
-Nodes (14): Context, BreenoHooks, BreenoStreamRenderer, HistoryInsertResult, ApplicationInfo, ClassLoader, Context, JSONArray (+6 more)
+Cohesion: 0.05
+Nodes (7): ActiveAgentRun, BreenoHooks, BreenoStreamRenderer, HistoryInsertResult, TaskAdmissionGate, TextRequest, TextRequestPayload
 
 ### Community 40 - "SkillResourceReader"
-Cohesion: 0.14
+Cohesion: 0.11
 Nodes (20): Failure, SkillArchiveCandidate, SkillArchiveInspectionResult, SkillInstallError, SkillResourceError, SkillResourceErrorCode, BINARY_RESOURCE, INVALID_RELATIVE_PATH (+12 more)
 
 ### Community 41 - "HookRegistrar"
-Cohesion: 0.09
-Nodes (16): HookRegistrar, ClassLoader, HyperOsLauncherHooks, ClassLoader, XposedModule, ClassLoader, ClassLoader, ContextualSearchHooks (+8 more)
+Cohesion: 0.06
+Nodes (8): HookRegistrar, GoogleEligibilityHooks, HyperOsLauncherHooks, HyperOsSearchTrigger, ContextualSearchHooks, PowerHooks, ActiveRun, XiaoAiHooks
 
-### Community 42 - ".mergeInto"
-Cohesion: 0.12
-Nodes (11): CustomHeaderFilter, okhttp3, Headers, ProviderRequestHeaders, android, validateProviderDraft(), CustomHeaderAndBodyTest, Test (+3 more)
+### Community 42 - "WebHttpTransportTest.kt"
+Cohesion: 0.06
+Nodes (7): AgentHttpClient, McpAuthorizationType, McpProtocolMode, McpStdioEnvironment, McpTransportType, CookieJar, McpEntitiesTest
 
-### Community 43 - "GeminiGenerateContentProvider"
-Cohesion: 0.09
-Nodes (14): GeminiGenerateContentProvider, AgentProviderClient, AgentRunController, JSONArray, JSONObject, providerMessageText(), CachedToken, ServiceAccountCredentials (+6 more)
+### Community 43 - "SkillParser"
+Cohesion: 0.14
+Nodes (5): ParsedSkillFile, ResolvedSkillContext, SkillCompatibilityResult, SkillParser, SkillParserTest
 
 ### Community 44 - "AgentRuntimeClient"
+Cohesion: 0.20
+Nodes (11): ActiveRunHandler, ActiveRunQuery, AgentRuntimeClient, AttachHandler, AttachOutcome, Completed, CompletedRunsQuery, DrainHandler (+3 more)
+
+### Community 45 - "EtaLiveUpdateManager"
 Cohesion: 0.09
-Nodes (24): AgentResultMailbox, Bundle, Closeable, Synchronized, ActiveRunHandler, ActiveRunQuery, AgentRuntimeClient, AttachHandler (+16 more)
+Nodes (3): CompletedRunContext, EtaFluidCloudStateMapper, EtaLiveUpdateManager
 
-### Community 45 - "ProviderResponse"
+### Community 46 - "UserTerminalScreen.kt"
 Cohesion: 0.06
-Nodes (36): AgentProviderClient, AssistantBlockKind, TEXT, THINKING, TOOL_CALL, AssistantStopReason, CONTENT_FILTER, END_TURN (+28 more)
-
-### Community 46 - "TerminalToolbar.kt"
-Cohesion: 0.15
-Nodes (25): Composable, Immutable, SessionDialogRow, SessionListDialog(), SessionRow(), sessionStateLabel(), EnvironmentSegments(), Color (+17 more)
-
-### Community 47 - "ProviderComponentsTest"
-Cohesion: 0.19
-Nodes (7): containsCharactersInOrder(), ModelSearchQuery, ProviderConfigDraft, ProviderHeaderDraft, filterProviderModels(), Test, ProviderComponentsTest
+Nodes (33): DaemonTaskUi, TerminalBlockUi, ConsoleScreen(), ConsoleInputSink, TerminalEntryScreen(), daemonMeta(), daemonStatusColor(), DaemonTaskRow() (+25 more)
 
 ### Community 48 - "SharedFolderMount"
-Cohesion: 0.12
-Nodes (13): ProotCommandBuilder, SharedPreferences, NameError, DUPLICATE, INVALID, SharedFolderMount, SharedFolderMounts, SourceError (+5 more)
+Cohesion: 0.10
+Nodes (12): ProotCommandBuilder, NameError, DUPLICATE, INVALID, SharedFolderMount, SharedFolderMounts, SourceError, DUPLICATE (+4 more)
 
 ### Community 49 - "HookInstallJournal"
-Cohesion: 0.10
-Nodes (17): HookInstallEntry, HookInstallJournal, HookInstallReport, HookInstallStatus, FAILED, INSTALLED, MISSING, SKIPPED (+9 more)
+Cohesion: 0.09
+Nodes (12): HookInstallEntry, HookInstallJournal, HookInstallReport, HookInstallStatus, FAILED, INSTALLED, MISSING, SKIPPED (+4 more)
 
-### Community 50 - "AccessibilityNodeInfo"
-Cohesion: 0.15
-Nodes (10): AccessibilityNodeInfo, AccessibilityNodeIdentity, IndexedNode, Invalid, UiNode, NodeActionTarget, NodeTraversalState, NodeValidation (+2 more)
+### Community 50 - "AgentExecutionService"
+Cohesion: 0.07
+Nodes (16): AgentOverlayStatus, ContinuationUnavailable, Continuing, Finishing, GeneratingAnswer, HostedToolRunning, Paused, Reasoning (+8 more)
 
 ### Community 51 - "AgentRuntimeSession"
-Cohesion: 0.13
-Nodes (10): AgentRuntimeSession, AgentRunController, T, State, COMMITTING, RUNNING, TERMINAL, Subscriber (+2 more)
+Cohesion: 0.15
+Nodes (7): AgentRuntimeSession, State, COMMITTING, RUNNING, TERMINAL, Subscriber, AgentRuntimeSessionTest
 
 ### Community 52 - "PhoneProviderAccess.kt"
 Cohesion: 0.13
-Nodes (17): AppPhoneProviderAccess, AutoCloseable, Bundle, ContentProviderOperation, ContentProviderResult, ContentValues, Cursor, IBinder (+9 more)
-
-### Community 53 - "AgentImageCodecTest"
-Cohesion: 0.12
-Nodes (14): Bitmap, AgentImageCodecTest, Bitmap, Bundle, ByteArray, Config, ContentValues, Cursor (+6 more)
-
-### Community 54 - "ForwardingRecognitionListener"
-Cohesion: 0.09
-Nodes (18): EtaRecognitionService, ForwardingRecognitionListener, Bundle, ByteArray, Callback, Intent, SpeechRecognizer, ComponentName (+10 more)
+Nodes (5): AppPhoneProviderAccess, Lease, PhoneProviderAccess, RootPhoneProviderAccess, CursorWrapper
 
 ### Community 55 - "BreenoRequestImagesTest"
-Cohesion: 0.22
-Nodes (5): BreenoRequestImagesTest, Config, RunWith, Test, SensitiveValue
+Cohesion: 0.17
+Nodes (4): BreenoRequestImagesTest, FakeClientResult, FakeMultiImageList, SensitiveValue
 
 ### Community 56 - "OpenAiResponsesProvider"
-Cohesion: 0.11
-Nodes (16): FinalContentPart, FinalFunctionCall, FinalOutput, AgentProviderClient, AgentRunController, AssistantBlockKind, java, JSONArray (+8 more)
+Cohesion: 0.09
+Nodes (10): AgentModelFailure, FinalContentPart, FinalFunctionCall, FinalOutput, OpenAiResponsesProvider, ResponsesContentIdentity, StreamingContentBlock, StreamingFunctionCall (+2 more)
 
 ### Community 57 - "DmpQuery"
-Cohesion: 0.26
-Nodes (6): DmpProjection, DmpQuery, RootDmpQueryTransport, SortColumn, DmpQueryTransportTest, Test
+Cohesion: 0.27
+Nodes (5): DmpProjection, DmpQuery, RootDmpQueryTransport, SortColumn, DmpQueryTransportTest
 
 ### Community 58 - "AgentFileReference"
-Cohesion: 0.15
-Nodes (11): AgentFileReference, AgentFileReferencePolicy, AgentFileReferencePrompt, AgentFileReferencePromptCodec, hasUnsupportedControlCharacter(), contentMatches(), matches(), AgentFileReferencePromptCodecTest (+3 more)
+Cohesion: 0.08
+Nodes (25): AgentFileReference, AgentFileReferenceKind, Directory, File, AgentFileReferencePolicy, AgentFileReferencePrompt, AgentFileReferencePromptCodec, hasUnsupportedControlCharacter() (+17 more)
 
 ### Community 59 - "SkillRecoveryJournal.kt"
 Cohesion: 0.17
-Nodes (25): T, prepareSkillInstallerWorkRoot(), SkillMutationLock, SkillDirectoryMover, completeRecoveredSkillOperations(), copyDirectoryWithoutFollowingLinks(), createSkillRecoveryOperationDirectory(), isSafeExistingTarget() (+17 more)
+Nodes (21): prepareSkillInstallerWorkRoot(), SkillMutationLock, AtomicSkillDirectoryMover, SkillDirectoryMover, completeRecoveredSkillOperations(), copyDirectoryWithoutFollowingLinks(), createSkillRecoveryOperationDirectory(), isSafeExistingTarget() (+13 more)
 
 ### Community 60 - "AppRoute"
-Cohesion: 0.12
-Nodes (33): AppearanceSettings, AppRoute, Browser, CharacterDetail, CharacterEditor, CharacterMemory, CharacterPersona, Characters (+25 more)
+Cohesion: 0.07
+Nodes (38): AgentNavigator, AppearanceSettings, AppRoute, Browser, CharacterDetail, CharacterEditor, CharacterMemory, CharacterPersona (+30 more)
 
 ### Community 61 - "LinuxPackageProfiles.kt"
-Cohesion: 0.16
-Nodes (18): AlreadyReady, DependencyMissing, EnvironmentNotReady, Failed, Installed, Context, LinuxPackageProfile, LinuxPackageProfileInstaller (+10 more)
+Cohesion: 0.15
+Nodes (17): AlreadyReady, DependencyMissing, EnvironmentNotReady, Failed, Installed, LinuxPackageProfile, LinuxPackageProfileInstaller, linuxPackageProfileReady() (+9 more)
 
-### Community 62 - "McpHttpClient"
-Cohesion: 0.12
-Nodes (15): Call, Callback, IOException, JSONObject, Response, T, Volatile, McpHttpClient (+7 more)
+### Community 62 - "McpHttpClient.kt"
+Cohesion: 0.14
+Nodes (6): McpHttpStatusException, McpJsonRpcException, McpProtocolCompatibilityException, ToolList, WireResponse, Discovery
 
 ### Community 63 - "RuntimeRunDao"
-Cohesion: 0.08
-Nodes (26): AgentTextChunkEntity, ChunkedTextDao, ColumnInfo, Entity, Insert, Query, Dao, Insert (+18 more)
+Cohesion: 0.09
+Nodes (10): RuntimeArchiveRunWithEventsSeed, RuntimeRunDao, RuntimeArchiveEventEntity, RuntimeArchiveRunEntity, RuntimeArchiveRunWithEvents, RuntimeInFlightEventEntity, RuntimeInFlightRunEntity, RuntimeInFlightRunWithEvents (+2 more)
 
-### Community 64 - "AlpineEnvironmentInstaller"
-Cohesion: 0.10
-Nodes (21): AlpineEnvironmentInstaller, AlpineInstallProgress, AlpineInstallResult, AlpineInstallStage, CHECKING, COMPLETE, DOWNLOADING, EXTRACTING (+13 more)
+### Community 64 - "VerifiedArtifact"
+Cohesion: 0.09
+Nodes (10): ManagedLinuxTool, NODE, UV, PinnedLinuxToolArtifacts, PinnedLinuxToolInstaller, toHexString(), VerifiedArtifact, VerifiedArtifactDownloader (+2 more)
+
+### Community 65 - "AccessibilityServiceEnforcer"
+Cohesion: 0.07
+Nodes (21): AccessibilityConnectionStatus, CONNECTED, DISCONNECTED, UNKNOWN, AccessibilityRepairAttempt, AccessibilityRepairLimiter, AccessibilityRestoreBackoff, AccessibilityServiceEnforcer (+13 more)
 
 ### Community 66 - "UserTerminalStore"
-Cohesion: 0.10
-Nodes (18): DaemonTaskUi, CoroutineScope, Immutable, StateFlow, SessionOutput, TerminalSessionUi, UserTerminalStore, UserTerminalUiState (+10 more)
-
-### Community 67 - "What You Must Do When Invoked"
-Cohesion: 0.08
-Nodes (24): For /graphify add and --watch, For /graphify query, For the commit hook and native CLAUDE.md integration, For --update and --cluster-only, /graphify, Honesty Rules, Interpreter guard for subcommands, Part A - Structural extraction for code files (+16 more)
+Cohesion: 0.12
+Nodes (4): SessionOutput, TerminalSessionUi, UserTerminalStore, UserTerminalUiState
 
 ### Community 68 - "PersonalContextSource"
 Cohesion: 0.11
-Nodes (18): PersonalContextField, PersonalContextFieldKind, DECIMAL, INTEGER, TEXT, PersonalContextFilterOperator, EQUALS, NULL_OR_EQUALS (+10 more)
+Nodes (17): PersonalContextField, PersonalContextFieldKind, DECIMAL, INTEGER, TEXT, PersonalContextFilterOperator, EQUALS, NULL_OR_EQUALS (+9 more)
 
 ### Community 69 - "ConsoleSessionController"
-Cohesion: 0.11
-Nodes (12): ConsoleSessionController, Failed, AutoCloseable, ByteArray, Volatile, OpenResult, PtySession, Ready (+4 more)
+Cohesion: 0.08
+Nodes (10): ConsoleSessionController, Failed, OpenResult, PtySession, Ready, SessionInfo, PtyInputFrames, ConsoleSessionControllerTest (+2 more)
 
 ### Community 70 - "MainThreadCallGate"
-Cohesion: 0.11
-Nodes (13): Completed, T, MainThreadCallResult, NOT_STARTED, OUTCOME_UNKNOWN, MainThreadCallGate, State, CANCELLED (+5 more)
+Cohesion: 0.16
+Nodes (7): MainThreadCallGate, State, CANCELLED, FINISHED, PENDING, RUNNING, MainThreadCallGateTest
 
 ### Community 71 - ".parse"
 Cohesion: 0.17
-Nodes (10): HttpUrl, IllegalArgumentException, PublicWebSearch, SearchPage, SearchResult, WebSearchException, Test, PublicWebSearchTest (+2 more)
+Nodes (6): PublicWebSearch, SearchPage, SearchResult, WebSearchException, PublicWebSearchTest, 网页搜索与正文读取
 
-### Community 72 - "WebHttpTransport"
-Cohesion: 0.18
-Nodes (12): Closeable, WebHttpTransport, AgentWebToolsTest, Test, ByteArray, Closeable, Test, readRequest() (+4 more)
+### Community 72 - ".install"
+Cohesion: 0.17
+Nodes (3): isPlaintextColorOsMemoryDatabase(), ColorOsMemoryHooks, ColorOsMemoryHostDatabase
 
 ### Community 73 - "SmoothTextRevealPolicyTest"
-Cohesion: 0.18
-Nodes (8): listMarkerVisible(), advanceSmoothReveal(), graphemeBoundaries(), smoothRevealSpeed(), updateGraphemeBoundaries(), Test, SmoothTextRevealPolicyTest, IntArray
+Cohesion: 0.22
+Nodes (5): advanceSmoothReveal(), graphemeBoundaries(), smoothRevealSpeed(), updateGraphemeBoundaries(), SmoothTextRevealPolicyTest
 
-### Community 74 - "ConsoleKeyBar.kt"
-Cohesion: 0.13
-Nodes (23): Alt, BarKey, ConsoleKeyBar(), Ctrl, description(), fadingEnd(), KeyCap(), Color (+15 more)
+### Community 74 - "AgentModelPickerUiState"
+Cohesion: 0.17
+Nodes (13): Header, ModelSheetEntry, Option, AgentContextUsageUi, AgentModelOptionUi, AgentModelPickerProjector, AgentModelPickerUiState, AgentModelProviderGroupUi (+5 more)
 
 ### Community 75 - ".validatePath"
 Cohesion: 0.14
-Nodes (15): Failure, FailureCode, FILE_EMPTY, FILE_TOO_LARGE, FILE_UNREADABLE, PATH_MISSING, UNSUPPORTED_FORMAT, FailureCode (+7 more)
+Nodes (12): Failure, FailureCode, FILE_EMPTY, FILE_TOO_LARGE, FILE_UNREADABLE, PATH_MISSING, UNSUPPORTED_FORMAT, NoImage (+4 more)
 
 ### Community 76 - "AgentModelClientLoopTest"
-Cohesion: 0.27
-Nodes (7): AgentModelClientLoopTest, AgentProviderClient, AgentProviderClient, AgentRunController, JSONObject, Test, ScriptedProvider
+Cohesion: 0.20
+Nodes (5): AgentToolCapabilities, AgentFileToolCatalogTest, AgentModelClientLoopTest, AgentProviderClient, ScriptedProvider
 
 ### Community 77 - "AgentOverlayStatus"
-Cohesion: 0.07
-Nodes (42): AgentOverlayCapsule(), CapsuleAction(), Color, Composable, ImageVector, PhaseIndicator(), ThoughtLine(), AgentOverlayGlow() (+34 more)
+Cohesion: 0.17
+Nodes (13): AgentOverlayPhase, FAILED, FINISHED, PAUSED, RUNNING, AgentOverlayState, appendStreamingText(), appendThought() (+5 more)
 
-### Community 78 - "AgentAppShell.kt"
-Cohesion: 0.05
-Nodes (67): addcomment, AgentAppShell(), AgentTopBar(), CharacterTopBarIdentity(), Color, Composable, Modifier, ScrollBehavior (+59 more)
+### Community 78 - "ConversationPanePanel.kt"
+Cohesion: 0.04
+Nodes (33): ConversationDrawerGroup, ConversationDrawerSection, conversationPaneContainerColor(), ConversationPanelMetrics, ConversationPanePanel(), ConversationSectionHeader(), ConversationTextRow(), Dated (+25 more)
 
 ### Community 79 - "ProviderRepositoryTest.kt"
-Cohesion: 0.08
-Nodes (26): Context, Context, Flow, Settings, Volatile, ProviderRepository, SharedPreferences, XposedService (+18 more)
-
-### Community 80 - "BrowserToolResult"
-Cohesion: 0.29
-Nodes (3): BrowserToolResult, Context, T
+Cohesion: 0.09
+Nodes (13): ProviderRepository, builtInProvidersRoundTripThroughRoomWithModels(), catalogUpgradeAppendsOnlyNewIdsWithoutChangingExistingModels(), catalogUpgradeCorrectsOnlyLegacyBaseReasoningCapabilities(), copyForTest(), existingOfficialModelWithoutWindowRemainsUnsetForEveryRead(), localAutoCompactionSettingReachesCurrentRuntimeConfig(), onlyUserConfiguredWindowReachesRuntimeAndChat() (+5 more)
 
 ### Community 81 - ".parseToolCalls"
-Cohesion: 0.45
-Nodes (4): JSONArray, JSONObject, Test, OpenAiChatToolCallIdsTest
+Cohesion: 0.16
+Nodes (15): AssistantBlockKind, TEXT, THINKING, TOOL_CALL, BlockDelta, BlockEnd, BlockStart, Completed (+7 more)
 
 ### Community 82 - "ScrollDirection"
-Cohesion: 0.10
-Nodes (17): Bundle, ScrollActionResult, ScrollMethod, Rect, ScrollAmount, PAGE, SMALL, ScrollAxis (+9 more)
+Cohesion: 0.08
+Nodes (16): ScrollMethod, ScrollAxisContract, ScrollAmount, PAGE, SMALL, ScrollAxis, HORIZONTAL, VERTICAL (+8 more)
 
-### Community 83 - "ElementObservation"
-Cohesion: 0.12
-Nodes (12): CoordinateSpace, ElementObservation, ElementSource, ACCESSIBILITY, UIAUTOMATOR, JSONArray, JSONObject, ScreenPoint (+4 more)
+### Community 84 - "CharacterAvatar.kt"
+Cohesion: 0.14
+Nodes (11): CharacterAvatar(), CharacterImageCache, CharacterMonogram(), monogramGradient(), rememberCharacterImage(), CharacterHero(), GreetingPager(), PagerDots() (+3 more)
 
-### Community 85 - ".rootScroll"
-Cohesion: 0.18
-Nodes (5): Rect, ShellTextResult, ResolvedUiAutomatorNode, ShellTextResult, UiNode
-
-### Community 86 - "KimiWebUiStateTest.kt"
-Cohesion: 0.48
-Nodes (4): KimiWebUiStateTest, Config, RunWith, Test
+### Community 85 - "SkillRegistryEntity"
+Cohesion: 0.17
+Nodes (3): SkillDao, SkillRegistryEntity, Question
 
 ### Community 87 - "SettingsScreen.kt"
-Cohesion: 0.02
-Nodes (135): accessibilitynew, accounttree, adminpanelsettings, adsclick, alarm, AppLatestRelease, AppUpdateChecker, description() (+127 more)
+Cohesion: 0.03
+Nodes (19): LanguageSettingsRepository, AppLatestRelease, AppUpdateChecker, description(), DeviceCapabilitiesUi, rememberDeviceCapabilities(), ServiceStateListener, LanguagePreference() (+11 more)
 
-### Community 88 - "AgentToolsScreen.kt"
-Cohesion: 0.05
-Nodes (49): AgentStatusCard(), Composable, Modifier, StatusIndicator(), EtaCard(), EtaCardDefaults, CardColors, Composable (+41 more)
+### Community 88 - "AgentModelImageEncoder"
+Cohesion: 0.26
+Nodes (6): AgentModelImageEncoder, EncodingProfile, hasSupportedImageMagic(), ImageBounds, normalizedAgentImageMimeType(), TargetSize
 
-### Community 89 - "RemoteModelFetcher"
-Cohesion: 0.11
-Nodes (8): JsonArray, JsonObject, Result, RemoteModelFetcher, android, testConnection(), Test, RemoteModelFetcherTest
-
-### Community 90 - ".resolve"
-Cohesion: 0.27
-Nodes (4): Failure, Input, Resolution, Success
-
-### Community 91 - "AgentLocalToolsPermissionTest"
-Cohesion: 0.16
-Nodes (5): AgentLocalToolsPermissionTest, Config, RunWith, Test, NoOpLogger
+### Community 90 - "BreenoRequestImages"
+Cohesion: 0.24
+Nodes (5): Failure, Input, Resolution, Snapshot, Success
 
 ### Community 92 - "AgentTokenUsage"
-Cohesion: 0.14
-Nodes (11): AgentContextSession, AgentProviderClient, AgentRunController, JSONArray, UsageReceived, AgentTokenUsage, AgentContextRecoveryTest, AgentProviderClient (+3 more)
+Cohesion: 0.15
+Nodes (5): AgentContextSession, UsageReceived, AgentTokenUsage, AgentContextRecoveryTest, AgentProviderClient
 
-### Community 93 - ".captureClientResult"
-Cohesion: 0.12
-Nodes (6): FakeClientResult, FakeMultiImageData, FakeMultiImageList, FakePreProcessInfo, FakeQueryDocEntity, FakeUploadData
+### Community 93 - ".currentBreenoMultiImageClientResultPrefersCompletedUploadUrls"
+Cohesion: 0.15
+Nodes (4): FakeMultiImageData, FakePreProcessInfo, FakeQueryDocEntity, FakeUploadData
 
 ### Community 94 - "AgentMemorySnapshot"
-Cohesion: 0.10
-Nodes (22): AgentMemoryStore, AgentMemoryToolCatalog, JSONArray, CharacterMemoryTools, Context, JSONArray, JSONObject, AgentMemoryException (+14 more)
+Cohesion: 0.23
+Nodes (7): AgentMemoryException, AgentMemoryReadResult, AgentMemorySnapshot, AgentMemoryStore, AgentMemoryWriteResult, Conflict, Success
+
+### Community 95 - "SkillIndexService"
+Cohesion: 0.15
+Nodes (6): SkillIndexEntry, BuiltinSkillAsset, BuiltinSkillAssetStore, SkillIndexService, SkillRegistryEntry, SkillRegistryStore
 
 ### Community 96 - "AnthropicMessagesProvider"
 Cohesion: 0.16
-Nodes (8): AnthropicBlock, AnthropicEphemeralState, AnthropicMessagesProvider, EventResult, AgentProviderClient, AgentRunController, JSONArray, JSONObject
+Nodes (4): AnthropicBlock, AnthropicEphemeralState, AnthropicMessagesProvider, EventResult
 
 ### Community 97 - ".get"
 Cohesion: 0.09
-Nodes (17): AgentContextSnapshot, Serializable, AgentRunArchiveStore, ArchivedRun, Context, AgentRunCheckpointStore, Checkpoint, Context (+9 more)
+Nodes (8): AgentContextSnapshot, AgentRunCheckpointStore, Checkpoint, AgentRuntimeResultStore, AgentRunRecoveryCoordinator, Completed, Plan, AgentRuntimeResultStoreTest
 
 ### Community 98 - "SpeechHttp.kt"
-Cohesion: 0.09
-Nodes (24): ByteArray, Context, SpeechSettings, recognizeSpeechFile(), doubaoHeaders(), Call, Callback, JSONObject (+16 more)
-
-### Community 99 - "McpServerSetting"
-Cohesion: 0.35
-Nodes (6): McpServerSetting, Config, HttpServer, RunWith, Test, McpProtocolValidationTest
+Cohesion: 0.12
+Nodes (6): recognizeSpeechFile(), doubaoHeaders(), SpeechHttp, Callback, Request, SpeechHttpTest
 
 ### Community 100 - ".extract"
 Cohesion: 0.14
-Nodes (12): completeCharacterEnd(), IllegalArgumentException, takeCompleteCharacters(), WebPageContent, WebPageContentException, WebPageContentPage, WebPageDocument, WebPageLink (+4 more)
+Nodes (9): completeCharacterEnd(), takeCompleteCharacters(), WebPageContent, WebPageContentException, WebPageContentPage, WebPageDocument, WebPageLink, WebPageLinks (+1 more)
 
-### Community 101 - "ColorOsMemoryDatabaseQuery"
-Cohesion: 0.26
-Nodes (8): ColorOsMemoryDatabaseQuery, ColorOsMemoryReadDatabase, DetailSpec, Cursor, JSONArray, JSONObject, SQLiteDatabase, sqlitequerybuilder
-
-### Community 102 - "技术实现"
-Cohesion: 0.10
-Nodes (21): ColorDirectService, Google App, Google App 系统化, system_server, SystemUI, 个人数据直达, 会话级 Thinking Effort, 内置浏览器 (+13 more)
+### Community 102 - "SpeechControls.kt"
+Cohesion: 0.09
+Nodes (19): SpeechSettingsRepository, PendingFileReferenceStrip(), SentFileReferenceFlow(), AgentChatInputBar(), AgentSlashCommandPopup(), filterCandidateSkills(), PendingImageStrip(), SlashCommandItem() (+11 more)
 
 ### Community 103 - "SpeechPcmOutput"
-Cohesion: 0.11
-Nodes (16): ByteArray, Synchronized, SpeechPcmOutput, BufferedAudioTrack, Before, ByteArray, Config, RunWith (+8 more)
+Cohesion: 0.10
+Nodes (3): SpeechPcmOutput, BufferedAudioTrack, SpeechPcmOutputTest
 
 ### Community 104 - "AgentConversationStoreTest.kt"
-Cohesion: 0.11
-Nodes (15): agentchathomeuistate, RoleplayBinding, AgentConversationPersistence, Content, Context, AgentConversationStore, AgentChatHomeUiState, Context (+7 more)
+Cohesion: 0.15
+Nodes (3): AgentConversationStore, Snapshot, AgentConversationStoreTest
 
 ### Community 105 - "StreamingGfmParserSession"
 Cohesion: 0.18
-Nodes (8): StreamingGfmParserSession, consumeStreamingMarkdownTargets(), ReceiveChannel, StreamingMarkdownTarget, Test, StreamingGfmParserTest, Test, StreamingMarkdownParsingTest
+Nodes (5): StreamingGfmParserSession, consumeStreamingMarkdownTargets(), StreamingMarkdownTarget, StreamingGfmParserTest, StreamingMarkdownParsingTest
 
-### Community 106 - "SpeechCredentials"
-Cohesion: 0.08
-Nodes (37): IOException, SpeechSettings, speechBaseUrl(), SpeechErrorCode, AUDIO, AUTHENTICATION, BACKPRESSURE, CONFIGURATION (+29 more)
+### Community 106 - "SpeechFailure"
+Cohesion: 0.07
+Nodes (28): speechBaseUrl(), SpeechErrorCode, AUDIO, AUTHENTICATION, BACKPRESSURE, CONFIGURATION, CREDENTIALS, NETWORK (+20 more)
 
-### Community 107 - "MainActivity.kt"
-Cohesion: 0.10
-Nodes (17): action_speech_settings, ArchivedConversationRequest, ApplicationInfo, PredictiveBackController, ConfirmedSelection, Bundle, ComponentActivity, Intent (+9 more)
+### Community 107 - "EtaApp"
+Cohesion: 0.07
+Nodes (5): AppearanceSettingsRepository, EtaApp, ServiceStateListener, ArchivedConversationRequest, AppearanceSettingsRepositoryTest
 
-### Community 108 - "AgentChatBody"
-Cohesion: 0.12
-Nodes (30): AgentChatBody(), AgentChatBottomBar(), AgentChatScaffold(), EmptyChatState(), Composable, ImageVector, LayerBackdrop, Modifier (+22 more)
+### Community 108 - "PopupPositionProvider"
+Cohesion: 0.14
+Nodes (10): InputPopupPositionProvider, AgentModelPickerButton(), ConfirmedSelection, ModelBrandMark(), ModelPickerRow(), ModelProviderLabel(), ModelQuickList(), ModelSheetContent() (+2 more)
 
 ### Community 109 - "AgentModelFailure"
-Cohesion: 0.15
-Nodes (12): AgentModelFailure, IllegalStateException, JSONObject, AgentModelRetry, AgentProviderClient, AgentRunController, Result, AgentModelRetryTest (+4 more)
+Cohesion: 0.07
+Nodes (21): AgentModelRetry, Result, AgentProviderClient, AssistantStopReason, CONTENT_FILTER, END_TURN, OUTPUT_LIMIT, TOOL_USE (+13 more)
 
 ### Community 110 - "TerminalKey"
 Cohesion: 0.07
 Nodes (27): TerminalKey, BACKSPACE, DELETE, DOWN, END, ENTER, ESCAPE, F1 (+19 more)
 
-### Community 111 - "AgentBrowserSession"
-Cohesion: 0.09
-Nodes (27): AgentBrowserSession, BrowserChrome, BrowserClient, BrowserImage, BrowserTarget, Bitmap, StateFlow, SuppressLint (+19 more)
-
-### Community 112 - "EtaDatabase"
-Cohesion: 0.08
-Nodes (20): EtaDatabase, Callback, androidx, Callback, Context, Volatile, HistoryPayloadMigration, SupportSQLiteDatabase (+12 more)
+### Community 111 - "AgentBrowserSession.kt"
+Cohesion: 0.10
+Nodes (4): BrowserChrome, BrowserClient, BrowserImage, WebView
 
 ### Community 113 - "ConsoleTextInput.kt"
-Cohesion: 0.10
-Nodes (23): configureEditorInfo(), ConsoleKeyboardController, consoleTextInput(), ConsoleTextInputElement, ConsoleTextInputNode, Job, Modifier, ModifierNodeElement (+15 more)
+Cohesion: 0.09
+Nodes (5): configureEditorInfo(), ConsoleKeyboardController, consoleTextInput(), ConsoleTextInputElement, ConsoleTextInputNode
 
-### Community 115 - "AgentSkillsStore"
-Cohesion: 0.19
-Nodes (9): AgentSkillsStore, CoroutineScope, Uri, AgentSkillsUiState, Immutable, SkillItemUi, SkillNoticeUi, SkillReplacementUi (+1 more)
+### Community 114 - "RootShellDeviceController"
+Cohesion: 0.09
+Nodes (9): CoordinateSpace, ElementObservation, Observation, ResolvedUiAutomatorNode, RootShellDeviceController, ScreenCapture, ScreenPoint, ShellTextResult (+1 more)
 
 ### Community 116 - "ScrollEvidence"
 Cohesion: 0.14
-Nodes (12): ScrollEvidence, AT_BOUNDARY, DIRECTION_MISMATCH, MOVED_BY_ANCHOR_MOTION, MOVED_BY_EVENT, UNVERIFIED, ScrollEvidenceContract, ScrollMovementSource (+4 more)
+Nodes (11): ScrollEvidence, AT_BOUNDARY, DIRECTION_MISMATCH, MOVED_BY_ANCHOR_MOTION, MOVED_BY_EVENT, UNVERIFIED, ScrollEvidenceContract, ScrollMovementSource (+3 more)
 
 ### Community 117 - "LinuxFileExplorer"
 Cohesion: 0.15
-Nodes (14): Binary, CommandFailed, Entry, LinuxFileExplorer, ListResult, NotDirectory, NotFile, NotInstalled (+6 more)
+Nodes (13): Binary, CommandFailed, Entry, LinuxFileExplorer, ListResult, NotDirectory, NotFile, NotInstalled (+5 more)
 
-### Community 118 - "ChooseMultipleImagesContract"
-Cohesion: 0.18
-Nodes (13): ActivityResultContract, ChooseMultipleImagesContract, ChooseSingleImageContract, createImageChooserIntent(), Context, Intent, Uri, parseChosenImageUris() (+5 more)
+### Community 118 - ".execute"
+Cohesion: 0.19
+Nodes (5): AgentRunCheckpointRecorder, AgentRuntimeRunExecutor, Outcome, EntrySurfaceGuard, 代码边界
 
-### Community 119 - "getvalue"
-Cohesion: 0.07
-Nodes (34): EtaAssistantEdgeGlow(), Composable, Modifier, EtaAssistantWave(), Composable, Modifier, Composable, bitmapshader (+26 more)
+### Community 119 - "AgentImageTools.kt"
+Cohesion: 0.25
+Nodes (4): AgentImageTools, ImageSourceKind, ContentUri, File
 
 ### Community 120 - "LinuxDistribution"
-Cohesion: 0.11
-Nodes (17): linuxApkJavaInstallCommand(), Context, LinuxEnvironmentPaths, LinuxDistribution, ALPINE, DEBIAN, LinuxExecutionBackend, CHROOT (+9 more)
+Cohesion: 0.10
+Nodes (10): LinuxEnvironmentPaths, LinuxDistribution, ALPINE, DEBIAN, LinuxExecutionBackend, CHROOT, PROOT, LinuxEnvironmentSettingsRepository (+2 more)
 
-### Community 121 - "PowerAssistantTarget"
-Cohesion: 0.09
-Nodes (18): PowerAssistantTarget, ETA, GEMINI, OEM, AssistantBinding, assistantBindingFor(), AssistantSelectionAction, CONFIGURE_MANAGED (+10 more)
+### Community 121 - "Handler"
+Cohesion: 0.08
+Nodes (17): PowerAssistantTarget, ETA, GEMINI, OEM, AssistantBinding, assistantBindingFor(), AssistantSelectionAction, CONFIGURE_MANAGED (+9 more)
 
 ### Community 122 - "AgentColorOsMemoryTools"
-Cohesion: 0.21
-Nodes (6): AgentColorOsMemoryTools, Context, JSONObject, SnapshotCreation, sqlitedatabase, sqliteexception
+Cohesion: 0.20
+Nodes (3): AgentColorOsMemoryTools, buildColorOsMemorySnapshotCommand(), SnapshotCreation
 
-### Community 123 - "EtaVoiceInteractionSession"
+### Community 123 - "ContentProvider"
 Cohesion: 0.12
-Nodes (9): Context, EtaVoiceInteractionSession, Bitmap, Bundle, Context, View, VoiceInteractionSession, AssistState (+1 more)
+Nodes (4): PhoneOperations, FakeProvider, ContentProvider, NativeAppOperationsTest
 
 ### Community 124 - "McpStdioClient"
-Cohesion: 0.12
-Nodes (14): AutoCloseable, Context, JSONObject, StdioProcessHandle, Volatile, McpClient, McpStdioClient, StdioProcessHandle (+6 more)
+Cohesion: 0.13
+Nodes (8): McpClient, McpStdioClient, StdioProcessHandle, optNullableBoolean(), parseMcpToolDefinition(), PendingRequest, readBoundedUtf8Line(), StdioProcessHandle
+
+### Community 125 - "AgentSkillsAction"
+Cohesion: 0.11
+Nodes (21): AgentMemoryAction, AgentSkillsAction, AgentSystemEnhanceAction, CancelZipReplacement, Clear, ConfirmZipReplacement, DeleteSkill, DismissNotice (+13 more)
 
 ### Community 126 - "CharacterCard"
-Cohesion: 0.10
-Nodes (15): CharacterCard, CharacterCardCodec, ByteArray, JsonObject, CharacterCardCompatibility, JsonElement, CharacterCardException, IllegalArgumentException (+7 more)
+Cohesion: 0.12
+Nodes (6): CharacterCardCodec, CharacterCardException, CharacterCardPng, Chunk, CharacterMacros, CharacterCardCodecTest
 
-### Community 127 - "EtaApp"
-Cohesion: 0.05
-Nodes (34): AccessibilityProtectionClient, BroadcastReceiver, ControlResult, ControlStatus, APPLIED, REJECTED, UNAVAILABLE, Context (+26 more)
+### Community 127 - "AccessibilityProtectionClient"
+Cohesion: 0.20
+Nodes (7): AccessibilityProtectionClient, BroadcastReceiver, ControlResult, ControlStatus, APPLIED, REJECTED, UNAVAILABLE
 
-### Community 128 - ".captureScreenshotExcludingOverlays"
-Cohesion: 0.31
-Nodes (4): TakeScreenshotCallback, Bitmap, ScreenshotCaptureResult, ScreenshotResult
-
-### Community 129 - "AgentDeviceToolCatalog"
-Cohesion: 0.16
-Nodes (10): IndexedPersonalSearch, JSONObject, PersonalSearchTools, Search, AgentDeviceToolCatalog, JSONArray, JSONObject, AgentPersonalSearchToolCatalog (+2 more)
+### Community 128 - "ProviderComponents.kt"
+Cohesion: 0.08
+Nodes (22): ProviderListItem(), ProviderBrandIcon(), ProviderBrandImage(), providerBrandLogoRes(), ProviderIcon(), TagChip(), TagChipTone, Emphasized (+14 more)
 
 ### Community 130 - "ProviderRequest"
-Cohesion: 0.21
-Nodes (7): ProviderRequest, JSONArray, JSONObject, ResponsesEphemeralState, JSONObject, Test, OpenAiResponsesProviderTest
-
-### Community 131 - "AgentConversationCodec"
-Cohesion: 0.13
-Nodes (9): compact(), JSONArray, signedAnthropicToolRoundFailure(), AgentConversationCodec, JSONArray, JSONObject, AgentConversationCodecTest, Test (+1 more)
+Cohesion: 0.14
+Nodes (9): ProviderRequest, ProviderRequestPurpose, CHAT, COMPACTION, REPLY_REWRITE, TRANSCRIPT_REFINE, ResponsesEphemeralState, AgentCompactionProviderTest (+1 more)
 
 ### Community 132 - "SkillInstallErrorCode"
-Cohesion: 0.11
-Nodes (18): SkillInstallErrorCode, ARCHIVE_TOO_LARGE, CANCELLED, COMMIT_FAILED, DUPLICATE_ENTRY, DUPLICATE_SKILL_ID, ENTRY_PATH_TOO_DEEP, ENTRY_TOO_LARGE (+10 more)
+Cohesion: 0.09
+Nodes (22): Conflict, InstalledSkill, SkillInstallConflict, SkillInstallErrorCode, ARCHIVE_TOO_LARGE, CANCELLED, COMMIT_FAILED, DUPLICATE_ENTRY (+14 more)
 
 ### Community 133 - ".remember"
 Cohesion: 0.03
-Nodes (217): activitynotfoundexception, activityresultcontracts, add, animatefloatasstate, skills, OverlaySupplementInput(), AgentAppRoot(), Composable (+209 more)
+Nodes (110): skills, AgentAppRoot(), MessageMutationTarget, rememberExecutionNotificationRequest(), openLocalNetworkPermissionSettings(), rememberLocalNetworkPermissionRequest(), AppearanceSettingsScreen(), AgentAttachmentPickerButton() (+102 more)
 
-### Community 134 - "AgentRuntimeAttachDelivery"
-Cohesion: 0.23
-Nodes (3): AgentRuntimeAttachDelivery, AgentRuntimeAttachDeliveryTest, Test
+### Community 134 - "AgentConversationCodec"
+Cohesion: 0.08
+Nodes (8): compact(), signedAnthropicToolRoundFailure(), AgentContextSummarizer, AgentConversationCodec, AgentLegacyConversationProjection, ConversationHistoryTool, AgentConversationCodecTest, ConversationHistoryToolTest
 
-### Community 135 - "SpeechControls.kt"
-Cohesion: 0.12
-Nodes (23): answeractionsize, SpeechSettings, Composable, Modifier, rememberSpeechInput(), rememberSpeechPermission(), SpeechAutoReadAloud(), SpeechAutoReadToggle() (+15 more)
+### Community 135 - ".error"
+Cohesion: 0.13
+Nodes (4): CalendarOperations, ClockOperations, PhoneOperation, PhoneOperationFailure
 
-### Community 136 - "AgentChatUiState"
-Cohesion: 0.09
-Nodes (16): ConversationMessage, AgentPendingResultRecovery, AgentChatHomeUiState, Outcome, AgentRuntimeHistoryReducer, AgentChatHomeUiState, Outcome, RoleplayConversationReducer (+8 more)
+### Community 136 - ".conversation"
+Cohesion: 0.08
+Nodes (14): ConversationMessage, RoleplayMessageLink, RoleplayMessageState, RoleplayReplyRevision, AgentPendingResultRecovery, Outcome, AgentRuntimeHistoryReducer, Outcome (+6 more)
 
 ### Community 137 - "McpServerRepository"
-Cohesion: 0.17
-Nodes (7): McpServerManager, Context, Flow, Volatile, McpServerRepository, todomain, toentity
+Cohesion: 0.19
+Nodes (3): McpServerManager, McpServerSetting, McpServerRepository
 
 ### Community 138 - ".build"
-Cohesion: 0.17
-Nodes (9): AgentToolCatalog, JSONArray, AgentFileVisionToolCatalogTest, Test, AgentToolCatalogTest, JSONObject, Test, ToolVariant (+1 more)
+Cohesion: 0.25
+Nodes (3): AgentToolCatalog, AgentToolCatalogTest, ToolVariant
 
 ### Community 139 - "uniqueBreenoInstanceMethod"
-Cohesion: 0.11
-Nodes (15): BreenoTargets, ClassLoader, Method, matches(), uniqueBreenoInstanceMethod(), AmbiguousResult, BreenoTargetsTest, GenericResult (+7 more)
+Cohesion: 0.07
+Nodes (11): DexKitTargets, BreenoTargets, matches(), uniqueBreenoInstanceMethod(), ColorDirectTargets, AmbiguousResult, BreenoTargetsTest, GenericResult (+3 more)
 
 ### Community 140 - "ScrollEventObservationGate"
 Cohesion: 0.20
-Nodes (4): Observation, ScrollEventObservationGate, Test, ScrollEventObservationGateTest
+Nodes (3): Observation, ScrollEventObservationGate, ScrollEventObservationGateTest
 
-### Community 142 - "AgentAppViewModel"
-Cohesion: 0.09
-Nodes (18): Context, AgentAppViewModel, AndroidViewModel, Job, KimiWebPhase, CHECKING, FAILED, NOT_INSTALLED (+10 more)
+### Community 141 - "TerminalEnvironment"
+Cohesion: 0.11
+Nodes (13): TerminalEnvironment, ALPINE, ANDROID, DEBIAN, Failed, KimiWebLauncher, KimiWebLaunchResult, KimiWebRuntimeStatus (+5 more)
+
+### Community 142 - "OpenAiChatCompletionsProvider"
+Cohesion: 0.20
+Nodes (3): OpenAiChatCompletionsProvider, StreamingToolCall, StreamingVisibleBlock
 
 ### Community 143 - "PersonalContextQueryServiceTest"
-Cohesion: 0.27
-Nodes (5): FakeTransport, JSONObject, Test, PersonalContextQueryServiceTest, SqlStrings
+Cohesion: 0.26
+Nodes (4): DmpQueryTransport, FakeTransport, PersonalContextQueryServiceTest, SqlStrings
 
 ### Community 144 - "AgentChatScrollPolicyTest"
 Cohesion: 0.23
-Nodes (7): BottomFollowDecision, resolveBottomFollowDecision(), resolveBottomFollowEnabled(), resolveKeepBottomAnchored(), shouldRequestInitialBottom(), AgentChatScrollPolicyTest, Test
+Nodes (6): BottomFollowDecision, resolveBottomFollowDecision(), resolveBottomFollowEnabled(), resolveKeepBottomAnchored(), shouldRequestInitialBottom(), AgentChatScrollPolicyTest
 
 ### Community 145 - "Agent Runtime"
 Cohesion: 0.11
-Nodes (17): AgentContinuationBuilder, Agent Runtime, Loop 语义, MCP 工具, Provider 协议, Skills 安装边界, 一方应用操作, 上下文与续接 (+9 more)
+Nodes (18): AgentContinuationBuilder, Agent Runtime, Loop 语义, MCP 工具, Provider 协议, Skills 安装边界, 一方应用操作, 上下文与续接 (+10 more)
 
-### Community 146 - "CharacterBackupData.kt"
+### Community 146 - ".resolve"
 Cohesion: 0.22
-Nodes (6): CharacterBackupAsset, CharacterBackupData, CharacterBackupTransfer, Context, Serializable, Context
+Nodes (3): ModelReasoningCapabilities, ReasoningCapabilityResolver, ReasoningCapabilityResolverTest
 
 ### Community 147 - "ansiToAnnotatedString"
-Cohesion: 0.16
-Nodes (11): ansiPlainText(), ansiToAnnotatedString(), AnnotatedString, SpanStyle, toSpanStyle(), AnsiTextTest, Test, buildannotatedstring (+3 more)
+Cohesion: 0.29
+Nodes (3): ansiPlainText(), ansiToAnnotatedString(), AnsiTextTest
 
-### Community 148 - "ConversationPanePanel.kt"
-Cohesion: 0.05
-Nodes (63): absolutealignment, anchoreddraggable, anchoreddraggabledefaults, ConversationDrawerGroup, ConversationDrawerSection, conversationPaneContainerColor(), ConversationPanelMetrics, ConversationPanePanel() (+55 more)
+### Community 148 - "toolCardRequirement"
+Cohesion: 0.12
+Nodes (13): toolDisplayNameResource(), buildToolsState(), iconForTool(), AgentToolsUiState, ToolGroupUi, ToolItemUi, actualToolName(), projectToolGroups() (+5 more)
 
-### Community 150 - ".toolResult"
-Cohesion: 0.30
-Nodes (3): BrowserFailure, JSONObject, RuntimeException
+### Community 149 - "getvalue"
+Cohesion: 0.06
+Nodes (7): EtaAssistantEdgeGlow(), EtaAssistantWave(), EtaWaveEffect, Key, Track, isStreamingMarkdownTargetComplete(), SpeechSettingsStore
 
-### Community 151 - "AgentChatFileAttachments.kt"
-Cohesion: 0.08
-Nodes (43): AgentAttachmentPickerButton(), InputPopupPositionProvider, Composable, Dp, Modifier, OptIn, PaddingValues, PendingFileReferenceStrip() (+35 more)
+### Community 150 - "AgentAccessibilityService"
+Cohesion: 0.06
+Nodes (22): AccessibilityNodeIdentity, ActionDispatch, ACCEPTED, OUTCOME_UNKNOWN, REJECTED, AgentAccessibilityService, ClipboardReadResult, Completed (+14 more)
 
 ### Community 152 - "CharacterDao"
-Cohesion: 0.19
-Nodes (11): CharacterDao, Dao, Query, Transaction, Upsert, CharacterEntity, ColumnInfo, Entity (+3 more)
+Cohesion: 0.12
+Nodes (5): CharacterDao, CharacterEntity, UserPersonaEntity, AgentTextChunkEntity, ChunkedTextDao
 
 ### Community 153 - "McpEntities.kt"
-Cohesion: 0.13
-Nodes (16): ColumnInfo, Entity, PrimaryKey, McpServerEntity, toDomain(), toEntity(), Dao, Flow (+8 more)
+Cohesion: 0.12
+Nodes (4): McpServerEntity, toDomain(), toEntity(), McpServerDao
 
 ### Community 154 - "MAP.md"
-Cohesion: 0.11
-Nodes (11): Decisions so far, Destination, Not yet specified, Notes, Out of scope, Question, Question, Question (+3 more)
-
-### Community 155 - "AgentRuntimePolicyTest"
-Cohesion: 0.36
-Nodes (3): AgentRuntimePolicyTest, SharedPreferences, Test
-
-### Community 156 - "BreenoRequestImages"
-Cohesion: 0.25
-Nodes (6): BreenoRequestImages, Candidate, Context, JSONArray, JSONObject, TraversalBudget
-
-### Community 157 - "Snapshot"
-Cohesion: 0.21
-Nodes (11): Entry, Synchronized, Snapshot, SnapshotCache, Stats, StoreResult, EMPTY, STORED (+3 more)
-
-### Community 158 - "EtaBackupRepositoryTest.kt"
 Cohesion: 0.12
-Nodes (17): Serializable, RoleplayMessageLink, RoleplayMessageState, RoleplayReplyRevision, BoundedFileCopyTest, Test, EtaBackupRepositoryTest, Before (+9 more)
+Nodes (10): Decisions so far, Destination, Not yet specified, Notes, Out of scope, Question, Question, Question (+2 more)
+
+### Community 155 - ".constrain"
+Cohesion: 0.20
+Nodes (3): AgentRuntimePolicy, Permissions, AgentRuntimePolicyTest
+
+### Community 156 - ".collectFromJsonObject"
+Cohesion: 0.25
+Nodes (3): BreenoRequestImages, Candidate, TraversalBudget
+
+### Community 157 - "SnapshotCache"
+Cohesion: 0.21
+Nodes (9): Entry, SnapshotCache, Stats, StoreResult, EMPTY, STORED, STORED_FAILURE, TOO_LARGE (+1 more)
+
+### Community 158 - ".captureScreenshotExcludingOverlays"
+Cohesion: 0.09
+Nodes (6): TakeScreenshotCallback, ScreenshotCaptureResult, ScreenshotWindow, ScrollSignal, ScrollTargetIdentity, UiNode
 
 ### Community 159 - "AgentRuntimeService"
-Cohesion: 0.05
-Nodes (35): activityoptions, Immutable, ScreenCornerRadii, AgentRuntimeRunExecutor, Outcome, AgentRuntimeService, CompletedRunContext, IncomingHandler (+27 more)
-
-### Community 160 - "SkillParser"
-Cohesion: 0.17
-Nodes (5): ParsedSkillFile, SkillParser, Result, Test, SkillParserTest
-
-### Community 161 - "EtaVoicePanel.kt"
 Cohesion: 0.06
-Nodes (51): animatedpasstate, AssistantComposer(), AssistantInputBar(), AssistantRoundButton(), AssistantTrailingButton(), AssistantVoiceEntry(), Color, Composable (+43 more)
+Nodes (4): AgentRuntimeService, IncomingHandler, PendingStartRequest, RuntimeConfigUnavailableException
 
-### Community 162 - "BackgroundTerminalJobs"
-Cohesion: 0.13
-Nodes (10): BackgroundTerminalJobs, AutoCloseable, JSONObject, Synchronized, ptySupported(), Context, Synchronized, Volatile (+2 more)
+### Community 161 - "ConsoleStore"
+Cohesion: 0.12
+Nodes (5): ptySupported(), ConsoleFrame, ConsoleSessionUi, ConsoleStore, ConsoleUiState
 
-### Community 163 - "AgentHomeScreen.kt"
-Cohesion: 0.22
-Nodes (9): chatConversationCompositionKey(), roleplayChatUi(), AgentHomeScreen(), AgentChatHomeUiState, Composable, Modifier, ChatConversationKeyTest, Test (+1 more)
+### Community 163 - "StartupSplash.kt"
+Cohesion: 0.17
+Nodes (3): installStartupSplash(), StartupSplash, AnimatorListenerAdapter
 
 ### Community 164 - "Eta"
 Cohesion: 0.08
 Nodes (25): 1. Zero-Copy Pipe IPC Architecture (Overcoming 1MB Binder Limit), 2. Native Google Gemini 3.x Protocol Guide, 3. ColorOS Double-Click Power Button for Wallet, 4. Native ColorOS 16 / Android 16 Fluid Cloud & Live Updates, A terminal designed for mobile, Agent runtime, Context and extensions, Core capabilities (+17 more)
 
-### Community 165 - ".install"
-Cohesion: 0.22
-Nodes (9): AccessibilityServiceEnforcer, AccessibilityProtectionHooks, ClassLoader, Context, java, Synchronized, Volatile, XposedModule (+1 more)
-
-### Community 166 - "XiaoAiStreamRenderer"
-Cohesion: 0.24
-Nodes (4): ClassLoader, Context, Method, XiaoAiStreamRenderer
+### Community 166 - "BreenoHooks.kt"
+Cohesion: 0.04
+Nodes (6): AgentAppContext, AgentRuntimeProcessIdentity, AndroidAgentLogger, PredictiveBackController, MainActivity, OutputStream
 
 ### Community 167 - ".userTextMessage"
-Cohesion: 0.23
-Nodes (5): AgentContextCompactionTest, AgentProviderClient, AgentProviderClient, AgentRunController, Test
+Cohesion: 0.15
+Nodes (4): AssistantScreenContextProjection, AgentContextCompactionTest, AgentProviderClient, AssistantScreenContextProjectionTest
 
 ### Community 168 - "StreamingGfmProjection"
 Cohesion: 0.30
 Nodes (3): Fence, LineSlice, StreamingGfmProjection
 
-### Community 169 - "ExecutionLeaseRegistry"
-Cohesion: 0.22
-Nodes (5): ExecutionLeaseRegistry, Synchronized, Lease, ExecutionLeaseRegistryTest, Test
+### Community 169 - "AgentRuntimeAttachDelivery"
+Cohesion: 0.05
+Nodes (20): PackageWindowVisibility, GONE, UNKNOWN, VISIBLE, AgentRuntimeAttachDelivery, State, CLOSED, LIVE (+12 more)
 
-### Community 170 - "SpeechLifecycleTest"
-Cohesion: 0.21
-Nodes (8): After, Before, Config, RunWith, ShadowSpeechRecognizer, SpeechSettings, Test, SpeechLifecycleTest
-
-### Community 171 - "ColorOsMemoryBridgeProtocol"
-Cohesion: 0.19
-Nodes (7): buildColorOsMemorySnapshotCommand(), quoteColorOsMemoryIdentifier(), ColorOsMemoryBridgeProtocol, ByteArray, JSONObject, AgentColorOsMemoryToolsTest, Test
-
-### Community 172 - "AgentToolCapabilities"
-Cohesion: 0.16
-Nodes (8): AgentToolCapabilities, Context, JSONArray, AgentFileToolCatalogTest, Test, AgentToolRequirementsTest, JSONObject, Test
-
-### Community 173 - "ProviderUrls"
-Cohesion: 0.26
-Nodes (3): ProviderUrls, Test, ProviderUrlsTest
+### Community 173 - "EtaSpeechInput.kt"
+Cohesion: 0.25
+Nodes (6): RecognitionSupportCallback, EtaSpeechSupportDecision, DOWNLOAD, PENDING, START, speechSupportDecision()
 
 ### Community 174 - "ReasoningEffort"
-Cohesion: 0.15
-Nodes (11): JSONObject, ProviderReasoning, ReasoningEffort, DEFAULT, HIGH, LOW, MAX, MEDIUM (+3 more)
+Cohesion: 0.11
+Nodes (11): ProviderReasoning, ReasoningEffort, DEFAULT, HIGH, LOW, MAX, MEDIUM, MINIMAL (+3 more)
 
-### Community 175 - ".complete"
-Cohesion: 0.13
-Nodes (14): AgentProviderClient, AgentRunController, ModelResponse, Text, AgentPromptBuilder, JSONArray, JSONObject, Immutable (+6 more)
+### Community 175 - ".mergeInto"
+Cohesion: 0.14
+Nodes (5): CustomHeaderFilter, ProviderRequestHeaders, CustomHeader, CustomHeaderAndBodyTest, ProviderRequestHeadersTest
 
-### Community 176 - "CalendarOperations"
-Cohesion: 0.24
-Nodes (8): CalendarOperations, ContentValues, Context, JSONObject, Uri, calendarcontract, contentprovideroperation, contenturis
-
-### Community 177 - "SettingsDataStore"
-Cohesion: 0.03
-Nodes (60): AppearanceSettings, Context, Flow, Settings, SpeechSettings, Volatile, SettingsDataStore, AppearanceAccentColor (+52 more)
+### Community 176 - "SkillZipImportOutcome"
+Cohesion: 0.23
+Nodes (10): Conflict, ConflictingSkill, CoreSkillZipImportGateway, Failure, InstalledSkill, SkillZipImportGateway, SkillZipImportOutcome, Success (+2 more)
 
 ### Community 178 - "DebianEnvironmentInstaller"
-Cohesion: 0.11
-Nodes (21): InstallerCommandResult, AlreadyReady, BaseInstalled, BaseNotInstalled, BusyBoxUnavailable, DebianAptMirror, DebianEnvironmentInstaller, DebianInstallProgress (+13 more)
+Cohesion: 0.06
+Nodes (26): InstallerCommandResult, AlreadyReady, BaseInstalled, BaseNotInstalled, BusyBoxUnavailable, DebianAptMirror, DebianEnvironmentInstaller, DebianEnvironmentState (+18 more)
 
 ### Community 179 - "SpeechPcmDecoder"
-Cohesion: 0.15
-Nodes (11): ByteArray, Phase, DETECT, PCM, RIFF_HEADER, WAV_HEADER, SpeechPcmDecoder, ByteArray (+3 more)
+Cohesion: 0.16
+Nodes (7): Phase, DETECT, PCM, RIFF_HEADER, WAV_HEADER, SpeechPcmDecoder, SpeechPcmDecoderTest
 
-### Community 181 - "BoundedRootCommandExecutor"
-Cohesion: 0.14
-Nodes (11): BoundedOutput, BoundedRootCommandExecutor, AutoCloseable, ByteArray, Result, Result, CalendarPermissions, Context (+3 more)
+### Community 181 - "SkillRecoveryJournalTest"
+Cohesion: 0.18
+Nodes (5): moveSkillDirectoryAtomically(), PendingSkillRecoveryJournal, SkillRecoveryRecord, writeJournalAtomically(), SkillRecoveryJournalTest
 
 ### Community 182 - ".decide"
 Cohesion: 0.22
-Nodes (7): Decision, BLOCK_UNKNOWN, CAPTURE, EXCLUDE, ScreenshotWindowPolicy, Test, ScreenshotWindowPolicyTest
+Nodes (6): Decision, BLOCK_UNKNOWN, CAPTURE, EXCLUDE, ScreenshotWindowPolicy, ScreenshotWindowPolicyTest
 
 ### Community 183 - "Skill Creator"
 Cohesion: 0.17
 Nodes (11): Body Guidance, Core Rules, Creation Workflow, Editing Existing Skills, Frontmatter, Naming Rules, Output Expectation, Resource Choices (+3 more)
 
-### Community 185 - "SpeechOssUpload.kt"
-Cohesion: 0.14
-Nodes (13): ByteArray, Context, Serializable, T, Pending, SpeechOssUpload, Before, Config (+5 more)
+### Community 184 - ".run"
+Cohesion: 0.09
+Nodes (18): InstallerShellRunner, AlreadyReady, ApkAnalysisInstallProgress, ApkAnalysisInstallResult, ApkAnalysisInstallStage, ACTIVATING, CHECKING, COMPLETE (+10 more)
 
-### Community 186 - ".complete"
-Cohesion: 0.39
-Nodes (3): AnthropicMessagesProviderTest, JSONObject, Test
+### Community 185 - "LinuxFilesScreen.kt"
+Cohesion: 0.07
+Nodes (16): AgentStatusCard(), StatusIndicator(), EtaCard(), EtaCardDefaults, EtaFeatureCard(), EtaPreferenceGroupItem(), FileRow(), HintText() (+8 more)
 
-### Community 187 - "ScrollGestureContractTest"
-Cohesion: 0.29
-Nodes (5): Config, Rect, RunWith, Test, ScrollGestureContractTest
-
-### Community 188 - "UserMessageUi"
-Cohesion: 0.16
-Nodes (6): resolveFinalResultMessageIds(), UserMessageUi, AgentRunMessageProjectorTest, Test, AgentChatFinalResultTest, Test
-
-### Community 189 - "AgentAccessibilityHealthProvider"
-Cohesion: 0.15
-Nodes (8): AccessibilityProtectionProtocol, Bundle, Uri, AgentAccessibilityHealthProvider, Bundle, ContentValues, Cursor, Uri
-
-### Community 190 - "ModuleLogger"
+### Community 188 - ".drainRuntimeAcks"
 Cohesion: 0.11
-Nodes (13): isPlaintextColorOsMemoryDatabase(), XposedModule, ModuleLogger, ColorOsMemoryHooks, ApplicationInfo, Bundle, ClassLoader, XposedModule (+5 more)
+Nodes (10): BoundedRetryBudget, BoundedRunIdSet, breenoRequestDedupKey(), EnqueueResult, ADDED, DUPLICATE, OVERFLOW, PendingAckState (+2 more)
 
-### Community 191 - "AgentMemoryScreen"
-Cohesion: 0.19
-Nodes (17): AgentMemoryUiState, Immutable, AgentMemoryScreen(), formatBytes(), formatNumber(), Composable, Modifier, MemoryDocumentCard() (+9 more)
+### Community 190 - "AgentWebTools"
+Cohesion: 0.14
+Nodes (7): AgentWebTools, Snapshot, WebHttpResponse, WebRequestException, DecodedWebResponse, WebResponseDecoder, isReadOnlyExternalArchiveConversation()
 
 ### Community 192 - "TerminalModifiers"
 Cohesion: 0.26
-Nodes (4): TerminalKeyEncoder, TerminalModifiers, Test, TerminalKeyEncoderTest
+Nodes (3): TerminalKeyEncoder, TerminalModifiers, TerminalKeyEncoderTest
 
-### Community 193 - "EtaPreferenceRenderingTest.kt"
-Cohesion: 0.12
-Nodes (17): EtaPreferenceRenderingTest, Config, RunWith, SemanticsNode, Test, AdaptivePageLayoutTest, Test, boundsinroot (+9 more)
+### Community 193 - "FailureCode"
+Cohesion: 0.15
+Nodes (13): FailureCode, ARCHIVE_LIMIT_EXCEEDED, BUILTIN_CONFLICT, INVALID_ARCHIVE, INVALID_SKILL, MULTIPLE_SKILLS, NO_SKILL, PACKAGE_CHANGED (+5 more)
 
 ### Community 194 - "AgentLogger"
-Cohesion: 0.05
-Nodes (22): PackageWindowVisibility, GONE, UNKNOWN, VISIBLE, AgentRuntimeConnection, AutoCloseable, Context, IBinder (+14 more)
+Cohesion: 0.10
+Nodes (4): AgentRuntimeConnection, Lease, AgentRunTiming, AgentLogger
 
-### Community 195 - "ActionDispatch"
-Cohesion: 0.50
-Nodes (4): ActionDispatch, ACCEPTED, OUTCOME_UNKNOWN, REJECTED
-
-### Community 196 - "CharacterCard.kt"
-Cohesion: 0.11
-Nodes (15): CharacterDepthPrompt, JsonObject, Serializable, CharacterWorldbook, Entry, JsonObject, WorldbookProjection, CharacterWorldbookSupport (+7 more)
+### Community 195 - "ChatMessageItem.kt"
+Cohesion: 0.04
+Nodes (62): localizedText(), toolDisplayName(), AgentConversationMessages(), AgentTimelineEntry, BottomFollowLayout, contentType(), isWorkProcessMessage(), smoothBottomFollowStep() (+54 more)
 
 ### Community 197 - "AgentConversationPersistenceTest.kt"
-Cohesion: 0.25
-Nodes (7): AgentConversationPersistenceTest, AgentChatHomeUiState, Before, Config, Context, RunWith, Test
+Cohesion: 0.16
+Nodes (3): AgentConversationPersistence, Content, AgentConversationPersistenceTest
 
 ### Community 198 - "ContextualSearchCallerPolicyTest"
-Cohesion: 0.28
-Nodes (6): ContextualSearchCallerPolicy, Context, ContextualSearchCallerPolicyTest, Config, RunWith, Test
+Cohesion: 0.14
+Nodes (3): ContextualSearchCallerPolicy, AppInspectionToolTest, ContextualSearchCallerPolicyTest
 
 ### Community 199 - "McpToolDefinition"
-Cohesion: 0.14
-Nodes (12): AutoCloseable, JSONArray, JSONObject, McpRunSnapshot, McpRunTool, McpToolExecutor, McpToolDefinition, Config (+4 more)
+Cohesion: 0.12
+Nodes (7): McpRunSnapshot, McpRunTool, McpToolExecutor, RoutingToolExecutor, ToolExecutor, McpToolDefinition, McpRunContextTest
 
-### Community 200 - "CommunityCatalogRepositoryTest.kt"
+### Community 200 - "CommunityCatalogRepositoryTest"
 Cohesion: 0.06
-Nodes (34): CommunityCatalog, CommunityCatalogModel, CommunityCatalogParser, CommunityCatalogProvider, CommunityCatalogSource, CACHE, ONLINE, SNAPSHOT (+26 more)
+Nodes (13): CommunityCatalog, CommunityCatalogModel, CommunityCatalogParser, CommunityCatalogProvider, CommunityCatalogSource, CACHE, ONLINE, SNAPSHOT (+5 more)
 
 ### Community 201 - "ProviderSourceRegistry"
 Cohesion: 0.20
-Nodes (8): ProviderSourceRegistry, DrawableRes, modelBrandLogoRes(), ModelBrandRule, modelOrProviderBrandLogoRes(), providerBrandLogoRes(), Test, ProviderBrandingTest
-
-### Community 202 - "GitHubSkillRepositoryParser"
-Cohesion: 0.29
-Nodes (3): GitHubSkillRepositoryParser, GitHubSkillRepositoryParserTest, Test
+Nodes (6): ProviderSourceRegistry, modelBrandLogoRes(), ModelBrandRule, modelOrProviderBrandLogoRes(), providerBrandLogoRes(), ProviderBrandingTest
 
 ### Community 203 - "PermissionHealthStore.kt"
-Cohesion: 0.17
-Nodes (21): buildPermissionHealthState(), hasAppListAccess(), isAgentAccessibilityEnabled(), isIgnoringBatteryOptimizations(), Context, CoroutineScope, Job, PermissionHealthStore (+13 more)
+Cohesion: 0.16
+Nodes (15): buildPermissionHealthState(), hasAppListAccess(), isAgentAccessibilityEnabled(), isIgnoringBatteryOptimizations(), PermissionHealthStore, PermissionHealthCard(), PermissionStatusIcon(), statusLabel() (+7 more)
 
-### Community 204 - ".execute"
-Cohesion: 0.12
-Nodes (16): Context, JSONObject, PhoneOperations, FakeProvider, ContentProvider, Bundle, Config, ContentProviderOperation (+8 more)
-
-### Community 205 - "DeviceContextTool.kt"
-Cohesion: 0.13
-Nodes (18): AccessState, AVAILABLE, DENIED, DISABLED, FOREGROUND_ONLY, Available, DeviceLocationProvider, Context (+10 more)
-
-### Community 206 - ".decode"
-Cohesion: 0.12
-Nodes (12): DoubaoAsrCodec, ByteArray, JSONObject, Result, JSONObject, QwenTranscript, collectSpeechAudio(), ByteArray (+4 more)
-
-### Community 207 - "TerminalScreenBuffer"
-Cohesion: 0.14
-Nodes (3): TerminalScreenBuffer, Test, TerminalScreenBufferTest
-
-### Community 208 - "AgentHistoryRetentionTest.kt"
-Cohesion: 0.13
-Nodes (13): AgentWireText, Bundle, Messenger, AgentHistoryRetentionTest, After, Before, Config, Context (+5 more)
+### Community 205 - "PermissionHealthStore.kt"
+Cohesion: 0.07
+Nodes (12): AccessState, AVAILABLE, DENIED, DISABLED, FOREGROUND_ONLY, Available, DeviceLocationProvider, Result (+4 more)
 
 ### Community 209 - "ConsoleGridLine.kt"
-Cohesion: 0.20
-Nodes (21): ConsoleCellMetrics, ConsoleGlyphCache, ConsoleGridLine(), ConsolePalette, drawCells(), drawComposing(), drawGlyph(), Key (+13 more)
-
-### Community 210 - "DexKitTargets"
-Cohesion: 0.14
-Nodes (11): DexKitTargetCache, DexKitTargets, ClassLoader, Closeable, Method, ColorDirectTargets, Method, DexKitBridge (+3 more)
-
-### Community 211 - "AgentTraceFormatterTest"
-Cohesion: 0.17
-Nodes (3): AgentTraceFormatterTest, Test, RedactionCase
-
-### Community 212 - "SkillZipImportOutcome"
-Cohesion: 0.23
-Nodes (13): Conflict, ConflictingSkill, CoreSkillZipImportGateway, Failure, InstalledSkill, FailureCode, SkillZipImportGateway, SkillZipImportOutcome (+5 more)
-
-### Community 213 - "RootlessDeviceToolsTest"
 Cohesion: 0.21
-Nodes (5): Config, RunWith, Test, NoOpLogger, RootlessDeviceToolsTest
+Nodes (10): ConsoleCellMetrics, ConsoleGlyphCache, ConsoleGridLine(), ConsolePalette, drawCells(), drawComposing(), drawGlyph(), Key (+2 more)
 
-### Community 214 - "GoogleAppHooks.kt"
+### Community 211 - "AgentAppViewModel.kt"
+Cohesion: 0.11
+Nodes (10): AgentAppViewModel, KimiWebPhase, CHECKING, FAILED, NOT_INSTALLED, READY, RUNNING, STARTING (+2 more)
+
+### Community 212 - "SystemSpeechRecognizerTest.kt"
 Cohesion: 0.20
-Nodes (8): GoogleAppHooks, Activity, ClassLoader, XposedModule, HyperOsLegacyGesture, field, hapticfeedbackconstants, weakhashmap
+Nodes (4): Selection, Source, SystemSpeechRecognizer, SystemSpeechRecognizerTest
 
 ### Community 216 - "AgentFileReferenceGateway"
-Cohesion: 0.22
-Nodes (11): AgentFileReferenceGateway, Failure, Context, Suppress, Uri, Resolution, Success, AgentFileReferenceKind (+3 more)
+Cohesion: 0.07
+Nodes (17): AgentFileReferenceGateway, Error, AccessDenied, ImportFailed, ImportTooLarge, InvalidPath, PathNotFound, RootUnavailable (+9 more)
 
-### Community 217 - "AgentSkillsAction"
-Cohesion: 0.11
-Nodes (21): AgentMemoryAction, AgentSkillsAction, AgentSystemEnhanceAction, CancelZipReplacement, Clear, ConfirmZipReplacement, DeleteSkill, DismissNotice (+13 more)
+### Community 217 - "FileToolSearch"
+Cohesion: 0.23
+Nodes (6): CachedPage, FileToolSearch, Frame, NextFile, Pending, State
 
-### Community 218 - ".refiner"
-Cohesion: 0.21
-Nodes (6): SpeechTranscriptRefiner, AgentProviderClient, AgentRunController, Test, SpeechTranscriptRefinerTest, AgentProviderClient
+### Community 219 - ".resolve"
+Cohesion: 0.20
+Nodes (4): CharacterWorldbook, Entry, CharacterWorldbookSupport, CharacterWorldbookTest
 
-### Community 219 - "McpToolHeaders.kt"
-Cohesion: 0.31
-Nodes (7): Binding, encodeMcpHeaderValue(), JSONObject, McpToolHeaders, renderIntegerOrNull(), valueAt(), biginteger
+### Community 220 - "AgentChatMessageUi"
+Cohesion: 0.04
+Nodes (30): AgentEvent, AssistantBlockDelta, AssistantBlockEnd, AssistantBlockKind, TEXT, THINKING, TOOL_CALL, AssistantBlockStart (+22 more)
 
-### Community 220 - "EtaPreferenceRow.kt"
-Cohesion: 0.15
-Nodes (19): EtaPreferenceRow(), ColumnScope, Composable, Modifier, EtaCheckboxPreference(), EtaRadioButtonPreference(), Composable, Modifier (+11 more)
-
-### Community 221 - "BrowserDomScripts"
+### Community 221 - "AgentHapticFeedback.kt"
 Cohesion: 0.17
-Nodes (3): BrowserDomScripts, BrowserDomScriptsTest, Test
+Nodes (6): AgentHapticFeedback, Type, LONG_PRESS, RUN_STARTED, SWIPE, TAP
 
 ### Community 222 - "RunStatusUi"
 Cohesion: 0.36
-Nodes (8): ActiveRunSummaryUi, Immutable, RunStatusUi, Cancelled, Failed, Running, Success, RunSummaryUi
-
-### Community 223 - ".normalize"
-Cohesion: 0.20
-Nodes (3): TexMathDelimiters, Test, TexMathDelimitersTest
-
-### Community 224 - "AccessibilityNodeIdentityTest"
-Cohesion: 0.29
-Nodes (3): AccessibilityIdentityFreshnessPolicy, AccessibilityNodeIdentityTest, Test
+Nodes (7): ActiveRunSummaryUi, RunStatusUi, Cancelled, Failed, Running, Success, RunSummaryUi
 
 ### Community 225 - ".insertAtSelection"
 Cohesion: 0.29
-Nodes (4): Plan, TextEditPlanner, Test, TextEditPlannerTest
+Nodes (3): Plan, TextEditPlanner, TextEditPlannerTest
 
 ### Community 226 - "ScreenshotQuality"
 Cohesion: 0.19
-Nodes (8): ScreenshotOutcomePolicy, ScreenshotQuality, COMPLETE, FAILED, NOT_REQUESTED, PARTIAL, Test, ScreenshotOutcomePolicyTest
+Nodes (7): ScreenshotOutcomePolicy, ScreenshotQuality, COMPLETE, FAILED, NOT_REQUESTED, PARTIAL, ScreenshotOutcomePolicyTest
 
-### Community 227 - "AgentMessageUi"
-Cohesion: 0.10
-Nodes (30): toUi(), AgentMessageUi, CapabilityUi, Immutable, RunTraceMessageUi, SuggestionChipsMessageUi, SystemNoticeCode, ContextCompaction (+22 more)
+### Community 227 - "McpToolHeaders.kt"
+Cohesion: 0.31
+Nodes (5): Binding, encodeMcpHeaderValue(), McpToolHeaders, renderIntegerOrNull(), valueAt()
 
-### Community 228 - "ColorOsMemoryDatabaseQueryTest.kt"
-Cohesion: 0.20
-Nodes (8): ColorOsMemoryDatabaseQueryTest, After, Before, Config, JSONObject, RunWith, SQLiteDatabase, Test
+### Community 228 - "ColorOsMemoryDatabaseQuery"
+Cohesion: 0.24
+Nodes (4): ColorOsMemoryDatabaseQuery, ColorOsMemoryReadDatabase, DetailSpec, quoteColorOsMemoryIdentifier()
 
-### Community 229 - "SystemStateControls.kt"
-Cohesion: 0.13
-Nodes (13): Context, JSONObject, SystemStateControls, graphify reference: extra exports and benchmark, Step 6b - Wiki (only if --wiki flag), Step 7 - Neo4j export (only if --neo4j or --neo4j-push flag), Step 7a - FalkorDB export (only if --falkordb or --falkordb-push flag), Step 7b - SVG export (only if --svg flag) (+5 more)
+### Community 229 - "ProviderComponentsTest"
+Cohesion: 0.19
+Nodes (6): containsCharactersInOrder(), ModelSearchQuery, ProviderConfigDraft, ProviderHeaderDraft, filterProviderModels(), ProviderComponentsTest
 
-### Community 230 - "EtaSpeechInputTest"
-Cohesion: 0.20
-Nodes (7): EtaSpeechInputTest, After, Before, Config, RunWith, ShadowSpeechRecognizer, Test
-
-### Community 231 - "EntrySurfaceGuardTest"
-Cohesion: 0.22
-Nodes (7): Decision, ALREADY_GONE, DEFER, SEND_BACK, EntrySurfaceDismissPolicy, EntrySurfaceGuardTest, Test
+### Community 231 - "AgentLocalSkillResourceToolTest.kt"
+Cohesion: 0.16
+Nodes (3): AgentLocalSkillResourceToolTest, Fixture, NoOpLogger
 
 ### Community 232 - ".validate"
 Cohesion: 0.21
-Nodes (8): ObservationReferencePolicy, Status, ID_REQUIRED, MATCH, NO_OBSERVATION, STALE, Test, ObservationReferencePolicyTest
+Nodes (7): ObservationReferencePolicy, Status, ID_REQUIRED, MATCH, NO_OBSERVATION, STALE, ObservationReferencePolicyTest
 
 ### Community 233 - "AgentToolRequirements"
-Cohesion: 0.08
-Nodes (25): AgentPhoneToolCatalog, Entry, JSONArray, JSONObject, AgentToolRequirements, JSONArray, JSONObject, LocalToolRequirement (+17 more)
+Cohesion: 0.09
+Nodes (20): PersonalSearchTools, Search, AgentToolRequirements, LocalToolRequirement, LsposedRequirement, NONE, OPTIONAL, REQUIRED (+12 more)
 
-### Community 234 - "SpeechSettingsRepository.kt"
+### Community 235 - "ChooseMultipleImagesContract"
+Cohesion: 0.18
+Nodes (4): ChooseMultipleImagesContract, createImageChooserIntent(), parseChosenImageUris(), ImageChooserContractTest
+
+### Community 236 - "PersonalContextRequest"
+Cohesion: 0.18
+Nodes (11): PersonalContextAction, BILL_SUMMARY, COUNT, READ, SEARCH, SOURCES, PersonalContextArgumentException, PersonalContextRequest (+3 more)
+
+### Community 237 - "FileToolException"
 Cohesion: 0.17
-Nodes (14): SecretKey, Context, Exception, Flow, SecretKey, Synchronized, SpeechCredentialsUnavailable, SpeechSettingsRepository (+6 more)
-
-### Community 235 - "ProviderModelsTab"
-Cohesion: 0.13
-Nodes (23): formatCompactTokenCount(), capabilityTags(), contextWindowInputError(), Color, Composable, CoroutineScope, Dp, Modifier (+15 more)
-
-### Community 236 - "PersonalContextQueryService"
-Cohesion: 0.13
-Nodes (21): ResolvedPersonalContextSource, JSONObject, RuntimeException, PersonalContextQueryService, QueryFailure, IllegalArgumentException, JSONObject, PersonalContextAction (+13 more)
-
-### Community 237 - "FileToolSearch"
-Cohesion: 0.23
-Nodes (9): CachedPage, FileToolSearch, Frame, FileToolBackend, JSONArray, State, NextFile, Pending (+1 more)
+Nodes (6): AgentFileOperations, fileToolOperation(), toJson(), FileToolException, FileToolTextChunk, FileToolTextReader
 
 ### Community 238 - "Self Improving Agent"
 Cohesion: 0.29
 Nodes (6): Default Storage, Logging Workflow, Memory Promotion, Output Discipline, Self Improving Agent, When To Record
 
-### Community 239 - "AgentLocalSkillInstallAuthorizationTest"
-Cohesion: 0.24
-Nodes (5): AgentLocalSkillInstallAuthorizationTest, Config, RunWith, Test, NoOpLogger
-
 ### Community 240 - ".classify"
 Cohesion: 0.23
-Nodes (7): Outcome, FAILED, SUCCEEDED, TIMED_OUT, ShellActionOutcomePolicy, Test, ShellActionOutcomePolicyTest
+Nodes (6): Outcome, FAILED, SUCCEEDED, TIMED_OUT, ShellActionOutcomePolicy, ShellActionOutcomePolicyTest
 
 ### Community 241 - "MarkdownRenderScope"
 Cohesion: 0.24
-Nodes (20): accentColor(), CopyButton(), Color, Composable, Dp, Immutable, Modifier, TextStyle (+12 more)
+Nodes (14): accentColor(), CopyButton(), ListMarker(), MarkdownAlertBlock(), MarkdownBlockColumn(), MarkdownBlockView(), MarkdownCodeBlock(), MarkdownContent() (+6 more)
 
-### Community 242 - "AgentStructuredDeviceTools.kt"
-Cohesion: 0.09
-Nodes (17): activitymanager, alarmclock, AgentNotificationHistoryService, Context, Volatile, Context, Intent, JSONArray (+9 more)
+### Community 242 - "FileToolDispatcherTest.kt"
+Cohesion: 0.17
+Nodes (3): FileToolDispatcher, requiredText(), FileToolDispatcherTest
 
-### Community 243 - "AgentWebTools"
-Cohesion: 0.21
-Nodes (9): AgentWebTools, Closeable, JSONObject, Snapshot, ByteArray, HttpUrl, IOException, WebHttpResponse (+1 more)
+### Community 243 - "WebHttpTransport"
+Cohesion: 0.18
+Nodes (6): WebHttpTransport, AgentWebToolsTest, readRequest(), WebFixtureResponse, WebFixtureServer, WebHttpTransportTest
 
-### Community 244 - ".failure"
-Cohesion: 0.44
-Nodes (3): JSONObject, NoteOperations, contentvalues
-
-### Community 245 - "AgentModelImageEncoder"
-Cohesion: 0.26
-Nodes (9): AgentModelImageEncoder, EncodingProfile, hasSupportedImageMagic(), ImageBounds, Bitmap, ByteArray, Context, normalizedAgentImageMimeType() (+1 more)
+### Community 244 - "AgentLocalTools.kt"
+Cohesion: 0.05
+Nodes (4): WorldbookProjection, UnsupportedWorldbookEntry, BrowserScreenshotTest, BoundedFileCopyTest
 
 ### Community 246 - "DmpSourceResolverTest"
 Cohesion: 0.30
-Nodes (6): Available, DmpSourceResolution, DmpSourceResolver, Unavailable, DmpSourceResolverTest, Test
+Nodes (5): Available, DmpSourceResolution, DmpSourceResolver, Unavailable, DmpSourceResolverTest
 
 ### Community 247 - "Eta"
 Cohesion: 0.08
 Nodes (26): 1. Zero-Copy Pipe 跨进程通信架构（击穿 1MB Binder 限制）, 2. Google Gemini 3.x 原生协议全要素实战指南, 3. ColorOS 双击电源键直达钱包, 4. ColorOS 16 / Android 16 原生流体云与实况胶囊深度适配, Agent Runtime, Eta, 上下文与扩展, 为什么做 Eta (+18 more)
 
-### Community 248 - ".verifyInterruptedTransition"
-Cohesion: 0.16
-Nodes (12): AnchoredDraggableState, ConversationPaneAnchor, Closed, Open, conversationPaneSettledValues(), Flow, ConversationPaneStateTest, MonotonicFrameClock (+4 more)
+### Community 248 - "RuntimeConfigRepository"
+Cohesion: 0.12
+Nodes (3): RuntimeConfigRepository, ServiceStateListener, RuntimeConfigRepositoryTest
 
-### Community 249 - "AgentRuntimeImageTransfer"
-Cohesion: 0.22
-Nodes (8): AgentRuntimeImageTransfer, ImageTransferException, ByteArray, Closeable, Context, IllegalArgumentException, ParcelFileDescriptor, PreparedImages
+### Community 249 - ".put"
+Cohesion: 0.08
+Nodes (5): AgentRuntimeImageTransfer, ImageTransferException, PreparedImages, AgentWireText, AgentHistoryRetentionTest
 
-### Community 250 - ".installLocked"
-Cohesion: 0.13
-Nodes (16): AlreadyReady, ApkAnalysisInstallProgress, ApkAnalysisInstallResult, ApkAnalysisInstallStage, ACTIVATING, CHECKING, COMPLETE, DOWNLOADING (+8 more)
+### Community 251 - "ModuleConfig"
+Cohesion: 0.09
+Nodes (4): ModuleLogger, CircleToSearchInvoker, StartContextualSearchMethod, SystemUiHooks
 
-### Community 251 - ".export"
-Cohesion: 0.23
-Nodes (4): ConversationMarkdownExporter, Labels, ConversationMarkdownExporterTest, Test
-
-### Community 252 - ".project"
-Cohesion: 0.22
-Nodes (8): AssistantScreenContextProjection, JSONArray, JSONObject, AssistantScreenContextProjectionTest, AgentProviderClient, AgentProviderClient, AgentRunController, Test
+### Community 252 - "Test"
+Cohesion: 0.15
+Nodes (4): DoubaoAsrCodec, Result, QwenTranscript, SpeechProtocolTest
 
 ### Community 253 - "第三方声明"
 Cohesion: 0.12
@@ -1607,605 +1307,345 @@ Nodes (6): FailureCode, IMAGE_COUNT_LIMIT_EXCEEDED, IMAGE_DATA_LIMIT_EXCEEDED, I
 Cohesion: 0.17
 Nodes (3): Cell, Line, RenderLine
 
-### Community 256 - "AgentAppTheme.kt"
-Cohesion: 0.22
-Nodes (12): AgentAppTheme(), AppearanceSettings, Color, Composable, seedColor(), toMiuixPaletteStyle(), colorschememode, issystemindarktheme (+4 more)
+### Community 256 - ".verifyInterruptedTransition"
+Cohesion: 0.15
+Nodes (7): RootScrollMotionContract, ConversationPaneAnchor, Closed, Open, conversationPaneSettledValues(), ConversationPaneStateTest, TestFrameClock
 
 ### Community 257 - "ConversationDao"
+Cohesion: 0.07
+Nodes (10): safeStackTrace(), ConversationDao, ConversationContextCheckpointEntity, ConversationEntity, ConversationMessageEntity, ConversationMetadata, ConversationStateEntity, EtaDatabase (+2 more)
+
+### Community 258 - "ShellFileToolBackend"
 Cohesion: 0.10
-Nodes (18): ConversationDao, Dao, Insert, Query, Transaction, Upsert, ConversationContextCheckpointEntity, ConversationEntity (+10 more)
+Nodes (13): FileToolBackend, FileToolDirectoryPage, FileToolKind, DIRECTORY, FILE, OTHER, SYMLINK, FileToolStat (+5 more)
 
-### Community 258 - ".exposesOnlyOppositeAxis"
+### Community 260 - "WorkspaceFileStoreTest.kt"
+Cohesion: 0.12
+Nodes (4): TerminalPrivateStorage, TerminalPrivateStorageTest, WorkspaceFileStoreTest, FileToolBackend
+
+### Community 265 - "可选角色"
 Cohesion: 0.33
-Nodes (3): ScrollAxisContract, Test, ScrollAxisContractTest
-
-### Community 259 - "WebResponseDecoder.kt"
-Cohesion: 0.23
-Nodes (7): DecodedWebResponse, ByteArray, WebResponseDecoder, charactercodingexception, Charset, jsoup, tomediatypeornull
-
-### Community 261 - "FailureCode"
-Cohesion: 0.15
-Nodes (13): FailureCode, ARCHIVE_LIMIT_EXCEEDED, BUILTIN_CONFLICT, INVALID_ARCHIVE, INVALID_SKILL, MULTIPLE_SKILLS, NO_SKILL, PACKAGE_CHANGED (+5 more)
-
-### Community 262 - "NotificationHistoryRepositoryTest.kt"
-Cohesion: 0.29
-Nodes (6): After, Before, Context, RunWith, Test, NotificationHistoryRepositoryTest
-
-### Community 263 - "RootShellTerminalControllerCancellationTest"
-Cohesion: 0.18
-Nodes (5): After, JSONObject, Test, NoOpLogger, RootShellTerminalControllerCancellationTest
-
-### Community 264 - "ProviderComponents.kt"
-Cohesion: 0.20
-Nodes (17): Composable, OptIn, ProviderListItem(), Composable, DrawableRes, Modifier, ProviderBrandIcon(), ProviderBrandImage() (+9 more)
-
-### Community 265 - "ShellFileToolBackend"
-Cohesion: 0.39
-Nodes (3): ByteArray, FileToolBackend, ShellFileToolBackend
+Nodes (6): 交换格式, 人设与世界书, 使用, 可选角色, 现实与剧情记忆, 编辑与重新生成
 
 ### Community 266 - "SgrStyle"
-Cohesion: 0.23
-Nodes (4): AnsiSgr, SgrStyle, consumeEscape(), EscapeResult
-
-### Community 267 - ".decode"
-Cohesion: 0.28
-Nodes (3): ByteArray, Test, WebResponseDecoderTest
-
-### Community 268 - "SpeechSegmentFadeTest"
-Cohesion: 0.51
-Nodes (3): ByteArray, Test, SpeechSegmentFadeTest
-
-### Community 269 - "HookSupport"
-Cohesion: 0.13
-Nodes (11): HookSupport, Context, Executable, Field, Intent, Method, XposedModule, HyperOsPowerHooks (+3 more)
+Cohesion: 0.17
+Nodes (5): AnsiSgr, SgrStyle, consumeEscape(), EscapeResult, toSpanStyle()
 
 ### Community 270 - "AgentFileToolCatalog"
-Cohesion: 0.17
-Nodes (11): Skill Installer, 安全约束, 工作流, 执行边界, AgentFileToolCatalog, JSONArray, JSONObject, FileToolDispatcher (+3 more)
-
-### Community 271 - "AgentRuntimeRunExecutor.kt"
-Cohesion: 0.10
-Nodes (16): AgentMemoryContext, AgentMemoryContextBuilder, ConversationMemoryPins, Synchronized, Pin, AgentModelExecutionException, RuntimeException, Context (+8 more)
-
-### Community 272 - ".parse"
-Cohesion: 0.33
-Nodes (3): AndroidDisplaySizeParser, AndroidDisplaySizeParserTest, Test
+Cohesion: 0.24
+Nodes (6): Skill Installer, 安全约束, 工作流, 执行边界, AgentFileToolCatalog, 结构化文件工具
 
 ### Community 273 - ".parse"
 Cohesion: 0.33
-Nodes (4): FocusedWindowParser, Result, FocusedWindowParserTest, Test
-
-### Community 274 - "AgentImageTools.kt"
-Cohesion: 0.23
-Nodes (7): AgentImageTools, ImageSourceKind, ContentUri, File, Context, JSONObject, max_agent_image_bytes
+Nodes (3): FocusedWindowParser, Result, FocusedWindowParserTest
 
 ### Community 276 - ".resolve"
 Cohesion: 0.33
-Nodes (5): AgentScreenObservationContract, JSONObject, Options, AgentScreenObservationContractTest, Test
+Nodes (3): AgentScreenObservationContract, Options, AgentScreenObservationContractTest
 
-### Community 278 - "AgentAccessibilityService"
-Cohesion: 0.09
-Nodes (13): AccessibilityEvent, AccessibilityService, AgentAccessibilityService, ClipboardReadResult, Intent, JSONObject, Rect, Volatile (+5 more)
+### Community 278 - "AgentHomeScreen.kt"
+Cohesion: 0.24
+Nodes (3): chatConversationCompositionKey(), AgentHomeScreen(), ChatConversationKeyTest
 
 ### Community 279 - "EtaAssistantScreenContext"
-Cohesion: 0.10
-Nodes (15): EtaAssistantScreenContext, EtaAssistantScreenContexts, Bitmap, ComponentName, Context, Synchronized, VoiceInteractionSession, Snapshot (+7 more)
+Cohesion: 0.11
+Nodes (5): EtaAssistantScreenContext, EtaAssistantScreenContexts, Snapshot, AssistantContextFlags, EtaAssistantScreenContextTest
 
-### Community 280 - ".fadeIn"
-Cohesion: 0.18
-Nodes (21): BrowserSessionSnapshot, ByteArray, SpeechSegmentFade, AgentBrowserScreen(), BrowserAddressRow(), BrowserControlButton(), BrowserEmptyState(), BrowserFailedState() (+13 more)
+### Community 280 - "FileToolSearchTest"
+Cohesion: 0.19
+Nodes (3): FileToolSearchTest, FileToolBackend, FileToolBackend
 
 ### Community 281 - "ConsoleInputConnection"
 Cohesion: 0.23
-Nodes (5): AndroidKeyEvent, ConsoleInputConnection, ConsoleInputSink, dispatchKeyEvent(), BaseInputConnection
+Nodes (3): ConsoleInputConnection, ConsoleInputSink, dispatchKeyEvent()
 
 ### Community 282 - ".function"
-Cohesion: 0.08
-Nodes (16): AgentBrowserToolCatalog, JSONArray, AgentContextAppToolCatalog, JSONArray, AgentConversationToolCatalog, JSONObject, AgentFileVisionToolCatalog, JSONArray (+8 more)
+Cohesion: 0.07
+Nodes (9): AgentBrowserToolCatalog, AgentContextAppToolCatalog, AgentConversationToolCatalog, AgentFileVisionToolCatalog, AgentGestureToolCatalog, AgentSkillToolCatalog, AgentSubagentToolCatalog, AgentTextSystemToolCatalog (+1 more)
 
-### Community 283 - "SkillZipImportGatewayTest.kt"
-Cohesion: 0.33
-Nodes (5): Conflict, InstalledSkill, SkillInstallConflict, Test, SkillZipImportGatewayTest
-
-### Community 284 - "AgentFileOperations"
-Cohesion: 0.24
-Nodes (6): AgentFileOperations, fileToolOperation(), ByteArray, FileToolBackend, JSONObject, toJson()
-
-### Community 285 - "WorkspaceFileStore.kt"
-Cohesion: 0.18
-Nodes (8): FileToolBackend, Uri, workspaceBackend(), WorkspaceEntry, WorkspaceFileStore, ByteArray, FileToolBackend, FileToolBackend
-
-### Community 286 - ".serialize"
+### Community 283 - ".decode"
 Cohesion: 0.29
-Nodes (4): BrowserPayloadLimiter, JSONObject, BrowserPayloadLimiterTest, Test
+Nodes (3): DoubaoTtsCodec, Frame, DoubaoTtsCodecTest
 
-### Community 287 - "MarkdownStyle.kt"
-Cohesion: 0.25
-Nodes (12): Color, Composable, Immutable, TextStyle, markdownBlockGap(), markdownCompactGap(), MarkdownStyle, MarkdownTone (+4 more)
+### Community 285 - "AgentUiHandoffPayload"
+Cohesion: 0.27
+Nodes (3): AgentUiHandoffPayload, Supplement, AgentContinuationBuilderTest
 
-### Community 288 - "TtsProvider"
-Cohesion: 0.33
-Nodes (7): TtsProvider, DOUBAO, NONE, QWEN, StringRes, SpeechVoicePreset, SpeechVoicePresets
+### Community 287 - "SpeechRecorder.kt"
+Cohesion: 0.20
+Nodes (3): collectSpeechAudio(), pcmToWav(), SpeechRecorder
 
-### Community 289 - "locale"
-Cohesion: 0.10
-Nodes (18): LanguageSettingsRepository, CachedContext, EtaInjectedStrings, Context, Volatile, Config, Context, RunWith (+10 more)
-
-### Community 290 - "AgentRunCheckpointStoreTest.kt"
-Cohesion: 0.16
-Nodes (8): AgentRunCheckpointRecorder, Context, AgentRunCheckpointStoreTest, Before, Config, Context, RunWith, Test
-
-### Community 291 - ".import"
-Cohesion: 0.08
-Nodes (16): AgentMemoryRepository, Flow, Volatile, EtaBackupException, EtaBackupRepository, EtaBackupSummary, Context, IllegalArgumentException (+8 more)
+### Community 291 - ".get"
+Cohesion: 0.11
+Nodes (6): EtaBackupRepository, EtaBackupSummary, AgentMemoryStore, EtaBackupRepositoryTest, EtaBackupStreamingTest, ByteArrayInputStream
 
 ### Community 292 - "RootCommandEnvelope"
 Cohesion: 0.24
-Nodes (5): Output, RootCommandEnvelope, Test, RootCommandEnvelopeTest, Output
+Nodes (3): Output, RootCommandEnvelope, RootCommandEnvelopeTest
 
-### Community 293 - ".attach"
-Cohesion: 0.23
-Nodes (8): Config, MonotonicFrameClock, R, RunWith, Test, TextLayoutResult, SmoothTextRevealCoordinatorTest, TestFrameClock
+### Community 295 - "DmpQueryTransport.kt"
+Cohesion: 0.27
+Nodes (6): DmpQueryResult, Empty, Failure, Parsed, QueryOutcome, Success
 
-### Community 294 - "FileToolStat"
-Cohesion: 0.17
-Nodes (10): FileToolBackend, FileToolDirectoryPage, FileToolKind, DIRECTORY, FILE, OTHER, SYMLINK, FileToolStat (+2 more)
+### Community 296 - ".apply"
+Cohesion: 0.24
+Nodes (4): MessageRevisionImpact, AgentConversationRevisionReducer, Boundary, AgentConversationRevisionReducerTest
 
-### Community 295 - "DmpQueryResult"
-Cohesion: 0.25
-Nodes (7): DmpQueryResult, DmpQueryTransport, Empty, Failure, Parsed, QueryOutcome, Success
-
-### Community 296 - ".conversationState"
-Cohesion: 0.31
-Nodes (4): AgentConversationRevisionReducer, Boundary, AgentConversationRevisionReducerTest, Test
-
-### Community 297 - ".accessState"
-Cohesion: 0.20
-Nodes (13): AccessState, DENIED, GRANTED, NOT_REQUIRED, Context, LocalNetworkPermission, localNetworkPermissionHealthItem(), Config (+5 more)
+### Community 297 - "PackageManager"
+Cohesion: 0.18
+Nodes (9): AccessState, DENIED, GRANTED, NOT_REQUIRED, LocalNetworkPermission, localNetworkPermissionHealthItem(), ContextWrapper, LocalNetworkPermissionTest (+1 more)
 
 ### Community 298 - "HtmlPageContent.kt"
-Cohesion: 0.23
-Nodes (8): HtmlPageContent, NodeVisitor, HtmlPageExtraction, HtmlTextBuffer, Node, element, nodetraversor, textnode
-
-### Community 299 - "assertequals"
-Cohesion: 0.06
-Nodes (30): agentruncancelledexception, agentruncontroller, OutputStream, assertequals, assertfalse, assertnotequals, assertnotnull, assertnull (+22 more)
-
-### Community 301 - "FileToolException"
-Cohesion: 0.36
-Nodes (5): FileToolException, Exception, ByteArray, FileToolBackend, LocalFileToolBackend
-
-### Community 302 - "gradlew"
-Cohesion: 0.83
-Nodes (3): gradlew script, die(), warn()
-
-### Community 303 - "GestureFallbackPolicyTest.kt"
-Cohesion: 0.33
-Nodes (3): GestureFallbackPolicy, GestureFallbackPolicyTest, Test
-
-### Community 304 - "AppProcessPolicyTest.kt"
-Cohesion: 0.33
-Nodes (3): AppProcessPolicy, AppProcessPolicyTest, Test
-
-### Community 305 - "AgentUiHandoffPayload"
-Cohesion: 0.27
-Nodes (5): AgentUiHandoffPayload, JSONObject, Supplement, AgentContinuationBuilderTest, Test
-
-### Community 306 - "PersonalContextBillSummaryTest"
-Cohesion: 0.41
-Nodes (3): JSONObject, Test, PersonalContextBillSummaryTest
-
-### Community 307 - "Panel"
-Cohesion: 0.19
-Nodes (11): EtaVoicePanelTouchTest, ComponentActivity, Config, GraphicsMode, Rect, RunWith, SemanticsNode, Test (+3 more)
-
-### Community 308 - "SpeechSocket"
 Cohesion: 0.21
-Nodes (7): ByteArray, Closeable, SpeechSocket, bytestring, tobytestring, WebSocket, websocketlistener
+Nodes (4): HtmlPageContent, NodeVisitor, HtmlPageExtraction, HtmlTextBuffer
 
-### Community 309 - ".millis"
-Cohesion: 0.40
-Nodes (4): ConversationTimeLabelsTest, Test, TimeZone, calendar
+### Community 305 - "AgentAppTheme.kt"
+Cohesion: 0.15
+Nodes (4): AgentAppTheme(), seedColor(), toMiuixPaletteStyle(), AdaptivePageLayoutTest
+
+### Community 309 - "AssistantPanel"
+Cohesion: 0.08
+Nodes (20): AssistantComposer(), AssistantInputBar(), AssistantRoundButton(), AssistantTrailingButton(), AssistantVoiceEntry(), EtaAssistantSuggestions(), EtaSpeechFeedback(), assistantBaseHeightPx() (+12 more)
 
 ### Community 313 - "SpeechInputController"
-Cohesion: 0.11
-Nodes (18): EtaWaveEffect, Key, JSONArray, Track, EtaSpeechPhase, IDLE, LISTENING, RECOGNIZING (+10 more)
+Cohesion: 0.17
+Nodes (7): EtaSpeechPhase, IDLE, LISTENING, RECOGNIZING, STARTING, SpeechInputController, SpeechInputState
 
-### Community 314 - ".append"
-Cohesion: 0.27
-Nodes (4): AgentRunEventCoalescer, PendingDelta, AgentRunEventCoalescerTest, Test
+### Community 314 - "CharacterMemoryTools"
+Cohesion: 0.16
+Nodes (6): AgentMemoryToolCatalog, CharacterMemoryTools, AgentMemoryMutation, Append, Clear, ReplaceRange
 
 ### Community 316 - "RootAccess"
-Cohesion: 0.14
-Nodes (16): Context, Job, SharedPreferences, StateFlow, RootAccess, RootAccessState, RootAccessStatus, DENIED (+8 more)
+Cohesion: 0.07
+Nodes (16): BoundedFileCopy, TooLargeException, BoundedOutput, BoundedRootCommandExecutor, Result, RootAccess, RootAccessState, RootAccessStatus (+8 more)
 
-### Community 318 - ".build"
-Cohesion: 0.35
-Nodes (4): BreenoConversationHistory, Entry, BreenoConversationHistoryTest, Test
+### Community 318 - ".add"
+Cohesion: 0.19
+Nodes (3): AgentRunArchiveStore, ArchivedRun, AgentRunArchiveStoreTest
 
-### Community 319 - "AppInspectionTool"
-Cohesion: 0.33
-Nodes (4): AppInspectionTool, Context, JSONObject, Test
+### Community 322 - ".runRootProcess"
+Cohesion: 0.25
+Nodes (3): ByteArrayOutputCollector, ProcessBytesResult, ShellBytesResult
 
-### Community 320 - "graphify reference: add a URL and watch a folder"
-Cohesion: 0.50
-Nodes (3): For /graphify add, For --watch, graphify reference: add a URL and watch a folder
+### Community 323 - ".extract"
+Cohesion: 0.27
+Nodes (3): RootlessInstallFailure, RootlessLinuxInstaller, RootlessLinuxInstallerTest
 
-### Community 321 - "graphify reference: commit hook and native CLAUDE.md integration"
-Cohesion: 0.50
-Nodes (3): For git commit hook, For native CLAUDE.md integration, graphify reference: commit hook and native CLAUDE.md integration
-
-### Community 322 - "AgentModelClient"
-Cohesion: 0.08
-Nodes (20): RoutingToolExecutor, AgentImageCodec, ByteArray, Context, Uri, AgentContextSummarizer, AgentProviderClient, AgentRunController (+12 more)
+### Community 325 - "DexKitNativeLibraryFileTest"
+Cohesion: 0.24
+Nodes (3): DexKitNativeLibrary, nativeLoadFailureReason(), DexKitNativeLibraryFileTest
 
 ### Community 327 - ".aggregate"
-Cohesion: 0.24
-Nodes (8): Bucket, EXPENSE, INCOME, TRANSFER, UNCLASSIFIED, JSONObject, PersonalContextBillSummary, Totals
+Cohesion: 0.22
+Nodes (7): Bucket, EXPENSE, INCOME, TRANSFER, UNCLASSIFIED, PersonalContextBillSummary, Totals
 
-### Community 328 - "HookInstallation"
-Cohesion: 0.06
-Nodes (31): HookInstallation, ModuleConfig, GoogleEligibilityHooks, ClassLoader, XposedModule, HyperOsScreenSearchHooks, Service, XposedModule (+23 more)
+### Community 328 - "ModuleMain.kt"
+Cohesion: 0.05
+Nodes (31): HyperOsPowerHooks, SystemServerHooks, ModuleMain, HyperOS 4 导航识屏服务入口, HyperOS 系统入口适配, 已知边界与真机验证, 底部手势横条, 搜索服务与权限 (+23 more)
 
 ### Community 330 - "RoleplayRunContext"
-Cohesion: 0.18
-Nodes (8): JSONArray, JSONObject, RoleplayRunContext, AgentRoleplayRuntimeTest, AgentProviderClient, AgentProviderClient, AgentRunController, Test
+Cohesion: 0.17
+Nodes (3): RoleplayRunContext, AgentRoleplayRuntimeTest, AgentProviderClient
 
 ### Community 331 - "detectSlashCommandTrigger"
 Cohesion: 0.31
-Nodes (4): detectSlashCommandTrigger(), SlashCommandTrigger, AgentSlashCommandTriggerTest, Test
+Nodes (3): detectSlashCommandTrigger(), SlashCommandTrigger, AgentSlashCommandTriggerTest
 
-### Community 332 - "验证"
-Cohesion: 0.18
-Nodes (9): EtaDatabaseMigrationTest, Callback, Callback, Config, Context, RunWith, SupportSQLiteDatabase, Test (+1 more)
-
-### Community 333 - ".data"
-Cohesion: 0.29
-Nodes (4): ByteArray, PtyInputFrames, Test, PtyInputFramesTest
-
-### Community 334 - "ToolCatalogUiTest.kt"
-Cohesion: 0.11
-Nodes (27): Composable, StringRes, localizedText(), toolDisplayName(), toolDisplayNameResource(), buildToolsState(), Context, iconForTool() (+19 more)
-
-### Community 335 - "WorkspaceFileStoreTest.kt"
-Cohesion: 0.24
-Nodes (5): TerminalPrivateStorage, Config, RunWith, Test, WorkspaceFileStoreTest
-
-### Community 336 - ".drainRuntimeAcks"
-Cohesion: 0.08
-Nodes (15): ActiveAgentRun, BoundedRetryBudget, BoundedRunIdSet, breenoRequestDedupKey(), EnqueueResult, ADDED, DUPLICATE, OVERFLOW (+7 more)
-
-### Community 337 - "InstallTarget"
-Cohesion: 0.20
-Nodes (10): InstallTarget, APK_ANALYSIS, BASE, KIMI, NODE, PYTHON, SSH, TOOLS (+2 more)
-
-### Community 338 - "CharacterWorldbookDraft.kt"
-Cohesion: 0.44
-Nodes (4): CharacterBookDraft, CharacterBookEntryDraft, CharacterWorldbookDraftCodec, JsonObject
-
-### Community 339 - ".decode"
-Cohesion: 0.39
-Nodes (4): AgentEventJsonCodec, Bundle, JSONObject, Suppress
-
-### Community 340 - "ProviderRequestPurpose"
+### Community 332 - "ChatToolCallHistoryTest"
 Cohesion: 0.19
-Nodes (9): AgentHttpClient, OkHttpClient, ProviderRequestPurpose, CHAT, COMPACTION, REPLY_REWRITE, TRANSCRIPT_REFINE, AgentCompactionProviderTest (+1 more)
+Nodes (4): CallResultPair, ChatToolCallHistory, OpenAiRequestMessages, ChatToolCallHistoryTest
 
-### Community 341 - ".readable"
-Cohesion: 0.36
-Nodes (3): SpeechText, Test, SpeechTextTest
+### Community 333 - "InstallTarget"
+Cohesion: 0.25
+Nodes (8): InstallTarget, APK_ANALYSIS, BASE, KIMI, NODE, PYTHON, SSH, TOOLS
+
+### Community 334 - "ToolActivityMessageUi"
+Cohesion: 0.07
+Nodes (29): toUi(), ConversationMarkdownExporter, Labels, AgentWorkStep, AgentWorkSummary, Single, ToolGroup, toWorkSteps() (+21 more)
+
+### Community 335 - ".build"
+Cohesion: 0.35
+Nodes (3): BreenoConversationHistory, Entry, BreenoConversationHistoryTest
+
+### Community 336 - "AgentBrowserSession"
+Cohesion: 0.25
+Nodes (4): AgentBrowserSession, BrowserTarget, LoadOutcome, LoadWaiter
+
+### Community 338 - "PersonalContextQueryService"
+Cohesion: 0.39
+Nodes (3): ResolvedPersonalContextSource, PersonalContextQueryService, QueryFailure
+
+### Community 341 - "CharacterBackupData.kt"
+Cohesion: 0.15
+Nodes (5): CharacterBackupAsset, CharacterBackupData, CharacterBackupTransfer, EtaBackupException, EtaBackupValidation
 
 ### Community 342 - "README.md"
-Cohesion: 0.11
-Nodes (14): 交换格式, 人设与世界书, 使用, 可选角色, 现实与剧情记忆, 编辑与重新生成, 文件与 Linux 数据, 普通设备与 Root 设备 (+6 more)
+Cohesion: 0.16
+Nodes (8): 文件与 Linux 数据, 普通设备与 Root 设备, 能力边界, 运行与停止, 验证边界与真机清单, 终端原生组件, 运行接口, 重建
 
 ### Community 343 - "AgentLoop"
-Cohesion: 0.15
-Nodes (7): AgentLoop, AgentProviderClient, AgentRunController, JSONArray, JSONObject, Result, ToolOutcome
+Cohesion: 0.12
+Nodes (5): AgentLoop, Result, ToolOutcome, AgentSensitiveToolPolicy, AgentSensitiveTranscriptTest
 
-### Community 344 - ".read"
-Cohesion: 0.33
-Nodes (6): BoundedText, EtaAssistContentReader, Bundle, Context, VoiceInteractionSession, assiststructure
-
-### Community 345 - "AgentOverlayClearance"
-Cohesion: 0.23
-Nodes (5): AgentOverlayClearance, Host, Rect, T, Volatile
-
-### Community 346 - "HyperOsScreenSearchRequestTest"
-Cohesion: 0.27
-Nodes (7): HyperOsScreenSearchRequest, Intent, HyperOsScreenSearchRequestTest, Config, Intent, RunWith, Test
-
-### Community 347 - "StreamingMarkdownRestoreState"
-Cohesion: 0.26
-Nodes (4): isStreamingMarkdownTargetComplete(), StreamingMarkdownRestoreState, Test, StreamingMarkdownRestoreStateTest
-
-### Community 348 - ".main"
-Cohesion: 0.17
-Nodes (7): JSONObject, NativePersonalQueries, Source, JvmStatic, Suppress, PhoneCommandMain, offsetdatetime
-
-### Community 349 - "EtaWaveShaderTest.kt"
-Cohesion: 0.33
-Nodes (7): EtaWaveShaderTest, Config, GraphicsMode, RunWith, Test, assumenoexception, runtimeshader
-
-### Community 350 - ".decode"
-Cohesion: 0.29
-Nodes (5): DoubaoTtsCodec, Frame, ByteArray, DoubaoTtsCodecTest, Test
+### Community 350 - "SubagentExecutorTest.kt"
+Cohesion: 0.11
+Nodes (9): AgentMemoryContext, ModelResponse, Text, AgentPromptBuilder, SubagentExecutor, SkillContext, TerminalExecutionContext, AgentPromptBuilderTest (+1 more)
 
 ### Community 352 - "LogcatQuery"
-Cohesion: 0.25
-Nodes (7): JSONObject, Line, LogcatQuery, Test, LogcatQueryTest, datetimeparseexception, Line
+Cohesion: 0.35
+Nodes (3): Line, LogcatQuery, LogcatQueryTest
 
 ### Community 353 - "eta_pty.c"
 Cohesion: 0.12
-Nodes (21): apply_resize(), consume_input(), dimension(), dimension_value(), main(), terminate_group(), write_all(), errno (+13 more)
+Nodes (7): apply_resize(), consume_input(), dimension(), dimension_value(), main(), terminate_group(), write_all()
 
-### Community 354 - "SkillDao"
-Cohesion: 0.21
-Nodes (9): Dao, Insert, Query, Transaction, SkillDao, ColumnInfo, Entity, PrimaryKey (+1 more)
+### Community 356 - "AgentMessageUi"
+Cohesion: 0.20
+Nodes (5): resolveFinalResultMessageIds(), AgentMessageUi, AgentChatFinalResultTest, AgentChatTimelineEntriesTest, AgentCompactionUiTest
 
-### Community 356 - ".observed"
-Cohesion: 0.13
-Nodes (11): Context, JSONObject, Suppress, SuppressLint, NativeSystemOperations, StartTetheringCallback, StopTetheringCallback, TetheringEventCallback (+3 more)
+### Community 357 - ".ensureAvailable"
+Cohesion: 0.26
+Nodes (3): AccessibilityEnableResult, AgentAccessibilityKeeper, AgentAccessibilityKeeperTest
 
-### Community 358 - "SkillInstallToolCatalogTest"
-Cohesion: 0.42
-Nodes (3): JSONObject, Test, SkillInstallToolCatalogTest
-
-### Community 359 - ".runRootProcess"
-Cohesion: 0.25
-Nodes (6): ByteArrayOutputCollector, ByteArray, java, Volatile, ProcessBytesResult, ShellBytesResult
+### Community 358 - "FlashlightController.kt"
+Cohesion: 0.19
+Nodes (3): FlashlightController, onTorchModeChanged(), onTorchModeUnavailable()
 
 ### Community 361 - "build-terminal-native.sh"
 Cohesion: 0.33
 Nodes (6): fetch_source(), LC_ALL, PATH, PYTHON, PYTHONHASHSEED, build-terminal-native.sh script
 
 ### Community 362 - "update-models-dev-catalog.py"
-Cohesion: 0.20
-Nodes (11): gzip, hashlib, io, os, pathlib, download_catalog(), gzip_snapshot(), main() (+3 more)
+Cohesion: 0.27
+Nodes (3): download_catalog(), gzip_snapshot(), main()
 
 ### Community 363 - "AgentExternalArchivePayload"
-Cohesion: 0.17
-Nodes (9): AgentExternalArchivePayload, JSONObject, XiaoAiHandoff, AgentExternalArchivePayloadTest, Test, Config, RunWith, Test (+1 more)
-
-### Community 364 - "instant"
-Cohesion: 0.20
-Nodes (8): DeviceContextToolTest, Test, JSONObject, instant, interceptor, protocol, response, toresponsebody
-
-### Community 365 - "AgentWorkSteps.kt"
-Cohesion: 0.29
-Nodes (8): workSummaryText(), AgentWorkStep, AgentWorkSummary, Immutable, Single, ToolGroup, toWorkSteps(), workSummary()
-
-### Community 367 - "Reasoning.kt"
-Cohesion: 0.23
-Nodes (8): Serializable, ReasoningEffortSerializer, Decoder, Encoder, KSerializer, primitivekind, primitiveserialdescriptor, SerialDescriptor
-
-### Community 368 - "HyperOsLongPressGestureTest.kt"
 Cohesion: 0.11
-Nodes (16): abs, activity, RootScrollMotionContract, HyperOsLongPressGesture, View, Test, RootScrollMotionContractTest, HyperOsLongPressGestureTest (+8 more)
+Nodes (4): AgentExternalArchivePayload, XiaoAiHandoff, AgentExternalArchivePayloadTest, XiaoAiHandoffTest
 
-### Community 369 - "file"
-Cohesion: 0.03
-Nodes (89): accessibilitywindowinfo, agentexecutionservice, agentproviderclient, AgentToolBatchRecovery, AgentAppContext, AgentRuntimeProcessIdentity, AlpineEnvironmentState, BASE_READY (+81 more)
-
-### Community 370 - "SpeechCredentialField"
-Cohesion: 0.13
-Nodes (12): SpeechCredentialField, DOUBAO_ASR, DOUBAO_TTS, OSS_KEY_ID, OSS_KEY_SECRET, QWEN_ASR, QWEN_TTS, For /graphify explain (+4 more)
-
-### Community 371 - "AgentContextPersistenceTest.kt"
-Cohesion: 0.31
-Nodes (7): AgentContextPersistenceTest, After, Before, Config, Context, RunWith, Test
-
-### Community 373 - "Error"
-Cohesion: 0.18
-Nodes (11): Error, AccessDenied, ImportFailed, ImportTooLarge, InvalidPath, PathNotFound, RootUnavailable, TypeMismatch (+3 more)
-
-### Community 374 - "AgentOverlayVisibilityPolicy"
-Cohesion: 0.23
-Nodes (3): AgentOverlayVisibilityPolicy, AgentOverlayVisibilityPolicyTest, Test
-
-### Community 375 - ".constrain"
-Cohesion: 0.35
-Nodes (4): AgentRuntimePolicy, JsonElement, SharedPreferences, Permissions
-
-### Community 377 - "safeStackTrace"
+### Community 372 - ".contextFor"
 Cohesion: 0.29
-Nodes (5): extractResultCode(), ToolFinished, toSafeResultLogFields(), safeStackTrace(), toSafeLogToken()
+Nodes (3): ConversationMemoryPins, Pin, ConversationMemoryPinsTest
 
-### Community 378 - ".applyRuntimeConfig"
-Cohesion: 0.40
-Nodes (3): AgentRuntimeRequestConfigResolver, AgentRuntimeRequestConfigResolverTest, Test
-
-### Community 379 - "实现边界"
-Cohesion: 0.20
-Nodes (9): Volatile, SpeechRecorder, AudioRecord, 使用方式, 官方资料, 实现边界, 文件转写与 OSS, 服务配置 (+1 more)
-
-### Community 380 - "EtaBackupJsonStreams.kt"
-Cohesion: 0.18
-Nodes (10): decodefromstream, decodesequencemode, decodetosequence, encodetostream, experimentalserializationapi, FilterInputStream, JsonReader, jsontoken (+2 more)
-
-### Community 381 - "ReadAloudPlaybackService.kt"
-Cohesion: 0.12
-Nodes (15): BackgroundCommandNotification, Context, AssistantSpeechForeground, Service, Context, IBinder, Intent, Service (+7 more)
+### Community 376 - ".main"
+Cohesion: 0.17
+Nodes (3): NativePersonalQueries, Source, PhoneCommandMain
 
 ### Community 383 - ".printCodePoint"
 Cohesion: 0.47
 Nodes (3): decSpecialGraphic(), isZeroWidth(), terminalCharWidth()
 
-### Community 384 - ".capturePayload"
-Cohesion: 0.17
-Nodes (3): FakeDocPayload, FakeImagePayload, FakeImageResult
-
-### Community 385 - "EtaVoiceInteractionService.kt"
-Cohesion: 0.22
-Nodes (6): EtaVoiceAssistActivity, EtaVoiceInteractionService, Activity, Bundle, Volatile, VoiceInteractionService
-
 ### Community 386 - "Domain Glossary (Eta)"
 Cohesion: 0.29
 Nodes (6): Domain Glossary (Eta), Skill, Skill Candidate (技能候选项), Skill Editor (技能编辑器), Skill Override Layer (技能覆盖层), Slash Command (斜杠指令)
 
-### Community 387 - ".appendTo"
-Cohesion: 0.52
-Nodes (3): AgentWebToolCatalog, JSONArray, JSONObject
-
-### Community 388 - "HyperOsPowerPolicyTest.kt"
-Cohesion: 0.33
-Nodes (3): HyperOsPowerPolicy, HyperOsPowerPolicyTest, Test
-
-### Community 389 - "WebHttpTransportTest.kt"
-Cohesion: 0.15
-Nodes (11): McpProtocolMode, HttpUrl, CookieJar, Test, McpEntitiesTest, Cookie, copyonwritearraylist, inetaddress (+3 more)
+### Community 389 - "RootlessDeviceToolsTest"
+Cohesion: 0.12
+Nodes (3): AgentExecutionServiceTest, NoOpLogger, RootlessDeviceToolsTest
 
 ### Community 390 - "GestureDispatch"
 Cohesion: 0.40
 Nodes (5): GestureDispatch, CANCELLED, COMPLETED, NOT_DISPATCHED, OUTCOME_UNKNOWN
 
 ### Community 393 - "PendingSkillConflictCapabilityParser"
-Cohesion: 0.48
+Cohesion: 0.53
 Nodes (3): PendingSkillConflictCapability, PendingSkillConflictCapabilityParser, ToolCallIdentity
 
-### Community 396 - "characterCardImportMessage"
-Cohesion: 0.47
-Nodes (3): characterCardImportMessage(), CharacterCardImportMessagesTest, Test
-
 ### Community 397 - ".build"
-Cohesion: 0.25
-Nodes (7): AgentAfterActionSummary, JSONObject, UiNode, AgentAfterActionSummaryTest, RunWith, Test, UiNode
+Cohesion: 0.17
+Nodes (5): ElementSource, ACCESSIBILITY, UIAUTOMATOR, AgentAfterActionSummary, AgentAfterActionSummaryTest
 
-### Community 398 - ".copyValue"
-Cohesion: 0.38
-Nodes (3): DocumentWriter, T, SerializationStrategy
+### Community 398 - "AgentModelClient"
+Cohesion: 0.09
+Nodes (8): AgentImageCodec, AgentModelClient, AgentModelExecutionException, ModelImage, ToolCall, ToolResult, ProviderClientFactory, SpeechTranscriptRefiner
 
-### Community 399 - "ConversationTimeLabels.kt"
-Cohesion: 0.33
-Nodes (5): ConversationTimeLabels, TimeZone, chronounit, dateformat, simpledateformat
-
-### Community 400 - ".execute"
+### Community 401 - "SkillItemUi"
 Cohesion: 0.42
-Nodes (3): ByteArray, Test, OneShotShellTest
-
-### Community 401 - "ConsoleScreen"
-Cohesion: 0.18
-Nodes (5): ConsoleModifierKeys, Stable, ConsoleScreen(), ConsoleInputSink, ConsoleInputSink
-
-### Community 402 - "SectionHeader.kt"
-Cohesion: 0.60
-Nodes (4): Composable, Modifier, SectionHeader(), smalltitle
+Nodes (4): AgentSkillsUiState, SkillItemUi, SkillNoticeUi, SkillReplacementUi
 
 ### Community 403 - "BrowserOverlay"
 Cohesion: 0.40
 Nodes (5): BrowserOverlay, Empty, Failed, Loading, None
 
-### Community 404 - "EnhancementSettingsHistoryTest.kt"
-Cohesion: 0.33
-Nodes (6): EnhancementSettingsHistoryTest, Before, Config, Context, RunWith, Test
-
-### Community 405 - "robolectrictestrunner"
-Cohesion: 0.04
-Nodes (63): activityinfo, animatedvectordrawable, animateto, AgentExecutionServiceTest, Config, RunWith, Test, BackgroundCommandNotificationTest (+55 more)
-
-### Community 406 - "BrowserActionArgumentsTest.kt"
-Cohesion: 0.24
-Nodes (8): requiredText(), BrowserActionArgumentsTest, Config, JSONObject, RunWith, Test, invocationtargetexception, jsonexception
+### Community 406 - "SpeechPlaybackTest.kt"
+Cohesion: 0.09
+Nodes (5): SpeechText, FakeOutput, SpeechPlaybackTest, SpeechAudioOutput, SpeechTextTest
 
 ### Community 408 - "Eta 发布流程"
 Cohesion: 0.40
 Nodes (4): Eta 发布流程, PR 检查, 构建与发布, 配置签名 Secrets
 
-### Community 410 - "State"
-Cohesion: 0.50
-Nodes (4): State, CLOSED, LIVE, REPLAYING
-
-### Community 411 - "SpeechAudioLease.kt"
-Cohesion: 0.33
-Nodes (5): Closeable, Context, SpeechAudioLease, audiofocusrequest, intentfilter
-
 ### Community 412 - "McpConfigJsonParser"
-Cohesion: 0.22
-Nodes (9): JSONObject, McpConfigJsonParser, ParsedServerDraft, okhttp3, validateMcpEndpoint(), Serializable, McpAuthorizationType, McpStdioEnvironment (+1 more)
+Cohesion: 0.36
+Nodes (3): McpConfigJsonParser, ParsedServerDraft, validateMcpEndpoint()
 
-### Community 413 - "AgentNavigator"
-Cohesion: 0.28
-Nodes (3): AgentNavigator, NavKey, NavBackStack
-
-### Community 418 - "GeminiGenerateContentProviderTest"
+### Community 423 - "EtaSpeechIssueKind"
 Cohesion: 0.33
-Nodes (3): GeminiGenerateContentProviderTest, JSONObject, Test
+Nodes (6): EtaSpeechIssueKind, DOWNLOAD_AVAILABLE, DOWNLOAD_PENDING, NO_SERVICE, RECOGNITION, SERVICE_TIMEOUT
 
-### Community 427 - "EtaVoiceStatus"
-Cohesion: 0.29
-Nodes (7): Completed, EtaVoiceStatus, Failed, InputRequest, Reasoning, RunningTool, Stopped
-
-### Community 428 - ".stdioClientHandshakesDiscoversAndCallsToolsOverStreams"
-Cohesion: 0.31
-Nodes (4): StdioProcessHandle, Test, McpStdioClientTest, StdioProcessHandle
-
-### Community 442 - "AgentImageCodecTest.kt"
-Cohesion: 0.07
-Nodes (33): BrowserScreenshotTest, Canvas, Config, GraphicsMode, RunWith, Test, assertarrayequals, atomicfile (+25 more)
-
-### Community 457 - "SmoothTextReveal.kt"
-Cohesion: 0.07
-Nodes (33): Composable, Modifier, ModifierNodeElement, Node, Stable, State, StateFlow, TextLayoutResult (+25 more)
-
-### Community 458 - "ioexception"
-Cohesion: 0.10
-Nodes (23): accessdeniedexception, isRecoverableSkillDirectoryTree(), isRegularDirectoryTreeWithoutLinks(), atomicmovenotsupportedexception, basicfileattributes, documentscontract, files, ioexception (+15 more)
-
-### Community 495 - "SpeechPlaybackController.kt"
-Cohesion: 0.19
-Nodes (14): Audio, ChunkEnd, ByteArray, Closeable, Context, CoroutineScope, Job, SpeechSettings (+6 more)
-
-### Community 570 - "Prefs"
-Cohesion: 0.18
-Nodes (9): Keys, Context, SharedPreferences, Volatile, XposedService, Prefs, io, ServiceStateListener (+1 more)
-
-### Community 571 - "ExecutionStopQueue"
-Cohesion: 0.29
-Nodes (4): ExecutionStopQueue, ExecutionStopQueueTest, Test, executorservice
-
-### Community 573 - "NewProviderType"
-Cohesion: 0.29
-Nodes (6): NavKey, ModelProviderNew, NewProviderType, Anthropic, Gemini, OpenAiCompatible
-
-### Community 574 - "FileToolTextReader.kt"
-Cohesion: 0.40
-Nodes (4): FileToolTextChunk, FileToolTextReader, FileToolBackend, charbuffer
-
-### Community 575 - "EtaVoiceInteractionSessionService.kt"
-Cohesion: 0.53
-Nodes (4): EtaVoiceInteractionSessionService, Bundle, VoiceInteractionSession, VoiceInteractionSessionService
-
-### Community 576 - "MarkdownAlertKind"
+### Community 426 - "MarkdownAlertKind"
 Cohesion: 0.33
 Nodes (6): MarkdownAlertKind, Caution, Important, Note, Tip, Warning
 
-### Community 578 - "BoundedFileCopy.kt"
-Cohesion: 0.67
-Nodes (3): BoundedFileCopy, IOException, TooLargeException
+### Community 428 - "EtaSpeechDownloadStatus"
+Cohesion: 0.40
+Nodes (5): EtaSpeechDownloadStatus, DOWNLOADING, FAILED, READY, SCHEDULED
+
+### Community 431 - "LaunchResult"
+Cohesion: 0.50
+Nodes (4): LaunchResult, ACTIVITY_FALLBACK_REQUIRED, LAUNCHED, NOT_HANDLED
+
+### Community 457 - "SmoothTextReveal.kt"
+Cohesion: 0.07
+Nodes (12): listMarkerVisible(), firstRevealKey(), rememberSmoothTextRevealState(), RevealBlockKey, RevealDrawSnapshot, RevealRecord, smoothTextReveal(), SmoothTextRevealCoordinator (+4 more)
+
+### Community 458 - "AgentFileReferenceGateway.kt"
+Cohesion: 0.09
+Nodes (3): isRecoverableSkillDirectoryTree(), isRegularDirectoryTreeWithoutLinks(), DexKitNativeLibraryFile
+
+### Community 495 - "SpeechPlaybackController.kt"
+Cohesion: 0.10
+Nodes (13): SpeechAudioLease, Audio, ChunkEnd, SpeechAudioOutput, SpeechPlaybackController, SpeechPlaybackState, SpeechQueueItem, 使用方式 (+5 more)
+
+### Community 497 - "SpeechSettings"
+Cohesion: 0.08
+Nodes (26): AsrProvider, DOUBAO, QWEN_FILE, QWEN_FLASH, QWEN_REALTIME, SYSTEM, DoubaoSpeechConfig, QwenSpeechConfig (+18 more)
+
+### Community 525 - "ExtensionBackupData.kt"
+Cohesion: 0.09
+Nodes (11): SkillRuntime, copyDirectoryRecursively(), deleteDirectoryRecursively(), McpBackupServer, McpBackupTransfer, SkillBackupData, SkillBackupFile, SkillBackupPackage (+3 more)
+
+### Community 546 - "GeminiGenerateContentProvider"
+Cohesion: 0.09
+Nodes (7): GeminiGenerateContentProvider, providerMessageText(), CachedToken, ServiceAccountCredentials, VertexAiServiceAccountAuth, validateProviderDraft(), VertexAiServiceAccountAuthTest
 
 ### Community 580 - "AddMcpMode"
 Cohesion: 0.50
 Nodes (4): AddMcpMode, HTTP, JSON_IMPORT, STDIO
 
+### Community 590 - "NativeSystemOperations.kt"
+Cohesion: 0.13
+Nodes (5): NativeSystemOperations, StartTetheringCallback, StopTetheringCallback, TetheringEventCallback, DeviceMutationResult
+
 ## Knowledge Gaps
-- **727 isolated node(s):** `skills`, `APPLIED`, `UNAVAILABLE`, `REJECTED`, `ACCEPTED` (+722 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1779 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **194 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **534 isolated node(s):** `APPLIED`, `UNAVAILABLE`, `REJECTED`, `ACCEPTED`, `REJECTED` (+529 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1645 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **161 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `AgentModelClient` connect `AgentModelClient` to `ProviderRequest`, `AgentConversationCodec`, `AgentLocalTools.kt`, `AgentLocalTools`, `AgentPersonalContextTools.kt`, `ChatImageSearchTools`, `AgentChatUiState`, `AgentTraceFormatter`, `PendingSkillConflictCapabilityParser`, `EtaAssistantOverlayService.kt`, `.build`, `AgentRuntimeRunExecutor.kt`, `Agent Runtime`, `AgentImageTools.kt`, `robolectrictestrunner`, `AgentRuntimeWire`, `AgentStructuredDeviceTools`, `EtaAssistantScreenContext`, `AgentRuntimePolicyTest`, `BreenoRequestImages`, `.serialize`, `EtaBackupRepositoryTest.kt`, `Model`, `AgentRuntimeService`, `.complete`, `AgentPrivateDatabaseTools`, `AgentRunCheckpointStoreTest.kt`, `.userTextMessage`, `BreenoHooks`, `HookRegistrar`, `.conversationState`, `GeminiGenerateContentProvider`, `assertequals`, `ReasoningEffort`, `.complete`, `AgentUiHandoffPayload`, `AgentRuntimeSession`, `.user`, `AgentImageCodecTest`, `BreenoRequestImagesTest`, `AgentImageCodecTest.kt`, `.build`, `RuntimeRunDao`, `AgentConversationPersistenceTest.kt`, `McpToolDefinition`, `.validatePath`, `AgentModelClientLoopTest`, `ProviderRepositoryTest.kt`, `AgentHistoryRetentionTest.kt`, `.parseToolCalls`, `ElementObservation`, `AgentLoop`, `.refiner`, `.resolve`, `AgentTokenUsage`, `AgentLocalToolsPermissionTest`, `AgentMemorySnapshot`, `AnthropicMessagesProvider`, `.get`, `AgentMessageUi`, `AgentColorOsMemoryTools`, `AgentConversationStoreTest.kt`, `EtaDatabase`, `file`, `AgentStructuredDeviceTools.kt`, `AgentContextPersistenceTest.kt`, `AgentModelImageEncoder`, `.constrain`, `AgentRuntimeImageTransfer`, `.applyRuntimeConfig`, `.applyOpenAiCompatibleRequest`?**
-  _High betweenness centrality (0.132) - this node is a cross-community bridge._
-- **Why does `AgentLogger` connect `AgentLogger` to `TerminalEnvironment`, `AgentLocalTools.kt`, `AgentLocalTools`, `RootShellTerminalControllerCancellationTest`, `RootShellTerminalController`, `robolectrictestrunner`, `AgentStructuredDeviceTools`, `shellQuote`, `AgentRuntimeService`, `UserTerminalController`, `BackgroundTerminalJobs`, `NoOpLogger`, `assertequals`, `AgentRuntimeClient`, `BoundedRootCommandExecutor`, `AgentImageCodecTest.kt`, `ModuleLogger`, `ConsoleSessionController`, `ioexception`, `DexKitTargets`, `RootlessDeviceToolsTest`, `AgentLocalToolsPermissionTest`, `EntrySurfaceGuardTest`, `AgentLocalSkillInstallAuthorizationTest`, `file`, `RootShellDeviceController`, `AgentStructuredDeviceTools.kt`, `EtaApp`?**
-  _High betweenness centrality (0.053) - this node is a cross-community bridge._
-- **Why does `ModuleLogger` connect `ModuleLogger` to `AgentLogger`, `CircleToSearchInvoker`, `.install`, `BreenoHooks`, `HookInstallation`, `HookRegistrar`, `XiaoAiStreamRenderer`, `技术实现`, `HookSupport`, `.drainRuntimeAcks`, `file`, `GoogleAppHooks.kt`?**
-  _High betweenness centrality (0.030) - this node is a cross-community bridge._
+- **Why does `AgentModelClient` connect `AgentModelClient` to `AgentPersonalContextTools`, `AgentLocalTools`, `AgentAppState`, `AgentTraceFormatter`, `EtaAssistantOverlayService.kt`, `AgentRuntimeWire`, `AgentStructuredDeviceTools`, `runblocking`, `AgentPrivateDatabaseTools`, `Model`, `GeminiGenerateContentProvider`, `AgentLocalTools.kt`, `BreenoHooks`, `HookRegistrar`, `WebHttpTransportTest.kt`, `EtaLiveUpdateManager`, `AgentRuntimeSession`, `AgentImageCodecTest`, `BreenoRequestImagesTest`, `AgentFileReference`, `RuntimeRunDao`, `.validatePath`, `AgentModelClientLoopTest`, `ProviderRepositoryTest.kt`, `.parseToolCalls`, `SubagentExecutorTest`, `AgentModelImageEncoder`, `BreenoRequestImages`, `AgentLocalToolsPermissionTest`, `AgentTokenUsage`, `AnthropicMessagesProvider`, `.get`, `AgentConversationStoreTest.kt`, `RootShellDeviceController`, `.execute`, `AgentImageTools.kt`, `AgentColorOsMemoryTools`, `ProviderRequest`, `AgentConversationCodec`, `.conversation`, `OpenAiChatCompletionsProvider`, `Agent Runtime`, `.constrain`, `.collectFromJsonObject`, `AgentRuntimeService`, `BreenoHooks.kt`, `.userTextMessage`, `.refiner`, `ReasoningEffort`, `.user`, `AgentConversationPersistenceTest.kt`, `McpToolDefinition`, `.applyRuntimeConfig`, `ChatImageSearchTools`, `.serialize`, `.build`, `AgentLocalSkillResourceToolTest.kt`, `AgentLocalSkillInstallAuthorizationTest`, `AgentLocalTools.kt`, `RuntimeConfigRepository`, `.put`, `ConversationDao`, `AgentContextPersistenceTest.kt`, `EtaAssistantScreenContext`, `AgentUiHandoffPayload`, `.apply`, `assertequals`, `CharacterMemoryTools`, `RootAccess`, `.add`, `.build`, `AgentLoop`, `SubagentExecutorTest.kt`, `AgentMessageUi`, `AgentExternalArchivePayload`, `AgentRunCheckpointStoreTest.kt`, `CharacterMemoryRepositoryTest.kt`, `PendingSkillConflictCapabilityParser`?**
+  _High betweenness centrality (0.127) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `AgentModelClient` (e.g. with `AgentTraceFormatter` and `代码边界`) actually correct?**
   _`AgentModelClient` has 2 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 2 inferred relationships involving `AgentAccessibilityService` (e.g. with `ScrollEventObservationGate` and `Handler`) actually correct?**
-  _`AgentAccessibilityService` has 2 INFERRED edges - model-reasoned connections that need verification._
-- **What connects `skills`, `APPLIED`, `UNAVAILABLE` to the rest of the system?**
-  _727 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `TerminalEnvironment` be split into smaller, more focused modules?**
-  _Cohesion score 0.06912280701754386 - nodes in this community are weakly interconnected._
+- **What connects `APPLIED`, `UNAVAILABLE`, `REJECTED` to the rest of the system?**
+  _534 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `DetachedTaskSupervisor` be split into smaller, more focused modules?**
+  _Cohesion score 0.10087082728592163 - nodes in this community are weakly interconnected._
+- **Why does `AgentLogger` connect `AgentLogger` to `DetachedTaskSupervisor`, `AgentLocalTools`, `RootlessDeviceToolsTest`, `RootShellTerminalControllerCancellationTest`, `TerminalEnvironment`, `uniqueBreenoInstanceMethod`, `AgentStructuredDeviceTools`, `UserTerminalController`, `NoOpLogger`, `BackgroundTerminalJobs`, `AgentLocalTools.kt`, `BreenoHooks.kt`, `AgentRuntimeAttachDelivery`, `WebHttpTransportTest.kt`, `assertequals`, `AgentRuntimeClient`, `AgentLocalSkillInstallIntegrationTest`, `BackgroundTerminalJobsTest`, `RootAccess`, `VerifiedArtifact`, `ConsoleSessionController`, `DexKitNativeLibraryFileTest`, `AgentFileReferenceGateway.kt`, `DetachedTaskSupervisorTest`, `AgentFileReferenceGateway`, `AgentLocalToolsPermissionTest`, `AgentLocalSkillResourceToolTest.kt`, `AgentLocalSkillInstallAuthorizationTest`, `DexKitTargetCache`, `RootShellDeviceController`, `AccessibilityPlatformCompatibilityTest`, `.execute`, `RootlessTerminalAccessTest`, `ModuleConfig`?**
+  _High betweenness centrality (0.052) - this node is a cross-community bridge._
+- **Are the 11 inferred relationships involving `AgentRunController` (e.g. with `.cancelClearsSteeringAndCancelsEachResourceOnce()` and `.cancellationWakesLongRetryWait()`) actually correct?**
+  _`AgentRunController` has 11 INFERRED edges - model-reasoned connections that need verification._
+- **Should `AgentAppShell.kt` be split into smaller, more focused modules?**
+  _Cohesion score 0.050351721584598295 - nodes in this community are weakly interconnected._
