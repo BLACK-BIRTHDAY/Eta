@@ -251,6 +251,58 @@ class OpenAiResponsesProviderTest {
     }
 
     @Test
+    fun configuredMaxOutputTokensSetsMaxOutputTokensInRequest() {
+        val messages = JSONArray().put(JSONObject().put("role", "user").put("content", "hi"))
+        val tools = JSONArray()
+
+        // 1. Configured maxOutputTokens sets max_output_tokens
+        val req1 = OpenAiResponsesProvider.buildRequestJson(
+            config = config("https://example.com/v1").copy(maxOutputTokens = 4096),
+            messages = messages,
+            tools = tools,
+        )
+        assertEquals(4096, req1.getInt("max_output_tokens"))
+
+        // 2. Null maxOutputTokens omits max_output_tokens
+        val req2 = OpenAiResponsesProvider.buildRequestJson(
+            config = config("https://example.com/v1").copy(maxOutputTokens = null),
+            messages = messages,
+            tools = tools,
+        )
+        assertFalse(req2.has("max_output_tokens"))
+
+        // 3. Non-positive maxOutputTokens omits max_output_tokens
+        val req3 = OpenAiResponsesProvider.buildRequestJson(
+            config = config("https://example.com/v1").copy(maxOutputTokens = 0),
+            messages = messages,
+            tools = tools,
+        )
+        assertFalse(req3.has("max_output_tokens"))
+
+        // 4. Custom body overrides configured maxOutputTokens
+        val req4 = OpenAiResponsesProvider.buildRequestJson(
+            config = config("https://example.com/v1").copy(
+                maxOutputTokens = 4096,
+                customBody = listOf(CustomBody("max_output_tokens", JsonPrimitive(8192))),
+            ),
+            messages = messages,
+            tools = tools,
+        )
+        assertEquals(8192, req4.getInt("max_output_tokens"))
+
+        // 5. Extra body overrides configured maxOutputTokens
+        val req5 = OpenAiResponsesProvider.buildRequestJson(
+            config = config("https://example.com/v1").copy(
+                maxOutputTokens = 4096,
+                extraBodyJson = """{"max_output_tokens":16384}""",
+            ),
+            messages = messages,
+            tools = tools,
+        )
+        assertEquals(16384, req5.getInt("max_output_tokens"))
+    }
+
+    @Test
     fun requestUsesMergedInstructionsAndTypedDurableHistoryMessages() {
         val messages = JSONArray()
             .put(JSONObject().put("role", "system").put("content", "基础约束"))

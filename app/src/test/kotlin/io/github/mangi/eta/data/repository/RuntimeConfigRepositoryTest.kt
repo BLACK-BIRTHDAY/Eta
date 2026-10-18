@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class RuntimeConfigRepositoryTest {
@@ -31,6 +32,7 @@ class RuntimeConfigRepositoryTest {
             displayName = "GPT-5.5",
             contextWindow = 1_000_000,
             contextWindowOverride = 256_000,
+            maxOutputTokens = 16_000,
             reasoning = true,
             reasoningOverride = true,
             reasoningCapabilitiesOverride = ModelReasoningCapabilities(
@@ -47,6 +49,7 @@ class RuntimeConfigRepositoryTest {
         assertEquals(ProviderTypes.OPENAI_COMPATIBLE, root.getValue("providerType").jsonPrimitive.content)
         assertEquals("gpt-5.5", root.getValue("model").jsonPrimitive.content)
         assertEquals(256_000, config.contextWindow)
+        assertEquals(16_000, config.maxOutputTokens)
         assertEquals(listOf("x-provider", "x-model"), config.customHeaders.map { it.name })
         assertEquals(ReasoningEffort.DEFAULT, config.reasoningEffort)
         assertEquals(true, config.thinkingEnabled)
@@ -62,5 +65,33 @@ class RuntimeConfigRepositoryTest {
         assertEquals(config.copy(autoCompactionEnabled = false), Json.decodeFromString<AgentModelClient.ModelConfig>(raw))
         assertEquals(config.autoCompactionEnabled,
             Json.decodeFromString<AgentModelClient.ModelConfig>(RuntimeConfigRepository.runtimeConfigJson(config)).autoCompactionEnabled)
+    }
+
+    @Test
+    fun handlesNullAndZeroMaxOutputTokens() {
+        val provider = OpenAiCompatibleProviderSetting(
+            id = "p1",
+            name = "Provider",
+            baseUrl = "https://api.example.com/v1",
+            apiKey = "key",
+            sourceType = ProviderSourceTypes.OPENAI,
+        )
+        val modelZero = Model(
+            id = "m1",
+            modelId = "gpt-5.5",
+            displayName = "GPT-5.5",
+            maxOutputTokens = 0,
+        )
+        val configZero = RuntimeConfigRepository.buildRuntimeConfig(provider, modelZero)
+        assertNull(configZero.maxOutputTokens)
+
+        val modelNull = Model(
+            id = "m2",
+            modelId = "gpt-5.5",
+            displayName = "GPT-5.5",
+            maxOutputTokens = null,
+        )
+        val configNull = RuntimeConfigRepository.buildRuntimeConfig(provider, modelNull)
+        assertNull(configNull.maxOutputTokens)
     }
 }

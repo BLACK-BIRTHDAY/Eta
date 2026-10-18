@@ -47,6 +47,31 @@ class AgentRuntimeWireTest {
     }
 
     @Test
+    fun maxOutputTokensAndSubagentMaxOutputTokensSurviveIpcWire() {
+        val config = AgentModelClient.ModelConfig(
+            baseUrl = "https://example.invalid", apiKey = "fixture", model = "fixture", systemPrompt = "",
+            contextWindow = 900_000,
+            maxOutputTokens = 16_000,
+            subagentMaxOutputTokens = 8_000,
+            reasoningEffort = ReasoningEffort.OFF,
+        )
+        val request = AgentRuntimeWire.RunRequest(
+            runId = "max-tokens-wire", prompt = "测试", config = config,
+            images = emptyList(),
+        )
+        val bundle = AgentRuntimeWire.toLegacyBundle(request)
+        assertEquals(request, AgentRuntimeWire.runRequestFromBundle(bundle))
+        assertEquals(16_000, AgentRuntimeWire.runRequestFromBundle(bundle).config.maxOutputTokens)
+        assertEquals(8_000, AgentRuntimeWire.runRequestFromBundle(bundle).config.subagentMaxOutputTokens)
+
+        bundle.remove("max_output_tokens")
+        bundle.remove("subagent_max_output_tokens")
+        val fallback = AgentRuntimeWire.runRequestFromBundle(bundle)
+        assertNull(fallback.config.maxOutputTokens)
+        assertNull(fallback.config.subagentMaxOutputTokens)
+    }
+
+    @Test
     fun compactionUsageIsOptionalAndOldMeasuredFieldsRemainReadable() {
         for (event in listOf(
             AgentEvent.ContextCompaction("manual", "started"),

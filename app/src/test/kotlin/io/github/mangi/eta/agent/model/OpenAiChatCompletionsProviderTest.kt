@@ -2,6 +2,7 @@ package io.github.mangi.eta.agent.model
 
 import com.sun.net.httpserver.HttpServer
 import io.github.mangi.eta.agent.runtime.AgentRunController
+import io.github.mangi.eta.data.model.CustomBody
 import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.util.concurrent.CountDownLatch
@@ -9,9 +10,11 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.serialization.json.JsonPrimitive
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -470,6 +473,81 @@ class OpenAiChatCompletionsProviderTest {
             val thinking = JSONObject(requestBody.get()).getJSONObject("thinking")
             assertEquals("enabled", thinking.getString("type"))
             assertEquals("all", thinking.getString("keep"))
+        }
+    }
+
+    @Test
+    fun configuredMaxOutputTokensSetsMaxTokensInRequest() {
+        val requestBody = AtomicReference<String>()
+        val body = buildString {
+            append(sseChunk(JSONObject().put("content", "ok"), finishReason = "stop"))
+            append("data: [DONE]\n\n")
+        }
+
+        // 1. Configured maxOutputTokens sets max_tokens
+        withSseServer(body, onRequest = { requestBody.set(it) }) { baseUrl ->
+            OpenAiChatCompletionsProvider.complete(
+                request = providerRequest(baseUrl) {
+                    it.copy(maxOutputTokens = 4096)
+                },
+                runController = AgentRunController(),
+            )
+            val request = JSONObject(requestBody.get())
+            assertEquals(4096, request.getInt("max_tokens"))
+        }
+
+        // 2. Null maxOutputTokens omits max_tokens
+        withSseServer(body, onRequest = { requestBody.set(it) }) { baseUrl ->
+            OpenAiChatCompletionsProvider.complete(
+                request = providerRequest(baseUrl) {
+                    it.copy(maxOutputTokens = null)
+                },
+                runController = AgentRunController(),
+            )
+            val request = JSONObject(requestBody.get())
+            assertFalse(request.has("max_tokens"))
+        }
+
+        // 3. Non-positive maxOutputTokens omits max_tokens
+        withSseServer(body, onRequest = { requestBody.set(it) }) { baseUrl ->
+            OpenAiChatCompletionsProvider.complete(
+                request = providerRequest(baseUrl) {
+                    it.copy(maxOutputTokens = 0)
+                },
+                runController = AgentRunController(),
+            )
+            val request = JSONObject(requestBody.get())
+            assertFalse(request.has("max_tokens"))
+        }
+
+        // 4. Custom body overrides configured maxOutputTokens
+        withSseServer(body, onRequest = { requestBody.set(it) }) { baseUrl ->
+            OpenAiChatCompletionsProvider.complete(
+                request = providerRequest(baseUrl) {
+                    it.copy(
+                        maxOutputTokens = 4096,
+                        customBody = listOf(CustomBody("max_tokens", JsonPrimitive(8192))),
+                    )
+                },
+                runController = AgentRunController(),
+            )
+            val request = JSONObject(requestBody.get())
+            assertEquals(8192, request.getInt("max_tokens"))
+        }
+
+        // 5. Extra body overrides configured maxOutputTokens
+        withSseServer(body, onRequest = { requestBody.set(it) }) { baseUrl ->
+            OpenAiChatCompletionsProvider.complete(
+                request = providerRequest(baseUrl) {
+                    it.copy(
+                        maxOutputTokens = 4096,
+                        extraBodyJson = """{"max_tokens":16384}""",
+                    )
+                },
+                runController = AgentRunController(),
+            )
+            val request = JSONObject(requestBody.get())
+            assertEquals(16384, request.getInt("max_tokens"))
         }
     }
 

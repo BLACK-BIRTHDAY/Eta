@@ -119,6 +119,7 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
                 if (sourceType != ProviderSourceTypes.OPENROUTER) {
                     request.put("stream_options", JSONObject().put("include_usage", true))
                 }
+                config.maxOutputTokens?.takeIf { it > 0 }?.let { request.put("max_tokens", it) }
                 mergeExtraBody(request, config.extraBodyJson)
                 RequestBodyMerge.mergeCustomBody(request, config.customBody)
                 ProviderReasoning.applyOpenAiCompatibleRequest(request, config)

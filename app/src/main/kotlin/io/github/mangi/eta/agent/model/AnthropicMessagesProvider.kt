@@ -126,9 +126,10 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
             }
         }
 
+        val configuredMaxTokens = config.maxOutputTokens?.takeIf { it > 0 }
         return JSONObject()
             .put("model", config.model)
-            .put("max_tokens", defaultMaxTokens(config.model))
+            .put("max_tokens", configuredMaxTokens ?: defaultMaxTokens(config.model))
             .put("stream", true)
             .put("messages", anthropicMessages)
             .also { request ->
@@ -143,7 +144,7 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
                 markConversationBreakpoint(anthropicMessages)
                 RequestBodyMerge.mergeCustomBody(request, config.customBody)
                 val explicitMaxTokens = request.opt("max_tokens")
-                    .takeIf { config.customBody.any { body -> body.key == "max_tokens" } }
+                    .takeIf { configuredMaxTokens != null || config.customBody.any { body -> body.key == "max_tokens" } }
                 ProviderReasoning.applyAnthropicRequest(request, config)
                 if (explicitMaxTokens != null) request.put("max_tokens", explicitMaxTokens)
             }

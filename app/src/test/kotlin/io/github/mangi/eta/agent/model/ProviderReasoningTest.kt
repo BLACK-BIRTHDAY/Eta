@@ -261,6 +261,42 @@ class ProviderReasoningTest {
     }
 
     @Test
+    fun qwenBudgetReservesAnswerTokensBelowMaxTokensWhenMaxCompletionTokensAbsent() {
+        val request = JSONObject().put("max_tokens", 20_000)
+
+        ProviderReasoning.applyOpenAiCompatibleRequest(
+            request,
+            config(
+                source = ProviderSourceTypes.BAILIAN,
+                model = "qwen3.7-plus",
+                effort = ReasoningEffort.HIGH,
+            ),
+        )
+
+        assertTrue(request.getBoolean("enable_thinking"))
+        assertEquals(17_500, request.getInt("thinking_budget"))
+    }
+
+    @Test
+    fun qwenBudgetPrefersMaxCompletionTokensOverMaxTokens() {
+        val request = JSONObject()
+            .put("max_completion_tokens", 10_000)
+            .put("max_tokens", 20_000)
+
+        ProviderReasoning.applyOpenAiCompatibleRequest(
+            request,
+            config(
+                source = ProviderSourceTypes.BAILIAN,
+                model = "qwen3.7-plus",
+                effort = ReasoningEffort.HIGH,
+            ),
+        )
+
+        assertTrue(request.getBoolean("enable_thinking"))
+        assertEquals(7_952, request.getInt("thinking_budget"))
+    }
+
+    @Test
     fun qwen38NamedEffortClearsIncompatibleBudgetOverride() {
         val request = JSONObject().put("thinking_budget", 8192)
         ProviderReasoning.applyOpenAiCompatibleRequest(

@@ -335,6 +335,7 @@ internal object AgentModelClient {
         val model: String,
         val modelDisplayName: String = "",
         val contextWindow: Int? = null,
+        val maxOutputTokens: Int? = null,
         val systemPrompt: String,
         val anthropicVersion: String = AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION,
         val openAiEndpointMode: String = OpenAiEndpointMode.CHAT_COMPLETIONS,
@@ -355,6 +356,7 @@ internal object AgentModelClient {
         val subagentEnabled: Boolean = true,
         val subagentReasoningEffort: ReasoningEffort = ReasoningEffort.DEFAULT,
         val subagentContextWindow: Int? = null,
+        val subagentMaxOutputTokens: Int? = null,
         val subagentConfigJson: String = "",
     ) {
         fun toSubagentConfig(): ModelConfig {
@@ -375,6 +377,7 @@ internal object AgentModelClient {
                         thinkingEnabled = subagentReasoningEffort.enablesReasoning,
                         reasoningEffort = subagentReasoningEffort,
                         contextWindow = subagentContextWindow ?: decoded.contextWindow ?: contextWindow,
+                        maxOutputTokens = subagentMaxOutputTokens ?: decoded.maxOutputTokens,
                     )
                 }
             }
@@ -382,6 +385,7 @@ internal object AgentModelClient {
                 model = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
                 modelDisplayName = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
                 contextWindow = subagentContextWindow ?: contextWindow,
+                maxOutputTokens = subagentMaxOutputTokens,
                 subagentEnabled = false,
                 subagentConfigJson = "",
                 thinkingEnabled = subagentReasoningEffort.enablesReasoning,

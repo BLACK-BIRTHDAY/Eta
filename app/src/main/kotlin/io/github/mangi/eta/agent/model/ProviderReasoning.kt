@@ -162,10 +162,12 @@ internal object ProviderReasoning {
     }
 
     private fun clampBudgetToCompletionLimit(request: JSONObject, requestedBudget: Int): Int {
-        if (!request.has("max_completion_tokens") || request.isNull("max_completion_tokens")) {
-            return requestedBudget
+        val limitKey = when {
+            request.has("max_completion_tokens") && !request.isNull("max_completion_tokens") -> "max_completion_tokens"
+            request.has("max_tokens") && !request.isNull("max_tokens") -> "max_tokens"
+            else -> return requestedBudget
         }
-        val completionLimit = request.optInt("max_completion_tokens", requestedBudget)
+        val completionLimit = request.optInt(limitKey, requestedBudget)
         if (completionLimit <= 0) return requestedBudget
         val answerReserve = max(2_048, completionLimit / 8)
         return requestedBudget.coerceAtMost((completionLimit - answerReserve).coerceAtLeast(1))

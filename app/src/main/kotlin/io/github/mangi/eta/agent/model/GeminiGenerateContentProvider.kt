@@ -112,10 +112,10 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         }
     }
 
-    private fun buildRequestJson(
+    internal fun buildRequestJson(
         config: AgentModelClient.ModelConfig,
-        messages: JSONArray,
-        tools: JSONArray,
+        messages: JSONArray = JSONArray(),
+        tools: JSONArray = JSONArray(),
         fallbackSignature: String? = null,
     ): JSONObject {
         val contents = JSONArray()
@@ -304,6 +304,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                         JSONObject().put("functionCallingConfig", JSONObject().put("mode", "AUTO"))
                     )
                 }
+                config.maxOutputTokens?.takeIf { it > 0 }?.let { generationConfig.put("maxOutputTokens", it) }
                 root.put("generationConfig", generationConfig)
                 RequestBodyMerge.mergeCustomBody(root, config.customBody)
             }

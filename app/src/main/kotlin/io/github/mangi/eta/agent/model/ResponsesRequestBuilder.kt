@@ -14,6 +14,7 @@ internal object ResponsesRequestBuilder {
         val instructions = OpenAiRequestMessages.responsesInstructions(messages)
             .ifBlank { config.systemPrompt }
         val request = JSONObject()
+        config.maxOutputTokens?.takeIf { it > 0 }?.let { request.put("max_output_tokens", it) }
         mergeExtraBody(request, config.extraBodyJson)
         RequestBodyMerge.mergeCustomBody(request, config.customBody)
 

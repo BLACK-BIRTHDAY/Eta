@@ -48,6 +48,41 @@ class AnthropicMessagesProviderTest {
     }
 
     @Test
+    fun configuredMaxOutputTokensSetsMaxTokensAndCustomBodyOverrides() {
+        val body = event("message_stop", JSONObject())
+        data class TestCase(
+            val model: String,
+            val maxOutputTokens: Int?,
+            val customBody: List<CustomBody>,
+            val effort: ReasoningEffort,
+            val expectedMaxTokens: Int,
+        )
+        val cases = listOf(
+            TestCase("claude-sonnet-5", 8192, emptyList(), ReasoningEffort.XHIGH, 8192),
+            TestCase("claude-sonnet-5", null, emptyList(), ReasoningEffort.XHIGH, 65536),
+            TestCase("claude-sonnet-5", null, emptyList(), ReasoningEffort.DEFAULT, 4096),
+            TestCase("claude-sonnet-5", 8192, listOf(CustomBody("max_tokens", JsonPrimitive(12000))), ReasoningEffort.DEFAULT, 12000),
+            TestCase("claude-sonnet-5", 0, emptyList(), ReasoningEffort.DEFAULT, 4096),
+        )
+        cases.forEach { (model, maxOutputTokens, customBody, effort, expectedMaxTokens) ->
+            val requestBody = AtomicReference<String>()
+            withAnthropicServer(body, onRequest = requestBody::set) { baseUrl ->
+                val fixture = providerRequest(baseUrl)
+                AnthropicMessagesProvider.complete(
+                    fixture.copy(config = fixture.config.copy(
+                        model = model,
+                        maxOutputTokens = maxOutputTokens,
+                        customBody = customBody,
+                        reasoningEffort = effort,
+                    )),
+                    AgentRunController(),
+                )
+            }
+            assertEquals(expectedMaxTokens, JSONObject(requestBody.get()).getInt("max_tokens"))
+        }
+    }
+
+    @Test
     fun toolResultRequestReplaysOrderedThinkingAndRedactedBlocksWithoutPersistingThem() {
         val firstResponse = buildString {
             append(blockStart(0, JSONObject().put("type", "thinking").put("thinking", "先判断")))

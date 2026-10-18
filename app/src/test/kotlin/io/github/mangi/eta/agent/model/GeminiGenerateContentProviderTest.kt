@@ -2,9 +2,12 @@ package io.github.mangi.eta.agent.model
 
 import com.sun.net.httpserver.HttpServer
 import io.github.mangi.eta.agent.runtime.AgentRunController
+import io.github.mangi.eta.data.model.CustomBody
 import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.util.concurrent.Executors
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
@@ -222,6 +225,48 @@ class GeminiGenerateContentProviderTest {
         assertEquals("skills_read_resource", fnPart.getJSONObject("functionCall").getString("name"))
         // 关键：无缝继承前序轮次的有效签名，杜绝 400
         assertEquals(sessionSig, fnPart.getString("thoughtSignature"))
+    }
+
+    @Test
+    fun configuredMaxOutputTokensSetsGenerationConfigMaxOutputTokens() {
+        val baseConfig = AgentModelClient.ModelConfig(
+            providerSourceType = "gemini",
+            baseUrl = "https://generativelanguage.googleapis.com",
+            apiKey = "test-key",
+            model = "gemini-3.8-flash-tiered",
+            systemPrompt = "",
+        )
+
+        // 1. Configured maxOutputTokens sets maxOutputTokens in generationConfig
+        val req1 = GeminiGenerateContentProvider.buildRequestJson(
+            config = baseConfig.copy(maxOutputTokens = 4096),
+        )
+        val genConfig1 = req1.getJSONObject("generationConfig")
+        assertEquals(4096, genConfig1.getInt("maxOutputTokens"))
+
+        // 2. Null maxOutputTokens omits maxOutputTokens
+        val req2 = GeminiGenerateContentProvider.buildRequestJson(
+            config = baseConfig.copy(maxOutputTokens = null),
+        )
+        val genConfig2 = req2.getJSONObject("generationConfig")
+        assertFalse(genConfig2.has("maxOutputTokens"))
+
+        // 3. Non-positive maxOutputTokens omits maxOutputTokens
+        val req3 = GeminiGenerateContentProvider.buildRequestJson(
+            config = baseConfig.copy(maxOutputTokens = 0),
+        )
+        val genConfig3 = req3.getJSONObject("generationConfig")
+        assertFalse(genConfig3.has("maxOutputTokens"))
+
+        // 4. Custom body overrides configured maxOutputTokens
+        val req4 = GeminiGenerateContentProvider.buildRequestJson(
+            config = baseConfig.copy(
+                maxOutputTokens = 4096,
+                customBody = listOf(CustomBody("generationConfig", JsonObject(mapOf("maxOutputTokens" to JsonPrimitive(8192))))),
+            ),
+        )
+        val genConfig4 = req4.getJSONObject("generationConfig")
+        assertEquals(8192, genConfig4.getInt("maxOutputTokens"))
     }
 
     private fun geminiSseChunk(candidate0: JSONObject, finishReason: String? = null): String {

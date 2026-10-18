@@ -441,8 +441,9 @@ class SubagentExecutorTest {
             subagentModel = "custom-worker-model",
             subagentReasoningEffort = ReasoningEffort.HIGH,
             subagentContextWindow = 64_000,
+            subagentMaxOutputTokens = 8_192,
             subagentConfigJson = "",
-        )
+        ).copy(maxOutputTokens = 4_096)
         val worker1 = base.toSubagentConfig()
         assertEquals("custom-worker-model", worker1.model)
         assertEquals("custom-worker-model", worker1.modelDisplayName)
@@ -451,6 +452,7 @@ class SubagentExecutorTest {
         assertTrue(worker1.thinkingEnabled)
         assertEquals(ReasoningEffort.HIGH, worker1.reasoningEffort)
         assertEquals(64_000, worker1.contextWindow)
+        assertEquals(8_192, worker1.maxOutputTokens)
 
         // Case 2: subagentReasoningEffort is OFF
         val worker2 = base.copy(subagentReasoningEffort = ReasoningEffort.OFF).toSubagentConfig()
@@ -467,6 +469,7 @@ class SubagentExecutorTest {
             model = "claude-3-7-sonnet",
             modelDisplayName = "Claude 3.7 Sonnet",
             contextWindow = 200_000,
+            maxOutputTokens = 16_000,
             systemPrompt = "sub-prompt",
             terminalTools = false,
             browserTools = false,
@@ -481,6 +484,7 @@ class SubagentExecutorTest {
             subagentConfigJson = jsonStr,
             subagentReasoningEffort = ReasoningEffort.LOW,
             subagentContextWindow = 128_000,
+            subagentMaxOutputTokens = 32_000,
             terminalTools = true,
             browserTools = true,
             deviceDirectTools = true,
@@ -508,6 +512,11 @@ class SubagentExecutorTest {
         assertTrue(worker3.thinkingEnabled)
         assertEquals(ReasoningEffort.LOW, worker3.reasoningEffort)
         assertEquals(128_000, worker3.contextWindow)
+        assertEquals(32_000, worker3.maxOutputTokens)
+
+        // Case 4: subagentConfigJson provided, subagentMaxOutputTokens is null -> falls back to decoded.maxOutputTokens
+        val worker4 = parentWithJson.copy(subagentMaxOutputTokens = null).toSubagentConfig()
+        assertEquals(16_000, worker4.maxOutputTokens)
     }
 
     @Test
@@ -518,8 +527,9 @@ class SubagentExecutorTest {
             subagentEnabled = false,
             subagentReasoningEffort = ReasoningEffort.XHIGH,
             subagentContextWindow = 32_000,
+            subagentMaxOutputTokens = 8_000,
             subagentConfigJson = """{"custom":"subagent"}""",
-        )
+        ).copy(maxOutputTokens = 16_000)
 
         val request = AgentRuntimeWire.RunRequest(
             runId = "subagent-wire-test",
@@ -535,9 +545,13 @@ class SubagentExecutorTest {
         assertEquals(false, deserialized.config.subagentEnabled)
         assertEquals(ReasoningEffort.XHIGH, deserialized.config.subagentReasoningEffort)
         assertEquals(32_000, deserialized.config.subagentContextWindow)
+        assertEquals(16_000, deserialized.config.maxOutputTokens)
+        assertEquals(8_000, deserialized.config.subagentMaxOutputTokens)
         assertEquals("""{"custom":"subagent"}""", deserialized.config.subagentConfigJson)
 
         // 2. Default fallback when keys are absent
+        bundle.remove("max_output_tokens")
+        bundle.remove("subagent_max_output_tokens")
         bundle.remove("subagent_model")
         bundle.remove("subagent_enabled")
         bundle.remove("subagent_reasoning_effort")
@@ -547,6 +561,8 @@ class SubagentExecutorTest {
         assertEquals(AgentModelClient.DEFAULT_SUBAGENT_MODEL, fallbackDeserialized.config.subagentModel)
         assertEquals(true, fallbackDeserialized.config.subagentEnabled)
         assertEquals(ReasoningEffort.DEFAULT, fallbackDeserialized.config.subagentReasoningEffort)
+        assertNull(fallbackDeserialized.config.maxOutputTokens)
+        assertNull(fallbackDeserialized.config.subagentMaxOutputTokens)
         assertNull(fallbackDeserialized.config.subagentContextWindow)
         assertEquals("", fallbackDeserialized.config.subagentConfigJson)
     }
@@ -783,6 +799,7 @@ class SubagentExecutorTest {
         subagentEnabled: Boolean = true,
         subagentReasoningEffort: ReasoningEffort = ReasoningEffort.DEFAULT,
         subagentContextWindow: Int? = null,
+        subagentMaxOutputTokens: Int? = null,
         subagentConfigJson: String = "",
     ): AgentModelClient.ModelConfig =
         AgentModelClient.ModelConfig(
@@ -796,6 +813,7 @@ class SubagentExecutorTest {
             subagentEnabled = subagentEnabled,
             subagentReasoningEffort = subagentReasoningEffort,
             subagentContextWindow = subagentContextWindow,
+            subagentMaxOutputTokens = subagentMaxOutputTokens,
             subagentConfigJson = subagentConfigJson,
         )
 
