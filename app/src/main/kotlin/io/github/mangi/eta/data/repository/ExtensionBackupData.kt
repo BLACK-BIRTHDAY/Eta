@@ -53,6 +53,8 @@ internal data class SkillBackupFile(
 )
 
 internal object McpBackupTransfer {
+    private val ENV_VAR_KEY_REGEX = Regex("[A-Za-z_][A-Za-z0-9_]*")
+
     suspend fun snapshot(context: Context): List<McpBackupServer> {
         val secretStore = McpSecretStore(context)
         val servers = EtaDatabase.get(context).mcpServerDao().servers()
@@ -111,7 +113,7 @@ internal object McpBackupTransfer {
                 }
                 require('\u0000' !in server.cwd) { "备份中的 MCP STDIO 工作目录包含非法空字符" }
             }
-            require(backup.envVars.keys.all { it.matches(Regex("[A-Za-z_][A-Za-z0-9_]*")) }) {
+            require(backup.envVars.keys.all { it.matches(ENV_VAR_KEY_REGEX) }) {
                 "备份中的 MCP 环境变量名不合法"
             }
             require(runCatching { JSONArray(server.toolsJson) }.isSuccess) { "备份中的 MCP 工具列表格式无效" }
@@ -186,8 +188,8 @@ internal class StagedSkillSwap(
 
     fun commit() {
         committed = true
-        deleteDirectoryRecursively(backupDir)
-        deleteDirectoryRecursively(stagingDir)
+        runCatching { deleteDirectoryRecursively(backupDir) }
+        runCatching { deleteDirectoryRecursively(stagingDir) }
         SkillRuntime.createIndexService(context).listSkillsForManagement(forceRefresh = true)
     }
 
@@ -204,15 +206,15 @@ internal class StagedSkillSwap(
         } catch (restoreFailure: Throwable) {
             failure.addSuppressed(restoreFailure)
         } finally {
-            deleteDirectoryRecursively(backupDir)
-            deleteDirectoryRecursively(stagingDir)
+            runCatching { deleteDirectoryRecursively(backupDir) }
+            runCatching { deleteDirectoryRecursively(stagingDir) }
         }
     }
 
     override fun close() {
         if (!committed) {
-            deleteDirectoryRecursively(stagingDir)
-            deleteDirectoryRecursively(backupDir)
+            runCatching { deleteDirectoryRecursively(stagingDir) }
+            runCatching { deleteDirectoryRecursively(backupDir) }
         }
     }
 }
@@ -371,6 +373,7 @@ internal object SkillBackupTransfer {
         if (!stagingDir.mkdirs()) {
             throw IOException("无法创建 Skill 恢复暂存目录")
         }
+        var skillsRootMutated = false
         try {
             for (pkg in data.packages) {
                 val pkgDir = File(stagingDir, pkg.skillId)
@@ -396,17 +399,30 @@ internal object SkillBackupTransfer {
                     }
                     copyDirectoryRecursively(skillsRoot, backupDir)
                     deleteDirectoryRecursively(skillsRoot)
+                    skillsRootMutated = true
                 }
                 if (!skillsRoot.exists() && !skillsRoot.mkdirs() && !skillsRoot.isDirectory) {
                     throw IOException("无法创建 Skills 目录")
                 }
+                skillsRootMutated = true
                 copyDirectoryRecursively(stagingDir, skillsRoot)
                 SkillRuntime.createIndexService(context).listSkillsForManagement(forceRefresh = true)
             }
             return StagedSkillSwap(context, stagingDir, backupDir, skillsRoot)
         } catch (failure: Throwable) {
-            deleteDirectoryRecursively(stagingDir)
-            deleteDirectoryRecursively(backupDir)
+            if (skillsRootMutated) {
+                runCatching {
+                    SkillRuntime.createIndexService(context).withMutationLock {
+                        deleteDirectoryRecursively(skillsRoot)
+                        if (backupDir.exists()) {
+                            copyDirectoryRecursively(backupDir, skillsRoot)
+                        }
+                        SkillRuntime.createIndexService(context).listSkillsForManagement(forceRefresh = true)
+                    }
+                }.onFailure { failure.addSuppressed(it) }
+            }
+            runCatching { deleteDirectoryRecursively(stagingDir) }
+            runCatching { deleteDirectoryRecursively(backupDir) }
             throw failure
         }
     }

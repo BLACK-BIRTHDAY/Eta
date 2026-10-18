@@ -643,8 +643,40 @@ class EtaBackupRepositoryTest {
             assertFalse("new-skill" in currentRegistryIds)
             assertTrue(File(skillsRoot, "original-skill/SKILL.md").isFile)
             assertFalse(File(skillsRoot, "new-skill/SKILL.md").exists())
+
+            // Verify avatar assets were discarded on rollback
+            val avatarFiles = File(context.filesDir, "roleplay/avatars").listFiles()?.filter { it.isFile }.orEmpty()
+            assertTrue(avatarFiles.isEmpty())
         } finally {
             check(blocker.delete())
         }
+    }
+
+    @Test
+    fun stageAndSwapDirectoriesHandlesRollbackAndRestoresSkillsRoot() = runBlocking {
+        val skillsRoot = SkillRuntime.skillsRoot(context)
+        val originalSkillDir = File(skillsRoot, "live-skill")
+        originalSkillDir.mkdirs()
+        File(originalSkillDir, "SKILL.md").writeText("---\nname: live-skill\ndescription: Live\n---\n# Live")
+
+        val data = SkillBackupData(
+            registry = listOf(SkillRegistryEntity("incoming-skill", true, "user", "installed")),
+            packages = listOf(
+                SkillBackupPackage(
+                    skillId = "incoming-skill",
+                    files = listOf(
+                        SkillBackupFile("SKILL.md", Base64.getEncoder().encodeToString("---\nname: incoming-skill\ndescription: In\n---\n# In".toByteArray())),
+                    ),
+                ),
+            ),
+        )
+        val staged = SkillBackupTransfer.stageAndSwapDirectories(context, data)
+        assertTrue(File(skillsRoot, "incoming-skill/SKILL.md").isFile)
+        assertFalse(File(skillsRoot, "live-skill/SKILL.md").exists())
+
+        staged.rollback(RuntimeException("Simulated failure"))
+
+        assertTrue(File(skillsRoot, "live-skill/SKILL.md").isFile)
+        assertFalse(File(skillsRoot, "incoming-skill/SKILL.md").exists())
     }
 }

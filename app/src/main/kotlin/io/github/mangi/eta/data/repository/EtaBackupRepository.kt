@@ -178,12 +178,13 @@ internal object EtaBackupRepository {
                 }
                 phase = "restore_assets"
                 val avatarPaths = document.roleplay?.let { CharacterBackupTransfer.restoreAssets(appContext, it) }.orEmpty()
-                phase = "stage_skills"
-                val stagedSkillSwap = document.skills?.let {
-                    SkillBackupTransfer.stageAndSwapDirectories(appContext, it)
-                }
+                var stagedSkillSwap: StagedSkillSwap? = null
                 var memoryWriteStarted = false
                 try {
+                    phase = "stage_skills"
+                    stagedSkillSwap = document.skills?.let {
+                        SkillBackupTransfer.stageAndSwapDirectories(appContext, it)
+                    }
                     database.withTransaction {
                         phase = "restore_providers"
                         database.providerDao().replaceAll(document.providers.map {
