@@ -41,6 +41,27 @@ class ProviderComponentsTest {
     }
 
     @Test
+    fun validatesOptionalPositiveMaxOutputTokens() {
+        assertNull(maxOutputTokensInputError(""))
+        assertNull(maxOutputTokensInputError("   "))
+        assertNull(maxOutputTokensInputError("4096"))
+        assertNull(maxOutputTokensInputError(" 65536 "))
+        assertEquals("Max output tokens must be a positive integer", maxOutputTokensInputError("0"))
+        assertEquals("Max output tokens must be a positive integer", maxOutputTokensInputError("999999999999"))
+    }
+
+    @Test
+    fun formatsMaxOutputTokensPresets() {
+        assertEquals("4K", formatMaxOutputTokensPreset(4_096))
+        assertEquals("8K", formatMaxOutputTokensPreset(8_192))
+        assertEquals("16K", formatMaxOutputTokensPreset(16_384))
+        assertEquals("32K", formatMaxOutputTokensPreset(32_768))
+        assertEquals("64K", formatMaxOutputTokensPreset(65_536))
+        assertEquals("500", formatMaxOutputTokensPreset(500))
+        assertEquals(listOf(4_096, 8_192, 16_384, 32_768, 65_536), maxOutputTokensPresets)
+    }
+
+    @Test
     fun knownSourcesMapToDistinctBrandLogos() {
         val expected = mapOf(
             ProviderSourceTypes.OPENAI to R.drawable.provider_logo_openai,

@@ -935,6 +935,10 @@
   <string name="provider_context_window_invalid">请输入正整数</string>
   <string name="provider_context_window_value">约 %1$s tokens</string>
   <string name="provider_context_window_usage">对话接近这个长度时会自动压缩</string>
+  <string name="provider_max_output_tokens_label">最大输出（tokens）</string>
+  <string name="provider_max_output_tokens_default_chip">默认</string>
+  <string name="provider_max_output_tokens_hint">留空使用默认上限，或选择常用大小、手动填写</string>
+  <string name="provider_max_output_tokens_usage">限制单次回复的最大输出长度</string>
   <plurals name="provider_models_added">
     <item quantity="other">已添加 %d 个模型</item>
   </plurals>

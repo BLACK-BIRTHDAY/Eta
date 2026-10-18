@@ -125,6 +125,10 @@ private val editableReasoningEfforts = listOf(
  * 不会越过真实上限。
  */
 internal val contextWindowPresets = listOf(128_000, 200_000, 256_000, 1_000_000)
+internal val maxOutputTokensPresets = listOf(4_096, 8_192, 16_384, 32_768, 65_536)
+
+internal fun formatMaxOutputTokensPreset(tokens: Int): String =
+    if (tokens >= 1024 && tokens % 1024 == 0) "${tokens / 1024}K" else formatCompactTokenCount(tokens)
 
 private val modelDialogBodyMaxHeight = 520.dp
 private val modelDialogChromeHeight = 112.dp
@@ -156,6 +160,19 @@ internal fun contextWindowInputError(
     errorMessage: String = "Context window must be a positive integer",
 ): String? {
     val normalized = value.trim()
+    return if (normalized.toIntOrNull()?.let { it > 0 } == true) {
+        null
+    } else {
+        errorMessage
+    }
+}
+
+internal fun maxOutputTokensInputError(
+    value: String,
+    errorMessage: String = "Max output tokens must be a positive integer",
+): String? {
+    val normalized = value.trim()
+    if (normalized.isEmpty()) return null
     return if (normalized.toIntOrNull()?.let { it > 0 } == true) {
         null
     } else {
@@ -858,6 +875,9 @@ private fun ModelEditDialog(
         // 早先拉取、未写入窗口的模型也带着远端标注，打开编辑时直接预填。
         mutableStateOf((model.contextWindowOverride ?: model.contextWindow)?.toString().orEmpty())
     }
+    var maxOutputTokensText by remember(model.id, isNew) {
+        mutableStateOf(model.maxOutputTokens?.toString().orEmpty())
+    }
     var reasoningOverrideActive by remember(model.id, isNew) {
         mutableStateOf(
             model.reasoningOverride != null || model.reasoningCapabilitiesOverride != null
@@ -875,6 +895,7 @@ private fun ModelEditDialog(
         )
     }
     val contextError = contextWindowInputError(contextWindowOverrideText)
+    val maxOutputError = maxOutputTokensInputError(maxOutputTokensText)
 
     fun resetAutomaticReasoning() {
         reasoningOverrideActive = false
@@ -889,6 +910,9 @@ private fun ModelEditDialog(
         displayName = displayName.trim(),
         modelId = modelId.trim(),
         contextWindowOverride = contextWindowOverrideText.trim()
+            .takeIf(String::isNotEmpty)
+            ?.toInt(),
+        maxOutputTokens = maxOutputTokensText.trim()
             .takeIf(String::isNotEmpty)
             ?.toInt(),
         reasoningOverride = reasoningEnabled.takeIf { reasoningOverrideActive },
@@ -951,7 +975,7 @@ private fun ModelEditDialog(
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Done,
+                        imeAction = ImeAction.Next,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -982,6 +1006,57 @@ private fun ModelEditDialog(
                     },
                     style = MiuixTheme.textStyles.footnote2,
                     color = if (contextError != null && contextWindowOverrideText.isNotBlank()) {
+                        StatusError
+                    } else {
+                        MiuixTheme.colorScheme.onSurfaceVariantSummary
+                    },
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                TextField(
+                    value = maxOutputTokensText,
+                    onValueChange = { value -> maxOutputTokensText = value.filter(Char::isDigit) },
+                    label = stringResource(R.string.provider_max_output_tokens_label),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val maxOutputValue = maxOutputTokensText.toIntOrNull()
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 10.dp),
+                ) {
+                    EtaChoiceChip(
+                        text = stringResource(R.string.provider_max_output_tokens_default_chip),
+                        selected = maxOutputTokensText.isBlank(),
+                        onClick = { maxOutputTokensText = "" },
+                        enabled = !isSaving,
+                    )
+                    maxOutputTokensPresets.forEach { preset ->
+                        EtaChoiceChip(
+                            text = formatMaxOutputTokensPreset(preset),
+                            selected = maxOutputValue == preset,
+                            onClick = { maxOutputTokensText = preset.toString() },
+                            enabled = !isSaving,
+                        )
+                    }
+                }
+                Text(
+                    text = when {
+                        maxOutputTokensText.isBlank() ->
+                            stringResource(R.string.provider_max_output_tokens_hint)
+                        maxOutputError != null ->
+                            stringResource(R.string.provider_context_window_invalid)
+                        maxOutputValue != null && maxOutputValue !in maxOutputTokensPresets ->
+                            stringResource(R.string.provider_context_window_value, formatCompactTokenCount(maxOutputValue))
+                        else -> stringResource(R.string.provider_max_output_tokens_usage)
+                    },
+                    style = MiuixTheme.textStyles.footnote2,
+                    color = if (maxOutputError != null && maxOutputTokensText.isNotBlank()) {
                         StatusError
                     } else {
                         MiuixTheme.colorScheme.onSurfaceVariantSummary
@@ -1114,7 +1189,8 @@ private fun ModelEditDialog(
             confirmEnabled = !isSaving &&
                 displayName.isNotBlank() &&
                 modelId.isNotBlank() &&
-                contextError == null,
+                contextError == null &&
+                maxOutputError == null,
             cancelEnabled = !isSaving,
             onCancel = onDismiss,
             onConfirm = { onSubmit(updated()) },

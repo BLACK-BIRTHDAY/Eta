@@ -923,6 +923,10 @@
   <string name="provider_context_window_invalid">請輸入正整數</string>
   <string name="provider_context_window_value">約 %1$s tokens</string>
   <string name="provider_context_window_usage">對話接近這個長度時會自動壓縮</string>
+  <string name="provider_max_output_tokens_label">最大輸出（tokens）</string>
+  <string name="provider_max_output_tokens_default_chip">預設</string>
+  <string name="provider_max_output_tokens_hint">留空使用預設上限，或選擇常用大小、手動填寫</string>
+  <string name="provider_max_output_tokens_usage">限制單次回覆的最大輸出長度</string>
   <plurals name="provider_models_added">
     <item quantity="other">已新增 %d 個模型</item>
   </plurals>
