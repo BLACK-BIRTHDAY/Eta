@@ -173,6 +173,26 @@ class ProviderRepositoryTest {
     }
 
     @Test
+    fun modelMaxOutputTokensSurvivesRoomRoundTrip() = runBlocking {
+        ProviderRepository.ensureBuiltInsMerged()
+        val provider = ProviderRepository.providerById(BuiltinProviders.OPENAI_ID)!!
+        val updated = (provider as OpenAiCompatibleProviderSetting).copy(
+            models = provider.models.mapIndexed { index, model ->
+                if (index == 0) {
+                    model.copy(maxOutputTokens = 8192)
+                } else {
+                    model
+                }
+            }
+        )
+        ProviderRepository.replaceModels(provider.id, updated.models)
+
+        val restored = ProviderRepository.providerById(BuiltinProviders.OPENAI_ID)!!
+        assertEquals(8192, restored.models.first().maxOutputTokens)
+        assertEquals(8192, restored.models.first().effectiveMaxOutputTokens)
+    }
+
+    @Test
     fun selectedRuntimeConfigUsesUpdatedProviderApiKey() = runBlocking {
         ProviderRepository.ensureBuiltInsMerged()
         val provider = (ProviderRepository.providerById(BuiltinProviders.OPENAI_ID) as OpenAiCompatibleProviderSetting)

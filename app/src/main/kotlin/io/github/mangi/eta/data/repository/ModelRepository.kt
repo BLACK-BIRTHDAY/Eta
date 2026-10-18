@@ -39,6 +39,7 @@ internal object ModelRepository {
         require(draft.contextWindowOverride == null || draft.contextWindowOverride > 0) {
             "上下文长度必须是正整数"
         }
+        require(draft.maxOutputTokens == null || draft.maxOutputTokens > 0) { "最大输出长度必须是正整数" }
         require(
             models.none { existing ->
                 existing.id != draft.id && existing.modelId.trim().equals(modelId, ignoreCase = true)
@@ -144,6 +145,7 @@ internal object ModelRepository {
                                     customBody = stored.customBody,
                                     // 用户填过的窗口优先；空着时用远端标注补上，省去手填。
                                     contextWindowOverride = stored.contextWindowOverride ?: remote.contextWindow,
+                                    maxOutputTokens = stored.maxOutputTokens,
                                     reasoningOverride = stored.reasoningOverride,
                                     reasoningCapabilitiesOverride = stored.reasoningCapabilitiesOverride,
                                     source = stored.source,

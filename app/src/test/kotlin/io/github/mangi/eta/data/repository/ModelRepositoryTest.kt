@@ -78,6 +78,38 @@ class ModelRepositoryTest {
     }
 
     @Test
+    fun saveModelPersistsValidMaxOutputTokensAndRejectsNonPositiveValues() = runBlocking {
+        addEmptyProvider()
+        val draft = Model(
+            id = "",
+            modelId = "custom-model",
+            displayName = "自定义模型",
+            maxOutputTokens = 4096,
+        )
+        val saved = ModelRepository.saveModel(PROVIDER_ID, draft)
+        val restored = ModelRepository.modelsByProvider(PROVIDER_ID).single()
+        assertEquals(4096, restored.maxOutputTokens)
+        assertEquals(4096, restored.effectiveMaxOutputTokens)
+
+        val zeroFailure = runCatching {
+            ModelRepository.saveModel(
+                PROVIDER_ID,
+                draft.copy(id = saved.id, maxOutputTokens = 0),
+            )
+        }
+        val negativeFailure = runCatching {
+            ModelRepository.saveModel(
+                PROVIDER_ID,
+                draft.copy(id = saved.id, maxOutputTokens = -1),
+            )
+        }
+        assertTrue(zeroFailure.isFailure)
+        assertEquals("最大输出长度必须是正整数", zeroFailure.exceptionOrNull()?.message)
+        assertTrue(negativeFailure.isFailure)
+        assertEquals("最大输出长度必须是正整数", negativeFailure.exceptionOrNull()?.message)
+    }
+
+    @Test
     fun newRemoteModelsSkipsModelsAlreadyAddedIgnoringCase() = runBlocking {
         ProviderRepository.addProvider(
             provider(models = listOf(Model(id = "kept", modelId = "Qwen-Max", displayName = "Qwen Max"))),
@@ -107,6 +139,7 @@ class ModelRepositoryTest {
                         displayName = "Manual",
                         contextWindow = 128_000,
                         contextWindowOverride = 256_000,
+                        maxOutputTokens = 8192,
                         reasoning = true,
                         reasoningCapabilities = ModelReasoningCapabilities(
                             supportedEfforts = listOf(ReasoningEffort.HIGH),
@@ -143,6 +176,7 @@ class ModelRepositoryTest {
                     modelId = "manual-model",
                     displayName = "Manual From Remote",
                     contextWindow = 1_000_000,
+                    maxOutputTokens = 16384,
                     toolCall = true,
                     source = ModelSource.REMOTE,
                 ),
@@ -172,6 +206,7 @@ class ModelRepositoryTest {
         assertTrue(restored.getValue("manual-model").supportsTools)
         assertEquals(1_000_000, restored.getValue("manual-model").contextWindow)
         assertEquals(256_000, restored.getValue("manual-model").effectiveContextWindow)
+        assertEquals(8192, restored.getValue("manual-model").maxOutputTokens)
         assertEquals(
             listOf(ReasoningEffort.OFF, ReasoningEffort.DEFAULT, ReasoningEffort.MINIMAL),
             restored.getValue("manual-model").effectiveReasoningCapabilities?.selectableEfforts,

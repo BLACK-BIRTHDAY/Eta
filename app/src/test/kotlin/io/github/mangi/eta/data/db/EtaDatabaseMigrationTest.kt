@@ -56,6 +56,7 @@ class EtaDatabaseMigrationTest {
                 EtaDatabase.MIGRATION_20_21,
                 EtaDatabase.MIGRATION_21_22,
                 EtaDatabase.MIGRATION_22_23,
+                EtaDatabase.MIGRATION_23_24,
             )
             .build()
         try {
@@ -131,6 +132,7 @@ class EtaDatabaseMigrationTest {
             assertEquals("linux", mcpServers.single().stdioEnvironment)
             assertEquals(false, mcpServers.single().hasEnvVars)
             assertEquals(null, provider.models.first().contextWindowOverride)
+            assertEquals(null, provider.models.first().maxOutputTokens)
             assertEquals(null, provider.models.first().reasoningOverride)
             assertEquals(null, provider.models.first().reasoningCapabilitiesOverride)
             assertEquals(

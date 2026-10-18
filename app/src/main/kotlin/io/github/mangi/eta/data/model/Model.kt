@@ -13,6 +13,7 @@ data class Model(
     val sortOrder: Int = 0,
     val contextWindow: Int? = null,
     val contextWindowOverride: Int? = null,
+    val maxOutputTokens: Int? = null,
     val inputModalities: List<String> = listOf(TEXT_MODALITY),
     val outputModalities: List<String> = listOf(TEXT_MODALITY),
     val attachment: Boolean? = null,
@@ -30,6 +31,9 @@ data class Model(
 ) {
     val effectiveContextWindow: Int?
         get() = contextWindowOverride
+
+    val effectiveMaxOutputTokens: Int?
+        get() = maxOutputTokens?.takeIf { it > 0 }
 
     val effectiveReasoning: Boolean?
         get() = reasoningOverride ?: reasoning
