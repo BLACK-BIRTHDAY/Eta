@@ -8,6 +8,14 @@ import io.github.mangi.eta.data.db.ConversationStateEntity
 import io.github.mangi.eta.data.db.EtaDatabase
 import io.github.mangi.eta.data.db.McpServerEntity
 import io.github.mangi.eta.data.db.SkillRegistryEntity
+import io.github.mangi.eta.data.model.AsrProvider
+import io.github.mangi.eta.data.model.CustomWebSearchConfig
+import io.github.mangi.eta.data.model.DeepSeekWebConfig
+import io.github.mangi.eta.data.model.GeminiTtsConfig
+import io.github.mangi.eta.data.model.SpeechSettings
+import io.github.mangi.eta.data.model.TtsProvider
+import io.github.mangi.eta.data.model.WebToolBackend
+import io.github.mangi.eta.data.model.WebToolsSettings
 import io.github.mangi.eta.data.model.McpAuthorizationType
 import io.github.mangi.eta.data.model.McpProtocolMode
 import io.github.mangi.eta.data.model.McpStdioEnvironment
@@ -61,6 +69,8 @@ class EtaBackupRepositoryTest {
         runBlocking {
             SettingsDataStore.setSelection(null, null)
             SettingsDataStore.setOfficialModelCatalogRevision(0)
+            SettingsDataStore.setWebToolsSettings(WebToolsSettings())
+            SettingsDataStore.setSpeechSettings(SpeechSettings())
         }
         ProviderRepository.init(context)
         AgentMemoryRepository.init(context)
@@ -1039,5 +1049,41 @@ class EtaBackupRepositoryTest {
 
         assertTrue(File(skillsRoot, "live-skill/SKILL.md").isFile)
         assertFalse(File(skillsRoot, "incoming-skill/SKILL.md").exists())
+    }
+
+    @Test
+    fun exportAndImportRestoresWebToolsAndSpeechSettings() = runBlocking {
+        val customWebTools = WebToolsSettings(
+            searchBackend = WebToolBackend.CUSTOM,
+            fetchBackend = WebToolBackend.DEEPSEEK,
+            deepSeek = DeepSeekWebConfig(baseUrl = "https://custom.deepseek.example.com"),
+            customSearch = CustomWebSearchConfig(url = "https://search.example.com/api"),
+        )
+        val customSpeech = SpeechSettings(
+            asr = AsrProvider.DOUBAO,
+            tts = TtsProvider.GEMINI,
+            autoSpeak = true,
+            chatAutoSpeak = true,
+            geminiTts = GeminiTtsConfig(voice = "Puck"),
+            refineTranscript = true,
+        )
+
+        SettingsDataStore.setWebToolsSettings(customWebTools)
+        SettingsDataStore.setSpeechSettings(customSpeech)
+
+        val output = ByteArrayOutputStream()
+        EtaBackupRepository.export(context, output)
+
+        // Reset settings
+        SettingsDataStore.setWebToolsSettings(WebToolsSettings())
+        SettingsDataStore.setSpeechSettings(SpeechSettings())
+        assertEquals(WebToolsSettings(), SettingsDataStore.webToolsSettings())
+        assertEquals(SpeechSettings(), SettingsDataStore.speechSettings())
+
+        val imported = EtaBackupRepository.import(context, ByteArrayInputStream(output.toByteArray()))
+        assertTrue(imported.providerCount >= 0)
+
+        assertEquals(customWebTools, SettingsDataStore.webToolsSettings())
+        assertEquals(customSpeech, SettingsDataStore.speechSettings())
     }
 }

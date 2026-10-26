@@ -362,17 +362,19 @@ private fun ProviderConfigTab(
                             DropdownItem(text = "Gemini Interactions"),
                         ),
                         selectedIndex = if (draft.endpointMode == GeminiEndpointMode.INTERACTIONS) 1 else 0,
-                        title = "端点协议",
-                        summary = if (draft.endpointMode == GeminiEndpointMode.INTERACTIONS) {
-                            "使用 Google Interactions API (仅支持官方 API Key)"
-                        } else {
-                            "使用 GenerateContent API (支持 Vertex AI / 网关反代 / 官方 API)"
-                        },
+                        title = stringResource(R.string.ui_endpoint_mode_3c8546),
+                        summary = stringResource(
+                            if (draft.endpointMode == GeminiEndpointMode.INTERACTIONS) {
+                                R.string.ui_gemini_endpoint_interactions_summary
+                            } else {
+                                R.string.ui_gemini_endpoint_generate_content_summary
+                            }
+                        ),
                         enabled = !isWorking && !loginState.isBusy,
                         onSelectedIndexChange = { index: Int ->
                             onDraftChange(
                                 draft.copy(
-                                    endpointMode = if (index == 1) GeminiEndpointMode.INTERACTIONS else ""
+                                    endpointMode = if (index == 1) GeminiEndpointMode.INTERACTIONS else GeminiEndpointMode.GENERATE_CONTENT
                                 )
                             )
                         },

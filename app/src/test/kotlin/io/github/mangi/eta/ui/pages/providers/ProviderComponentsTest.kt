@@ -3,6 +3,8 @@ package io.github.mangi.eta.ui.pages.providers
 import androidx.compose.runtime.saveable.SaverScope
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.CustomProviderSetting
+import io.github.mangi.eta.data.model.GeminiEndpointMode
+import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.OpenAiEndpointMode
 import io.github.mangi.eta.data.model.ProviderAuthModes
@@ -11,6 +13,7 @@ import io.github.mangi.eta.data.provider.BuiltinProviders
 import io.github.mangi.eta.data.provider.ProviderConnectionProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProviderComponentsTest {
@@ -63,6 +66,30 @@ class ProviderComponentsTest {
 
         assertEquals(provider.baseUrl, apiDraft.baseUrl)
         assertEquals(ProviderAuthModes.API_KEY, apiDraft.authMode)
+    }
+
+    @Test
+    fun geminiDraftPreservesAndTogglesEndpointMode() {
+        val gemini = GeminiProviderSetting(
+            id = "gemini-test",
+            name = "Google Gemini",
+            baseUrl = GeminiProviderSetting.DEFAULT_BASE_URL,
+            endpointMode = GeminiEndpointMode.GENERATE_CONTENT,
+            hostedWebSearchEnabled = true,
+        )
+        val draft = ProviderConfigDraft.from(gemini)
+        assertEquals(GeminiEndpointMode.GENERATE_CONTENT, draft.endpointMode)
+        assertTrue(draft.hostedWebSearchEnabled)
+
+        val updatedToInteractions = draft.copy(endpointMode = GeminiEndpointMode.INTERACTIONS).toProvider(gemini) as GeminiProviderSetting
+        assertEquals(GeminiEndpointMode.INTERACTIONS, updatedToInteractions.endpointMode)
+        assertTrue(updatedToInteractions.hostedWebSearchEnabled)
+
+        val draftInteractions = ProviderConfigDraft.from(updatedToInteractions)
+        assertEquals(GeminiEndpointMode.INTERACTIONS, draftInteractions.endpointMode)
+
+        val updatedBackToGenerateContent = draftInteractions.copy(endpointMode = GeminiEndpointMode.GENERATE_CONTENT).toProvider(updatedToInteractions) as GeminiProviderSetting
+        assertEquals(GeminiEndpointMode.GENERATE_CONTENT, updatedBackToGenerateContent.endpointMode)
     }
 
     @Test

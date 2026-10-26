@@ -392,6 +392,8 @@
   <string name="ui_support_gemini_official_api">Support Google Gemini 3.x / 2.5 official API &amp; Gemini Enterprise (Vertex AI) Service Account</string>
   <string name="ui_import_vertex_sa_json">Import Service Account JSON (Gemini Enterprise / Vertex AI)</string>
   <string name="ui_import_vertex_sa_json_summary">Select a Google Cloud Service Account JSON key file to auto-fill credentials and endpoint</string>
+  <string name="ui_gemini_endpoint_generate_content_summary">Use GenerateContent API (supports Vertex AI, proxy gateways, and official API)</string>
+  <string name="ui_gemini_endpoint_interactions_summary">Use Google Interactions API (official API key only)</string>
   <string name="ui_added_openai_compatible_6bd471">Add OpenAI-compatible provider</string>
   <string name="ui_add_new_provider_74df54">Add new provider</string>
   <string name="ui_accessibility_enhancement_tools_8fd257">Accessibility enhancement tools</string>
