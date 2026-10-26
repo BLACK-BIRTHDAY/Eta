@@ -266,6 +266,41 @@ class GeminiInteractionsTest {
     }
 
     @Test
+    fun configuredMaxOutputTokensSetsInteractionsGenerationConfigMaxOutputTokens() {
+        val baseConfig = config().copy(
+            model = "gemini-3.8-flash",
+            maxOutputTokens = 4096,
+        )
+
+        // 1. Configured maxOutputTokens sets max_output_tokens in generation_config
+        val req1 = GeminiInteractionsRequest.build(baseConfig, JSONArray(), JSONArray())
+        val gen1 = req1.getJSONObject("generation_config")
+        assertEquals(4096, gen1.getInt("max_output_tokens"))
+
+        // 2. Null maxOutputTokens omits max_output_tokens
+        val req2 = GeminiInteractionsRequest.build(baseConfig.copy(maxOutputTokens = null), JSONArray(), JSONArray())
+        val gen2 = req2.getJSONObject("generation_config")
+        assertFalse(gen2.has("max_output_tokens"))
+
+        // 3. Non-positive maxOutputTokens omits max_output_tokens
+        val req3 = GeminiInteractionsRequest.build(baseConfig.copy(maxOutputTokens = 0), JSONArray(), JSONArray())
+        val gen3 = req3.getJSONObject("generation_config")
+        assertFalse(gen3.has("max_output_tokens"))
+
+        // 4. Custom body overrides configured maxOutputTokens
+        val req4 = GeminiInteractionsRequest.build(
+            baseConfig.copy(
+                maxOutputTokens = 4096,
+                customBody = listOf(CustomBody("generation_config", kotlinx.serialization.json.JsonObject(mapOf("max_output_tokens" to JsonPrimitive(8192))))),
+            ),
+            JSONArray(),
+            JSONArray(),
+        )
+        val gen4 = req4.getJSONObject("generation_config")
+        assertEquals(8192, gen4.getInt("max_output_tokens"))
+    }
+
+    @Test
     fun bodyProtectsConversationAuthFlowAndToolChoiceButKeepsSchema() {
         val cfg = config().copy(hostedWebSearchEnabled = true, supportsSearchSuggestions = true,
             extraBodyJson = """{"store":true,"previous_interaction_id":"forbidden","generation_config":{"thinking_level":"high","max_output_tokens":120}}""",

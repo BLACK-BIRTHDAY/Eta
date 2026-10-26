@@ -71,6 +71,16 @@ internal object ReasoningCapabilityResolver {
             }
 
             ProviderSourceTypes.GEMINI -> GeminiModelCapabilities.reasoningCapabilities(model)
+                ?: when {
+                    model.startsWith("gemini-") && !model.contains("image") && !model.contains("nano-banana") -> capabilities(
+                        supported = lowToMax,
+                        canDisable = true,
+                        supportsBudget = true,
+                        maxBudgetTokens = 65_536,
+                        defaultEffort = ReasoningEffort.DEFAULT,
+                    )
+                    else -> null
+                }
 
             ProviderSourceTypes.ANTHROPIC -> when (model) {
                 "claude-fable-5", "claude-fable-5-1" ->
@@ -91,16 +101,6 @@ internal object ReasoningCapabilityResolver {
                         canDisable = true,
                         defaultEffort = ReasoningEffort.HIGH,
                     )
-                else -> null
-            }
-            ProviderSourceTypes.GEMINI -> when {
-                model.startsWith("gemini-") && !model.contains("image") && !model.contains("nano-banana") -> capabilities(
-                    supported = lowToMax,
-                    canDisable = true,
-                    supportsBudget = true,
-                    maxBudgetTokens = 65_536,
-                    defaultEffort = ReasoningEffort.DEFAULT,
-                )
                 else -> null
             }
 

@@ -3,6 +3,8 @@ package io.github.mangi.eta.agent.model
 import com.sun.net.httpserver.HttpServer
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.data.model.CustomBody
+import io.github.mangi.eta.data.model.GeminiEndpointMode
+import io.github.mangi.eta.data.model.ProviderTypes
 import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.util.concurrent.Executors
@@ -17,6 +19,143 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GeminiGenerateContentProviderTest {
+
+    @Test
+    fun providerClientFactoryDispatchesDualProtocolCorrectly() {
+        val baseConfig = AgentModelClient.ModelConfig(
+            providerType = ProviderTypes.GEMINI,
+            baseUrl = "https://generativelanguage.googleapis.com",
+            apiKey = "test-api-key",
+            model = "gemini-3.8-flash",
+            systemPrompt = "",
+        )
+
+        // 1. Default GENERATE_CONTENT routes to GeminiGenerateContentProvider
+        val clientDefault = ProviderClientFactory.getClient(baseConfig)
+        assertEquals(GeminiGenerateContentProvider, clientDefault)
+
+        // 2. Explicit GENERATE_CONTENT routes to GeminiGenerateContentProvider
+        val clientGenContent = ProviderClientFactory.getClient(
+            baseConfig.copy(geminiEndpointMode = GeminiEndpointMode.GENERATE_CONTENT)
+        )
+        assertEquals(GeminiGenerateContentProvider, clientGenContent)
+
+        // 3. INTERACTIONS mode routes to GeminiInteractionsProvider
+        val clientInteractions = ProviderClientFactory.getClient(
+            baseConfig.copy(geminiEndpointMode = GeminiEndpointMode.INTERACTIONS)
+        )
+        assertEquals(GeminiInteractionsProvider, clientInteractions)
+
+        // 4. INTERACTIONS mode with Service Account JSON forces GeminiGenerateContentProvider
+        val clientSa = ProviderClientFactory.getClient(
+            baseConfig.copy(
+                geminiEndpointMode = GeminiEndpointMode.INTERACTIONS,
+                apiKey = """{"type":"service_account","project_id":"p","private_key":"k","client_email":"e"}""",
+            )
+        )
+        assertEquals(GeminiGenerateContentProvider, clientSa)
+
+        // 5. INTERACTIONS mode with Vertex AI URL forces GeminiGenerateContentProvider
+        val clientVertex = ProviderClientFactory.getClient(
+            baseConfig.copy(
+                geminiEndpointMode = GeminiEndpointMode.INTERACTIONS,
+                baseUrl = "https://us-central1-aiplatform.googleapis.com",
+            )
+        )
+        assertEquals(GeminiGenerateContentProvider, clientVertex)
+    }
+
+    @Test
+    fun streamingParsesGroundingMetadataIntoSearchSuggestionsAndCitations() {
+        val groundingChunk = JSONObject().put(
+            "candidates",
+            JSONArray().put(
+                JSONObject()
+                    .put(
+                        "content",
+                        JSONObject().put(
+                            "parts",
+                            JSONArray().put(
+                                JSONObject().put("text", "Google 是一家跨国科技公司。")
+                            )
+                        )
+                    )
+                    .put(
+                        "groundingMetadata",
+                        JSONObject()
+                            .put("webSearchQueries", JSONArray().put("Google 简介"))
+                            .put(
+                                "searchEntryPoint",
+                                JSONObject().put("renderedContent", "<style>.chip{}</style><div>搜索建议</div>")
+                            )
+                            .put(
+                                "groundingChunks",
+                                JSONArray().put(
+                                    JSONObject().put(
+                                        "web",
+                                        JSONObject()
+                                            .put("uri", "https://www.google.com")
+                                            .put("title", "Google 官网")
+                                    )
+                                )
+                            )
+                            .put(
+                                "groundingSupports",
+                                JSONArray().put(
+                                    JSONObject()
+                                        .put("groundingChunkIndices", JSONArray().put(0))
+                                        .put(
+                                            "segment",
+                                            JSONObject()
+                                                .put("startIndex", 0)
+                                                .put("endIndex", 6)
+                                        )
+                                )
+                            )
+                    )
+                    .put("finishReason", "STOP")
+            )
+        )
+
+        val events = mutableListOf<ProviderEvent>()
+        withSseServer(
+            writeBody = { output ->
+                output.write("data: $groundingChunk\n\n".toByteArray())
+                output.write("data: [DONE]\n\n".toByteArray())
+                output.flush()
+            }
+        ) { baseUrl ->
+            val request = ProviderRequest(
+                config = AgentModelClient.ModelConfig(
+                    providerSourceType = "gemini",
+                    baseUrl = baseUrl,
+                    apiKey = "test-key",
+                    model = "gemini-3.8-flash",
+                    systemPrompt = "",
+                    hostedWebSearchEnabled = true,
+                ),
+                messages = JSONArray().put(JSONObject().put("role", "user").put("content", "介绍 Google")),
+                tools = JSONArray()
+            )
+
+            val response = GeminiGenerateContentProvider.complete(request, AgentRunController(), events::add)
+            val assistant = response.assistantMessage
+
+            // 1. SearchSuggestions event is emitted
+            val suggestions = events.filterIsInstance<ProviderEvent.SearchSuggestions>()
+            assertEquals(1, suggestions.size)
+            assertEquals("<style>.chip{}</style><div>搜索建议</div>", suggestions[0].html)
+
+            // 2. Pending suggestions attached to assistant
+            val pending = GeminiEphemeralState.pendingSuggestions(assistant)
+            assertEquals(1, pending.length())
+            assertEquals("<style>.chip{}</style><div>搜索建议</div>", pending.getString(0))
+
+            // 3. Citations formatted into assistant content
+            val content = assistant.getString("content")
+            assertTrue("content should include citation link: $content", content.contains("[[1]](<https://www.google.com>)"))
+        }
+    }
 
     @Test
     fun streamingCapturesThoughtSignatureAcrossChunksAndAttachesToToolCall() {
@@ -225,6 +364,100 @@ class GeminiGenerateContentProviderTest {
         assertEquals("skills_read_resource", fnPart.getJSONObject("functionCall").getString("name"))
         // 关键：无缝继承前序轮次的有效签名，杜绝 400
         assertEquals(sessionSig, fnPart.getString("thoughtSignature"))
+    }
+
+    @Test
+    fun buildRequestJsonProjectsAndPreservesCombinatorToolSchemas() {
+        val tools = JSONArray("""[
+            {
+                "type": "function",
+                "function": {
+                    "name": "fetch_url",
+                    "description": "Fetch URL content",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "url": { "type": "string" },
+                            "document_id": { "type": "string" },
+                            "offset_chars": { "type": "integer" }
+                        },
+                        "oneOf": [
+                            { "required": ["url"] },
+                            { "required": ["document_id"] }
+                        ]
+                    }
+                }
+            }
+        ]""")
+
+        val baseConfig = AgentModelClient.ModelConfig(
+            providerSourceType = "gemini",
+            baseUrl = "https://generativelanguage.googleapis.com",
+            apiKey = "test-key",
+            model = "gemini-3.8-flash",
+            systemPrompt = "",
+        )
+
+        val request = GeminiGenerateContentProvider.buildRequestJson(
+            config = baseConfig,
+            tools = tools,
+        )
+
+        val toolsArr = request.getJSONArray("tools")
+        val fnDecls = toolsArr.getJSONObject(0).getJSONArray("functionDeclarations")
+        assertEquals(1, fnDecls.length())
+        val params = fnDecls.getJSONObject(0).getJSONObject("parameters")
+        assertTrue("parameters should contain projected oneOf", params.has("oneOf"))
+        val oneOf = params.getJSONArray("oneOf")
+        assertEquals(2, oneOf.length())
+        // GeminiToolSchema.project should have copied "url" property definition into branch 0
+        val branch0 = oneOf.getJSONObject(0)
+        assertTrue(branch0.has("properties"))
+        assertEquals("string", branch0.getJSONObject("properties").getJSONObject("url").getString("type"))
+        assertEquals("url", branch0.getJSONArray("required").getString(0))
+        // And "document_id" into branch 1
+        val branch1 = oneOf.getJSONObject(1)
+        assertTrue(branch1.has("properties"))
+        assertEquals("string", branch1.getJSONObject("properties").getJSONObject("document_id").getString("type"))
+    }
+
+    @Test
+    fun buildRequestJsonIncludesGoogleSearchWhenHostedWebSearchEnabled() {
+        val baseConfig = AgentModelClient.ModelConfig(
+            providerSourceType = "gemini",
+            baseUrl = "https://generativelanguage.googleapis.com",
+            apiKey = "test-key",
+            model = "gemini-3.8-flash",
+            systemPrompt = "",
+            hostedWebSearchEnabled = true,
+        )
+
+        val requestWithoutTools = GeminiGenerateContentProvider.buildRequestJson(
+            config = baseConfig,
+            tools = JSONArray(),
+        )
+        val toolsArr = requestWithoutTools.getJSONArray("tools")
+        assertEquals(1, toolsArr.length())
+        assertTrue(toolsArr.getJSONObject(0).has("google_search"))
+
+        // When function tools are also present, both functionDeclarations and google_search should be in tools
+        val tools = JSONArray("""[
+            {
+                "type": "function",
+                "function": {
+                    "name": "test_tool",
+                    "parameters": { "type": "object" }
+                }
+            }
+        ]""")
+        val requestWithTools = GeminiGenerateContentProvider.buildRequestJson(
+            config = baseConfig,
+            tools = tools,
+        )
+        val toolsArr2 = requestWithTools.getJSONArray("tools")
+        assertEquals(2, toolsArr2.length())
+        assertTrue(toolsArr2.getJSONObject(0).has("functionDeclarations"))
+        assertTrue(toolsArr2.getJSONObject(1).has("google_search"))
     }
 
     @Test

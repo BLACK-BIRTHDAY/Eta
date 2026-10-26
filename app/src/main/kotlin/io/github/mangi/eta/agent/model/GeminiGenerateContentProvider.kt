@@ -2,6 +2,7 @@ package io.github.mangi.eta.agent.model
 
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.runtime.AgentTokenUsage
+import io.github.mangi.eta.agent.runtime.SearchSuggestionsPayload
 import io.github.mangi.eta.data.model.ReasoningEffort
 import java.io.BufferedReader
 import java.io.InputStream
@@ -356,7 +357,14 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                         JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system)))
                     )
                 }
-                convertTools(tools)?.let { root.put("tools", JSONArray().put(it)) }
+                val toolsArray = JSONArray()
+                convertTools(tools)?.let { toolsArray.put(it) }
+                if (config.hostedWebSearchEnabled && !hasGoogleSearchTool(toolsArray)) {
+                    toolsArray.put(JSONObject().put("google_search", JSONObject()))
+                }
+                if (toolsArray.length() > 0) {
+                    root.put("tools", toolsArray)
+                }
                 if (tools.length() > 0) {
                     root.put(
                         "toolConfig",
@@ -565,6 +573,14 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         return JSONObject().put("functionDeclarations", declarations)
     }
 
+    private fun hasGoogleSearchTool(toolsArray: JSONArray): Boolean {
+        for (i in 0 until toolsArray.length()) {
+            val tool = toolsArray.optJSONObject(i) ?: continue
+            if (tool.has("google_search") || tool.has("googleSearch")) return true
+        }
+        return false
+    }
+
     private val ALLOWED_GEMINI_SCHEMA_KEYS = setOf(
         "type",
         "format",
@@ -588,6 +604,8 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         "pattern",
         "example",
         "anyOf",
+        "oneOf",
+        "allOf",
     )
 
     private fun sanitizeGeminiParameters(source: JSONObject): JSONObject {
@@ -615,14 +633,14 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                             if (firstObj != null) result.put("items", clean(firstObj))
                         }
                     }
-                    "anyOf" -> if (value is JSONArray) {
-                        val cleanedAnyOf = JSONArray()
+                    "anyOf", "oneOf", "allOf" -> if (value is JSONArray) {
+                        val cleanedList = JSONArray()
                         for (i in 0 until value.length()) {
                             val itemObj = value.optJSONObject(i)
-                            if (itemObj != null) cleanedAnyOf.put(clean(itemObj))
+                            if (itemObj != null) cleanedList.put(clean(itemObj))
                         }
-                        if (cleanedAnyOf.length() > 0) {
-                            result.put("anyOf", cleanedAnyOf)
+                        if (cleanedList.length() > 0) {
+                            result.put(key, cleanedList)
                         }
                     }
                     else -> result.put(key, value)
@@ -642,6 +660,9 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         val fullText = StringBuilder()
         val fullReasoning = StringBuilder()
         val toolCalls = JSONArray()
+        val seenSuggestions = mutableSetOf<String>()
+        val pendingSuggestions = JSONArray()
+        val accumulatedCitations = mutableListOf<CitationAnnotation>()
         var turnThoughtSignature: String = fallbackSignature.orEmpty()
         var finishReason: String? = null
         var usage: AgentTokenUsage? = null
@@ -714,6 +735,89 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     .ifBlank { candidate.optString("thought_signature") }
                 if (candidateSig.isNotBlank() && candidateSig != "skip_thought_signature_validator") {
                     turnThoughtSignature = candidateSig
+                }
+
+                val groundingMetadata = candidate.optJSONObject("groundingMetadata")
+                    ?: candidate.optJSONObject("grounding_metadata")
+                if (groundingMetadata != null) {
+                    val searchEntryPoint = groundingMetadata.optJSONObject("searchEntryPoint")
+                        ?: groundingMetadata.optJSONObject("search_entry_point")
+                    val renderedContent = searchEntryPoint?.optString("renderedContent")?.ifBlank {
+                        searchEntryPoint.optString("rendered_content")
+                    }.orEmpty()
+                    val webSearchQueries = groundingMetadata.optJSONArray("webSearchQueries")
+                        ?: groundingMetadata.optJSONArray("web_search_queries")
+
+                    if (renderedContent.isNotBlank() && SearchSuggestionsPayload.isValidHtml(renderedContent)) {
+                        if (seenSuggestions.add(renderedContent)) {
+                            onEvent(ProviderEvent.SearchSuggestions(blockIndex, renderedContent))
+                            pendingSuggestions.put(renderedContent)
+                        }
+                    } else if (webSearchQueries != null && webSearchQueries.length() > 0) {
+                        val queries = (0 until webSearchQueries.length()).mapNotNull {
+                            webSearchQueries.optString(it).takeIf(String::isNotBlank)
+                        }
+                        if (queries.isNotEmpty()) {
+                            val html = buildString {
+                                append("<div class=\"search-suggestions\">")
+                                for (q in queries) {
+                                    val encoded = java.net.URLEncoder.encode(q, "UTF-8")
+                                    append("<a href=\"https://www.google.com/search?q=$encoded\">${q.replace("<", "&lt;")}</a>")
+                                }
+                                append("</div>")
+                            }
+                            if (SearchSuggestionsPayload.isValidHtml(html) && seenSuggestions.add(html)) {
+                                onEvent(ProviderEvent.SearchSuggestions(blockIndex, html))
+                                pendingSuggestions.put(html)
+                            }
+                        }
+                    }
+
+                    val groundingChunks = groundingMetadata.optJSONArray("groundingChunks")
+                        ?: groundingMetadata.optJSONArray("grounding_chunks")
+                    val groundingSupports = groundingMetadata.optJSONArray("groundingSupports")
+                        ?: groundingMetadata.optJSONArray("grounding_supports")
+
+                    val chunkList = mutableListOf<Pair<String, String>>()
+                    if (groundingChunks != null) {
+                        for (i in 0 until groundingChunks.length()) {
+                            val chunk = groundingChunks.optJSONObject(i) ?: continue
+                            val web = chunk.optJSONObject("web")
+                            val uri = web?.optString("uri").orEmpty()
+                            val title = web?.optString("title").orEmpty()
+                            chunkList.add(uri to title)
+                        }
+                    }
+
+                    if (groundingSupports != null && groundingSupports.length() > 0) {
+                        for (i in 0 until groundingSupports.length()) {
+                            val support = groundingSupports.optJSONObject(i) ?: continue
+                            val indices = support.optJSONArray("groundingChunkIndices")
+                                ?: support.optJSONArray("grounding_chunk_indices")
+                            val segment = support.optJSONObject("segment")
+                            val start = segment?.optInt("startIndex", -1)?.takeIf { it >= 0 }
+                                ?: segment?.optInt("start_index", -1)?.takeIf { it >= 0 }
+                            val end = segment?.optInt("endIndex", -1)?.takeIf { it >= 0 }
+                                ?: segment?.optInt("end_index", -1)?.takeIf { it >= 0 }
+                            if (indices != null) {
+                                for (j in 0 until indices.length()) {
+                                    val idx = indices.optInt(j, -1)
+                                    if (idx in chunkList.indices) {
+                                        val (uri, title) = chunkList[idx]
+                                        if (uri.isNotBlank()) {
+                                            accumulatedCitations.add(CitationAnnotation(start, end, uri, title))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        for ((uri, title) in chunkList) {
+                            if (uri.isNotBlank()) {
+                                accumulatedCitations.add(CitationAnnotation(start = null, end = null, url = uri, title = title))
+                            }
+                        }
+                    }
                 }
 
                 val contentObj = candidate.optJSONObject("content") ?: continue
@@ -819,6 +923,12 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
 
         closeCurrentBlock()
 
+        val finalContent = if (accumulatedCitations.isNotEmpty()) {
+            CitationFormatter.apply(fullText.toString(), accumulatedCitations)
+        } else {
+            fullText.toString()
+        }
+
         val normalizedFinishReason = when {
             toolCalls.length() > 0 && (finishReason == null || finishReason.equals("STOP", ignoreCase = true)) -> "tool_calls"
             finishReason.equals("MAX_TOKENS", ignoreCase = true) -> "length"
@@ -829,8 +939,11 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
 
         return JSONObject()
             .put("role", "assistant")
-            .put("content", fullText.toString())
+            .put("content", finalContent)
             .also { assistant ->
+                if (pendingSuggestions.length() > 0) {
+                    GeminiEphemeralState.attachPendingSuggestions(assistant, pendingSuggestions)
+                }
                 if (fullReasoning.isNotEmpty()) {
                     assistant.put("reasoning", fullReasoning.toString())
                     assistant.put("reasoning_content", fullReasoning.toString())
