@@ -17,16 +17,23 @@ private val COLOROS_MEMORY_SIDECARS = listOf("-wal", "-shm", "-journal")
 
 internal fun buildColorOsMemorySnapshotCommand(source: String, snapshot: File): String = buildString {
     fun shellQuote(value: String): String = "'" + value.replace("'", "'\\''") + "'"
+    val snapshotPath = (if (snapshot.isAbsolute || snapshot.path.startsWith("/") || snapshot.path.startsWith("\\")) {
+        snapshot.path
+    } else {
+        snapshot.absolutePath
+    }).replace('\\', '/').let {
+        if (it.length >= 2 && it[1] == ':') it.substring(2) else it
+    }
 
     append("[ -f ").append(shellQuote(source)).append(" ] || exit 21; ")
     append("[ ! -L ").append(shellQuote(source)).append(" ] || exit 22; ")
     append("[ \"\$(stat -c %s ").append(shellQuote(source)).append(")\" -le ")
         .append(COLOROS_MEMORY_DATABASE_MAX_BYTES).append(" ] || exit 23; ")
-    append("cp ").append(shellQuote(source)).append(' ').append(shellQuote(snapshot.absolutePath))
+    append("cp ").append(shellQuote(source)).append(' ').append(shellQuote(snapshotPath))
         .append(" || exit 24; ")
     COLOROS_MEMORY_SIDECARS.forEach { suffix ->
         val extraSource = source + suffix
-        val extraTarget = snapshot.absolutePath + suffix
+        val extraTarget = snapshotPath + suffix
         append("if [ -f ").append(shellQuote(extraSource)).append(" ]; then ")
         append("[ ! -L ").append(shellQuote(extraSource)).append(" ] || exit 25; ")
         append("[ \"\$(stat -c %s ").append(shellQuote(extraSource)).append(")\" -le ")
