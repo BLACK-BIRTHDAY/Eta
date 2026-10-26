@@ -77,7 +77,7 @@ internal object ReasoningCapabilityResolver {
                     (MODERN_GEMINI_REGEX.matches(model) || model.startsWith("claude-")) &&
                         !model.contains("image") && !model.contains("nano-banana") &&
                         !model.endsWith("-tts") && !model.contains("-live") &&
-                        model != "gemini-4-unknown" -> capabilities(
+                        !model.endsWith("-unknown") -> capabilities(
                         supported = minimalToMax,
                         canDisable = true,
                         supportsBudget = true,

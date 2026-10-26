@@ -199,5 +199,13 @@ class GeminiProviderConfigurationTest {
         assertTrue(runtimeConfig.thinkingEnabled)
         assertEquals(ReasoningEffort.DEFAULT, runtimeConfig.reasoningEffort)
         assertEquals(tieredCaps, runtimeConfig.reasoningCapabilities)
+
+        // 4. Turning off reasoning on gemini-3.8-flash-tiered results in null capabilities and thinkingEnabled = false
+        val disabledModel = tieredModel.copy(reasoningOverride = false)
+        assertNull(RuntimeConfigRepository.reasoningCapabilities(provider, disabledModel))
+        val disabledConfig = RuntimeConfigRepository.buildRuntimeConfig(provider, disabledModel)
+        assertFalse(disabledConfig.thinkingEnabled)
+        assertEquals(ReasoningEffort.OFF, disabledConfig.reasoningEffort)
+        assertNull(disabledConfig.reasoningCapabilities)
     }
 }

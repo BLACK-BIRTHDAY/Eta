@@ -686,6 +686,63 @@ class GeminiGenerateContentProviderTest {
         }
     }
 
+    @Test
+    fun completeRetriesSequentiallyAcrossBothErrorsUpToAttemptLimit() {
+        var attempts = 0
+        withHttpExchangeServer(
+            handler = { exchange ->
+                attempts++
+                when (attempts) {
+                    1 -> {
+                        val errorResponse = """{"error":{"code":400,"message":"Invalid thought signature provided.","status":"INVALID_ARGUMENT"}}"""
+                        exchange.responseHeaders.add("Content-Type", "application/json")
+                        exchange.sendResponseHeaders(400, errorResponse.toByteArray().size.toLong())
+                        exchange.responseBody.use { it.write(errorResponse.toByteArray()) }
+                    }
+                    2 -> {
+                        val errorResponse = """{"error":{"code":400,"message":"Please enable tool_config.include_server_side_tool_invocations to use Built-in tools with Function calling.","status":"INVALID_ARGUMENT"}}"""
+                        exchange.responseHeaders.add("Content-Type", "application/json")
+                        exchange.sendResponseHeaders(400, errorResponse.toByteArray().size.toLong())
+                        exchange.responseBody.use { it.write(errorResponse.toByteArray()) }
+                    }
+                    else -> {
+                        val sseResponse = geminiSseChunk(
+                            JSONObject().put(
+                                "content",
+                                JSONObject().put(
+                                    "parts",
+                                    JSONArray().put(
+                                        JSONObject().put("text", "两次重试后成功")
+                                    )
+                                )
+                            ),
+                            finishReason = "STOP",
+                        ) + "data: [DONE]\n\n"
+                        exchange.responseHeaders.add("Content-Type", "text/event-stream")
+                        exchange.sendResponseHeaders(200, 0)
+                        exchange.responseBody.use { it.write(sseResponse.toByteArray()) }
+                    }
+                }
+            }
+        ) { baseUrl ->
+            val request = ProviderRequest(
+                config = AgentModelClient.ModelConfig(
+                    providerSourceType = "gemini",
+                    baseUrl = baseUrl,
+                    apiKey = "test-key",
+                    model = "gemini-3.8-flash",
+                    systemPrompt = "",
+                    hostedWebSearchEnabled = true,
+                ),
+                messages = JSONArray().put(JSONObject().put("role", "user").put("content", "hello")),
+                tools = JSONArray("""[{"type":"function","function":{"name":"search","parameters":{"type":"object"}}}]"""),
+            )
+            val response = GeminiGenerateContentProvider.complete(request, AgentRunController()) {}
+            assertEquals(3, attempts)
+            assertEquals("两次重试后成功", response.assistantMessage.optString("content"))
+        }
+    }
+
     private fun withHttpExchangeServer(
         handler: (com.sun.net.httpserver.HttpExchange) -> Unit,
         block: (String) -> Unit,

@@ -84,7 +84,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
 
             var ignoreThoughtSignatures = false
             var ignoreHostedWebSearch = false
-            for (attempt in 0..1) {
+            for (attempt in 0..2) {
                 val payload = buildRequestJson(
                     config = config,
                     messages = request.messages,
@@ -111,18 +111,19 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     runController.throwIfCancelled()
                     if (!response.isSuccessful) {
                         val errorBody = response.peekBody(16_384).string()
-                        if (response.code == 400 &&
-                            (errorBody.contains("thought signature", ignoreCase = true) ||
-                             errorBody.contains("thought_signature", ignoreCase = true)) &&
-                            !ignoreThoughtSignatures
-                        ) {
+                        val canRetry = attempt < 2
+                        val isThoughtSignatureError = response.code == 400 && (
+                            errorBody.contains("thought signature", ignoreCase = true) ||
+                            errorBody.contains("thought_signature", ignoreCase = true)
+                        )
+                        val isHostedSearchMixError = response.code == 400 && (
+                            errorBody.contains("include_server_side_tool_invocations", ignoreCase = true) ||
+                            errorBody.contains("Built-in tools", ignoreCase = true)
+                        )
+                        if (canRetry && !ignoreThoughtSignatures && isThoughtSignatureError) {
                             ignoreThoughtSignatures = true
                             shouldRetry = true
-                        } else if (response.code == 400 &&
-                            (errorBody.contains("include_server_side_tool_invocations", ignoreCase = true) ||
-                             errorBody.contains("Built-in tools", ignoreCase = true)) &&
-                            !ignoreHostedWebSearch
-                        ) {
+                        } else if (canRetry && !ignoreHostedWebSearch && isHostedSearchMixError) {
                             ignoreHostedWebSearch = true
                             shouldRetry = true
                         } else {

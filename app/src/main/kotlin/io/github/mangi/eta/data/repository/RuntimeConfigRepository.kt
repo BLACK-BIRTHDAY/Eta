@@ -205,7 +205,7 @@ internal object RuntimeConfigRepository {
         )
         if (provider is GeminiProviderSetting) {
             if (model.reasoningOverride == false && model.reasoningCapabilitiesOverride == null) {
-                GeminiModelCapabilities.reasoningCapabilities(model.modelId)?.let { return it }
+                return GeminiModelCapabilities.reasoningCapabilities(model.modelId)
             }
             return resolved ?: GeminiModelCapabilities.requestReasoningCapabilities(model.modelId)
         }

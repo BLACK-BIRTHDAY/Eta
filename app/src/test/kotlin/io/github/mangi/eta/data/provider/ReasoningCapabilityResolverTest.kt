@@ -298,6 +298,7 @@ class ReasoningCapabilityResolverTest {
 
         assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-future"))
         assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-4-unknown"))
+        assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-3.8-unknown"))
         assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-3.8-flash-image"))
         assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-3.8-flash-nano-banana"))
         assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-3.8-flash-tts"))
