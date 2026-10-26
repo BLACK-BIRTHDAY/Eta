@@ -47,6 +47,14 @@ internal object GeminiInteractionsRequest {
         generation.remove("tool_choice")
         generation.remove("thinking_level")
         generation.remove("thinking_summaries")
+        config.maxOutputTokens?.takeIf { it > 0 }?.let { maxTokens ->
+            val customOverrides = config.customBody.any {
+                it.key == "generation_config" && (it.value as? JsonObject)?.containsKey("max_output_tokens") == true
+            }
+            if (!customOverrides) {
+                generation.put("max_output_tokens", maxTokens)
+            }
+        }
         if (searchEnabled && tools.length() > 0) generation.put("tool_choice", "validated")
         val effort = config.effectiveReasoningEffort
         if (effort != ReasoningEffort.DEFAULT) {

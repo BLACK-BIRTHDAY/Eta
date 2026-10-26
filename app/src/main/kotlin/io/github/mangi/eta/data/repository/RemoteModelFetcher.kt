@@ -222,10 +222,10 @@ internal object RemoteModelFetcher {
     private fun executeJson(request: Request, errorPrefix: String): String {
         return AgentHttpClient.client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                val errorBody = response.body?.string().orEmpty()
+                val errorBody = response.body.string()
                 error("$errorPrefix: HTTP ${response.code} $errorBody")
             }
-            response.body?.string() ?: error("$errorPrefix: 响应体为空")
+            response.body.string()
         }
     }
 
