@@ -447,8 +447,16 @@ internal object OfficialModelCatalog {
                         ?: official.displayName,
                     ownedBy = model.ownedBy ?: official.ownedBy,
                     contextWindow = model.contextWindow ?: official.contextWindow,
-                    inputModalities = model.inputModalities.ifEmpty { official.inputModalities },
-                    outputModalities = model.outputModalities.ifEmpty { official.outputModalities },
+                    inputModalities = if (model.inputModalities.isEmpty() || model.inputModalities == listOf(Model.TEXT_MODALITY)) {
+                        official.inputModalities
+                    } else {
+                        model.inputModalities
+                    },
+                    outputModalities = if (model.outputModalities.isEmpty() || model.outputModalities == listOf(Model.TEXT_MODALITY)) {
+                        official.outputModalities
+                    } else {
+                        model.outputModalities
+                    },
                     attachment = model.attachment ?: official.attachment,
                     toolCall = model.toolCall ?: official.toolCall,
                     reasoning = model.reasoning ?: official.reasoning,

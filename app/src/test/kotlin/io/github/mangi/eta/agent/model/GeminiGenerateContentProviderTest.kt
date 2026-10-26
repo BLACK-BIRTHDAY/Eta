@@ -555,6 +555,36 @@ class GeminiGenerateContentProviderTest {
         assertFalse(vertexParts.getJSONObject(2).has("thoughtSignature"))
     }
 
+    @Test
+    fun signedToolContextDetectsPendingResponseForGenerateContent() {
+        val testSig = "EpoGCpcGAXLI2nxRealCryptographicSignatureFromGoogle"
+        val assistant = JSONObject()
+            .put("role", "assistant")
+            .put("content", "意图说明")
+            .put("thoughtSignature", testSig)
+            .put(
+                "tool_calls",
+                JSONArray().put(
+                    JSONObject()
+                        .put("id", "call_1")
+                        .put("type", "function")
+                        .put("function", JSONObject().put("name", "fn1").put("arguments", "{}"))
+                        .put("thoughtSignature", testSig)
+                )
+            )
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "user").put("content", "查资料"))
+            .put(assistant)
+
+        assertTrue(SignedToolContext.hasPendingResponse(messages))
+
+        messages.put(JSONObject().put("role", "tool").put("tool_call_id", "call_1").put("content", "工具结果"))
+        assertTrue(SignedToolContext.hasPendingResponse(messages))
+
+        messages.put(JSONObject().put("role", "assistant").put("content", "已完成"))
+        assertFalse(SignedToolContext.hasPendingResponse(messages))
+    }
+
     private fun geminiSseChunk(candidate0: JSONObject, finishReason: String? = null): String {
         val c = JSONObject(candidate0.toString())
         if (finishReason != null) c.put("finishReason", finishReason)

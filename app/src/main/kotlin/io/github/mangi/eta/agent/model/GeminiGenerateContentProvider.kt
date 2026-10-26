@@ -116,7 +116,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                         if (!ignoreThoughtSignatures && isThoughtSignatureError) {
                             shouldRetry = true
                         } else {
-                            failureToThrow = AgentModelFailure.http(response.code, errorBody)
+                            failureToThrow = AgentModelFailure.http(response.code, errorBody, includeParameterDetails = true)
                         }
                     } else {
                         val assistant = readStreamingAssistantMessage(
@@ -662,7 +662,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         val toolCalls = JSONArray()
         val seenSuggestions = mutableSetOf<String>()
         val pendingSuggestions = JSONArray()
-        val accumulatedCitations = mutableListOf<CitationAnnotation>()
+        val citationAnnotations = JSONArray()
         var turnThoughtSignature: String = fallbackSignature.orEmpty()
         var finishReason: String? = null
         var usage: AgentTokenUsage? = null
@@ -745,31 +745,11 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     val renderedContent = searchEntryPoint?.optString("renderedContent")?.ifBlank {
                         searchEntryPoint.optString("rendered_content")
                     }.orEmpty()
-                    val webSearchQueries = groundingMetadata.optJSONArray("webSearchQueries")
-                        ?: groundingMetadata.optJSONArray("web_search_queries")
 
                     if (renderedContent.isNotBlank() && SearchSuggestionsPayload.isValidHtml(renderedContent)) {
                         if (seenSuggestions.add(renderedContent)) {
                             onEvent(ProviderEvent.SearchSuggestions(blockIndex, renderedContent))
                             pendingSuggestions.put(renderedContent)
-                        }
-                    } else if (webSearchQueries != null && webSearchQueries.length() > 0) {
-                        val queries = (0 until webSearchQueries.length()).mapNotNull {
-                            webSearchQueries.optString(it).takeIf(String::isNotBlank)
-                        }
-                        if (queries.isNotEmpty()) {
-                            val html = buildString {
-                                append("<div class=\"search-suggestions\">")
-                                for (q in queries) {
-                                    val encoded = java.net.URLEncoder.encode(q, "UTF-8")
-                                    append("<a href=\"https://www.google.com/search?q=$encoded\">${q.replace("<", "&lt;")}</a>")
-                                }
-                                append("</div>")
-                            }
-                            if (SearchSuggestionsPayload.isValidHtml(html) && seenSuggestions.add(html)) {
-                                onEvent(ProviderEvent.SearchSuggestions(blockIndex, html))
-                                pendingSuggestions.put(html)
-                            }
                         }
                     }
 
@@ -805,7 +785,16 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                                     if (idx in chunkList.indices) {
                                         val (uri, title) = chunkList[idx]
                                         if (uri.isNotBlank()) {
-                                            accumulatedCitations.add(CitationAnnotation(start, end, uri, title))
+                                            citationAnnotations.put(
+                                                JSONObject()
+                                                    .put("type", "url_citation")
+                                                    .put("url", uri)
+                                                    .put("title", title)
+                                                    .apply {
+                                                        if (start != null) put("start_index", start)
+                                                        if (end != null) put("end_index", end)
+                                                    }
+                                            )
                                         }
                                     }
                                 }
@@ -814,7 +803,12 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     } else {
                         for ((uri, title) in chunkList) {
                             if (uri.isNotBlank()) {
-                                accumulatedCitations.add(CitationAnnotation(start = null, end = null, url = uri, title = title))
+                                citationAnnotations.put(
+                                    JSONObject()
+                                        .put("type", "url_citation")
+                                        .put("url", uri)
+                                        .put("title", title)
+                                )
                             }
                         }
                     }
@@ -923,8 +917,8 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
 
         closeCurrentBlock()
 
-        val finalContent = if (accumulatedCitations.isNotEmpty()) {
-            CitationFormatter.apply(fullText.toString(), accumulatedCitations)
+        val finalContent = if (citationAnnotations.length() > 0) {
+            GeminiCitationFormatter.apply(fullText.toString(), citationAnnotations)
         } else {
             fullText.toString()
         }

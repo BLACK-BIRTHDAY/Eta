@@ -78,7 +78,7 @@ class ProviderComponentsTest {
             hostedWebSearchEnabled = true,
         )
         val draft = ProviderConfigDraft.from(gemini)
-        assertEquals(GeminiEndpointMode.GENERATE_CONTENT, draft.endpointMode)
+        assertEquals("", draft.endpointMode)
         assertTrue(draft.hostedWebSearchEnabled)
 
         val updatedToInteractions = draft.copy(endpointMode = GeminiEndpointMode.INTERACTIONS).toProvider(gemini) as GeminiProviderSetting
@@ -90,6 +90,7 @@ class ProviderComponentsTest {
 
         val updatedBackToGenerateContent = draftInteractions.copy(endpointMode = GeminiEndpointMode.GENERATE_CONTENT).toProvider(updatedToInteractions) as GeminiProviderSetting
         assertEquals(GeminiEndpointMode.GENERATE_CONTENT, updatedBackToGenerateContent.endpointMode)
+        assertEquals("", ProviderConfigDraft.from(updatedBackToGenerateContent).endpointMode)
     }
 
     @Test

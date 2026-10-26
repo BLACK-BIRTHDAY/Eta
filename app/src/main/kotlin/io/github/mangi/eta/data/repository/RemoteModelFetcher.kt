@@ -222,8 +222,7 @@ internal object RemoteModelFetcher {
     private fun executeJson(request: Request, errorPrefix: String): String {
         return AgentHttpClient.client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
-                val errorBody = response.body.string()
-                error("$errorPrefix: HTTP ${response.code} $errorBody")
+                error("$errorPrefix: HTTP ${response.code}")
             }
             response.body.string()
         }

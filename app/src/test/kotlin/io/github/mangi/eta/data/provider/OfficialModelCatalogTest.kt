@@ -61,4 +61,32 @@ class OfficialModelCatalogTest {
         assertTrue("video" in models(BuiltinProviders.MINIMAX_ID).getValue("MiniMax-M3").inputModalities)
         assertEquals(1_000_000, models(BuiltinProviders.STEPFUN_ID).getValue("step-5-preview").contextWindow)
     }
+
+    @Test
+    fun enrichMergesCuratedGeminiModelsWithFullCapabilitiesAndWindows() {
+        val rawModels = listOf(
+            Model(id = "m1", modelId = "gemini-3.8-flash-tiered", displayName = ""),
+            Model(id = "m2", modelId = "gemini-3.1-flash-image", displayName = ""),
+            Model(id = "m3", modelId = "gemini-3-pro-image", displayName = ""),
+        )
+        val enriched = OfficialModelCatalog.enrich(io.github.mangi.eta.data.model.ProviderSourceTypes.GEMINI, rawModels).associateBy { it.modelId }
+
+        val tiered = enriched.getValue("gemini-3.8-flash-tiered")
+        assertEquals(1_048_576, tiered.contextWindow)
+        assertTrue(tiered.toolCall == true)
+        assertTrue(tiered.reasoning == true)
+        assertTrue(tiered.inputModalities.containsAll(listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY, "audio", "video")))
+
+        val flashImage = enriched.getValue("gemini-3.1-flash-image")
+        assertEquals(128_000, flashImage.contextWindow)
+        assertFalse(flashImage.toolCall == true)
+        assertFalse(flashImage.reasoning == true)
+        assertEquals(listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY), flashImage.outputModalities)
+
+        val proImage = enriched.getValue("gemini-3-pro-image")
+        assertEquals(128_000, proImage.contextWindow)
+        assertFalse(proImage.toolCall == true)
+        assertFalse(proImage.reasoning == true)
+        assertEquals(listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY), proImage.outputModalities)
+    }
 }

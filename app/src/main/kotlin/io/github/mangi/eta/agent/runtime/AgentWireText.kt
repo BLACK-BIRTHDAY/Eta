@@ -6,15 +6,27 @@ import android.os.Messenger
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import java.io.File
+import java.util.concurrent.ConcurrentLinkedQueue
 
 /** 大文本通过已取消目录链接的只读文件传输；Binder 只携带描述符与长度。 */
 internal object AgentWireText {
     private const val INLINE_CHARS = 16_384
     private const val FD_SUFFIX = "_eta_text_fd"
     private const val SIZE_SUFFIX = "_eta_text_bytes"
-    private const val PATH_SUFFIX = "_eta_text_path"
     // 单次物化的内存保护，超过时拒绝交付，不截断已落盘的历史。
     private const val MAX_TRANSFER_BYTES = 64L * 1024 * 1024
+
+    private val pendingDeletions = ConcurrentLinkedQueue<File>()
+
+    private fun cleanPendingDeletions() {
+        val iterator = pendingDeletions.iterator()
+        while (iterator.hasNext()) {
+            val file = iterator.next()
+            if (file.delete() || !file.exists()) {
+                iterator.remove()
+            }
+        }
+    }
 
     fun put(bundle: Bundle, key: String, text: String, directory: File?) {
         if (directory == null || text.length <= INLINE_CHARS) {
@@ -30,10 +42,10 @@ internal object AgentWireText {
             val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
             bundle.putParcelable(key + FD_SUFFIX, descriptor)
             bundle.putLong(key + SIZE_SUFFIX, bytes.size.toLong())
-            bundle.putString(key + PATH_SUFFIX, file.absolutePath)
         } finally {
             if (!file.delete()) {
                 file.deleteOnExit()
+                pendingDeletions.add(file)
             }
         }
     }
@@ -43,9 +55,7 @@ internal object AgentWireText {
     fun read(bundle: Bundle, key: String): String? {
         val descriptor = bundle.getParcelable(key + FD_SUFFIX, ParcelFileDescriptor::class.java)
             ?: return bundle.getString(key)
-        val filePath = bundle.getString(key + PATH_SUFFIX)
         bundle.remove(key + FD_SUFFIX)
-        bundle.remove(key + PATH_SUFFIX)
         return try {
             ParcelFileDescriptor.AutoCloseInputStream(descriptor).use { input ->
                 val size = bundle.getLong(key + SIZE_SUFFIX, -1)
@@ -63,9 +73,7 @@ internal object AgentWireText {
                 bytes.toString(Charsets.UTF_8)
             }
         } finally {
-            if (filePath != null) {
-                runCatching { File(filePath).delete() }
-            }
+            cleanPendingDeletions()
         }
     }
 
@@ -95,11 +103,7 @@ internal object AgentWireText {
         bundle.keySet().filter { it.endsWith(FD_SUFFIX) }.forEach { key ->
             bundle.getParcelable(key, ParcelFileDescriptor::class.java)?.close()
             bundle.remove(key)
-            val prefix = key.removeSuffix(FD_SUFFIX)
-            bundle.getString(prefix + PATH_SUFFIX)?.let { path ->
-                runCatching { File(path).delete() }
-                bundle.remove(prefix + PATH_SUFFIX)
-            }
         }
+        cleanPendingDeletions()
     }
 }

@@ -37,10 +37,21 @@ internal object GeminiEphemeralState {
         for (index in messages.length() - 1 downTo 0) {
             val message = messages.optJSONObject(index) ?: continue
             if (message.optString("role") == "assistant") {
-                val steps = steps(message) ?: return false
-                return (0 until steps.length()).any {
-                    steps.optJSONObject(it)?.optString("type") == "function_call"
+                val steps = steps(message)
+                if (steps != null) {
+                    return (0 until steps.length()).any {
+                        steps.optJSONObject(it)?.optString("type") == "function_call"
+                    }
                 }
+                val toolCalls = message.optJSONArray("tool_calls")
+                if (toolCalls != null && toolCalls.length() > 0) {
+                    return message.optString("thoughtSignature").isNotBlank() ||
+                        message.optString("thought_signature").isNotBlank() ||
+                        toolCalls.optJSONObject(0)?.let {
+                            it.optString("thoughtSignature").isNotBlank() || it.optString("thought_signature").isNotBlank()
+                        } == true
+                }
+                return false
             }
         }
         return false
