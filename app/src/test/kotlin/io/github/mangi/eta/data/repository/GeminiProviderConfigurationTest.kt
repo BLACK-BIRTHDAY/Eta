@@ -7,6 +7,7 @@ import io.github.mangi.eta.data.model.CustomHeader
 import io.github.mangi.eta.data.model.CustomProviderSetting
 import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.Model
+import io.github.mangi.eta.data.model.ModelReasoningCapabilities
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.model.ProviderTypes
@@ -142,5 +143,61 @@ class GeminiProviderConfigurationTest {
         assertTrue(restored is GeminiProviderSetting)
         assertTrue(requireNotNull(restored).hostedWebSearchEnabled)
         assertFalse(restored.isBuiltIn)
+    }
+
+    @Test
+    fun geminiTieredAndCapabilitiesOverrideExposeSelectableEffortsInRuntimeConfig() {
+        val provider = GeminiProviderSetting(
+            id = "gemini-test",
+            name = "Gemini",
+            baseUrl = "https://generativelanguage.googleapis.com",
+            apiKey = "fixture-key",
+        )
+        // 1. gemini-3.8-flash-tiered infers modern capabilities
+        val tieredModel = Model(
+            id = "tiered-model",
+            modelId = "gemini-3.8-flash-tiered",
+            displayName = "Tiered",
+        )
+        val tieredCaps = requireNotNull(RuntimeConfigRepository.reasoningCapabilities(provider, tieredModel))
+        assertTrue(tieredCaps.canDisable)
+        assertTrue(tieredCaps.supportsBudget)
+        assertEquals(65_536, tieredCaps.maxBudgetTokens)
+        assertEquals(
+            listOf(
+                ReasoningEffort.OFF,
+                ReasoningEffort.DEFAULT,
+                ReasoningEffort.MINIMAL,
+                ReasoningEffort.LOW,
+                ReasoningEffort.MEDIUM,
+                ReasoningEffort.HIGH,
+                ReasoningEffort.XHIGH,
+                ReasoningEffort.MAX,
+            ),
+            tieredCaps.selectableEfforts,
+        )
+
+        // 2. Custom reasoningCapabilitiesOverride is respected
+        val customOverride = ModelReasoningCapabilities(
+            supportedEfforts = listOf(ReasoningEffort.LOW, ReasoningEffort.HIGH),
+            canDisable = true,
+            defaultEffort = ReasoningEffort.LOW,
+        )
+        val overriddenModel = tieredModel.copy(
+            reasoningOverride = true,
+            reasoningCapabilitiesOverride = customOverride,
+        )
+        val overriddenCaps = requireNotNull(RuntimeConfigRepository.reasoningCapabilities(provider, overriddenModel))
+        assertEquals(customOverride, overriddenCaps)
+        assertEquals(
+            listOf(ReasoningEffort.OFF, ReasoningEffort.DEFAULT, ReasoningEffort.LOW, ReasoningEffort.HIGH),
+            overriddenCaps.selectableEfforts,
+        )
+
+        // 3. buildRuntimeConfig produces thinkingEnabled = true and effective ReasoningEffort.DEFAULT
+        val runtimeConfig = RuntimeConfigRepository.buildRuntimeConfig(provider, tieredModel)
+        assertTrue(runtimeConfig.thinkingEnabled)
+        assertEquals(ReasoningEffort.DEFAULT, runtimeConfig.reasoningEffort)
+        assertEquals(tieredCaps, runtimeConfig.reasoningCapabilities)
     }
 }

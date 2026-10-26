@@ -57,7 +57,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         }
         val fallbackSignature = extractLatestSignature(request.messages)
 
-        val isOfficialGoogle = config.baseUrl.contains("generativelanguage.googleapis.com")
+        val isOfficialGoogle = config.baseUrl.contains("generativelanguage.googleapis.com", ignoreCase = true)
         val headers = Headers.Builder()
             .add("Accept", "text/event-stream")
             .apply {
@@ -82,14 +82,16 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             runController.throwIfCancelled()
             onEvent(ProviderEvent.RequestStarted)
 
+            var ignoreThoughtSignatures = false
+            var ignoreHostedWebSearch = false
             for (attempt in 0..1) {
-                val ignoreThoughtSignatures = attempt == 1
                 val payload = buildRequestJson(
                     config = config,
                     messages = request.messages,
                     tools = request.tools,
                     fallbackSignature = if (ignoreThoughtSignatures) null else fallbackSignature,
                     ignoreThoughtSignatures = ignoreThoughtSignatures,
+                    ignoreHostedWebSearch = ignoreHostedWebSearch,
                 )
                 val httpRequest = Request.Builder()
                     .url(url)
@@ -109,11 +111,19 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     runController.throwIfCancelled()
                     if (!response.isSuccessful) {
                         val errorBody = response.peekBody(16_384).string()
-                        val isThoughtSignatureError = response.code == 400 && (
-                            errorBody.contains("thought signature", ignoreCase = true) ||
-                            errorBody.contains("thought_signature", ignoreCase = true)
-                        )
-                        if (!ignoreThoughtSignatures && isThoughtSignatureError) {
+                        if (response.code == 400 &&
+                            (errorBody.contains("thought signature", ignoreCase = true) ||
+                             errorBody.contains("thought_signature", ignoreCase = true)) &&
+                            !ignoreThoughtSignatures
+                        ) {
+                            ignoreThoughtSignatures = true
+                            shouldRetry = true
+                        } else if (response.code == 400 &&
+                            (errorBody.contains("include_server_side_tool_invocations", ignoreCase = true) ||
+                             errorBody.contains("Built-in tools", ignoreCase = true)) &&
+                            !ignoreHostedWebSearch
+                        ) {
+                            ignoreHostedWebSearch = true
                             shouldRetry = true
                         } else {
                             failureToThrow = AgentModelFailure.http(response.code, errorBody, includeParameterDetails = true)
@@ -159,6 +169,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         tools: JSONArray = JSONArray(),
         fallbackSignature: String? = null,
         ignoreThoughtSignatures: Boolean = false,
+        ignoreHostedWebSearch: Boolean = false,
     ): JSONObject {
         val contents = JSONArray()
         val systemParts = mutableListOf<String>()
@@ -357,19 +368,23 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                         JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system)))
                     )
                 }
+                val isOfficialGoogle = config.baseUrl.contains("generativelanguage.googleapis.com", ignoreCase = true)
                 val toolsArray = JSONArray()
                 convertTools(tools)?.let { toolsArray.put(it) }
-                if (config.hostedWebSearchEnabled && !hasGoogleSearchTool(toolsArray)) {
-                    toolsArray.put(JSONObject().put("google_search", JSONObject()))
+                if (config.hostedWebSearchEnabled && !ignoreHostedWebSearch && !hasGoogleSearchTool(toolsArray)) {
+                    if (toolsArray.length() == 0 || isOfficialGoogle) {
+                        toolsArray.put(JSONObject().put("google_search", JSONObject()))
+                    }
                 }
                 if (toolsArray.length() > 0) {
                     root.put("tools", toolsArray)
                 }
                 if (tools.length() > 0) {
-                    root.put(
-                        "toolConfig",
-                        JSONObject().put("functionCallingConfig", JSONObject().put("mode", "AUTO"))
-                    )
+                    val toolConfig = JSONObject().put("functionCallingConfig", JSONObject().put("mode", "AUTO"))
+                    if (isOfficialGoogle && hasGoogleSearchTool(toolsArray)) {
+                        toolConfig.put("includeServerSideToolInvocations", true)
+                    }
+                    root.put("toolConfig", toolConfig)
                 }
                 config.maxOutputTokens?.takeIf { it > 0 }?.let { generationConfig.put("maxOutputTokens", it) }
                 root.put("generationConfig", generationConfig)

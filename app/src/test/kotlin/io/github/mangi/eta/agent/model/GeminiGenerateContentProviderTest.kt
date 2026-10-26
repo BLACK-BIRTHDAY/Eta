@@ -458,6 +458,59 @@ class GeminiGenerateContentProviderTest {
         assertEquals(2, toolsArr2.length())
         assertTrue(toolsArr2.getJSONObject(0).has("functionDeclarations"))
         assertTrue(toolsArr2.getJSONObject(1).has("google_search"))
+        val toolConfig = requestWithTools.getJSONObject("toolConfig")
+        assertTrue(toolConfig.getBoolean("includeServerSideToolInvocations"))
+    }
+
+    @Test
+    fun proxyGatewayOmitsGoogleSearchWhenFunctionDeclarationsPresent() {
+        val proxyConfig = AgentModelClient.ModelConfig(
+            providerSourceType = "gemini",
+            baseUrl = "https://proxy.example/v1beta",
+            apiKey = "test-key",
+            model = "gemini-3.8-flash",
+            systemPrompt = "",
+            hostedWebSearchEnabled = true,
+        )
+
+        // 1. Without function tools: google_search is included
+        val requestWithoutTools = GeminiGenerateContentProvider.buildRequestJson(
+            config = proxyConfig,
+            tools = JSONArray(),
+        )
+        val toolsArr1 = requestWithoutTools.getJSONArray("tools")
+        assertEquals(1, toolsArr1.length())
+        assertTrue(toolsArr1.getJSONObject(0).has("google_search"))
+        assertFalse(requestWithoutTools.has("toolConfig"))
+
+        // 2. With function tools: google_search is omitted on proxy gateway to prevent HTTP 400
+        val tools = JSONArray("""[
+            {
+                "type": "function",
+                "function": {
+                    "name": "test_tool",
+                    "parameters": { "type": "object" }
+                }
+            }
+        ]""")
+        val requestWithTools = GeminiGenerateContentProvider.buildRequestJson(
+            config = proxyConfig,
+            tools = tools,
+        )
+        val toolsArr2 = requestWithTools.getJSONArray("tools")
+        assertEquals(1, toolsArr2.length())
+        assertTrue(toolsArr2.getJSONObject(0).has("functionDeclarations"))
+        assertFalse(toolsArr2.getJSONObject(0).has("google_search"))
+        val toolConfig = requestWithTools.getJSONObject("toolConfig")
+        assertFalse(toolConfig.has("includeServerSideToolInvocations"))
+
+        // 3. ignoreHostedWebSearch = true omits google_search even without tools
+        val requestIgnored = GeminiGenerateContentProvider.buildRequestJson(
+            config = proxyConfig,
+            tools = JSONArray(),
+            ignoreHostedWebSearch = true,
+        )
+        assertFalse(requestIgnored.has("tools"))
     }
 
     @Test
@@ -583,6 +636,73 @@ class GeminiGenerateContentProviderTest {
 
         messages.put(JSONObject().put("role", "assistant").put("content", "已完成"))
         assertFalse(SignedToolContext.hasPendingResponse(messages))
+    }
+
+    @Test
+    fun completeRetriesWithIgnoreHostedWebSearchOnBuiltInToolsError() {
+        var attempts = 0
+        withHttpExchangeServer(
+            handler = { exchange ->
+                attempts++
+                if (attempts == 1) {
+                    val errorResponse = """{"error":{"code":400,"message":"Please enable tool_config.include_server_side_tool_invocations to use Built-in tools with Function calling.","status":"INVALID_ARGUMENT"}}"""
+                    exchange.responseHeaders.add("Content-Type", "application/json")
+                    exchange.sendResponseHeaders(400, errorResponse.toByteArray().size.toLong())
+                    exchange.responseBody.use { it.write(errorResponse.toByteArray()) }
+                } else {
+                    val sseResponse = geminiSseChunk(
+                        JSONObject().put(
+                            "content",
+                            JSONObject().put(
+                                "parts",
+                                JSONArray().put(
+                                    JSONObject().put("text", "成功恢复")
+                                )
+                            )
+                        ),
+                        finishReason = "STOP",
+                    ) + "data: [DONE]\n\n"
+                    exchange.responseHeaders.add("Content-Type", "text/event-stream")
+                    exchange.sendResponseHeaders(200, 0)
+                    exchange.responseBody.use { it.write(sseResponse.toByteArray()) }
+                }
+            }
+        ) { baseUrl ->
+            val request = ProviderRequest(
+                config = AgentModelClient.ModelConfig(
+                    providerSourceType = "gemini",
+                    baseUrl = baseUrl,
+                    apiKey = "test-key",
+                    model = "gemini-3.8-flash",
+                    systemPrompt = "",
+                    hostedWebSearchEnabled = true,
+                ),
+                messages = JSONArray().put(JSONObject().put("role", "user").put("content", "hello")),
+                tools = JSONArray("""[{"type":"function","function":{"name":"search","parameters":{"type":"object"}}}]"""),
+            )
+            val response = GeminiGenerateContentProvider.complete(request, AgentRunController()) {}
+            assertEquals(2, attempts)
+            assertEquals("成功恢复", response.assistantMessage.optString("content"))
+        }
+    }
+
+    private fun withHttpExchangeServer(
+        handler: (com.sun.net.httpserver.HttpExchange) -> Unit,
+        block: (String) -> Unit,
+    ) {
+        val server = HttpServer.create(InetSocketAddress(0), 0)
+        val executor = Executors.newCachedThreadPool()
+        server.executor = executor
+        server.createContext("/") { exchange ->
+            handler(exchange)
+        }
+        server.start()
+        try {
+            block("http://127.0.0.1:${server.address.port}")
+        } finally {
+            server.stop(0)
+            executor.shutdownNow()
+        }
     }
 
     private fun geminiSseChunk(candidate0: JSONObject, finishReason: String? = null): String {

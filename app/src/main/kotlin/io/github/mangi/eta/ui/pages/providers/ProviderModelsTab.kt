@@ -513,7 +513,7 @@ internal fun ProviderModelsTab(
 
     editingModel?.let { model ->
         ModelEditDialog(
-            nativeGemini = provider is GeminiProviderSetting,
+            nativeGemini = provider is GeminiProviderSetting && provider.endpointMode == io.github.mangi.eta.data.model.GeminiEndpointMode.INTERACTIONS && model.reasoningOverride == null && model.reasoningCapabilitiesOverride == null,
             model = model,
             isNew = isCreatingModel,
             isSaving = isMutatingModel,
