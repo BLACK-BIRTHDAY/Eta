@@ -12,6 +12,8 @@ import io.github.mangi.eta.data.db.ProviderModelEntity
 import io.github.mangi.eta.data.db.ProviderWithModelsSeed
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.model.ProviderAuthModes
+import io.github.mangi.eta.data.model.SpeechSettings
+import io.github.mangi.eta.data.model.WebToolsSettings
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.core.safeStackTrace
@@ -46,6 +48,8 @@ internal data class EtaBackupDocument(
     val roleplay: CharacterBackupData? = null,
     val skills: SkillBackupData? = null,
     val mcpServers: List<McpBackupServer>? = null,
+    val webTools: WebToolsSettings? = null,
+    val speech: SpeechSettings? = null,
 ) {
     companion object {
         const val FORMAT = "eta-backup"
@@ -137,6 +141,11 @@ internal object EtaBackupRepository {
                     phase = "export_mcp"
                     val mcpServers = McpBackupTransfer.snapshot(appContext)
                     writer.value("mcpServers", ListSerializer(McpBackupServer.serializer()).nullable, mcpServers)
+                    phase = "export_settings"
+                    val webTools = SettingsDataStore.webToolsSettings()
+                    writer.value("webTools", WebToolsSettings.serializer().nullable, webTools)
+                    val speech = SettingsDataStore.speechSettings()
+                    writer.value("speech", SpeechSettings.serializer().nullable, speech)
                     val skillCount = if (skills.packages.isNotEmpty()) skills.packages.size else skills.registry.count { it.installState == "installed" }
                     val mcpServerCount = mcpServers.size
                     EtaBackupSummary(
@@ -298,6 +307,8 @@ internal object EtaBackupRepository {
                         phase = "restore_settings"
                         SettingsDataStore.setSelection(document.selectedProviderId, document.selectedModelId)
                         SettingsDataStore.setOfficialModelCatalogRevision(document.catalogRevision)
+                        document.webTools?.let { SettingsDataStore.setWebToolsSettings(it) }
+                        document.speech?.let { SettingsDataStore.setSpeechSettings(it) }
                         ProviderRepository.ensureBuiltInsMerged()
                         ProviderRepository.repairSelection()
                     } catch (failure: Exception) {

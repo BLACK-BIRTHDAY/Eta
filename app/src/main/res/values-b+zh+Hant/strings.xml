@@ -373,6 +373,8 @@
   <string name="ui_support_gemini_official_api">支援 Google Gemini 3.x / 2.5 官方原生 API 及 Gemini Enterprise (Vertex AI) 服務帳號匯入</string>
   <string name="ui_import_vertex_sa_json">從 JSON 匯入服務帳號 (Gemini Enterprise / Vertex AI)</string>
   <string name="ui_import_vertex_sa_json_summary">選擇 Google Cloud Service Account JSON 金鑰檔案，自動填入憑證與端點</string>
+  <string name="ui_gemini_endpoint_generate_content_summary">使用 GenerateContent API (支援 Vertex AI / 閘道反代 / 官方 API)</string>
+  <string name="ui_gemini_endpoint_interactions_summary">使用 Google Interactions API (僅支援官方 API Key)</string>
   <string name="ui_added_openai_compatible_6bd471">新增 OpenAI-compatible</string>
   <string name="ui_add_new_provider_74df54">新增供應商</string>
   <string name="ui_accessibility_enhancement_tools_8fd257">無障礙增強工具</string>

@@ -48,7 +48,7 @@ internal data class ProviderConfigDraft(
             endpointMode = when (provider) {
                 is OpenAiCompatibleProviderSetting -> provider.endpointMode
                 is CustomProviderSetting -> provider.endpointMode
-                is GeminiProviderSetting -> if (provider.endpointMode == GeminiEndpointMode.INTERACTIONS) GeminiEndpointMode.INTERACTIONS else ""
+                is GeminiProviderSetting -> if (provider.endpointMode == GeminiEndpointMode.INTERACTIONS) GeminiEndpointMode.INTERACTIONS else GeminiEndpointMode.GENERATE_CONTENT
                 is AnthropicProviderSetting -> ""
             },
             hostedWebSearchEnabled = provider.hostedWebSearchEnabled,

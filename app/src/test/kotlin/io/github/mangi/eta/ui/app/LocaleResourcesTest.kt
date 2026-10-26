@@ -52,6 +52,30 @@ class LocaleResourcesTest {
         assertEquals("模型请求重试", localizedString("zh-CN", R.string.system_notice_model_retry))
         assertEquals("模型請求重試", localizedString("zh-TW", R.string.system_notice_model_retry))
         assertEquals(
+            "Use GenerateContent API (supports Vertex AI, proxy gateways, and official API)",
+            localizedString("en-US", R.string.ui_gemini_endpoint_generate_content_summary),
+        )
+        assertEquals(
+            "使用 GenerateContent API (支持 Vertex AI / 网关反代 / 官方 API)",
+            localizedString("zh-CN", R.string.ui_gemini_endpoint_generate_content_summary),
+        )
+        assertEquals(
+            "使用 GenerateContent API (支援 Vertex AI / 閘道反代 / 官方 API)",
+            localizedString("zh-TW", R.string.ui_gemini_endpoint_generate_content_summary),
+        )
+        assertEquals(
+            "Use Google Interactions API (official API key only)",
+            localizedString("en-US", R.string.ui_gemini_endpoint_interactions_summary),
+        )
+        assertEquals(
+            "使用 Google Interactions API (仅支持官方 API Key)",
+            localizedString("zh-CN", R.string.ui_gemini_endpoint_interactions_summary),
+        )
+        assertEquals(
+            "使用 Google Interactions API (僅支援官方 API Key)",
+            localizedString("zh-TW", R.string.ui_gemini_endpoint_interactions_summary),
+        )
+        assertEquals(
             "1 task is running. Return to Eta to check progress.",
             localizedQuantity("en-US", R.plurals.execution_summary, 1),
         )
