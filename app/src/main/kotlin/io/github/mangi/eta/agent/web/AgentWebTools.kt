@@ -54,7 +54,43 @@ internal class AgentWebTools(
         val query = args.getString("query")
         val config = runtimeConfig()
         val page = when (config.searchBackend) {
-            WebToolBackend.BUILTIN -> searchBuiltIn(query, limit)
+            WebToolBackend.GEMINI -> ConfigurableWebBackends.searchGemini(
+                transport = transport,
+                baseUrl = config.geminiBaseUrl,
+                apiKey = config.geminiApiKey,
+                model = config.geminiModel,
+                query = query,
+                maxResults = limit,
+                ensureActive = ::ensureActive,
+            )
+            WebToolBackend.BUILTIN -> {
+                if (config.geminiAutoGrounding && config.geminiApiKey.isNotBlank()) {
+                    try {
+                        ConfigurableWebBackends.searchGemini(
+                            transport = transport,
+                            baseUrl = config.geminiBaseUrl,
+                            apiKey = config.geminiApiKey,
+                            model = config.geminiModel,
+                            query = query,
+                            maxResults = limit,
+                            ensureActive = ::ensureActive,
+                        )
+                    } catch (cancelled: WebRequestException) {
+                        if (cancelled.code == "WEB_CANCELLED") throw cancelled
+                        ensureActive()
+                        searchBuiltIn(query, limit)
+                    } catch (cancelled: WebSearchException) {
+                        if (cancelled.code == "WEB_CANCELLED") throw cancelled
+                        ensureActive()
+                        searchBuiltIn(query, limit)
+                    } catch (_: Exception) {
+                        ensureActive()
+                        searchBuiltIn(query, limit)
+                    }
+                } else {
+                    searchBuiltIn(query, limit)
+                }
+            }
             WebToolBackend.DEEPSEEK -> ConfigurableWebBackends.searchDeepSeek(
                 transport = transport,
                 baseUrl = config.deepSeekBaseUrl,
@@ -119,7 +155,7 @@ internal class AgentWebTools(
             val validatedUrl = WebHttpTransport.validateUrl(rawUrl).toString()
             val config = runtimeConfig()
             snapshot = when (config.fetchBackend) {
-                WebToolBackend.BUILTIN -> fetchLocalSnapshot(validatedUrl)
+                WebToolBackend.BUILTIN, WebToolBackend.GEMINI -> fetchLocalSnapshot(validatedUrl)
                 WebToolBackend.DEEPSEEK, WebToolBackend.CUSTOM -> {
                     val remoteProvider = if (config.fetchBackend == WebToolBackend.DEEPSEEK) "deepseek" else "custom"
                     try {

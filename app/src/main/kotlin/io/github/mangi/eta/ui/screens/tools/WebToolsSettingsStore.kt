@@ -28,6 +28,8 @@ internal class WebToolsSettingsStore(
         private set
     var hasProviderDeepSeekKey by mutableStateOf(false)
         private set
+    var hasProviderGeminiKey by mutableStateOf(false)
+        private set
     var loaded by mutableStateOf(false)
         private set
     var saving by mutableStateOf(false)
@@ -42,6 +44,7 @@ internal class WebToolsSettingsStore(
             try {
                 settings = WebToolsSettingsRepository.settings()
                 hasProviderDeepSeekKey = WebToolsSettingsRepository.deepSeekProviderCredentials() != null
+                hasProviderGeminiKey = WebToolsSettingsRepository.geminiProviderCredentials()?.apiKey?.isNotBlank() == true
                 try {
                     credentials = WebToolsSettingsRepository.credentials(context)
                 } catch (_: WebToolsCredentialsUnavailable) {
@@ -75,8 +78,10 @@ internal class WebToolsSettingsStore(
         scope.launch {
             try {
                 val latestProviderDeepSeek = WebToolsSettingsRepository.deepSeekProviderCredentials() != null
+                val latestProviderGemini = WebToolsSettingsRepository.geminiProviderCredentials()?.apiKey?.isNotBlank() == true
                 hasProviderDeepSeekKey = latestProviderDeepSeek
-                validateWebToolsSettings(config, secrets, latestProviderDeepSeek)
+                hasProviderGeminiKey = latestProviderGemini
+                validateWebToolsSettings(config, secrets, latestProviderDeepSeek, latestProviderGemini)
                 WebToolsSettingsRepository.saveCredentials(context, secrets)
                 WebToolsSettingsRepository.save(config)
                 message = context.getString(
@@ -104,7 +109,13 @@ internal fun validateWebToolsSettings(
     settings: WebToolsSettings,
     credentials: WebToolsCredentials,
     hasProviderDeepSeekKey: Boolean,
+    hasProviderGeminiKey: Boolean = false,
 ) {
+    if (settings.searchBackend == WebToolBackend.GEMINI) {
+        if (!hasProviderGeminiKey) {
+            throw WebToolsValidationFailure("请先在模型提供商中配置 Google Gemini API Key")
+        }
+    }
     val usesDeepSeek = settings.searchBackend == WebToolBackend.DEEPSEEK ||
         settings.fetchBackend == WebToolBackend.DEEPSEEK
     if (usesDeepSeek) {

@@ -6,6 +6,8 @@ import android.security.keystore.KeyProperties
 import io.github.mangi.eta.agent.web.WebToolsRuntimeConfig
 import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.model.DeepSeekWebConfig
+import io.github.mangi.eta.data.model.GeminiProviderSetting
+import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.model.WebToolsCredentials
 import io.github.mangi.eta.data.model.WebToolsSettings
@@ -78,10 +80,49 @@ internal object WebToolsSettingsRepository {
         }.getOrNull()
     }
 
+    /** 查找模型提供商中已配置的 Google Gemini 凭据与模型，供网页工具零配置复用。 */
+    suspend fun geminiProviderCredentials(): GeminiWebCredentials? = withContext(Dispatchers.IO) {
+        runCatching {
+            val providers = ProviderRepository.allProviders()
+            val selectedId = SettingsDataStore.settings().selectedProviderId
+            val selectedProvider = providers.firstOrNull { it.id == selectedId && it.isEnabled } as? GeminiProviderSetting
+            val builtinProvider = providers.firstOrNull { it.id == BuiltinProviders.GEMINI_ID && it.isEnabled } as? GeminiProviderSetting
+            val providerWithKey = providers.firstOrNull { it.isEnabled && it is GeminiProviderSetting && it.apiKey.isNotBlank() } as? GeminiProviderSetting
+
+            val chosen = when {
+                selectedProvider != null -> selectedProvider
+                builtinProvider != null && builtinProvider.apiKey.isNotBlank() -> builtinProvider
+                providerWithKey != null -> providerWithKey
+                builtinProvider != null -> builtinProvider
+                else -> providers.firstOrNull { it is GeminiProviderSetting } as? GeminiProviderSetting
+            } ?: return@withContext null
+
+            val selectedModelId = SettingsDataStore.selectedModelIdForProvider(chosen.id)
+                ?: SettingsDataStore.settings().takeIf { it.selectedProviderId == chosen.id }?.selectedModelId
+
+            val activeModel = chosen.models.firstOrNull {
+                it.id == selectedModelId && it.isEnabled &&
+                    it.outputModalities.none { mod -> mod.equals(Model.IMAGE_MODALITY, ignoreCase = true) }
+            } ?: chosen.models.firstOrNull {
+                it.isEnabled && it.outputModalities.none { mod -> mod.equals(Model.IMAGE_MODALITY, ignoreCase = true) }
+            }
+
+            val modelId = activeModel?.modelId?.ifBlank { null } ?: "gemini-3.8-flash-tiered"
+
+            GeminiWebCredentials(
+                baseUrl = chosen.baseUrl.trim().ifEmpty { GeminiProviderSetting.DEFAULT_BASE_URL },
+                apiKey = chosen.apiKey.trim(),
+                model = modelId,
+                hostedWebSearchEnabled = chosen.hostedWebSearchEnabled,
+            )
+        }.getOrNull()
+    }
+
     suspend fun resolveRuntimeConfig(context: Context): WebToolsRuntimeConfig = withContext(Dispatchers.IO) {
         val settings = runCatching { settings() }.getOrDefault(WebToolsSettings())
         val credentials = runCatching { credentials(context) }.getOrDefault(WebToolsCredentials())
         val providerDeepSeek = deepSeekProviderCredentials()
+        val providerGemini = geminiProviderCredentials()
         val deepSeekApiKey = credentials.deepSeekApiKey.trim().ifEmpty {
             providerDeepSeek?.first.orEmpty()
         }
@@ -97,6 +138,10 @@ internal object WebToolsSettingsRepository {
         WebToolsRuntimeConfig(
             searchBackend = settings.searchBackend,
             fetchBackend = settings.fetchBackend,
+            geminiBaseUrl = providerGemini?.baseUrl ?: GeminiProviderSetting.DEFAULT_BASE_URL,
+            geminiApiKey = providerGemini?.apiKey.orEmpty(),
+            geminiModel = providerGemini?.model ?: "gemini-3.8-flash-tiered",
+            geminiAutoGrounding = providerGemini?.hostedWebSearchEnabled ?: false,
             deepSeekBaseUrl = deepSeekBaseUrl,
             deepSeekApiKey = deepSeekApiKey,
             customSearch = settings.customSearch,
@@ -124,5 +169,12 @@ internal object WebToolsSettingsRepository {
         }
     }
 }
+
+internal data class GeminiWebCredentials(
+    val baseUrl: String,
+    val apiKey: String,
+    val model: String,
+    val hostedWebSearchEnabled: Boolean,
+)
 
 internal class WebToolsCredentialsUnavailable : Exception("网页工具凭据无法解密，请重新填写并保存")

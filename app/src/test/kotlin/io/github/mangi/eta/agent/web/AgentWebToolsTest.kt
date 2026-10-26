@@ -313,6 +313,272 @@ class AgentWebToolsTest {
         }
     }
 
+    @Test fun geminiSearchBackendSendsCleanGroundingRequestAndParsesMetadata() {
+        var capturedPath: String? = null
+        var capturedMethod: String? = null
+        var capturedAuth: String? = null
+        var capturedApiKey: String? = null
+        var capturedAccept: String? = null
+        var capturedBody: String? = null
+
+        val client = OkHttpClient.Builder().addInterceptor(Interceptor { chain ->
+            val request = chain.request()
+            capturedPath = request.url.encodedPath
+            capturedMethod = request.method
+            capturedAuth = request.header("Authorization")
+            capturedApiKey = request.header("x-goog-api-key")
+            capturedAccept = request.header("Accept")
+            val buffer = Buffer()
+            request.body?.writeTo(buffer)
+            capturedBody = buffer.readUtf8()
+
+            val sseResponse = buildString {
+                append("data: ")
+                append(
+                    JSONObject().put(
+                        "candidates",
+                        JSONArray().put(
+                            JSONObject()
+                                .put(
+                                    "content",
+                                    JSONObject().put(
+                                        "parts",
+                                        JSONArray().put(
+                                            JSONObject().put("text", "Kotlin 协程是用于异步编程的轻量级线程。"),
+                                        ),
+                                    ),
+                                )
+                                .put(
+                                    "groundingMetadata",
+                                    JSONObject()
+                                        .put(
+                                            "groundingChunks",
+                                            JSONArray().put(
+                                                JSONObject().put(
+                                                    "web",
+                                                    JSONObject()
+                                                        .put("uri", "https://kotlinlang.org/docs/coroutines-overview.html")
+                                                        .put("title", "Coroutines guide | Kotlin"),
+                                                ),
+                                            ),
+                                        )
+                                        .put(
+                                            "groundingSupports",
+                                            JSONArray().put(
+                                                JSONObject()
+                                                    .put("segment", JSONObject().put("text", "Kotlin 协程是用于异步编程的轻量级线程。"))
+                                                    .put("groundingChunkIndices", JSONArray().put(0)),
+                                            ),
+                                        ),
+                                ),
+                        ),
+                    ).toString(),
+                )
+                append("\n\n")
+            }
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                .header("Content-Type", "text/event-stream")
+                .body(sseResponse.toResponseBody())
+                .build()
+        }).build()
+
+        val config = WebToolsRuntimeConfig(
+            searchBackend = WebToolBackend.GEMINI,
+            geminiBaseUrl = "https://generativelanguage.googleapis.com",
+            geminiApiKey = "test-gemini-key",
+            geminiModel = "gemini-3.8-flash-tiered",
+        )
+        AgentWebTools(WebHttpTransport(client), runtimeConfig = { config }).use { tools ->
+            val result = call(tools, "web_search", JSONObject().put("query", "Kotlin Coroutines"))
+            assertTrue(result.toString(), result.getBoolean("ok"))
+            assertEquals("gemini_grounding", result.getString("provider"))
+
+            val results = result.getJSONArray("results")
+            assertEquals(1, results.length())
+            val first = results.getJSONObject(0)
+            assertEquals("Coroutines guide | Kotlin", first.getString("title"))
+            assertEquals("https://kotlinlang.org/docs/coroutines-overview.html", first.getString("url"))
+            assertEquals("Kotlin 协程是用于异步编程的轻量级线程。", first.getString("snippet"))
+
+            assertEquals("/v1beta/models/gemini-3.8-flash-tiered:streamGenerateContent", capturedPath)
+            assertEquals("POST", capturedMethod)
+            assertEquals("text/event-stream", capturedAccept)
+            assertEquals("test-gemini-key", capturedApiKey)
+            assertEquals(null, capturedAuth)
+
+            val reqJson = JSONObject(capturedBody!!)
+            assertFalse(reqJson.has("toolConfig"))
+            val toolsArr = reqJson.getJSONArray("tools")
+            assertEquals(1, toolsArr.length())
+            val toolObj = toolsArr.getJSONObject(0)
+            assertTrue(toolObj.has("google_search"))
+            assertFalse(toolObj.has("functionDeclarations"))
+            assertEquals(0, reqJson.getJSONObject("generationConfig").getJSONObject("thinkingConfig").getInt("thinkingBudget"))
+        }
+    }
+
+    @Test fun geminiSearchOnProxyGatewayAddsBearerAuth() {
+        var capturedAuth: String? = null
+        val client = OkHttpClient.Builder().addInterceptor(Interceptor { chain ->
+            val request = chain.request()
+            capturedAuth = request.header("Authorization")
+            val sse = "data: " + JSONObject().put(
+                "candidates",
+                JSONArray().put(
+                    JSONObject().put(
+                        "content",
+                        JSONObject().put("parts", JSONArray().put(JSONObject().put("text", "代理结果"))),
+                    ),
+                ),
+            ).toString() + "\n\n"
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                .header("Content-Type", "text/event-stream")
+                .body(sse.toResponseBody()).build()
+        }).build()
+
+        val config = WebToolsRuntimeConfig(
+            searchBackend = WebToolBackend.GEMINI,
+            geminiBaseUrl = "https://gemini-proxy.example.com",
+            geminiApiKey = "proxy-api-key",
+            geminiModel = "gemini-3.8-flash-tiered",
+        )
+        AgentWebTools(WebHttpTransport(client), runtimeConfig = { config }).use { tools ->
+            val result = call(tools, "web_search", JSONObject().put("query", "代理搜索测试"))
+            assertTrue(result.toString(), result.getBoolean("ok"))
+            assertEquals("gemini_grounding", result.getString("provider"))
+            assertEquals("Bearer proxy-api-key", capturedAuth)
+            val first = result.getJSONArray("results").getJSONObject(0)
+            assertEquals("Google Search", first.getString("title"))
+            assertEquals("代理结果", first.getString("snippet"))
+        }
+    }
+
+    @Test fun builtinBackendWithAutoGroundingUsesGeminiAndFallsBackToBuiltinOnError() {
+        var geminiAttempts = 0
+        var builtinAttempts = 0
+
+        val client = OkHttpClient.Builder().addInterceptor(Interceptor { chain ->
+            val request = chain.request()
+            if (request.url.host == "generativelanguage.googleapis.com") {
+                geminiAttempts++
+                if (geminiAttempts == 1) {
+                    val sse = "data: " + JSONObject().put(
+                        "candidates",
+                        JSONArray().put(
+                            JSONObject()
+                                .put(
+                                    "content",
+                                    JSONObject().put(
+                                        "parts",
+                                        JSONArray().put(JSONObject().put("text", "Grounded answer")),
+                                    ),
+                                )
+                                .put(
+                                    "groundingMetadata",
+                                    JSONObject().put(
+                                        "groundingChunks",
+                                        JSONArray().put(
+                                            JSONObject().put(
+                                                "web",
+                                                JSONObject()
+                                                    .put("uri", "https://example.test/gemini-result")
+                                                    .put("title", "Gemini Result"),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                        ),
+                    ).toString() + "\n\n"
+                    Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                        .header("Content-Type", "text/event-stream")
+                        .body(sse.toResponseBody()).build()
+                } else {
+                    Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(500).message("Internal Server Error")
+                        .body("{}".toResponseBody()).build()
+                }
+            } else {
+                builtinAttempts++
+                val html = "<html><head><title>Search</title></head><body><div id='links' class='results'>" +
+                    "<div class='result results_links web-result'><div class='result__body'>" +
+                    "<h2 class='result__title'><a class='result__a' href='https://example.test/builtin-result'>Builtin Title</a></h2>" +
+                    "<a class='result__snippet' href='https://example.test/builtin-result'>Builtin snippet</a></div></div>" +
+                    "</div></body></html>"
+                Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                    .header("Content-Type", "text/html; charset=utf-8")
+                    .body(html.toResponseBody()).build()
+            }
+        }).build()
+
+        val config = WebToolsRuntimeConfig(
+            searchBackend = WebToolBackend.BUILTIN,
+            geminiBaseUrl = "https://generativelanguage.googleapis.com",
+            geminiApiKey = "test-gemini-key",
+            geminiAutoGrounding = true,
+        )
+
+        AgentWebTools(WebHttpTransport(client), runtimeConfig = { config }).use { tools ->
+            val first = call(tools, "web_search", JSONObject().put("query", "query 1"))
+            assertTrue(first.toString(), first.getBoolean("ok"))
+            assertEquals("gemini_grounding", first.getString("provider"))
+            assertEquals(1, geminiAttempts)
+            assertEquals(0, builtinAttempts)
+
+            val second = call(tools, "web_search", JSONObject().put("query", "query 2"))
+            assertTrue(second.toString(), second.getBoolean("ok"))
+            assertEquals("duckduckgo_html", second.getString("provider"))
+            assertEquals(2, geminiAttempts)
+            assertEquals(1, builtinAttempts)
+            assertEquals("Builtin Title", second.getJSONArray("results").getJSONObject(0).getString("title"))
+        }
+    }
+
+    @Test fun geminiAutoGroundingPropagatesCancellationWithoutFallingBack() {
+        var builtinCalled = false
+        val client = OkHttpClient.Builder().addInterceptor(Interceptor { chain ->
+            val request = chain.request()
+            if (request.url.host != "generativelanguage.googleapis.com") {
+                builtinCalled = true
+            }
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                .header("Content-Type", "text/plain").body("".toResponseBody()).build()
+        }).build()
+
+        val config = WebToolsRuntimeConfig(
+            searchBackend = WebToolBackend.BUILTIN,
+            geminiBaseUrl = "https://generativelanguage.googleapis.com",
+            geminiApiKey = "test-gemini-key",
+            geminiAutoGrounding = true,
+        )
+
+        AgentWebTools(WebHttpTransport(client), runtimeConfig = { config }).use { tools ->
+            tools.close() // closes tools and marks cancelled
+            val result = call(tools, "web_search", JSONObject().put("query", "test query"))
+            assertFalse(result.getBoolean("ok"))
+            assertEquals("WEB_CANCELLED", result.getString("code"))
+            assertFalse("Builtin should never be called when cancelled", builtinCalled)
+        }
+    }
+
+    @Test fun geminiFetchBackendFallsBackToBuiltinLocalSnapshot() {
+        val html = "<title>Gemini Fetch Local</title><main>Local snapshot body</main>"
+        val client = OkHttpClient.Builder().addInterceptor(Interceptor { chain ->
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                .header("Content-Type", "text/html; charset=utf-8")
+                .body(html.toResponseBody()).build()
+        }).build()
+
+        val config = WebToolsRuntimeConfig(
+            fetchBackend = WebToolBackend.GEMINI,
+        )
+
+        AgentWebTools(WebHttpTransport(client), runtimeConfig = { config }).use { tools ->
+            val result = call(tools, "fetch_url", JSONObject().put("url", "https://example.test/page"))
+            assertTrue(result.toString(), result.getBoolean("ok"))
+            assertEquals("Gemini Fetch Local", result.getString("title"))
+            assertTrue(result.getString("text").contains("Local snapshot body"))
+        }
+    }
+
     private fun tools() = AgentWebTools(WebHttpTransport(OkHttpClient()), now = { Instant.parse("2026-10-05T08:00:00Z") })
     private fun call(tools: AgentWebTools, name: String, args: JSONObject): JSONObject = JSONObject(tools.execute(name, args))
 }

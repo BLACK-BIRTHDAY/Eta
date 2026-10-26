@@ -1,8 +1,11 @@
 package io.github.mangi.eta.agent.web
 
+import io.github.mangi.eta.agent.model.ProviderUrls
+import io.github.mangi.eta.agent.model.VertexAiServiceAccountAuth
 import io.github.mangi.eta.data.model.CustomWebFetchConfig
 import io.github.mangi.eta.data.model.CustomWebSearchConfig
 import io.github.mangi.eta.data.model.DeepSeekWebConfig
+import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.WebHttpMethod
 import io.github.mangi.eta.data.model.WebToolBackend
 import java.net.URLEncoder
@@ -15,6 +18,10 @@ import org.json.JSONTokener
 internal data class WebToolsRuntimeConfig(
     val searchBackend: WebToolBackend = WebToolBackend.BUILTIN,
     val fetchBackend: WebToolBackend = WebToolBackend.BUILTIN,
+    val geminiBaseUrl: String = "",
+    val geminiApiKey: String = "",
+    val geminiModel: String = "gemini-3.8-flash-tiered",
+    val geminiAutoGrounding: Boolean = false,
     val deepSeekBaseUrl: String = DeepSeekWebConfig.DEFAULT_BASE_URL,
     val deepSeekApiKey: String = "",
     val customSearch: CustomWebSearchConfig = CustomWebSearchConfig(),
@@ -38,6 +45,82 @@ internal object ConfigurableWebBackends {
     private const val MAX_SUMMARY_CHARS = 1_200
     private const val MAX_RESULT_CHARS = 24_000
     private const val MAX_SCAN_ITEMS = 100
+
+    fun searchGemini(
+        transport: WebHttpTransport,
+        baseUrl: String,
+        apiKey: String,
+        model: String,
+        query: String,
+        maxResults: Int,
+        ensureActive: () -> Unit,
+    ): SearchPage {
+        validateLimit(maxResults)
+        val trimmedQuery = validateQuery(query)
+        val key = apiKey.trim()
+        if (key.isEmpty()) {
+            throw WebSearchException("SEARCH_AUTH_REQUIRED", "Google Gemini 搜索未配置 API Key，请在 Google Gemini 提供商中配置")
+        }
+        val effectiveBaseUrl = baseUrl.trim().ifEmpty { GeminiProviderSetting.DEFAULT_BASE_URL }
+        val effectiveModel = model.trim().ifEmpty { "gemini-3.8-flash-tiered" }
+        val isServiceAccount = VertexAiServiceAccountAuth.looksLikeServiceAccountJson(key)
+        val isVertex = isServiceAccount || ProviderUrls.isVertexAiEndpoint(effectiveBaseUrl)
+        val saCredentials = if (isServiceAccount) {
+            VertexAiServiceAccountAuth.parseServiceAccountJson(key)
+        } else {
+            null
+        }
+        val endpoint = if (saCredentials != null || isVertex) {
+            VertexAiServiceAccountAuth.buildStreamGenerateContentUrl(
+                baseUrl = effectiveBaseUrl,
+                model = effectiveModel,
+                credentials = saCredentials,
+            )
+        } else {
+            ProviderUrls.geminiStreamGenerateContentUrl(effectiveBaseUrl, effectiveModel)
+        }
+        val body = JSONObject()
+            .put("contents", JSONArray().put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", trimmedQuery)))))
+            .put("tools", JSONArray().put(JSONObject().put("google_search", JSONObject())))
+            .put("generationConfig", JSONObject().put("thinkingConfig", JSONObject().put("includeThoughts", false).put("thinkingBudget", 0)))
+            .toString()
+            .toByteArray(Charsets.UTF_8)
+        val headers = mutableMapOf(
+            "Accept" to "text/event-stream",
+        )
+        if (saCredentials != null) {
+            val token = VertexAiServiceAccountAuth.getAccessToken(saCredentials)
+            headers["Authorization"] = "Bearer $token"
+            headers["x-goog-user-project"] = saCredentials.projectId
+        } else {
+            headers["x-goog-api-key"] = key
+            if (!endpoint.contains("generativelanguage.googleapis.com", ignoreCase = true)) {
+                headers["Authorization"] = "Bearer $key"
+            }
+        }
+        val response = transport.request(
+            rawUrl = endpoint,
+            method = "POST",
+            headers = headers,
+            body = body,
+            contentType = "application/json; charset=utf-8",
+        )
+        requireSearchApiSuccess(response, "Google Gemini")
+        if (response.truncated) {
+            throw WebRequestException("SEARCH_RESPONSE_TOO_LARGE", "搜索响应超过大小限制，请缩小查询范围")
+        }
+        val decoded = WebResponseDecoder.decode(response)
+        if (decoded.lossy) {
+            throw WebRequestException("SEARCH_ENCODING_ERROR", "搜索响应包含无法可靠解码的内容")
+        }
+        return parseGeminiSearchResults(
+            endpoint = endpoint,
+            rawText = decoded.text,
+            trimmedQuery = trimmedQuery,
+            maxResults = maxResults,
+            ensureActive = ensureActive,
+        )
+    }
 
     fun searchDeepSeek(
         transport: WebHttpTransport,
@@ -347,6 +430,197 @@ internal object ConfigurableWebBackends {
             if (current == null || current === JSONObject.NULL) return null
         }
         return current
+    }
+
+    internal fun parseGeminiSearchResults(
+        endpoint: String,
+        rawText: String,
+        trimmedQuery: String,
+        maxResults: Int,
+        ensureActive: () -> Unit,
+    ): SearchPage {
+        val jsonObjects = mutableListOf<JSONObject>()
+        val trimmed = rawText.trim()
+        if (trimmed.startsWith("{")) {
+            runCatching { JSONObject(trimmed) }.getOrNull()?.let { jsonObjects.add(it) }
+        } else if (trimmed.startsWith("[")) {
+            runCatching { JSONArray(trimmed) }.getOrNull()?.let { arr ->
+                for (i in 0 until arr.length()) {
+                    arr.optJSONObject(i)?.let { jsonObjects.add(it) }
+                }
+            }
+        }
+        if (jsonObjects.isEmpty()) {
+            trimmed.lineSequence().forEach { rawLine ->
+                val line = rawLine.trim()
+                if (line.startsWith("data:")) {
+                    val data = line.removePrefix("data:").trim()
+                    if (data.isNotBlank() && data != "[DONE]") {
+                        runCatching { JSONObject(data) }.getOrNull()?.let { jsonObjects.add(it) }
+                    }
+                }
+            }
+        }
+        if (jsonObjects.isEmpty()) {
+            throw WebSearchException("SEARCH_PARSE_FAILED", "Google Gemini 搜索返回了无效的响应")
+        }
+
+        for (json in jsonObjects) {
+            val errorObj = json.optJSONObject("error")
+            if (errorObj != null) {
+                val msg = errorObj.optString("message").ifBlank { "Gemini 接口返回错误" }
+                throw WebSearchException("SEARCH_API_ERROR", msg)
+            }
+            val promptFeedback = json.optJSONObject("promptFeedback")
+            val blockReason = promptFeedback?.optString("blockReason")?.ifBlank { promptFeedback.optString("block_reason") }
+            if (!blockReason.isNullOrBlank()) {
+                throw WebSearchException("SEARCH_SAFETY_BLOCKED", "Gemini 内容安全拦截: $blockReason")
+            }
+        }
+
+        val fullAnswer = StringBuilder()
+        val chunks = mutableListOf<Pair<String, String>>()
+        val chunkSupports = mutableMapOf<Int, MutableList<String>>()
+
+        for (json in jsonObjects) {
+            ensureActive()
+            val candidates = json.optJSONArray("candidates") ?: continue
+            for (c in 0 until candidates.length()) {
+                val candidate = candidates.optJSONObject(c) ?: continue
+
+                val contentObj = candidate.optJSONObject("content")
+                val parts = contentObj?.optJSONArray("parts")
+                if (parts != null) {
+                    for (p in 0 until parts.length()) {
+                        val part = parts.optJSONObject(p) ?: continue
+                        val isThought = part.optBoolean("thought", false)
+                        if (!isThought) {
+                            val text = part.optString("text")
+                            if (text.isNotEmpty()) {
+                                fullAnswer.append(text)
+                            }
+                        }
+                    }
+                }
+
+                val groundingMetadata = candidate.optJSONObject("groundingMetadata")
+                    ?: candidate.optJSONObject("grounding_metadata")
+                    ?: json.optJSONObject("groundingMetadata")
+                    ?: json.optJSONObject("grounding_metadata")
+
+                if (groundingMetadata != null) {
+                    val groundingChunks = groundingMetadata.optJSONArray("groundingChunks")
+                        ?: groundingMetadata.optJSONArray("grounding_chunks")
+                    if (groundingChunks != null && groundingChunks.length() > 0) {
+                        val currentOffset = chunks.size
+                        for (i in 0 until groundingChunks.length()) {
+                            val chunkObj = groundingChunks.optJSONObject(i) ?: continue
+                            val web = chunkObj.optJSONObject("web")
+                            val uri = web?.optString("uri").orEmpty().trim()
+                            val title = web?.optString("title").orEmpty().trim()
+                            chunks.add(uri to title)
+                        }
+                        val groundingSupports = groundingMetadata.optJSONArray("groundingSupports")
+                            ?: groundingMetadata.optJSONArray("grounding_supports")
+                        if (groundingSupports != null) {
+                            for (i in 0 until groundingSupports.length()) {
+                                val support = groundingSupports.optJSONObject(i) ?: continue
+                                val segment = support.optJSONObject("segment")
+                                val segmentText = segment?.optString("text")?.trim().orEmpty()
+                                val indices = support.optJSONArray("groundingChunkIndices")
+                                    ?: support.optJSONArray("grounding_chunk_indices")
+                                if (indices != null && segmentText.isNotEmpty()) {
+                                    for (j in 0 until indices.length()) {
+                                        val chunkIndex = indices.optInt(j, -1)
+                                        if (chunkIndex >= 0) {
+                                            chunkSupports.getOrPut(currentOffset + chunkIndex) { mutableListOf() }.add(segmentText)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        val reasons = linkedSetOf<String>()
+        val results = mutableListOf<SearchResult>()
+        val seen = hashSetOf<String>()
+        var skipped = 0
+        var chars = 0
+        val trimmedAnswer = fullAnswer.toString().trim()
+
+        for (chunkIndex in chunks.indices) {
+            ensureActive()
+            val (uri, chunkTitle) = chunks[chunkIndex]
+            val validatedUrl = runCatching { WebHttpTransport.validateUrl(uri).toString() }.getOrNull()
+            if (validatedUrl == null) {
+                skipped++
+                reasons += "invalid_result"
+                continue
+            }
+            if (!seen.add(validatedUrl)) continue
+            if (results.size >= maxResults) {
+                reasons += "result_limit"
+                continue
+            }
+            val rawTitle = chunkTitle.ifBlank { validatedUrl }
+            val title = takeCompleteCharacters(rawTitle, MAX_TITLE_CHARS)
+            val segments = chunkSupports[chunkIndex]?.distinct().orEmpty()
+            val rawSnippet = if (segments.isNotEmpty()) segments.joinToString(" ") else trimmedAnswer
+            val snippet = takeCompleteCharacters(rawSnippet.trim(), MAX_SNIPPET_CHARS)
+            if (title.length != rawTitle.length || snippet.length != rawSnippet.trim().length) {
+                reasons += "text_limit"
+            }
+            val summary = if (results.isEmpty() && trimmedAnswer.isNotBlank() && trimmedAnswer != snippet) {
+                val s = takeCompleteCharacters(trimmedAnswer, MAX_SUMMARY_CHARS)
+                if (s.length != trimmedAnswer.length) {
+                    reasons += "text_limit"
+                }
+                s
+            } else {
+                null
+            }
+            val cost = title.length + snippet.length + (summary?.length ?: 0) + validatedUrl.length
+            if (chars + cost > MAX_RESULT_CHARS) {
+                reasons += "output_limit"
+                continue
+            }
+            results += SearchResult(
+                title = title,
+                url = validatedUrl,
+                snippet = snippet,
+                summary = summary,
+            )
+            chars += cost
+        }
+
+        if (results.isEmpty() && trimmedAnswer.isNotBlank()) {
+            val snippet = takeCompleteCharacters(trimmedAnswer, MAX_SNIPPET_CHARS)
+            val summary = takeCompleteCharacters(trimmedAnswer, MAX_SUMMARY_CHARS)
+            if (snippet.length != trimmedAnswer.length || summary.length != trimmedAnswer.length) {
+                reasons += "text_limit"
+            }
+            val fallbackUrl = "https://www.google.com/search?q=" + URLEncoder.encode(trimmedQuery, "UTF-8")
+            results += SearchResult(
+                title = "Google Search",
+                url = fallbackUrl,
+                snippet = snippet,
+                summary = summary,
+            )
+        }
+
+        ensureActive()
+        return SearchPage(
+            provider = "gemini_grounding",
+            searchUrl = endpoint,
+            results = results,
+            limited = reasons.isNotEmpty(),
+            scope = "api",
+            limitReasons = reasons.toList(),
+            skippedResults = skipped,
+        )
     }
 
     private fun parseJsonSearchResults(

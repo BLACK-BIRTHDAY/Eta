@@ -76,16 +76,18 @@ internal fun WebToolsSettingsScreen(onBack: () -> Unit) {
             EtaPreferenceGroupTitle(stringResource(R.string.web_tools_group_service))
         }
         item(key = "service") {
-            val searchBackendLabels = WebToolBackend.entries.map { it.searchLabel() }
-            val fetchBackendLabels = WebToolBackend.entries.map { it.fetchLabel() }
+            val searchBackends = WebToolBackend.entries
+            val searchBackendLabels = searchBackends.map { it.searchLabel() }
+            val fetchBackends = listOf(WebToolBackend.BUILTIN, WebToolBackend.DEEPSEEK, WebToolBackend.CUSTOM)
+            val fetchBackendLabels = fetchBackends.map { it.fetchLabel() }
             Column {
                 EtaPreferenceGroup {
                     EtaOverlayDropdownPreference(
                         title = stringResource(R.string.web_tools_search_service),
                         items = searchBackendLabels,
-                        selectedIndex = settings.searchBackend.ordinal,
+                        selectedIndex = searchBackends.indexOf(settings.searchBackend).coerceAtLeast(0),
                         onSelectedIndexChange = { index ->
-                            WebToolBackend.entries.getOrNull(index)?.let {
+                            searchBackends.getOrNull(index)?.let {
                                 store.edit(settings.copy(searchBackend = it))
                             }
                         },
@@ -94,9 +96,9 @@ internal fun WebToolsSettingsScreen(onBack: () -> Unit) {
                     EtaOverlayDropdownPreference(
                         title = stringResource(R.string.web_tools_fetch_service),
                         items = fetchBackendLabels,
-                        selectedIndex = settings.fetchBackend.ordinal,
+                        selectedIndex = fetchBackends.indexOf(settings.fetchBackend).coerceAtLeast(0),
                         onSelectedIndexChange = { index ->
-                            WebToolBackend.entries.getOrNull(index)?.let {
+                            fetchBackends.getOrNull(index)?.let {
                                 store.edit(settings.copy(fetchBackend = it))
                             }
                         },
@@ -398,6 +400,7 @@ private fun CustomFetchSection(store: WebToolsSettingsStore) {
 @Composable
 private fun WebToolBackend.searchLabel(): String = when (this) {
     WebToolBackend.BUILTIN -> "DuckDuckGo"
+    WebToolBackend.GEMINI -> "Google Gemini"
     WebToolBackend.DEEPSEEK -> stringResource(R.string.web_tools_backend_deepseek)
     WebToolBackend.CUSTOM -> stringResource(R.string.web_tools_backend_custom)
 }
@@ -405,7 +408,7 @@ private fun WebToolBackend.searchLabel(): String = when (this) {
 @Composable
 private fun WebToolBackend.fetchLabel(): String = stringResource(
     when (this) {
-        WebToolBackend.BUILTIN -> R.string.web_tools_backend_builtin
+        WebToolBackend.BUILTIN, WebToolBackend.GEMINI -> R.string.web_tools_backend_builtin
         WebToolBackend.DEEPSEEK -> R.string.web_tools_backend_deepseek
         WebToolBackend.CUSTOM -> R.string.web_tools_backend_custom
     },

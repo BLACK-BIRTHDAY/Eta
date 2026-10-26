@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 internal enum class WebToolBackend {
     BUILTIN,
+    GEMINI,
     DEEPSEEK,
     CUSTOM,
 }
