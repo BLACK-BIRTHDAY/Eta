@@ -55,7 +55,6 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             ProviderUrls.geminiStreamGenerateContentUrl(config.baseUrl, config.model)
         }
         val fallbackSignature = extractLatestSignature(request.messages)
-        val payload = buildRequestJson(config, request.messages, request.tools, fallbackSignature)
 
         val isOfficialGoogle = config.baseUrl.contains("generativelanguage.googleapis.com")
         val headers = Headers.Builder()
@@ -76,33 +75,72 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             }
             .build()
 
-        val httpRequest = Request.Builder()
-            .url(url)
-            .headers(headers)
-            .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
-            .build()
-
-        val call = AgentHttpClient.client.newCall(httpRequest)
-        val binding = runController.register { call.cancel() }
+        var currentCall: okhttp3.Call? = null
+        val binding = runController.register { currentCall?.cancel() }
         try {
             runController.throwIfCancelled()
             onEvent(ProviderEvent.RequestStarted)
-            call.execute().use { response ->
-                onEvent(ProviderEvent.ResponseHeaders(response.code))
-                runController.throwIfCancelled()
-                if (!response.isSuccessful) {
-                    val errorBody = response.peekBody(16_384).string()
-                    throw AgentModelFailure.http(response.code, errorBody)
-                }
-                val assistant = readStreamingAssistantMessage(
-                    response.body.byteStream(),
-                    runController,
-                    onEvent,
-                    fallbackSignature
+
+            for (attempt in 0..1) {
+                val ignoreThoughtSignatures = attempt == 1
+                val payload = buildRequestJson(
+                    config = config,
+                    messages = request.messages,
+                    tools = request.tools,
+                    fallbackSignature = if (ignoreThoughtSignatures) null else fallbackSignature,
+                    ignoreThoughtSignatures = ignoreThoughtSignatures,
                 )
-                onEvent(ProviderEvent.Completed(assistant.optString("finish_reason").ifBlank { null }))
-                return ProviderResponse(assistant)
+                val httpRequest = Request.Builder()
+                    .url(url)
+                    .headers(headers)
+                    .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
+                    .build()
+
+                val call = AgentHttpClient.client.newCall(httpRequest)
+                currentCall = call
+
+                var shouldRetry = false
+                var failureToThrow: Throwable? = null
+                var successfulResponse: ProviderResponse? = null
+
+                call.execute().use { response ->
+                    onEvent(ProviderEvent.ResponseHeaders(response.code))
+                    runController.throwIfCancelled()
+                    if (!response.isSuccessful) {
+                        val errorBody = response.peekBody(16_384).string()
+                        val isThoughtSignatureError = response.code == 400 && (
+                            errorBody.contains("thought signature", ignoreCase = true) ||
+                            errorBody.contains("thought_signature", ignoreCase = true)
+                        )
+                        if (!ignoreThoughtSignatures && isThoughtSignatureError) {
+                            shouldRetry = true
+                        } else {
+                            failureToThrow = AgentModelFailure.http(response.code, errorBody)
+                        }
+                    } else {
+                        val assistant = readStreamingAssistantMessage(
+                            response.body.byteStream(),
+                            runController,
+                            onEvent,
+                            if (ignoreThoughtSignatures) null else fallbackSignature
+                        )
+                        onEvent(ProviderEvent.Completed(assistant.optString("finish_reason").ifBlank { null }))
+                        successfulResponse = ProviderResponse(assistant)
+                    }
+                }
+
+                if (successfulResponse != null) {
+                    return successfulResponse
+                }
+                if (shouldRetry) {
+                    runController.throwIfCancelled()
+                    continue
+                }
+                if (failureToThrow != null) {
+                    throw failureToThrow
+                }
             }
+            error("Unreachable: loop completed without response or exception")
         } catch (throwable: Throwable) {
             runCatching { runController.throwIfCancelled() }
                 .getOrElse { interruption -> throw interruption }
@@ -112,12 +150,14 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         }
     }
 
+    @JvmOverloads
     @JvmName("buildRequestJson")
     internal fun buildRequestJson(
         config: AgentModelClient.ModelConfig,
         messages: JSONArray = JSONArray(),
         tools: JSONArray = JSONArray(),
         fallbackSignature: String? = null,
+        ignoreThoughtSignatures: Boolean = false,
     ): JSONObject {
         val contents = JSONArray()
         val systemParts = mutableListOf<String>()
@@ -178,7 +218,13 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             }
         }
 
-        var runningSignature: String? = fallbackSignature
+        var runningSignature: String? = if (ignoreThoughtSignatures) {
+            null
+        } else {
+            fallbackSignature?.takeIf {
+                config.model.isBlank() || isCompatibleThoughtSignature(it, isVertexEndpoint, config.model)
+            }
+        }
         for (index in 0 until messages.length()) {
             val message = messages.optJSONObject(index) ?: continue
             val role = message.optString("role")
@@ -212,11 +258,23 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     }
                 }
                 "assistant" -> {
-                    val ownSig = extractThoughtSignature(message)
+                    val ownSig = if (ignoreThoughtSignatures) {
+                        null
+                    } else {
+                        extractThoughtSignature(message)?.takeIf {
+                            config.model.isBlank() || isCompatibleThoughtSignature(it, isVertexEndpoint, config.model)
+                        }
+                    }
                     if (!ownSig.isNullOrBlank()) {
                         runningSignature = ownSig
                     }
-                    val parts = convertAssistantContent(message, runningSignature, isVertexEndpoint)
+                    val parts = convertAssistantContent(
+                        message = message,
+                        sessionFallbackSig = runningSignature,
+                        isVertexEndpoint = isVertexEndpoint,
+                        ignoreThoughtSignatures = ignoreThoughtSignatures,
+                        model = config.model,
+                    )
                     if (parts.length() > 0) {
                         ensureTurn("model")
                         for (p in 0 until parts.length()) {
@@ -366,15 +424,24 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         return false
     }
 
-    private fun convertAssistantContent(
+    @JvmOverloads
+    @JvmName("convertAssistantContent")
+    internal fun convertAssistantContent(
         message: JSONObject,
         sessionFallbackSig: String? = null,
         isVertexEndpoint: Boolean = false,
+        ignoreThoughtSignatures: Boolean = false,
+        model: String = "",
     ): JSONArray {
         val parts = JSONArray()
 
         // 1. 提取当前轮次真实有效签名；多步工具调用中若当前轮次未生成新签名，无缝继承前序有效签名
-        val signature = extractThoughtSignature(message) ?: sessionFallbackSig
+        val rawSig = if (ignoreThoughtSignatures) {
+            null
+        } else {
+            val s = extractThoughtSignature(message) ?: sessionFallbackSig
+            s?.takeIf { model.isBlank() || isCompatibleThoughtSignature(it, isVertexEndpoint, model) }
+        }
 
         // 2. 还原历史思考块（对齐 Google 官方规范：思考块本身不带签名）
         val reasoning = message.optString("reasoning")
@@ -405,15 +472,20 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                 val fnCallObj = JSONObject().put("name", name).put("args", args)
                 val partObj = JSONObject().put("functionCall", fnCallObj)
 
-                val tcSig = toolCall.optString("thoughtSignature")
-                    .ifBlank { toolCall.optString("thought_signature") }
-                    .takeIf { it.isNotBlank() && it != "skip_thought_signature_validator" }
-                    ?: signature
-                    // 对于旧存档中未持久化签名的历史会话，直连官方 Vertex AI 时使用 Google 官方文档规定的
-                    // skip_thought_signature_validator 豁免哨兵，使已中断的老会话也能直接恢复。
-                    ?: "skip_thought_signature_validator".takeIf { isVertexEndpoint && index == 0 }
+                val tcSig = if (ignoreThoughtSignatures) {
+                    "skip_thought_signature_validator".takeIf { isVertexEndpoint && index == 0 }
+                } else {
+                    val directTcSig = toolCall.optString("thoughtSignature")
+                        .ifBlank { toolCall.optString("thought_signature") }
+                        .takeIf { it.isNotBlank() && it != "skip_thought_signature_validator" }
+                        ?.takeIf { model.isBlank() || isCompatibleThoughtSignature(it, isVertexEndpoint, model) }
 
-                // 首个 functionCall 作为权威锚点，必须携带真实签名（自身或继承）
+                    directTcSig
+                        ?: rawSig
+                        ?: "skip_thought_signature_validator".takeIf { isVertexEndpoint && index == 0 }
+                }
+
+                // 首个 functionCall 作为权威锚点，必须携带真实签名（自身或继承）或豁免哨兵
                 if (!tcSig.isNullOrBlank() && index == 0) {
                     partObj.put("thoughtSignature", tcSig)
                 }
@@ -428,13 +500,29 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             .takeIf { it.isNotBlank() && it != "null" }
         if (text != null) {
             val textPart = JSONObject().put("text", text)
-            if (!hasToolCalls && !signature.isNullOrBlank()) {
-                textPart.put("thoughtSignature", signature)
+            if (!hasToolCalls && !ignoreThoughtSignatures && !rawSig.isNullOrBlank()) {
+                textPart.put("thoughtSignature", rawSig)
             }
             parts.put(textPart)
         }
 
         return parts
+    }
+
+    internal fun isCompatibleThoughtSignature(
+        sig: String,
+        isVertexEndpoint: Boolean,
+        model: String,
+    ): Boolean {
+        val trimmed = sig.trim()
+        if (trimmed.isBlank() || trimmed == "skip_thought_signature_validator") return false
+        val canonicalModel = VertexAiServiceAccountAuth.normalizeVertexModelId(model).lowercase()
+        val isVertexGemini4 = isVertexEndpoint && (canonicalModel.startsWith("gemini-4") || canonicalModel.contains("gemini-4"))
+        return if (isVertexGemini4) {
+            trimmed.startsWith("AY89a1")
+        } else {
+            !trimmed.startsWith("AY89a1")
+        }
     }
 
     private fun convertImageBlock(block: JSONObject): JSONObject? {

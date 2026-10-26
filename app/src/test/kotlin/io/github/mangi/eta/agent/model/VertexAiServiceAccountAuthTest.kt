@@ -404,4 +404,178 @@ class VertexAiServiceAccountAuthTest {
         assertEquals("user", contents.getJSONObject(4).getString("role"))
         assertEquals("继续", contents.getJSONObject(4).getJSONArray("parts").getJSONObject(0).getString("text"))
     }
+
+    @Test
+    fun switchingFromGemini3ToVertexGemini4ReplacesIncompatibleSignatureWithSentinel() {
+        val oldSig = "EtoQCtcQAWkUfROKjl6gXBNF"
+        val vertexSig = "AY89a18WEl8owN8ZBMbHkMgwRNdvTGGbnBLgXqhu4k0"
+
+        // 1. 验证签名兼容性判定逻辑
+        assertFalse(GeminiGenerateContentProvider.isCompatibleThoughtSignature(oldSig, isVertexEndpoint = true, model = "gemini-4-argon"))
+        assertTrue(GeminiGenerateContentProvider.isCompatibleThoughtSignature(vertexSig, isVertexEndpoint = true, model = "gemini-4-argon"))
+        assertTrue(GeminiGenerateContentProvider.isCompatibleThoughtSignature(oldSig, isVertexEndpoint = false, model = "gemini-3.8-flash-tiered"))
+        assertFalse(GeminiGenerateContentProvider.isCompatibleThoughtSignature(vertexSig, isVertexEndpoint = false, model = "gemini-3.8-flash-tiered"))
+
+        // 2. 模拟由 gemini-3.8-flash-tiered 生成的历史消息，切换至 Vertex AI gemini-4-argon
+        val assistantMsg = JSONObject()
+            .put("role", "assistant")
+            .put("content", "正在为您检索相关信息...")
+            .put("thoughtSignature", oldSig)
+            .put(
+                "tool_calls",
+                JSONArray().put(
+                    JSONObject()
+                        .put("id", "call_search")
+                        .put("type", "function")
+                        .put("thoughtSignature", oldSig)
+                        .put("function", JSONObject().put("name", "local_search").put("arguments", "{\"query\":\"test\"}"))
+                )
+            )
+        val toolMsg = JSONObject()
+            .put("role", "tool")
+            .put("tool_call_id", "call_search")
+            .put("content", "{\"result\":\"ok\"}")
+        val messages = JSONArray()
+            .put(JSONObject().put("role", "user").put("content", "查一下资料"))
+            .put(assistantMsg)
+            .put(toolMsg)
+
+        val config = AgentModelClient.ModelConfig(
+            providerSourceType = "gemini",
+            baseUrl = "https://aiplatform.googleapis.com/v1/projects/my-proj/locations/global",
+            apiKey = "test-key",
+            model = "gemini-4-argon",
+            systemPrompt = "",
+            thinkingEnabled = true,
+            reasoningEffort = io.github.mangi.eta.data.model.ReasoningEffort.DEFAULT,
+        )
+
+        val payload = GeminiGenerateContentProvider.buildRequestJson(config, messages)
+        val payloadStr = payload.toString()
+
+        // 确保旧模型的非兼容签名未泄漏至请求体中
+        assertFalse(payloadStr.contains(oldSig))
+
+        // 确保首个 functionCall 被自动替换为 Google Vertex 官方规范豁免哨兵 skip_thought_signature_validator
+        val contents = payload.getJSONArray("contents")
+        assertEquals(3, contents.length())
+        val modelTurn = contents.getJSONObject(1)
+        assertEquals("model", modelTurn.getString("role"))
+        val parts = modelTurn.getJSONArray("parts")
+        val fnPart = parts.getJSONObject(0)
+        assertTrue(fnPart.has("functionCall"))
+        assertEquals("skip_thought_signature_validator", fnPart.getString("thoughtSignature"))
+
+        // 意图文本块不携带旧签名
+        if (parts.length() > 1) {
+            val textPart = parts.getJSONObject(1)
+            assertFalse(textPart.has("thoughtSignature"))
+        }
+    }
+
+    @Test
+    fun retriesWithIgnoreThoughtSignaturesWhenEndpointReturnsHttp400InvalidThoughtSignature() {
+        val server = HttpServer.create(InetSocketAddress(0), 0)
+        val executor = Executors.newCachedThreadPool()
+        server.executor = executor
+
+        val requestCount = AtomicInteger(0)
+        val capturedBodies = java.util.concurrent.CopyOnWriteArrayList<JSONObject>()
+
+        server.createContext("/") { exchange ->
+            val attempt = requestCount.incrementAndGet()
+            val bodyStr = exchange.requestBody.reader(Charsets.UTF_8).readText()
+            if (bodyStr.isNotBlank()) {
+                capturedBodies.add(JSONObject(bodyStr))
+            }
+
+            if (attempt == 1) {
+                val errorJson = JSONObject()
+                    .put(
+                        "error",
+                        JSONObject()
+                            .put("code", 400)
+                            .put("message", "Invalid thought signature.")
+                            .put("status", "INVALID_ARGUMENT")
+                    )
+                    .toString()
+                    .toByteArray(Charsets.UTF_8)
+                exchange.responseHeaders.add("Content-Type", "application/json")
+                exchange.sendResponseHeaders(400, errorJson.size.toLong())
+                exchange.responseBody.use { it.write(errorJson) }
+            } else {
+                val sse = ("data: " + JSONObject().put(
+                    "candidates",
+                    JSONArray().put(
+                        JSONObject()
+                            .put("content", JSONObject().put("parts", JSONArray().put(JSONObject().put("text", "重试成功后的回复"))))
+                            .put("finishReason", "STOP")
+                    )
+                ).toString() + "\n\ndata: [DONE]\n\n").toByteArray(Charsets.UTF_8)
+                exchange.responseHeaders.add("Content-Type", "text/event-stream")
+                exchange.sendResponseHeaders(200, 0)
+                exchange.responseBody.use { it.write(sse) }
+            }
+        }
+
+        server.start()
+        try {
+            val port = server.address.port
+            val baseUrl = "http://127.0.0.1:$port/publishers/google/models"
+
+            val staleSig = "AY89a1MismatchedSignatureFromDifferentKeyOrEndpoint"
+            val assistantMsg = JSONObject()
+                .put("role", "assistant")
+                .put("content", "调用工具中")
+                .put("thoughtSignature", staleSig)
+                .put(
+                    "tool_calls",
+                    JSONArray().put(
+                        JSONObject()
+                            .put("id", "call_1")
+                            .put("type", "function")
+                            .put("thoughtSignature", staleSig)
+                            .put("function", JSONObject().put("name", "status").put("arguments", "{}"))
+                    )
+                )
+            val toolMsg = JSONObject()
+                .put("role", "tool")
+                .put("tool_call_id", "call_1")
+                .put("content", "{\"status\":\"ok\"}")
+
+            val request = ProviderRequest(
+                config = AgentModelClient.ModelConfig(
+                    providerSourceType = "gemini",
+                    baseUrl = baseUrl,
+                    apiKey = "test-key",
+                    model = "gemini-4-argon",
+                    systemPrompt = "",
+                    thinkingEnabled = true,
+                    reasoningEffort = io.github.mangi.eta.data.model.ReasoningEffort.DEFAULT,
+                ),
+                messages = JSONArray()
+                    .put(JSONObject().put("role", "user").put("content", "检查状态"))
+                    .put(assistantMsg)
+                    .put(toolMsg),
+                tools = JSONArray(),
+            )
+
+            val response = GeminiGenerateContentProvider.complete(request, AgentRunController()) {}
+
+            // 1. 验证完成自动重试并成功获取回复
+            assertEquals("重试成功后的回复", response.assistantMessage.getString("content"))
+            assertEquals(2, requestCount.get())
+
+            // 2. 验证第二次请求被以 ignoreThoughtSignatures = true 重新构建：
+            // 首个请求带有 staleSig，第二请求被自动降级为官方豁免哨兵 skip_thought_signature_validator
+            val firstBody = capturedBodies[0].toString()
+            val secondBody = capturedBodies[1].toString()
+            assertTrue(firstBody.contains(staleSig))
+            assertFalse(secondBody.contains(staleSig))
+            assertTrue(secondBody.contains("skip_thought_signature_validator"))
+        } finally {
+            server.stop(0)
+            executor.shutdownNow()
+        }
+    }
 }

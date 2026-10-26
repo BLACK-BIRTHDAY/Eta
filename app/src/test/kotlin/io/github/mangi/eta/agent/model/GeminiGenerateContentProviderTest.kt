@@ -269,6 +269,59 @@ class GeminiGenerateContentProviderTest {
         assertEquals(8192, genConfig4.getInt("maxOutputTokens"))
     }
 
+    @Test
+    fun ignoreThoughtSignaturesStripsSignaturesOnNonVertexAndUsesSentinelOnVertex() {
+        val testSig = "EpoGCpcGAXLI2nxRealCryptographicSignatureFromGoogle"
+        val message = JSONObject()
+            .put("role", "assistant")
+            .put("content", "意图说明")
+            .put("thoughtSignature", testSig)
+            .put(
+                "tool_calls",
+                JSONArray()
+                    .put(
+                        JSONObject()
+                            .put("id", "call_1")
+                            .put("function", JSONObject().put("name", "fn1").put("arguments", "{}"))
+                            .put("thoughtSignature", testSig)
+                    )
+                    .put(
+                        JSONObject()
+                            .put("id", "call_2")
+                            .put("function", JSONObject().put("name", "fn2").put("arguments", "{}"))
+                            .put("thoughtSignature", testSig)
+                    )
+            )
+
+        // 1. 非 Vertex 且 ignoreThoughtSignatures = true：
+        // 彻底剔除所有签名，绝不注入 skip_thought_signature_validator
+        val nonVertexParts = GeminiGenerateContentProvider.convertAssistantContent(
+            message = message,
+            sessionFallbackSig = testSig,
+            isVertexEndpoint = false,
+            ignoreThoughtSignatures = true,
+            model = "gemini-3.8-flash-tiered",
+        )
+        assertEquals(3, nonVertexParts.length()) // fn1, fn2, text
+        assertFalse(nonVertexParts.getJSONObject(0).has("thoughtSignature"))
+        assertFalse(nonVertexParts.getJSONObject(1).has("thoughtSignature"))
+        assertFalse(nonVertexParts.getJSONObject(2).has("thoughtSignature"))
+
+        // 2. Vertex 且 ignoreThoughtSignatures = true：
+        // 仅在首个 functionCall 上挂 Google 官方豁免哨兵 skip_thought_signature_validator，后续 functionCall 与 textPart 均不带签名
+        val vertexParts = GeminiGenerateContentProvider.convertAssistantContent(
+            message = message,
+            sessionFallbackSig = testSig,
+            isVertexEndpoint = true,
+            ignoreThoughtSignatures = true,
+            model = "gemini-4-argon",
+        )
+        assertEquals(3, vertexParts.length())
+        assertEquals("skip_thought_signature_validator", vertexParts.getJSONObject(0).getString("thoughtSignature"))
+        assertFalse(vertexParts.getJSONObject(1).has("thoughtSignature"))
+        assertFalse(vertexParts.getJSONObject(2).has("thoughtSignature"))
+    }
+
     private fun geminiSseChunk(candidate0: JSONObject, finishReason: String? = null): String {
         val c = JSONObject(candidate0.toString())
         if (finishReason != null) c.put("finishReason", finishReason)
