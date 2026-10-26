@@ -551,7 +551,8 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             val name = function.optString("name")
             if (name.isBlank()) continue
             val rawParams = function.optJSONObject("parameters")
-            val sanitizedParams = rawParams?.let(::sanitizeGeminiParameters)
+            val projected = rawParams?.let(GeminiToolSchema::project) ?: rawParams
+            val sanitizedParams = projected?.let(::sanitizeGeminiParameters)
                 ?: JSONObject().put("type", "object")
             declarations.put(
                 JSONObject()

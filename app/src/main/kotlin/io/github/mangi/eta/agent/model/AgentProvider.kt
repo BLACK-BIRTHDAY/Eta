@@ -2,6 +2,7 @@ package io.github.mangi.eta.agent.model
 
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.runtime.AgentTokenUsage
+import io.github.mangi.eta.data.provider.ProviderConnectionProfile
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -30,7 +31,8 @@ internal enum class EndpointKind {
     CHAT_COMPLETIONS,
     RESPONSES,
     ANTHROPIC_MESSAGES,
-    GEMINI_GENERATE_CONTENT
+    GEMINI_GENERATE_CONTENT,
+    GEMINI_INTERACTIONS,
 }
 
 internal enum class ProviderRequestPurpose {
@@ -46,9 +48,20 @@ internal data class ProviderRequest(
     val sessionId: String = java.util.UUID.randomUUID().toString(),
     val purpose: ProviderRequestPurpose = ProviderRequestPurpose.CHAT,
 ) {
-    val effectiveConfig: AgentModelClient.ModelConfig get() = if (!purpose.allowsTools) {
-        config.copy(hostedWebSearchEnabled = false, extraBodyJson = "", customBody = emptyList())
-    } else config
+    val effectiveConfig: AgentModelClient.ModelConfig get() {
+        val connected = ProviderConnectionProfile.forAuthMode(config.authMode)?.let { profile ->
+            config.copy(
+                baseUrl = profile.baseUrl,
+                providerType = profile.providerType,
+                providerSourceType = profile.sourceType,
+                openAiEndpointMode = profile.endpointMode,
+                apiKey = "",
+            )
+        } ?: config
+        return if (!purpose.allowsTools) {
+            connected.copy(hostedWebSearchEnabled = false, extraBodyJson = "", customBody = emptyList())
+        } else connected
+    }
     val effectiveTools: JSONArray get() = if (purpose.allowsTools) tools else JSONArray()
 }
 
@@ -127,6 +140,11 @@ internal sealed interface ProviderEvent {
         val id: String,
         val name: String,
         val success: Boolean,
+    ) : ProviderEvent
+
+    data class SearchSuggestions(
+        val index: Int,
+        val html: String,
     ) : ProviderEvent
 
     data class Completed(

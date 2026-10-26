@@ -14,6 +14,7 @@ import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.CustomBody
 import io.github.mangi.eta.data.model.CustomHeader
 import io.github.mangi.eta.data.model.ModelReasoningCapabilities
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ReasoningEffort
 import java.io.Closeable
 import java.util.concurrent.atomic.AtomicBoolean
@@ -84,6 +85,12 @@ internal object AgentRuntimeWire {
     /** service -> client：返回是否成功重新订阅指定 run。 */
     const val MSG_ATTACH_RUN_RESPONSE = 12
 
+    /** client -> service：枚举已接纳、尚未发布终态的运行。 */
+    const val MSG_QUERY_ACTIVE_RUNS = 16
+
+    /** service -> client：返回各运行的会话归属与当前阶段。 */
+    const val MSG_QUERY_ACTIVE_RUNS_RESPONSE = 17
+
     private const val MODULE_PACKAGE = "io.github.mangi.eta"
     private const val SERVICE_CLASS = "io.github.mangi.eta.agent.runtime.AgentRuntimeService"
 
@@ -98,6 +105,7 @@ internal object AgentRuntimeWire {
     private const val KEY_PROVIDER_SOURCE_TYPE = "provider_source_type"
     private const val KEY_BASE_URL = "base_url"
     private const val KEY_API_KEY = "api_key"
+    private const val KEY_AUTH_MODE = "auth_mode"
     private const val KEY_MODEL = "model"
     private const val KEY_MODEL_DISPLAY_NAME = "model_display_name"
     private const val KEY_CONTEXT_WINDOW = "context_window"
@@ -106,6 +114,7 @@ internal object AgentRuntimeWire {
     private const val KEY_SYSTEM_PROMPT = "system_prompt"
     private const val KEY_ANTHROPIC_VERSION = "anthropic_version"
     private const val KEY_OPENAI_ENDPOINT_MODE = "openai_endpoint_mode"
+    private const val KEY_SUPPORTS_SEARCH_SUGGESTIONS = "supports_search_suggestions"
     private const val KEY_HOSTED_WEB_SEARCH_ENABLED = "hosted_web_search_enabled"
     private const val KEY_TERMINAL_TOOLS = "terminal_tools"
     private const val KEY_BROWSER_TOOLS = "browser_tools"
@@ -182,6 +191,26 @@ internal object AgentRuntimeWire {
                     ?.takeIf { it.isNotBlank() } ?: runId
             }
     }
+
+    enum class RunPhase(val wireValue: String) {
+        Preparing("preparing"),
+        Running("running"),
+        WaitingForGui("waiting_for_gui"),
+        Paused("paused"),
+        Committing("committing");
+
+        companion object {
+            fun fromWireValue(value: String): RunPhase = entries.firstOrNull { it.wireValue == value } ?: Running
+        }
+    }
+
+    data class ActiveRunSnapshot(
+        val runId: String,
+        val conversationId: String,
+        val phase: RunPhase = RunPhase.Running,
+        val operation: String = OP_CHAT,
+        val handoffSource: String = "",
+    )
 
     /**
      * 单张图片在 IPC 层的表示。远程 URL 可直接放入 Bundle，本地或内联图片只传只读文件描述符。
@@ -392,7 +421,8 @@ internal object AgentRuntimeWire {
         putString(KEY_PROVIDER_TYPE, request.config.providerType)
         putString(KEY_PROVIDER_SOURCE_TYPE, request.config.providerSourceType)
         putString(KEY_BASE_URL, request.config.baseUrl)
-        putString(KEY_API_KEY, request.config.apiKey)
+        putString(KEY_AUTH_MODE, request.config.authMode)
+        putString(KEY_API_KEY, request.config.apiKey.takeIf { request.config.authMode == ProviderAuthModes.API_KEY }.orEmpty())
         putString(KEY_MODEL, request.config.model)
         putString(KEY_MODEL_DISPLAY_NAME, request.config.modelDisplayName)
         putString("operation", request.operation)
@@ -404,6 +434,7 @@ internal object AgentRuntimeWire {
         putString(KEY_ANTHROPIC_VERSION, request.config.anthropicVersion)
         putString(KEY_OPENAI_ENDPOINT_MODE, request.config.openAiEndpointMode)
         putBoolean(KEY_HOSTED_WEB_SEARCH_ENABLED, request.config.hostedWebSearchEnabled)
+        putBoolean(KEY_SUPPORTS_SEARCH_SUGGESTIONS, request.config.supportsSearchSuggestions)
         putBoolean(KEY_TERMINAL_TOOLS, request.config.terminalTools)
         putBoolean(KEY_BROWSER_TOOLS, request.config.browserTools)
         putBoolean(KEY_DEVICE_DIRECT_TOOLS, request.config.deviceDirectTools)
@@ -521,7 +552,10 @@ internal object AgentRuntimeWire {
                     .ifBlank { io.github.mangi.eta.data.model.ProviderTypes.OPENAI_COMPATIBLE },
                 providerSourceType = bundle.getString(KEY_PROVIDER_SOURCE_TYPE).orEmpty(),
                 baseUrl = bundle.getString(KEY_BASE_URL).orEmpty(),
-                apiKey = bundle.getString(KEY_API_KEY).orEmpty(),
+                apiKey = bundle.getString(KEY_API_KEY).orEmpty().takeIf {
+                    bundle.getString(KEY_AUTH_MODE, ProviderAuthModes.API_KEY) == ProviderAuthModes.API_KEY
+                }.orEmpty(),
+                authMode = bundle.getString(KEY_AUTH_MODE) ?: ProviderAuthModes.API_KEY,
                 model = bundle.getString(KEY_MODEL).orEmpty(),
                 modelDisplayName = bundle.getString(KEY_MODEL_DISPLAY_NAME).orEmpty(),
                 contextWindow = bundle.optionalInt(KEY_CONTEXT_WINDOW),
@@ -536,6 +570,7 @@ internal object AgentRuntimeWire {
                 openAiEndpointMode = bundle.getString(KEY_OPENAI_ENDPOINT_MODE).orEmpty()
                     .ifBlank { io.github.mangi.eta.data.model.OpenAiEndpointMode.CHAT_COMPLETIONS },
                 hostedWebSearchEnabled = bundle.getBoolean(KEY_HOSTED_WEB_SEARCH_ENABLED, false),
+                supportsSearchSuggestions = bundle.getBoolean(KEY_SUPPORTS_SEARCH_SUGGESTIONS, false),
                 terminalTools = bundle.getBoolean(KEY_TERMINAL_TOOLS),
                 browserTools = if (bundle.containsKey(KEY_BROWSER_TOOLS)) {
                     bundle.getBoolean(KEY_BROWSER_TOOLS)
@@ -722,6 +757,30 @@ internal object AgentRuntimeWire {
         putString(KEY_RUN_ID, runId)
     }
 
+    fun activeRunsToBundle(runs: List<ActiveRunSnapshot>): Bundle = Bundle().apply {
+        putParcelableArrayList("active_runs", ArrayList(runs.map { run ->
+            Bundle().apply {
+                putString(KEY_RUN_ID, run.runId)
+                putString("conversation_id", run.conversationId)
+                putString("phase", run.phase.wireValue)
+                putString("operation", run.operation)
+                putString("handoff_source", run.handoffSource)
+            }
+        }))
+    }
+
+    fun activeRunsFromBundle(bundle: Bundle): List<ActiveRunSnapshot> =
+        bundle.getParcelableArrayList("active_runs", Bundle::class.java).orEmpty().mapNotNull { item ->
+            val runId = runIdFromBundle(item).takeIf(String::isNotBlank) ?: return@mapNotNull null
+            ActiveRunSnapshot(
+                runId = runId,
+                conversationId = item.getString("conversation_id").orEmpty(),
+                phase = RunPhase.fromWireValue(item.getString("phase").orEmpty()),
+                operation = item.getString("operation") ?: OP_CHAT,
+                handoffSource = item.getString("handoff_source").orEmpty(),
+            )
+        }
+
     fun attachRunResponseBundle(runId: String, attached: Boolean): Bundle = Bundle().apply {
         putString(KEY_RUN_ID, runId)
         putBoolean(KEY_OK, attached)
@@ -751,6 +810,10 @@ internal object AgentRuntimeWire {
     /** 将 [AgentEvent] 打包为可跨进程传递的 [Bundle]。 */
     fun eventToBundle(event: AgentEvent): Bundle = Bundle().apply {
         when (event) {
+            is AgentEvent.GuiControlChanged -> {
+                putString(KEY_TYPE, "gui_control_changed")
+                putString("status", event.status.wireValue)
+            }
             is AgentEvent.RunStarted -> {
                 putString(KEY_TYPE, "run_started")
                 putInt("initial_images", event.initialImages)
@@ -821,6 +884,14 @@ internal object AgentRuntimeWire {
                 putString("name", event.name)
                 putInt("content_chars", event.contentChars)
                 putString("replacement_content", event.replacementContent)
+            }
+
+            is AgentEvent.SearchSuggestions -> {
+                require(SearchSuggestionsPayload.isValidHtml(event.html)) { "SEARCH_SUGGESTIONS_INVALID_PAYLOAD" }
+                putString(KEY_TYPE, "search_suggestions")
+                putInt("round", event.round)
+                putInt("index", event.index)
+                putString("html", event.html)
             }
 
             is AgentEvent.AssistantReceived -> {
@@ -901,6 +972,8 @@ internal object AgentRuntimeWire {
 
     /** 将 [Bundle] 还原为 [AgentEvent]，无法识别时返回 null。 */
     fun eventFromBundle(bundle: Bundle): AgentEvent? = when (bundle.getString(KEY_TYPE)) {
+        "gui_control_changed" -> GuiControlStatus.fromWireValue(bundle.getString("status").orEmpty())
+            ?.let { AgentEvent.GuiControlChanged(it) }
         "run_started" -> AgentEvent.RunStarted(
             initialImages = bundle.getInt("initial_images"),
             initialImageBytes = bundle.getInt("initial_image_bytes"),
@@ -968,6 +1041,13 @@ internal object AgentRuntimeWire {
             contentChars = bundle.getInt("content_chars"),
             replacementContent = bundle.getString("replacement_content"),
         )
+
+        "search_suggestions" -> bundle.getString("html")
+            ?.takeIf(SearchSuggestionsPayload::isValidHtml)
+            ?.let { html ->
+                AgentEvent.SearchSuggestions(bundle.getInt("round"), bundle.getInt("index"), html)
+                    .takeIf { it.round >= 0 && it.index >= 0 }
+            }
 
         "assistant_received" -> AgentEvent.AssistantReceived(
             round = bundle.getInt("round"),

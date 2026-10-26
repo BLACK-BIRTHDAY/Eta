@@ -12,9 +12,8 @@ internal object AgentRunRecoveryCoordinator {
 
     data class Plan(
         val completed: List<Completed>,
-        val reattach: AgentRunCheckpointStore.Checkpoint?,
+        val reattach: List<AgentRunCheckpointStore.Checkpoint>,
         val interrupted: List<AgentRunCheckpointStore.Checkpoint>,
-        val reattaches: List<AgentRunCheckpointStore.Checkpoint> = listOfNotNull(reattach),
     )
 
     fun plan(
@@ -39,40 +38,18 @@ internal object AgentRunRecoveryCoordinator {
         val unresolved = uiCheckpoints.values
             .filterNot { it.runId in locallyObservedRunIds || it.runId in completedRunIds }
             .sortedBy { it.createdAt }
-        val reattaches = if (activeStateKnown) {
-            unresolved.filter { it.runId in activeRunIds }
-        } else {
-            emptyList()
-        }
-        val reattachIds = reattaches.mapTo(mutableSetOf()) { it.runId }
+        val active = if (activeStateKnown) unresolved.filter { it.runId in activeRunIds } else emptyList()
 
         return Plan(
             completed = completed,
-            reattach = reattaches.firstOrNull(),
-            reattaches = reattaches,
+            reattach = active,
             interrupted = if (activeStateKnown && terminalStateKnown) {
-                unresolved.filterNot { it.runId in reattachIds }
+                unresolved.filterNot { it.runId in activeRunIds }
             } else {
                 emptyList()
             },
         )
     }
-
-    fun plan(
-        checkpoints: List<AgentRunCheckpointStore.Checkpoint>,
-        completedRuns: List<AgentRuntimeWire.CompletedRun>,
-        activeStateKnown: Boolean,
-        terminalStateKnown: Boolean,
-        activeRunId: String?,
-        locallyObservedRunId: String?,
-    ): Plan = plan(
-        checkpoints = checkpoints,
-        completedRuns = completedRuns,
-        activeStateKnown = activeStateKnown,
-        terminalStateKnown = terminalStateKnown,
-        activeRunIds = setOfNotNull(activeRunId),
-        locallyObservedRunIds = setOfNotNull(locallyObservedRunId),
-    )
 
     internal val AgentRuntimeWire.CompletedRun.stableRunId: String
         get() = result.runId.ifBlank { handoff.id }

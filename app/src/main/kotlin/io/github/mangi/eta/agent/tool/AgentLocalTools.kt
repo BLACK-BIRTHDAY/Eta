@@ -25,6 +25,8 @@ import io.github.mangi.eta.agent.overlay.AgentHapticFeedback
 import io.github.mangi.eta.agent.overlay.AgentOverlayClearance
 import io.github.mangi.eta.agent.overlay.GestureIndicator
 import io.github.mangi.eta.agent.runtime.AgentAppContext
+import io.github.mangi.eta.agent.runtime.AgentRunCancelledException
+import io.github.mangi.eta.agent.runtime.GuiControlCoordinator
 import io.github.mangi.eta.agent.skill.SkillCompatibilityChecker
 import io.github.mangi.eta.agent.skill.SkillIndexService
 import io.github.mangi.eta.agent.skill.SkillInstallErrorCode
@@ -53,6 +55,7 @@ import io.github.mangi.eta.data.repository.AgentMemoryMutation
 import io.github.mangi.eta.data.repository.AgentMemoryRepository
 import io.github.mangi.eta.data.repository.AgentMemoryWriteResult
 import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
+import io.github.mangi.eta.data.repository.WebToolsSettingsRepository
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -99,9 +102,12 @@ internal class AgentLocalTools(
     runAvailableSkillIds: Set<String> = emptySet(),
     pendingSkillConflict: PendingSkillConflictCapability? = null,
     private val rootAvailable: () -> Boolean = { RootAccess.isGranted },
+    private val guiControl: GuiControlCoordinator.RunControl? = null,
+    browserSession: AgentBrowserSession? = null,
 ) : AgentModelClient.ToolExecutor, AutoCloseable {
 
     private val closed = AtomicBoolean(false)
+    private val browserSessionRef = lazy { browserSession ?: AgentBrowserSession() }
     private val deviceController = RootShellDeviceController(logger, screenshotExcludedPackages, rootAvailable)
     private val rootCommandExecutor = BoundedRootCommandExecutor(logger, rootAvailable = rootAvailable)
     private val structuredDeviceTools = AgentStructuredDeviceTools(
@@ -109,11 +115,13 @@ internal class AgentLocalTools(
         logger = logger,
         root = rootCommandExecutor,
         rootAvailable = rootAvailable,
+        foregroundAction = ::executeForegroundIntent,
     )
     private val imageTools = AgentImageTools(context, rootCommandExecutor, rootAvailable)
     private val webTools = AgentWebTools(
         transport = WebHttpTransport(AgentHttpClient.client),
         localNetworkAccess = { LocalNetworkPermission.accessState(context).name.lowercase(Locale.ROOT) },
+        runtimeConfig = { runBlocking { WebToolsSettingsRepository.resolveRuntimeConfig(context) } },
     )
     val terminalExecutionContext = LinuxEnvironmentSettingsRepository.current(context).terminalEnvironment.let { environment ->
         TerminalExecutionContext(
@@ -148,21 +156,32 @@ internal class AgentLocalTools(
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
         publishedObservation.set(PublishedObservation())
-        AgentBrowserSession.interruptAgentAction(browserRunId)
+        if (browserSessionRef.isInitialized()) browserSessionRef.value.interruptAgentAction(browserRunId)
         webTools.close()
         terminalController.interruptAll()
+        deviceController.close()
         rootCommandExecutor.close()
         githubSkillSource?.close()
         inspectedGitHubSnapshots.clear()
+        guiControl?.close()
     }
 
     override fun execute(toolCall: AgentModelClient.ToolCall): AgentModelClient.ToolResult {
-        val isGuiTool = toolCall.name in GUI_TOOL_NAMES
-        if (isGuiTool) {
-            screenMutex.lock()
+        if (closed.get()) throw AgentRunCancelledException()
+        val control = guiControl
+        return if (control != null && AgentToolRequirements.requiresGuiControl(toolCall.name)) {
+            control.withAction { generation -> executeLocal(toolCall, generation) }
+        } else {
+            executeLocal(toolCall, null)
         }
-        try {
-            return runCatching {
+    }
+
+    private fun executeLocal(
+        toolCall: AgentModelClient.ToolCall,
+        guiGeneration: Long?,
+    ): AgentModelClient.ToolResult =
+        runCatching {
+            if (closed.get()) throw AgentRunCancelledException()
             val args = JSONObject(toolCall.argumentsJson.ifBlank { "{}" })
             if (AgentToolRequirements.find(toolCall.name) != null &&
                 AgentToolRequirements.rootDenied(toolCall.name, args, rootAvailable())
@@ -171,7 +190,20 @@ internal class AgentLocalTools(
             }
             deviceToolPermissionError(toolCall.name)?.let { return@runCatching it }
             memoryToolPermissionError(toolCall.name)?.let { return@runCatching it }
-            when (val decision = beforeToolExecution(toolCall.name)) {
+            if (guiGeneration != null && publishedObservation.get().generation != guiGeneration) {
+                publishedObservation.set(PublishedObservation())
+                if (AgentToolRequirements.requiresFreshObservation(toolCall.name)) {
+                    return@runCatching textResult(errorResult(
+                        "NO_OBSERVATION", "手机操作权已变化，请先调用 observe_screen 重新观察，再操作当前页面",
+                    ))
+                }
+            }
+            val preparation = if (AgentToolRequirements.hasForegroundIntentFallback(toolCall.name)) {
+                ToolExecutionDecision.Allow
+            } else {
+                beforeToolExecution(toolCall.name)
+            }
+            when (val decision = preparation) {
                 ToolExecutionDecision.Allow -> Unit
                 is ToolExecutionDecision.Reject -> {
                     if (decision.code.startsWith("ACCESSIBILITY_")) publishedObservation.set(PublishedObservation())
@@ -186,14 +218,25 @@ internal class AgentLocalTools(
             when (toolCall.name) {
                 "get_current_context" -> textResult(DeviceContextTool.current(context))
                 "search_apps" -> textResult(searchApps(args))
-                "launch_app" -> textResult(launchApp(args))
-                "open_uri" -> textResult(openUri(args))
+                "launch_app" -> {
+                    publishedObservation.set(PublishedObservation())
+                    textResult(launchApp(args))
+                }
+                "open_uri" -> {
+                    publishedObservation.set(PublishedObservation())
+                    textResult(openUri(args))
+                }
                 "browser_use" -> browserUse(args, toolCall.id)
                 "web_search", "fetch_url" -> {
                     if (!browserToolsEnabled()) textResult(errorResult("BROWSER_TOOLS_DISABLED", "请先启用网页搜索、读取与浏览器工具"))
                     else textResult(webTools.execute(toolCall.name, args))
                 }
-                "observe_screen" -> observeScreen(args)
+                "observe_screen" -> observeScreen(args, guiGeneration)
+                "release_gui" -> {
+                    publishedObservation.set(PublishedObservation())
+                    guiControl?.release()
+                    textResult(JSONObject().put("ok", true).put("tool", "release_gui").toString())
+                }
                 "tap" -> afterAction(tap(args))
                 "tap_area" -> afterAction(tapArea(args))
                 "tap_element" -> afterAction(tapElement(args))
@@ -214,7 +257,10 @@ internal class AgentLocalTools(
                 "wait" -> textResult(deviceController.waitMs(args.optInt("duration_ms", 1_000)))
                 "wait_for_text" -> textResult(waitForText(args))
                 "wait_for_package" -> textResult(waitForPackage(args))
-                "open_system_panel" -> textResult(deviceController.openSystemPanel(args.optString("panel")))
+                "open_system_panel" -> {
+                    publishedObservation.set(PublishedObservation())
+                    textResult(deviceController.openSystemPanel(args.optString("panel")))
+                }
                 in DEVICE_TOOL_NAMES ->
                     structuredDeviceTools.execute(toolCall.name, args)
                         ?: textResult(errorResult("UNKNOWN_TOOL", "未知设备工具"))
@@ -240,6 +286,7 @@ internal class AgentLocalTools(
                 )
             }
         }.getOrElse { throwable ->
+            if (throwable is AgentRunCancelledException) throw throwable
             textResult(
                 errorResult(
                     code = when (throwable) {
@@ -257,11 +304,20 @@ internal class AgentLocalTools(
                 result.copy(sensitive = true)
             }
         }
-        } finally {
-            if (isGuiTool) {
-                screenMutex.unlock()
+
+    private fun executeForegroundIntent(toolName: String, action: () -> JSONObject): JSONObject {
+        fun execute(): JSONObject {
+            if (closed.get()) throw AgentRunCancelledException()
+            deviceToolPermissionError(toolName)?.let { return JSONObject(it.content) }
+            return when (val decision = beforeToolExecution(toolName)) {
+                ToolExecutionDecision.Allow -> {
+                    publishedObservation.set(PublishedObservation())
+                    action()
+                }
+                is ToolExecutionDecision.Reject -> JSONObject(errorResult(decision.code, decision.message))
             }
         }
+        return guiControl?.withAction { execute() } ?: execute()
     }
 
     private fun deviceToolPermissionError(
@@ -372,11 +428,12 @@ internal class AgentLocalTools(
         if (!browserToolsEnabled()) {
             return textResult(errorResult("BROWSER_TOOLS_DISABLED", "请先启用网页浏览工具"))
         }
-        val result = AgentBrowserSession.execute(
+        val result = browserSessionRef.value.execute(
             context = context,
             args = args,
             runId = browserRunId,
             toolCallId = toolCallId,
+            checkCancellation = { if (closed.get()) throw AgentRunCancelledException() },
         )
         return AgentModelClient.ToolResult(
             content = result.content,
@@ -394,7 +451,7 @@ internal class AgentLocalTools(
         )
     }
 
-    private fun observeScreen(args: JSONObject): AgentModelClient.ToolResult {
+    private fun observeScreen(args: JSONObject, generation: Long?): AgentModelClient.ToolResult {
         publishedObservation.set(PublishedObservation())
         val startedAt = SystemClock.elapsedRealtime()
         val options = AgentScreenObservationContract.resolve(args)
@@ -408,6 +465,7 @@ internal class AgentLocalTools(
             PublishedObservation(
                 elements = observation.elementObservation,
                 coordinateSpace = observation.coordinateSpace,
+                generation = generation.takeIf { JSONObject(observation.content).optBoolean("ok") },
             ),
         )
         logger.debug {
@@ -429,6 +487,7 @@ internal class AgentLocalTools(
      * 失败或结果未知的动作不附带，保持"先重新观察"的既有约束。
      */
     private fun afterAction(raw: String): AgentModelClient.ToolResult {
+        if (closed.get()) throw AgentRunCancelledException()
         val result = runCatching { JSONObject(raw) }.getOrNull()
         if (result == null || !result.optBoolean("ok")) return textResult(raw)
         val before = publishedObservation.get().elements
@@ -1386,6 +1445,7 @@ internal class AgentLocalTools(
     private data class PublishedObservation(
         val elements: RootShellDeviceController.ElementObservation? = null,
         val coordinateSpace: RootShellDeviceController.CoordinateSpace? = null,
+        val generation: Long? = null,
     )
 
     private data class GitHubInspectionSnapshot(
@@ -1424,25 +1484,6 @@ internal class AgentLocalTools(
     )
 
     companion object {
-        val screenMutex = java.util.concurrent.locks.ReentrantLock()
-        val GUI_TOOL_NAMES = setOf(
-            "observe_screen",
-            "tap",
-            "tap_area",
-            "tap_element",
-            "long_press",
-            "long_press_element",
-            "swipe",
-            "scroll",
-            "scroll_element",
-            "type_text",
-            "input_text",
-            "replace_text",
-            "clear_text",
-            "paste_text",
-            "press_key",
-            "open_system_panel",
-        )
         val DEVICE_DIRECT_TOOL_NAMES = io.github.mangi.eta.agent.model.AgentPhoneToolCatalog.direct + setOf(
             "set_alarm",
             "set_timer",

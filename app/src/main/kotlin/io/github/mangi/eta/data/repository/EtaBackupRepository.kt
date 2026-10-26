@@ -11,11 +11,13 @@ import io.github.mangi.eta.data.db.ProviderEntity
 import io.github.mangi.eta.data.db.ProviderModelEntity
 import io.github.mangi.eta.data.db.ProviderWithModelsSeed
 import io.github.mangi.eta.data.datastore.SettingsDataStore
+import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.core.safeStackTrace
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -47,7 +49,7 @@ internal data class EtaBackupDocument(
 ) {
     companion object {
         const val FORMAT = "eta-backup"
-        // 4：支持 Skill 包与 MCP 设置导出；旧版本备份缺省该字段，导入后保留设备现有设置。
+        // 4：支持 Skill 包与 MCP 设置导出；旧版会把未知原生 Provider 当作 OpenAI-compatible，必须通过备份版本阻止错误恢复。
         const val SCHEMA_VERSION = 4
     }
 }
@@ -86,7 +88,9 @@ internal object EtaBackupRepository {
             EtaBackupJsonStreams.export(appContext, output, onPhase = { phase = it }) { writer ->
                 database.withTransaction {
                     val dao = database.conversationDao()
-                    val providers = database.providerDao().providers().map { EtaBackupProvider(it.provider, it.models) }
+                    val providers = database.providerDao().providers().map {
+                        EtaBackupProvider(it.provider.withoutOAuthSecrets(), it.models)
+                    }
                     val memory = AgentMemoryRepository.snapshot().content
                     writer.value("format", String.serializer(), EtaBackupDocument.FORMAT)
                     writer.value("schemaVersion", Int.serializer(), EtaBackupDocument.SCHEMA_VERSION)
@@ -153,7 +157,12 @@ internal object EtaBackupRepository {
         }
     }
 
-    suspend fun import(context: Context, input: InputStream): EtaBackupSummary = withContext(Dispatchers.IO) {
+    suspend fun import(
+        context: Context,
+        input: InputStream,
+        onCommitted: () -> Unit = {},
+        forgetCredentials: (String) -> Unit = ProviderCredentialRepository::forget,
+    ): EtaBackupSummary = withContext(Dispatchers.IO) {
         var phase = "stage_import"
         try {
             val appContext = context.applicationContext
@@ -179,83 +188,122 @@ internal object EtaBackupRepository {
                 phase = "restore_assets"
                 val avatarPaths = document.roleplay?.let { CharacterBackupTransfer.restoreAssets(appContext, it) }.orEmpty()
                 var stagedSkillSwap: StagedSkillSwap? = null
-                var memoryWriteStarted = false
-                try {
-                    phase = "stage_skills"
-                    stagedSkillSwap = document.skills?.let {
-                        SkillBackupTransfer.stageAndSwapDirectories(appContext, it)
-                    }
-                    database.withTransaction {
-                        phase = "restore_providers"
-                        database.providerDao().replaceAll(document.providers.map {
-                            ProviderWithModelsSeed(it.provider, it.models)
-                        })
-                        val dao = database.conversationDao()
-                        phase = "clear_conversations"
-                        dao.deleteMessages()
-                        dao.deleteContextCheckpoints()
-                        dao.deleteConversations()
-                        dao.deleteState()
-                        phase = "restore_conversations"
-                        staged.conversations { row ->
-                            dao.insertConversations(listOf(CharacterBackupTransfer.remapConversation(row, avatarPaths)))
+                val cancellation = currentCoroutineContext()
+                val oauthProviders = document.providers.map { it.provider }
+                    .filter { ProviderAuthModes.isOAuth(it.authMode) }
+                val credentialIds = document.providers.mapTo(linkedSetOf()) { it.provider.id }
+                // 显式检查原任务取消，使 Room 提交到凭据清理之间不留下被取消打断的空隙。
+                withContext(NonCancellable) {
+                    var memoryWriteStarted = false
+                    try {
+                        phase = "stage_skills"
+                        stagedSkillSwap = document.skills?.let {
+                            SkillBackupTransfer.stageAndSwapDirectories(appContext, it)
                         }
-                        phase = "restore_messages"
-                        staged.messages { dao.insertMessages(listOf(it)) }
-                        phase = "restore_checkpoints"
-                        staged.checkpoints { dao.insertContextCheckpoints(listOf(it)) }
-                        document.conversationState?.let { dao.insertState(it) }
-                        phase = "restore_roleplay"
-                        document.roleplay?.let { roleplay ->
-                            database.characterDao().replaceAll(
-                                roleplay.characters.map { it.copy(avatarPath = avatarPaths[it.id]) }, roleplay.persona,
-                            )
+                        database.withTransaction {
+                            cancellation.ensureActive()
+                            phase = "restore_providers"
+                            credentialIds += database.providerDao().providers().map { it.provider.id }
+                            database.providerDao().replaceAll(document.providers.map {
+                                ProviderWithModelsSeed(it.provider.awaitingCredentialCleanup(), it.models)
+                            })
+                            val dao = database.conversationDao()
+                            phase = "clear_conversations"
+                            dao.deleteMessages()
+                            dao.deleteContextCheckpoints()
+                            dao.deleteConversations()
+                            dao.deleteState()
+                            phase = "restore_conversations"
+                            staged.conversations { row ->
+                                cancellation.ensureActive()
+                                dao.insertConversations(listOf(CharacterBackupTransfer.remapConversation(row, avatarPaths)))
+                            }
+                            phase = "restore_messages"
+                            staged.messages {
+                                cancellation.ensureActive()
+                                dao.insertMessages(listOf(it))
+                            }
+                            phase = "restore_checkpoints"
+                            staged.checkpoints {
+                                cancellation.ensureActive()
+                                dao.insertContextCheckpoints(listOf(it))
+                            }
+                            document.conversationState?.let { dao.insertState(it) }
+                            phase = "restore_roleplay"
+                            document.roleplay?.let { roleplay ->
+                                database.characterDao().replaceAll(
+                                    roleplay.characters.map { it.copy(avatarPath = avatarPaths[it.id]) }, roleplay.persona,
+                                )
+                            }
+                            if (document.mcpServers != null) {
+                                phase = "restore_mcp_servers"
+                                database.mcpServerDao().replaceAll(document.mcpServers.map { it.server })
+                            }
+                            if (document.skills != null) {
+                                phase = "restore_skill_registry"
+                                database.skillDao().replaceRegistry(document.skills.registry)
+                            }
+                            phase = "restore_memory"
+                            cancellation.ensureActive()
+                            memoryWriteStarted = true
+                            AgentMemoryRepository.replaceAll(document.memoryMd)
+                            document.roleplay?.let { CharacterBackupTransfer.restoreMemories(appContext, it) }
+                            if (document.mcpServers != null) {
+                                phase = "restore_mcp_secrets"
+                                McpBackupTransfer.restoreSecrets(appContext, previousMcpIds, document.mcpServers)
+                            }
+                            cancellation.ensureActive()
                         }
+                        stagedSkillSwap?.commit()
+                    } catch (failure: Throwable) {
                         if (document.mcpServers != null) {
-                            phase = "restore_mcp_servers"
-                            database.mcpServerDao().replaceAll(document.mcpServers.map { it.server })
+                            val currentMcpIds = document.mcpServers.map { it.server.id }.toSet()
+                            McpBackupTransfer.rollbackSecrets(appContext, currentMcpIds, previousSecrets, failure)
                         }
-                        if (document.skills != null) {
-                            phase = "restore_skill_registry"
-                            database.skillDao().replaceRegistry(document.skills.registry)
-                        }
-                        // 文件写入失败使数据库事务回滚，再补偿已经替换的记忆文件。
-                        phase = "restore_memory"
-                        memoryWriteStarted = true
-                        AgentMemoryRepository.replaceAll(document.memoryMd)
-                        document.roleplay?.let { CharacterBackupTransfer.restoreMemories(appContext, it) }
-                        if (document.mcpServers != null) {
-                            phase = "restore_mcp_secrets"
-                            McpBackupTransfer.restoreSecrets(appContext, previousMcpIds, document.mcpServers)
-                        }
-                    }
-                    stagedSkillSwap?.commit()
-                } catch (failure: Throwable) {
-                    if (document.mcpServers != null) {
-                        val currentMcpIds = document.mcpServers.map { it.server.id }.toSet()
-                        McpBackupTransfer.rollbackSecrets(appContext, currentMcpIds, previousSecrets, failure)
-                    }
-                    stagedSkillSwap?.rollback(failure)
-                    if (memoryWriteStarted) {
-                        try { AgentMemoryRepository.replaceAll(previousMemory) } catch (restoreFailure: Throwable) {
-                            failure.addSuppressed(restoreFailure)
-                        }
-                        previousRoleMemories.forEach { (id, content) ->
-                            try { CharacterMemoryRepository.replaceAll(appContext, id, content) } catch (restoreFailure: Throwable) {
+                        stagedSkillSwap?.rollback(failure)
+                        if (memoryWriteStarted) {
+                            try { AgentMemoryRepository.replaceAll(previousMemory) } catch (restoreFailure: Throwable) {
                                 failure.addSuppressed(restoreFailure)
                             }
+                            previousRoleMemories.forEach { (id, content) ->
+                                try { CharacterMemoryRepository.replaceAll(appContext, id, content) } catch (restoreFailure: Throwable) {
+                                    failure.addSuppressed(restoreFailure)
+                                }
+                            }
                         }
+                        CharacterBackupTransfer.discardAssets(avatarPaths, failure)
+                        throw failure
+                    } finally {
+                        stagedSkillSwap?.close()
                     }
-                    CharacterBackupTransfer.discardAssets(avatarPaths, failure)
-                    throw failure
-                } finally {
-                    stagedSkillSwap?.close()
+                    onCommitted()
+                    try {
+                        phase = "clear_provider_credentials"
+                        credentialIds.forEach(forgetCredentials)
+                        phase = "activate_provider_connections"
+                        database.withTransaction {
+                            oauthProviders.forEach { provider ->
+                                check(database.providerDao().activateRestoredOAuthProvider(
+                                    provider.id, provider.authMode, provider.isEnabled,
+                                ) == 1)
+                            }
+                        }
+                    } catch (failure: Exception) {
+                        throw IllegalStateException(
+                            "数据已导入，但订阅登录清理未完成。订阅连接保持停用，请重新选择登录方式并登录。",
+                            failure,
+                        )
+                    }
+                    try {
+                        phase = "restore_settings"
+                        SettingsDataStore.setSelection(document.selectedProviderId, document.selectedModelId)
+                        SettingsDataStore.setOfficialModelCatalogRevision(document.catalogRevision)
+                        ProviderRepository.ensureBuiltInsMerged()
+                        ProviderRepository.repairSelection()
+                    } catch (failure: Exception) {
+                        throw IllegalStateException("数据已导入，但默认模型设置未完全恢复，请重新选择服务商和模型。", failure)
+                    }
                 }
-                phase = "restore_settings"
-                SettingsDataStore.setSelection(document.selectedProviderId, document.selectedModelId)
-                SettingsDataStore.setOfficialModelCatalogRevision(document.catalogRevision)
-                ProviderRepository.ensureBuiltInsMerged()
-                ProviderRepository.repairSelection()
                 summary
             }
         } catch (failure: Throwable) {
@@ -281,6 +329,15 @@ internal object EtaBackupRepository {
             offset += page.size
         }
     }
+
+    private fun ProviderEntity.withoutOAuthSecrets(): ProviderEntity =
+        if (authMode == ProviderAuthModes.API_KEY) this else copy(apiKey = "")
+
+    private fun ProviderEntity.awaitingCredentialCleanup(): ProviderEntity =
+        if (ProviderAuthModes.isOAuth(authMode)) {
+            // 即使提交后进程中断，导入的相同 ID 也不能接上设备中尚未清除的旧授权。
+            copy(authMode = ProviderAuthModes.API_KEY, apiKey = "", isEnabled = false)
+        } else withoutOAuthSecrets()
 
     private fun logFailure(operation: String, phase: String, failure: Throwable) {
         if (failure is CancellationException) return

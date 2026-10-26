@@ -55,6 +55,8 @@ internal object VertexAiServiceAccountAuth {
         return runCatching { JSONObject(trimmed) }.isSuccess
     }
 
+    fun isServiceAccountJson(raw: String?): Boolean = looksLikeServiceAccountJson(raw)
+
     /**
      * 解析并校验 Service Account JSON 凭证。
      */
