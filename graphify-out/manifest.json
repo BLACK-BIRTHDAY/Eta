@@ -1104,9 +1104,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/provider/ReasoningCapabilityResolver.kt": {
-    "mtime": 1792984906.7042656,
-    "seen": 1792984928.06616,
-    "ast_hash": "86e544923538040d26df982c8266026f",
+    "mtime": 1793000767.6713786,
+    "seen": 1793001062.1146083,
+    "ast_hash": "670ddef34825f51f806aad3c8879bf82",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/repository/AgentMemoryRepository.kt": {
@@ -1170,9 +1170,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/repository/RuntimeConfigRepository.kt": {
-    "mtime": 1792984906.7082655,
-    "seen": 1792984928.0671027,
-    "ast_hash": "1991d16ad0bda0b939442b8b731dd744",
+    "mtime": 1793000779.1429672,
+    "seen": 1793001062.1146564,
+    "ast_hash": "419d3664d89fb15595e1c329c20acb45",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/hook/EtaInjectedStrings.kt": {
@@ -1662,9 +1662,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/ProviderModelsTab.kt": {
-    "mtime": 1792984906.7240686,
-    "seen": 1792984928.076627,
-    "ast_hash": "bbd0a336b9a2f3f132c3ca2915218d7d",
+    "mtime": 1793000747.6243362,
+    "seen": 1793001062.114945,
+    "ast_hash": "2453e7740f37f0b397887fef355f7d7a",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/preview/FakeAgentUiStates.kt": {
@@ -2316,9 +2316,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/provider/ReasoningCapabilityResolverTest.kt": {
-    "mtime": 1792984906.7421808,
-    "seen": 1792984928.0905397,
-    "ast_hash": "5fb64e8ea030f603b2d38466eea906a8",
+    "mtime": 1793001007.6650486,
+    "seen": 1793001062.115403,
+    "ast_hash": "296514cedfcea29b79ea90a4fabac1f3",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/repository/AgentMemoryStoreTest.kt": {
@@ -2886,9 +2886,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/GeminiGenerateContentProvider.kt": {
-    "mtime": 1792984906.6752248,
-    "seen": 1792984928.0517538,
-    "ast_hash": "eeae561775e20df37619f60bffe81df1",
+    "mtime": 1793000880.9960954,
+    "seen": 1793001062.1141825,
+    "ast_hash": "30da86ad843f230b2fb2bc39b8dba4ea",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/EtaFluidCloudStateMapper.kt": {
@@ -4638,9 +4638,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/GeminiGenerateContentProviderTest.kt": {
-    "mtime": 1792984906.7407532,
-    "seen": 1792984928.0828874,
-    "ast_hash": "26668465c5b29ed9bd9f6ea12672ab94",
+    "mtime": 1793000992.0290198,
+    "seen": 1793001062.1151526,
+    "ast_hash": "507b9f5a435c2f6223eea76244d71306",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/OpenAiChatToolCallIdsTest.kt": {
@@ -5970,9 +5970,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/repository/GeminiProviderConfigurationTest.kt": {
-    "mtime": 1792984906.7421808,
-    "seen": 1792984950.0929308,
-    "ast_hash": "f1bf920473c732e926f2dea8e702b0f1",
+    "mtime": 1793000947.096451,
+    "seen": 1793001062.1154187,
+    "ast_hash": "607675adc10c38a579bb27ab724757aa",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/repository/RemoteModelCatalogHttpTest.kt": {
