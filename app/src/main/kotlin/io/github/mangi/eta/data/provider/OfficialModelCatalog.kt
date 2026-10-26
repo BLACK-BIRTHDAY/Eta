@@ -447,12 +447,8 @@ internal object OfficialModelCatalog {
                         ?: official.displayName,
                     ownedBy = model.ownedBy ?: official.ownedBy,
                     contextWindow = model.contextWindow ?: official.contextWindow,
-                    inputModalities = if (model.inputModalities.isEmpty() || model.inputModalities == listOf(Model.TEXT_MODALITY)) {
-                        official.inputModalities
-                    } else {
-                        model.inputModalities
-                    },
-                    outputModalities = if (model.outputModalities.isEmpty() || model.outputModalities == listOf(Model.TEXT_MODALITY)) {
+                    inputModalities = model.inputModalities.ifEmpty { official.inputModalities },
+                    outputModalities = if (model.outputModalities.isEmpty() || (catalogId == ProviderSourceTypes.GEMINI && model.outputModalities == listOf(Model.TEXT_MODALITY))) {
                         official.outputModalities
                     } else {
                         model.outputModalities

@@ -38,10 +38,10 @@ internal object ProviderUrls {
 
     fun geminiModelsUrl(baseUrl: String): String {
         val normalized = normalizeBaseUrl(baseUrl)
-        return when {
-            normalized.endsWith("/v1beta") -> appendPath(normalized, "models")
-            normalized == "https://generativelanguage.googleapis.com" -> appendPath(normalized, "v1beta/models")
-            else -> appendPath(normalized, "models")
+        return if (normalized.endsWith("/v1beta")) {
+            appendPath(normalized, "models")
+        } else {
+            appendPath(normalized, "v1beta/models")
         }
     }
 

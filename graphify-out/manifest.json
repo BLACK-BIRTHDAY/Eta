@@ -414,9 +414,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/ProviderUrls.kt": {
-    "mtime": 1792984906.6752248,
-    "seen": 1792984928.0521126,
-    "ast_hash": "1959051b1484eb3eac54285ce482fd13",
+    "mtime": 1792991267.0263689,
+    "seen": 1792991613.4704747,
+    "ast_hash": "6b36ed65579cc8fbe34162fe3dc96f55",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/RequestBodyMerge.kt": {
@@ -1092,9 +1092,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/provider/OfficialModelCatalog.kt": {
-    "mtime": 1792984906.703254,
-    "seen": 1792984928.0661566,
-    "ast_hash": "8606aac2f00a40ec4681fe404548e9b6",
+    "mtime": 1792991524.4918082,
+    "seen": 1792991613.4709074,
+    "ast_hash": "8305f5f2373f6ca4ed049dd55282d13a",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/provider/ProviderSourceRegistry.kt": {
@@ -1998,9 +1998,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/ProviderUrlsTest.kt": {
-    "mtime": 1792984906.7421808,
-    "seen": 1792984928.0831084,
-    "ast_hash": "31c7cc6af023a271e03a48e1b49bf006",
+    "mtime": 1792991284.0408387,
+    "seen": 1792991613.4716396,
+    "ast_hash": "f32cef7f76b9639880119dbaa40840ac",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/SkillInstallModelToolGateTest.kt": {
@@ -5646,9 +5646,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/repository/GeminiModelCatalog.kt": {
-    "mtime": 1792984906.7052662,
-    "seen": 1792984950.092327,
-    "ast_hash": "8fae38528265498a7df41eb159c20b2a",
+    "mtime": 1792991278.5600507,
+    "seen": 1792991613.470931,
+    "ast_hash": "e7261016666e85ee2ae581241cbfca4c",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/repository/GrokModelCatalog.kt": {
@@ -5964,9 +5964,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/repository/GeminiModelCatalogHttpTest.kt": {
-    "mtime": 1792984906.7421808,
-    "seen": 1792984950.0929298,
-    "ast_hash": "1f5398b2bfdfc034bd243e04bff0450d",
+    "mtime": 1792991318.6104598,
+    "seen": 1792991613.4720082,
+    "ast_hash": "37578a01b62517d9f07605957467472f",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/repository/GeminiProviderConfigurationTest.kt": {

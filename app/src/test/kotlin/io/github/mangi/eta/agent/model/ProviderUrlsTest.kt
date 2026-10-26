@@ -31,6 +31,14 @@ class ProviderUrlsTest {
             ProviderUrls.geminiInteractionsUrl(" https://generativelanguage.googleapis.com/v1beta/ "),
         )
         assertEquals(
+            "https://antigravity-manager.example.run.app/v1beta/models",
+            ProviderUrls.geminiModelsUrl("https://antigravity-manager.example.run.app"),
+        )
+        assertEquals(
+            "https://generativelanguage.googleapis.com/v1beta/models",
+            ProviderUrls.geminiModelsUrl("https://generativelanguage.googleapis.com"),
+        )
+        assertEquals(
             "https://proxy.invalid/google/v1beta/models",
             ProviderUrls.geminiModelsUrl("https://proxy.invalid/google/v1beta/"),
         )

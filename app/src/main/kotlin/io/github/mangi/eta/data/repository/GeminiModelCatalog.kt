@@ -38,7 +38,9 @@ internal object GeminiModelCatalog {
             val modelId = row.string("name")?.trim()?.removePrefix("models/")
                 ?.takeIf(String::isNotBlank) ?: error("Gemini 模型目录缺少模型名称")
             val methods = row.stringList("supportedGenerationMethods").orEmpty()
-            if (methods.isNotEmpty() && "generateContent" !in methods && "interactions" !in methods) {
+            val isImageModel = modelId.contains("image", ignoreCase = true) ||
+                modelId.contains("nano-banana", ignoreCase = true)
+            if (methods.isNotEmpty() && !isImageModel && "generateContent" !in methods && "interactions" !in methods && "generateImages" !in methods) {
                 return@mapNotNull null
             }
             val capabilities = GeminiModelCapabilities.reasoningCapabilities(modelId)
@@ -51,7 +53,7 @@ internal object GeminiModelCatalog {
                 contextWindow = row.positiveInt("inputTokenLimit"),
                 contextWindowOverride = row.positiveInt("inputTokenLimit"),
                 inputModalities = if (capabilities != null) listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY) else emptyList(),
-                outputModalities = listOf(Model.TEXT_MODALITY),
+                outputModalities = if (isImageModel) listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY) else listOf(Model.TEXT_MODALITY),
                 toolCall = true.takeIf { capabilities != null },
                 reasoning = true.takeIf { capabilities != null },
                 reasoningCapabilities = capabilities,

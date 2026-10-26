@@ -5,6 +5,7 @@ import io.github.mangi.eta.agent.auth.ProviderCredentialBinding
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.data.model.CustomHeader
 import io.github.mangi.eta.data.model.GeminiProviderSetting
+import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.provider.GeminiModelCapabilities
 import java.net.InetSocketAddress
@@ -87,12 +88,29 @@ class GeminiModelCatalogHttpTest {
     }
 
     @Test
+    fun rootProxyWithoutV1BetaRequestsV1BetaModelsAndParsesImageModelsWithImageModality() = runBlocking {
+        withServer(listOf(
+            """{"models":[
+                {"name":"models/gemini-3.1-flash-image","displayName":"Flash Image",
+                 "supportedGenerationMethods":["generateImages"]}
+            ]}""",
+        )) { url, requests ->
+            val provider = provider(url)
+            val result = RemoteModelFetcher.fetchCatalog(provider, OkHttpClient(), noOAuth).getOrThrow()
+            assertEquals("/v1beta/models", requests.single().path)
+            val imageModel = result.models.single { it.modelId == "gemini-3.1-flash-image" }
+            assertEquals(listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY), imageModel.outputModalities)
+            assertTrue(imageModel.outputModalities.contains(Model.IMAGE_MODALITY))
+        }
+    }
+
+    @Test
     fun cancellingDuringResponseBodyReadStopsPagination() = runBlocking {
         val started = CountDownLatch(1)
         val release = CountDownLatch(1)
         val count = AtomicInteger()
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/models") { exchange ->
+        val handler = com.sun.net.httpserver.HttpHandler { exchange ->
             count.incrementAndGet()
             exchange.sendResponseHeaders(200, 0)
             exchange.responseBody.write('{'.code)
@@ -101,6 +119,8 @@ class GeminiModelCatalogHttpTest {
             release.await(5, TimeUnit.SECONDS)
             exchange.close()
         }
+        server.createContext("/v1beta/models", handler)
+        server.createContext("/models", handler)
         server.start()
         try {
             val operation = launch {
@@ -117,21 +137,32 @@ class GeminiModelCatalogHttpTest {
         }
     }
 
-    private data class SeenRequest(val query: String, val key: String?, val authorization: String?)
+    private data class SeenRequest(
+        val query: String,
+        val key: String?,
+        val authorization: String?,
+        val path: String = "",
+    )
 
     private suspend fun withServer(bodies: List<String>, block: suspend (String, List<SeenRequest>) -> Unit) {
         val requests = Collections.synchronizedList(mutableListOf<SeenRequest>())
         val calls = AtomicInteger()
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
-        server.createContext("/models") { exchange ->
-            requests += SeenRequest(exchange.requestURI.rawQuery.orEmpty(), exchange.requestHeaders.getFirst("x-goog-api-key"),
-                exchange.requestHeaders.getFirst("Authorization"))
+        val handler = com.sun.net.httpserver.HttpHandler { exchange ->
+            requests += SeenRequest(
+                query = exchange.requestURI.rawQuery.orEmpty(),
+                key = exchange.requestHeaders.getFirst("x-goog-api-key"),
+                authorization = exchange.requestHeaders.getFirst("Authorization"),
+                path = exchange.requestURI.path,
+            )
             val bytes = bodies[calls.getAndIncrement().coerceAtMost(bodies.lastIndex)].toByteArray()
             exchange.responseHeaders.add("Content-Type", "application/json")
             exchange.sendResponseHeaders(200, bytes.size.toLong())
             exchange.responseBody.use { it.write(bytes) }
             exchange.close()
         }
+        server.createContext("/v1beta/models", handler)
+        server.createContext("/models", handler)
         server.start()
         try {
             block("http://127.0.0.1:${server.address.port}", requests)
