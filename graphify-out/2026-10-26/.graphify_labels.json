@@ -2,7 +2,6 @@
   "5": "AgentLocalTools",
   "7": "ProviderEntities.kt",
   "9": ".appUserId",
-  "11": "EtaAssistantOverlayService.kt",
   "13": "MarkdownInline.kt",
   "17": "SpeechCredentials",
   "19": "GoogleAppSystemizerInstaller",
@@ -16,7 +15,6 @@
   "40": "SkillResourceReader",
   "48": "SharedFolderMount",
   "52": "PhoneProviderAccess.kt",
-  "54": "ForwardingRecognitionListener",
   "55": "BreenoRequestImagesTest",
   "56": "OpenAiResponsesProvider",
   "57": "DmpQuery",
@@ -68,7 +66,6 @@
   "187": "ScrollGestureContractTest",
   "188": ".drainRuntimeAcks",
   "192": "TerminalModifiers",
-  "200": "CommunityCatalogRepositoryTest",
   "201": "ProviderSourceRegistry",
   "207": "TerminalScreenBuffer",
   "209": "ConsoleGridLine.kt",
@@ -137,7 +134,6 @@
   "414": "ConversationPaneMotion",
   "471": "PrefsDefaultsTest.kt",
   "495": "SpeechPlaybackController.kt",
-  "505": "ModuleConfigEntryPackagesTest.kt",
   "577": "SettingsTest.kt",
   "590": "NativeSystemOperations.kt"
 }
