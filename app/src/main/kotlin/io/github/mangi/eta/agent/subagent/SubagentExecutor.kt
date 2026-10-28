@@ -137,15 +137,14 @@ internal class SubagentExecutor(
 
         publishSnapshot(force = true)
 
-        val stepLock = Any()
-        var stepsTaken = 0
-        var limitTriggered = false
-        val collectedOutputs = mutableListOf<JSONObject>()
+        val stepGuardrail = StepGuardrail(maxSteps)
 
         val childToolExecutor = AgentModelClient.ToolExecutor { subCall ->
             childController.throwIfCancelled()
+            val stepNum = stepGuardrail.tryAcquireStep()
+                ?: return@ToolExecutor stepGuardrail.limitReachedResult()
             if (!profile.isToolAllowed(subCall.name)) {
-                AgentModelClient.ToolResult(
+                val forbiddenResult = AgentModelClient.ToolResult(
                     content = JSONObject()
                         .put("ok", false)
                         .put("code", "SUBAGENT_TOOL_FORBIDDEN")
@@ -155,38 +154,11 @@ internal class SubagentExecutor(
                         )
                         .toString(),
                 )
+                stepGuardrail.recordOutput(stepNum, subCall.name, forbiddenResult)
+                forbiddenResult
             } else {
-                val stepNum: Int
-                synchronized(stepLock) {
-                    if (stepsTaken >= maxSteps) {
-                        limitTriggered = true
-                        return@ToolExecutor AgentModelClient.ToolResult(
-                            content = JSONObject()
-                                .put("ok", true)
-                                .put("limit_reached", true)
-                                .put("code", "SUBAGENT_MAX_STEPS_REACHED")
-                                .put(
-                                    "message",
-                                    "已达到子代理单次调用最大工具步数上限 ($maxSteps 步)。请不要再调用任何工具，立即将前面 $maxSteps 步已经获取到的所有结果与进展整理成详细报告交回主 Agent，不要丢弃任何已有信息。",
-                                )
-                                .toString(),
-                        )
-                    }
-                    stepsTaken += 1
-                    stepNum = stepsTaken
-                }
                 val result = baseToolExecutor.execute(subCall)
-                val entry = JSONObject()
-                    .put("step", stepNum)
-                    .put("tool", subCall.name)
-                    .put(
-                        "ok",
-                        runCatching { JSONObject(result.content).optBoolean("ok", true) }.getOrDefault(true),
-                    )
-                    .put("output", result.content.take(MAX_COLLECTED_OUTPUT_CHARS))
-                synchronized(stepLock) {
-                    collectedOutputs.add(entry)
-                }
+                stepGuardrail.recordOutput(stepNum, subCall.name, result)
                 result
             }
         }
@@ -239,14 +211,7 @@ internal class SubagentExecutor(
                         "resume_hint",
                         "如需在此 Subagent 已有上下文基础上继续追问或深挖，可调用 subagent(resume=\"$subagentId\", prompt=\"...\", description=\"...\")。",
                     )
-                    .put("max_steps", maxSteps)
-                    .put("limit_reached", limitTriggered)
-                    .apply {
-                        if (limitTriggered) {
-                            val outputs = synchronized(stepLock) { JSONArray(collectedOutputs) }
-                            put("collected_outputs", outputs)
-                        }
-                    }
+                    .also { stepGuardrail.attachToResult(it, includeOutputsWhenUnderLimit = false) }
                     .toString(),
                 command = latestSnapshots[toolCall.id],
             )
@@ -298,8 +263,6 @@ internal class SubagentExecutor(
                         },
                     )
                     .put("tool_calls", tracker.toolCount())
-                    .put("max_steps", maxSteps)
-                    .put("limit_reached", limitTriggered)
                     .put("message", errorMessage)
                     .apply {
                         if (partial.isNotBlank()) put("partial_output", partial)
@@ -309,13 +272,8 @@ internal class SubagentExecutor(
                                 "可调用 subagent(resume=\"$subagentId\", prompt=\"继续完成未完部分\", description=\"$description\") 恢复执行，或由主 Agent 直接接手。",
                             )
                         }
-                        val outputs = synchronized(stepLock) {
-                            if (collectedOutputs.isNotEmpty()) JSONArray(collectedOutputs) else null
-                        }
-                        if (outputs != null) {
-                            put("collected_outputs", outputs)
-                        }
                     }
+                    .also { stepGuardrail.attachToResult(it, includeOutputsWhenUnderLimit = true) }
                     .toString(),
                 command = latestSnapshots[toolCall.id],
             )
@@ -649,6 +607,58 @@ internal class SubagentExecutor(
                 val step = steps[index]
                 if (step.status == SubagentStepSnapshot.STATUS_RUNNING) {
                     steps[index] = step.copy(status = terminalStatus)
+                }
+            }
+        }
+    }
+
+    private class StepGuardrail(private val maxSteps: Int) {
+        private val lock = Any()
+        private var stepsTaken = 0
+        private var limitTriggered = false
+        private val collectedOutputs = mutableListOf<JSONObject>()
+
+        fun tryAcquireStep(): Int? = synchronized(lock) {
+            if (stepsTaken >= maxSteps) {
+                limitTriggered = true
+                null
+            } else {
+                stepsTaken += 1
+                stepsTaken
+            }
+        }
+
+        fun limitReachedResult(): AgentModelClient.ToolResult =
+            AgentModelClient.ToolResult(
+                content = JSONObject()
+                    .put("ok", true)
+                    .put("limit_reached", true)
+                    .put("code", "SUBAGENT_MAX_STEPS_REACHED")
+                    .put(
+                        "message",
+                        "已达到子代理单次调用最大工具步数上限 ($maxSteps 步)。请不要再调用任何工具，立即将前面 $maxSteps 步已经获取到的所有结果与进展整理成详细报告交回主 Agent，不要丢弃任何已有信息。",
+                    )
+                    .toString(),
+            )
+
+        fun recordOutput(stepNum: Int, toolName: String, result: AgentModelClient.ToolResult) {
+            val ok = runCatching { JSONObject(result.content).optBoolean("ok", true) }.getOrDefault(true)
+            val entry = JSONObject()
+                .put("step", stepNum)
+                .put("tool", toolName)
+                .put("ok", ok)
+                .put("output", result.content.take(MAX_COLLECTED_OUTPUT_CHARS))
+            synchronized(lock) {
+                collectedOutputs.add(entry)
+            }
+        }
+
+        fun attachToResult(target: JSONObject, includeOutputsWhenUnderLimit: Boolean) {
+            synchronized(lock) {
+                target.put("max_steps", maxSteps)
+                target.put("limit_reached", limitTriggered)
+                if (limitTriggered || (includeOutputsWhenUnderLimit && (stepsTaken > 0 || collectedOutputs.isNotEmpty()))) {
+                    target.put("collected_outputs", JSONArray(collectedOutputs))
                 }
             }
         }

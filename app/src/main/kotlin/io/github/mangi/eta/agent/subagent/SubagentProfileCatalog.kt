@@ -204,7 +204,7 @@ internal object SubagentProfileCatalog {
             .filter { it.isNotEmpty() }
     }
 
-    private fun renderProfileMarkdown(
+    internal fun renderProfileMarkdown(
         name: String,
         description: String,
         whenToUse: String,

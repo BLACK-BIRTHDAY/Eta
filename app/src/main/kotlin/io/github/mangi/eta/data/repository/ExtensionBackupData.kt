@@ -459,27 +459,15 @@ internal object SubagentBackupTransfer {
             val markdown = if (file != null && file.exists() && !Files.isSymbolicLink(file.toPath())) {
                 file.readText(Charsets.UTF_8)
             } else {
-                buildString {
-                    appendLine("---")
-                    appendLine("name: ${profile.name}")
-                    appendLine("description: ${profile.summary}")
-                    if (profile.whenToUse.isNotBlank() && profile.whenToUse != profile.summary) {
-                        appendLine("whenToUse: ${profile.whenToUse}")
-                    }
-                    if (profile.override) {
-                        appendLine("override: true")
-                    }
-                    val tools = profile.explicitTools?.filterNot { it == "*" }.orEmpty()
-                    if (tools.isNotEmpty()) {
-                        appendLine("tools: ${tools.joinToString(", ")}")
-                    }
-                    if (profile.disallowedTools.isNotEmpty()) {
-                        appendLine("disallowedTools: ${profile.disallowedTools.joinToString(", ")}")
-                    }
-                    appendLine("---")
-                    appendLine()
-                    appendLine(profile.roleInstruction)
-                }
+                SubagentProfileCatalog.renderProfileMarkdown(
+                    name = profile.name,
+                    description = profile.summary,
+                    whenToUse = profile.whenToUse,
+                    tools = profile.explicitTools?.filterNot { it == "*" }.orEmpty(),
+                    disallowedTools = profile.disallowedTools.toList(),
+                    overrideBuiltin = profile.override,
+                    prompt = profile.roleInstruction,
+                )
             }
             SubagentBackupProfile(name = profile.name, markdown = markdown)
         }
@@ -488,6 +476,34 @@ internal object SubagentBackupTransfer {
             settings = settings,
             customProfiles = customProfiles,
         )
+    }
+
+    fun captureCustomProfiles(
+        agentsDir: File = SubagentProfileCatalog.defaultAgentsDir(),
+    ): List<SubagentBackupProfile> {
+        if (!agentsDir.exists() || Files.isSymbolicLink(agentsDir.toPath())) return emptyList()
+        return agentsDir.listFiles().orEmpty()
+            .filter { it.isFile && it.name.endsWith(".md") && !Files.isSymbolicLink(it.toPath()) }
+            .sortedBy { it.name }
+            .map { file ->
+                SubagentBackupProfile(
+                    name = file.nameWithoutExtension,
+                    markdown = file.readText(Charsets.UTF_8),
+                )
+            }
+    }
+
+    fun rollbackCustomProfiles(
+        snapshot: List<SubagentBackupProfile>,
+        failure: Throwable,
+        agentsDir: File = SubagentProfileCatalog.defaultAgentsDir(),
+    ) {
+        runCatching {
+            restoreCustomProfiles(
+                SubagentBackupData(customProfiles = snapshot),
+                agentsDir = agentsDir,
+            )
+        }.onFailure { failure.addSuppressed(it) }
     }
 
     fun validate(data: SubagentBackupData) {

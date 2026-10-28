@@ -198,9 +198,13 @@ internal object EtaBackupRepository {
                 } else {
                     emptyMap()
                 }
+                val previousSubagentProfiles = if (document.subagent != null) {
+                    SubagentBackupTransfer.captureCustomProfiles()
+                } else {
+                    emptyList()
+                }
                 phase = "restore_assets"
                 val avatarPaths = document.roleplay?.let { CharacterBackupTransfer.restoreAssets(appContext, it) }.orEmpty()
-                document.subagent?.let { SubagentBackupTransfer.restoreCustomProfiles(it) }
                 var stagedSkillSwap: StagedSkillSwap? = null
                 val cancellation = currentCoroutineContext()
                 val oauthProviders = document.providers.map { it.provider }
@@ -209,10 +213,15 @@ internal object EtaBackupRepository {
                 // 显式检查原任务取消，使 Room 提交到凭据清理之间不留下被取消打断的空隙。
                 withContext(NonCancellable) {
                     var memoryWriteStarted = false
+                    var subagentProfilesMutated = false
                     try {
                         phase = "stage_skills"
                         stagedSkillSwap = document.skills?.let {
                             SkillBackupTransfer.stageAndSwapDirectories(appContext, it)
+                        }
+                        if (document.subagent != null) {
+                            subagentProfilesMutated = true
+                            SubagentBackupTransfer.restoreCustomProfiles(document.subagent)
                         }
                         database.withTransaction {
                             cancellation.ensureActive()
@@ -274,6 +283,9 @@ internal object EtaBackupRepository {
                             val currentMcpIds = document.mcpServers.map { it.server.id }.toSet()
                             McpBackupTransfer.rollbackSecrets(appContext, currentMcpIds, previousSecrets, failure)
                         }
+                        if (subagentProfilesMutated) {
+                            SubagentBackupTransfer.rollbackCustomProfiles(previousSubagentProfiles, failure)
+                        }
                         stagedSkillSwap?.rollback(failure)
                         if (memoryWriteStarted) {
                             try { AgentMemoryRepository.replaceAll(previousMemory) } catch (restoreFailure: Throwable) {
@@ -320,9 +332,11 @@ internal object EtaBackupRepository {
                             Prefs.localAgentPreferences()?.edit()
                                 ?.putBoolean(Prefs.Keys.AGENT_SUBAGENT_ENABLED, document.subagent.enabled)
                                 ?.commit()
+                            Prefs.reconcileAgentPreferences(io.github.mangi.eta.EtaApp.serviceInstance)
                         }
                         ProviderRepository.ensureBuiltInsMerged()
                         ProviderRepository.repairSelection()
+                        RuntimeConfigRepository.syncToRemotePreferences(io.github.mangi.eta.EtaApp.serviceInstance)
                     } catch (failure: Exception) {
                         throw IllegalStateException("数据已导入，但默认模型设置未完全恢复，请重新选择服务商和模型。", failure)
                     }
