@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.mangi.eta.R
+import io.github.mangi.eta.agent.skill.SkillIndexService
 import io.github.mangi.eta.agent.skill.SkillParser
 import io.github.mangi.eta.agent.skill.SkillRuntime
 import java.io.File
@@ -25,9 +26,14 @@ internal class AgentSkillsStore(
     context: Context,
     private val scope: CoroutineScope,
     skillZipImportGateway: SkillZipImportGateway? = null,
+    skillUpdateGateway: SkillUpdateGateway? = null,
+    private val skillIndexServiceProvider: () -> SkillIndexService = {
+        SkillRuntime.createIndexService(context.applicationContext)
+    },
 ) {
     private val appContext = context.applicationContext
     private val skillZipImportGateway = skillZipImportGateway ?: CoreSkillZipImportGateway(appContext)
+    private val skillUpdateGateway: SkillUpdateGateway = skillUpdateGateway ?: CoreSkillUpdateGateway(appContext)
     private var skillNoticeSequence = 0L
     private var pendingSkillZipUri: Uri? = null
     private var pendingSkillZipSha256: String? = null
@@ -38,7 +44,7 @@ internal class AgentSkillsStore(
     fun refreshSkills() {
         scope.launch(Dispatchers.IO) {
             val entries = runCatching {
-                SkillRuntime.createIndexService(appContext)
+                skillIndexServiceProvider()
                     .listSkillsForManagement(forceRefresh = true)
             }.getOrElse {
                 withContext(Dispatchers.Main) {
@@ -68,6 +74,9 @@ internal class AgentSkillsStore(
                     enabled = entry.enabled,
                     installed = entry.installed,
                     capabilities = capabilities,
+                    isOverridden = entry.isOverridden,
+                    canCheckUpdate = entry.installed && entry.source == "user" && entry.origin != null,
+                    originRepository = entry.origin?.repository,
                 )
             }
             withContext(Dispatchers.Main) {
@@ -77,11 +86,11 @@ internal class AgentSkillsStore(
     }
 
     fun toggleSkill(skillId: String, enabled: Boolean) {
-        if (skillsState.isImporting || skillsState.busySkillId != null) return
+        if (skillsState.isImporting || skillsState.isCheckingUpdates || skillsState.isUpdatingSkills || skillsState.busySkillId != null) return
         skillsState = skillsState.copy(busySkillId = skillId)
         scope.launch(Dispatchers.IO) {
             val succeeded = runCatching {
-                SkillRuntime.createIndexService(appContext).setSkillEnabled(skillId, enabled)
+                skillIndexServiceProvider().setSkillEnabled(skillId, enabled)
             }.isSuccess
             withContext(Dispatchers.Main) {
                 skillsState = skillsState.copy(
@@ -102,7 +111,7 @@ internal class AgentSkillsStore(
     }
 
     fun deleteSkill(skillId: String) {
-        if (skillsState.isImporting || skillsState.busySkillId != null) return
+        if (skillsState.isImporting || skillsState.isCheckingUpdates || skillsState.isUpdatingSkills || skillsState.busySkillId != null) return
         val skill = skillsState.skills.firstOrNull { it.id == skillId }
             ?.takeIf { it.canDeleteUserSkill }
             ?: return
@@ -110,7 +119,7 @@ internal class AgentSkillsStore(
         skillsState = skillsState.copy(busySkillId = skillId, notice = null)
         scope.launch(Dispatchers.IO) {
             val succeeded = runCatching {
-                SkillRuntime.createIndexService(appContext).deleteSkill(skillId)
+                skillIndexServiceProvider().deleteSkill(skillId)
             }.getOrDefault(false)
             withContext(Dispatchers.Main) {
                 skillsState = skillsState.copy(
@@ -135,7 +144,7 @@ internal class AgentSkillsStore(
     }
 
     fun importSkillZip(uriValue: String) {
-        if (skillsState.isImporting || skillsState.busySkillId != null) return
+        if (skillsState.isImporting || skillsState.isCheckingUpdates || skillsState.isUpdatingSkills || skillsState.busySkillId != null) return
         val uri = runCatching { Uri.parse(uriValue) }.getOrNull()
             ?.takeIf { it.scheme == ContentResolver.SCHEME_CONTENT }
         if (uri == null) {
@@ -159,7 +168,7 @@ internal class AgentSkillsStore(
     }
 
     fun confirmSkillZipReplacement() {
-        if (skillsState.isImporting || skillsState.busySkillId != null) return
+        if (skillsState.isImporting || skillsState.isCheckingUpdates || skillsState.isUpdatingSkills || skillsState.busySkillId != null) return
         val uri = pendingSkillZipUri
         if (uri == null) {
             pendingSkillZipSha256 = null
@@ -343,11 +352,11 @@ internal class AgentSkillsStore(
     }
 
     fun reinstallBuiltin(skillId: String) {
-        if (skillsState.isImporting || skillsState.busySkillId != null) return
+        if (skillsState.isImporting || skillsState.isCheckingUpdates || skillsState.isUpdatingSkills || skillsState.busySkillId != null) return
         skillsState = skillsState.copy(busySkillId = skillId)
         scope.launch(Dispatchers.IO) {
             val succeeded = runCatching {
-                SkillRuntime.createIndexService(appContext).installBuiltinSkill(skillId)
+                skillIndexServiceProvider().installBuiltinSkill(skillId)
             }.isSuccess
             withContext(Dispatchers.Main) {
                 skillsState = skillsState.copy(
@@ -368,7 +377,7 @@ internal class AgentSkillsStore(
     }
 
     fun resetBuiltin(skillId: String) {
-        if (skillsState.isImporting || skillsState.busySkillId != null) return
+        if (skillsState.isImporting || skillsState.isCheckingUpdates || skillsState.isUpdatingSkills || skillsState.busySkillId != null) return
         val skillName = skillsState.skills.firstOrNull { it.id == skillId }?.name?.safeSkillDisplayName() ?: skillId
         skillsState = skillsState.copy(busySkillId = skillId, notice = null)
         scope.launch(Dispatchers.IO) {
@@ -394,8 +403,150 @@ internal class AgentSkillsStore(
         }
     }
 
+    fun checkSkillUpdates(skillId: String? = null) {
+        if (skillsState.isImporting || skillsState.isCheckingUpdates || skillsState.isUpdatingSkills || skillsState.busySkillId != null) return
+        skillsState = skillsState.copy(isCheckingUpdates = true, notice = null)
+        scope.launch(Dispatchers.IO) {
+            val allEntries = runCatching {
+                skillIndexServiceProvider().listSkillsForManagement(forceRefresh = true)
+            }.getOrElse {
+                withContext(Dispatchers.Main) {
+                    skillsState = skillsState.copy(
+                        isCheckingUpdates = false,
+                        notice = newSkillNotice(
+                            title = appContext.getString(R.string.state_unable_to_read_skills_599082),
+                            message = appContext.getString(R.string.state_the_skill_list_is_temporarily_unavailable_please_try_29b0be),
+                            isError = true,
+                        ),
+                    )
+                }
+                return@launch
+            }
+            val targetEntries = if (skillId != null) {
+                allEntries.filter { it.id == skillId }
+            } else {
+                allEntries
+            }.filter { it.installed && it.source == "user" && it.origin != null }
+
+            if (targetEntries.isEmpty()) {
+                withContext(Dispatchers.Main) {
+                    skillsState = skillsState.copy(
+                        isCheckingUpdates = false,
+                        notice = newSkillNotice(
+                            title = "暂无可检查更新的技能",
+                            message = "仅从 GitHub 安装的技能支持在线检查更新",
+                            isError = false,
+                        ),
+                    )
+                }
+                return@launch
+            }
+
+            val outcome = runCatching {
+                skillUpdateGateway.checkUpdates(targetEntries)
+            }.getOrElse { throwable ->
+                SkillUpdateCheckOutcome.Failure(
+                    message = throwable.message ?: "检查技能更新失败",
+                    cause = throwable,
+                )
+            }
+
+            withContext(Dispatchers.Main) {
+                skillsState = skillsState.copy(isCheckingUpdates = false)
+                when (outcome) {
+                    is SkillUpdateCheckOutcome.Success -> {
+                        if (outcome.candidates.isEmpty()) {
+                            skillsState = skillsState.copy(
+                                pendingUpdates = emptyList(),
+                                notice = newSkillNotice(
+                                    title = "已是最新版本",
+                                    message = if (skillId != null) {
+                                        "当前技能已是最新版本"
+                                    } else {
+                                        "已检查 ${outcome.checkedCount} 个 GitHub 技能，当前均为最新版本"
+                                    },
+                                    isError = false,
+                                ),
+                            )
+                        } else {
+                            skillsState = skillsState.copy(
+                                pendingUpdates = outcome.candidates,
+                                notice = null,
+                            )
+                        }
+                    }
+
+                    is SkillUpdateCheckOutcome.Failure -> {
+                        skillsState = skillsState.copy(
+                            notice = newSkillNotice(
+                                title = "检查技能更新失败",
+                                message = outcome.message,
+                                isError = true,
+                            ),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    fun confirmSkillUpdates() {
+        if (skillsState.isImporting || skillsState.isCheckingUpdates || skillsState.isUpdatingSkills || skillsState.busySkillId != null) return
+        val pending = skillsState.pendingUpdates
+        if (pending.isEmpty()) return
+        skillsState = skillsState.copy(
+            isUpdatingSkills = true,
+            notice = null,
+        )
+        scope.launch(Dispatchers.IO) {
+            val outcome = runCatching {
+                skillUpdateGateway.applyUpdates(pending)
+            }.getOrElse { throwable ->
+                SkillUpdateApplyOutcome.Failure(
+                    message = throwable.message ?: "更新技能失败",
+                    cause = throwable,
+                )
+            }
+            withContext(Dispatchers.Main) {
+                skillsState = skillsState.copy(
+                    isUpdatingSkills = false,
+                    pendingUpdates = emptyList(),
+                )
+                when (outcome) {
+                    is SkillUpdateApplyOutcome.Success -> {
+                        val names = outcome.updatedSkillNames.joinToString("、")
+                        skillsState = skillsState.copy(
+                            notice = newSkillNotice(
+                                title = "技能更新完成",
+                                message = if (names.isNotBlank()) "已成功更新：$names" else "所选技能已成功更新",
+                                isError = false,
+                            ),
+                        )
+                        refreshSkills()
+                    }
+
+                    is SkillUpdateApplyOutcome.Failure -> {
+                        skillsState = skillsState.copy(
+                            notice = newSkillNotice(
+                                title = "技能更新失败",
+                                message = outcome.message,
+                                isError = true,
+                            ),
+                        )
+                        refreshSkills()
+                    }
+                }
+            }
+        }
+    }
+
+    fun cancelSkillUpdates() {
+        if (skillsState.isUpdatingSkills) return
+        skillsState = skillsState.copy(pendingUpdates = emptyList())
+    }
+
     fun loadSkillFileContent(skillId: String): String? {
-        val indexService = SkillRuntime.createIndexService(appContext)
+        val indexService = skillIndexServiceProvider()
         val entry = indexService.listSkillsForManagement().firstOrNull { it.id == skillId }
         if (entry != null) {
             val file = File(entry.skillFilePath)
@@ -432,7 +583,7 @@ internal class AgentSkillsStore(
             if (skillName.isNullOrBlank()) {
                 throw IllegalArgumentException("SKILL.md frontmatter 缺少必要的 'name' 字段")
             }
-            val indexService = SkillRuntime.createIndexService(appContext)
+            val indexService = skillIndexServiceProvider()
             val success = indexService.saveSkillContent(skillId, normalizedContent)
             if (!success) {
                 throw IllegalStateException("保存技能文件失败")
@@ -445,7 +596,7 @@ internal class AgentSkillsStore(
 
     suspend fun resetBuiltinSkill(skillId: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            val indexService = SkillRuntime.createIndexService(appContext)
+            val indexService = skillIndexServiceProvider()
             indexService.installBuiltinSkill(skillId)
             withContext(Dispatchers.Main) {
                 refreshSkills()

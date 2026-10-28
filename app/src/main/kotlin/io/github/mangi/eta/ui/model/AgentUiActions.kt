@@ -59,6 +59,9 @@ interface AgentSkillsAction {
     data class ReinstallBuiltin(val skillId: String) : AgentSkillsAction
     data class EditSkill(val skillId: String) : AgentSkillsAction
     data class ResetBuiltin(val skillId: String) : AgentSkillsAction
+    data class CheckSkillUpdates(val skillId: String? = null) : AgentSkillsAction
+    data object ConfirmSkillUpdates : AgentSkillsAction
+    data object CancelSkillUpdates : AgentSkillsAction
 }
 
 sealed interface AgentSystemEnhanceAction {

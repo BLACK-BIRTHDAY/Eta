@@ -43,6 +43,7 @@ internal fun SkillSwitchRow(
     onDelete: (() -> Unit)? = null,
     onEditSkill: (() -> Unit)? = null,
     onResetBuiltin: (() -> Unit)? = null,
+    onCheckUpdate: (() -> Unit)? = null,
 ) {
     var showDescription by remember(skill.id) { mutableStateOf(false) }
     val description = skill.description.ifBlank { stringResource(R.string.skills_no_description) }
@@ -57,6 +58,13 @@ internal fun SkillSwitchRow(
                             text = stringResource(R.string.ui_view_description),
                             onClick = { showDescription = true },
                         ),
+                        if (skill.canCheckUpdate && onCheckUpdate != null) {
+                            DropdownItem(
+                                text = "检查更新",
+                                enabled = enabled,
+                                onClick = { if (enabled) onCheckUpdate() },
+                            )
+                        } else null,
                         onEditSkill?.let { edit ->
                             DropdownItem(
                                 text = "编辑 SKILL.md",

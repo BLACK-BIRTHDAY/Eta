@@ -12,6 +12,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FolderZip
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -64,7 +65,7 @@ fun AgentSkillsScreen(
     val githubToken by SettingsDataStore.githubTokenFlow().collectAsState(initial = null)
     var showTokenDialog by remember { mutableStateOf(false) }
     var editingToken by remember { mutableStateOf("") }
-    val operationPending = state.isImporting || state.busySkillId != null
+    val operationPending = state.isImporting || state.isCheckingUpdates || state.isUpdatingSkills || state.busySkillId != null
     val zipPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri ->
@@ -142,6 +143,35 @@ fun AgentSkillsScreen(
                         showTokenDialog = true
                     },
                 )
+                EtaPreferenceDivider()
+                EtaPreference(
+                    title = if (state.isCheckingUpdates) {
+                        "正在检查技能更新…"
+                    } else if (state.isUpdatingSkills) {
+                        "正在更新技能…"
+                    } else {
+                        "检查技能更新"
+                    },
+                    summary = "检查通过 GitHub 安装的技能是否有新版本",
+                    startAction = {
+                        if (state.isCheckingUpdates || state.isUpdatingSkills) {
+                            Box(
+                                modifier = Modifier.size(EtaPreferenceDefaults.IconSize),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                InfiniteProgressIndicator(size = 20.dp)
+                            }
+                        } else {
+                            EtaPreferenceIcon(
+                                Icons.Rounded.Refresh,
+                                enabled = !operationPending,
+                                tint = EtaPreferenceColors.Green,
+                            )
+                        }
+                    },
+                    enabled = !operationPending,
+                    onClick = { onAction(AgentSkillsAction.CheckSkillUpdates(null)) },
+                )
             }
         }
 
@@ -186,6 +216,9 @@ fun AgentSkillsScreen(
                                 onAction(AgentSkillsAction.ToggleSkill(skill.id, enabled))
                             },
                             onEditSkill = { onAction(AgentSkillsAction.EditSkill(skill.id)) },
+                            onCheckUpdate = if (skill.canCheckUpdate) ({
+                                onAction(AgentSkillsAction.CheckSkillUpdates(skill.id))
+                            }) else null,
                             onDelete = { deleteTarget = skill },
                         )
                     }
@@ -257,6 +290,33 @@ fun AgentSkillsScreen(
                 confirmEnabled = !operationPending,
                 onCancel = { onAction(AgentSkillsAction.CancelZipReplacement) },
                 onConfirm = { onAction(AgentSkillsAction.ConfirmZipReplacement) },
+            )
+        }
+    }
+
+    if (state.pendingUpdates.isNotEmpty()) {
+        val summaryText = buildString {
+            append("发现以下技能有新版本可用：\n")
+            state.pendingUpdates.forEach { candidate ->
+                val oldSha = candidate.currentCommitSha.take(7)
+                val newSha = candidate.remoteCommitSha.take(7)
+                append("\n• ${candidate.name} (${candidate.repository}): $oldSha → $newSha")
+            }
+            if (state.pendingUpdates.any { it.isLocallyModified }) {
+                append("\n\n⚠️ 检测到本地修改，更新将覆盖本地修改的内容")
+            }
+        }
+        EtaWindowDialog(
+            show = true,
+            title = "发现技能更新",
+            summary = summaryText,
+            onDismissRequest = { onAction(AgentSkillsAction.CancelSkillUpdates) },
+        ) {
+            MiuixDialogActions(
+                confirmText = "立即更新",
+                confirmEnabled = !operationPending,
+                onCancel = { onAction(AgentSkillsAction.CancelSkillUpdates) },
+                onConfirm = { onAction(AgentSkillsAction.ConfirmSkillUpdates) },
             )
         }
     }

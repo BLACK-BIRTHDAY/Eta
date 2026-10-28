@@ -493,6 +493,9 @@ fun AgentAppRoot(
                             is AgentSkillsAction.ReinstallBuiltin -> skills.reinstallBuiltin(action.skillId)
                             is AgentSkillsAction.EditSkill -> pushRoute(AppRoute.SkillEditor(action.skillId))
                             is AgentSkillsAction.ResetBuiltin -> skills.resetBuiltin(action.skillId)
+                            is AgentSkillsAction.CheckSkillUpdates -> skills.checkSkillUpdates(action.skillId)
+                            AgentSkillsAction.ConfirmSkillUpdates -> skills.confirmSkillUpdates()
+                            AgentSkillsAction.CancelSkillUpdates -> skills.cancelSkillUpdates()
                         }
                     },
                 )

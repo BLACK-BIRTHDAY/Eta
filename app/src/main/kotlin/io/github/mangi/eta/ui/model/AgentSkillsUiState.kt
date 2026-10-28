@@ -7,9 +7,25 @@ data class AgentSkillsUiState(
     val skills: List<SkillItemUi> = emptyList(),
     val isLoading: Boolean = false,
     val isImporting: Boolean = false,
+    val isCheckingUpdates: Boolean = false,
+    val isUpdatingSkills: Boolean = false,
     val busySkillId: String? = null,
     val replacement: SkillReplacementUi? = null,
+    val pendingUpdates: List<SkillUpdateCandidateUi> = emptyList(),
     val notice: SkillNoticeUi? = null,
+)
+
+@Immutable
+data class SkillUpdateCandidateUi(
+    val skillId: String,
+    val name: String,
+    val repository: String,
+    val trackedRef: String,
+    val skillPath: String,
+    val currentCommitSha: String,
+    val remoteCommitSha: String,
+    val remoteTreeSha: String,
+    val isLocallyModified: Boolean,
 )
 
 @Immutable
@@ -36,6 +52,8 @@ data class SkillItemUi(
     val installed: Boolean,
     val capabilities: List<String>,
     val isOverridden: Boolean = false,
+    val canCheckUpdate: Boolean = false,
+    val originRepository: String? = null,
 )
 
 internal val SkillItemUi.canDeleteUserSkill: Boolean
