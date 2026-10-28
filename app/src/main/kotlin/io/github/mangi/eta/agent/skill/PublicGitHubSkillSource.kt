@@ -10,6 +10,8 @@ import java.nio.file.LinkOption
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import okhttp3.Call
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -29,6 +31,7 @@ internal data class GitHubSkillRepository(
 internal data class GitHubSkillCandidate(
     val name: String,
     val path: String,
+    val treeSha: String = "",
 )
 
 internal data class GitHubSkillInspection(
@@ -37,6 +40,7 @@ internal data class GitHubSkillInspection(
     val commitSha: String,
     val prefix: String?,
     val candidates: List<GitHubSkillCandidate>,
+    val defaultBranch: String = ref,
 )
 
 internal class GitHubSkillSourceException(
@@ -236,8 +240,22 @@ internal class PublicGitHubSkillSource(
             )
         }
         val prefix = repository.path?.takeUnless { it == "." }?.trimEnd('/')
+        val treeShasByDirPath = mutableMapOf<String, String>()
+        val entries = tree.optJSONArray("tree")
+        if (entries != null) {
+            for (index in 0 until entries.length()) {
+                val entry = entries.optJSONObject(index) ?: continue
+                if (entry.optString("type") == "tree") {
+                    val path = entry.optString("path")
+                    val sha = entry.optString("sha")
+                    if (path.isNotBlank() && sha.isNotBlank()) {
+                        treeShasByDirPath[path] = sha
+                    }
+                }
+            }
+        }
         val candidates = buildList {
-            val entries = tree.optJSONArray("tree") ?: return@buildList
+            if (entries == null) return@buildList
             for (index in 0 until entries.length()) {
                 val entry = entries.optJSONObject(index) ?: continue
                 if (entry.optString("type") != "blob") continue
@@ -249,11 +267,19 @@ internal class PublicGitHubSkillSource(
                     )
                 }.getOrNull() ?: continue
                 if (prefix != null && root != prefix && !root.startsWith("$prefix/")) continue
+                val skillBlobSha = entry.optString("sha")
+                val candidateTreeSha = resolveTreeShaForPath(
+                    path = root,
+                    treeShasByDirPath = treeShasByDirPath,
+                    skillBlobSha = skillBlobSha,
+                    rootTreeSha = commit.treeSha,
+                )
                 add(
                     GitHubSkillCandidate(
                         name = root.substringAfterLast('/').takeUnless { root == "." }
                             ?: repository.repository,
                         path = root,
+                        treeSha = candidateTreeSha,
                     ),
                 )
                 if (size > MAX_CANDIDATES) {
@@ -270,7 +296,197 @@ internal class PublicGitHubSkillSource(
             commitSha = commit.sha,
             prefix = prefix,
             candidates = candidates,
+            defaultBranch = ref,
         )
+    }
+
+    fun downloadSkillSubtreeArchive(
+        repository: GitHubSkillRepository,
+        selectedPaths: List<String>,
+        tokenOverride: String? = null,
+    ): DownloadedGitHubArchive {
+        ensureOpen()
+        if (selectedPaths.isEmpty()) {
+            throw GitHubSkillSourceException("INVALID_GITHUB_SOURCE", "未指定要下载的 Skill 路径")
+        }
+        val normalizedSelectedPaths = selectedPaths.map {
+            GitHubSkillRepositoryParser.normalizeRelativePath(it)
+        }.distinct()
+
+        val token = resolveToken(tokenOverride)
+        val ref = repository.ref ?: resolveDefaultBranch(repository, token)
+        val commit = resolveCommit(repository, ref, token)
+        if (
+            COMMIT_SHA_PATTERN.matches(ref) &&
+            !commit.sha.equals(ref, ignoreCase = true)
+        ) {
+            throw GitHubSkillSourceException(
+                "GITHUB_COMMIT_MISMATCH",
+                "GitHub 返回的 commit 与已检查版本不一致",
+            )
+        }
+        val commitSha = commit.sha
+
+        val tree = getJson(
+            apiUrl(
+                "repos",
+                repository.owner,
+                repository.repository,
+                "git",
+                "trees",
+                commit.treeSha,
+                query = "recursive" to "1",
+            ),
+            MAX_TREE_RESPONSE_BYTES,
+            token = token,
+        )
+        if (tree.optBoolean("truncated", false)) {
+            throw GitHubSkillSourceException(
+                "REPOSITORY_TREE_TOO_LARGE",
+                "仓库目录过大，GitHub 未返回完整结果；请提供明确的 Skill 路径",
+            )
+        }
+
+        val treeShasByDirPath = mutableMapOf<String, String>()
+        val blobEntries = mutableListOf<JSONObject>()
+        val entries = tree.optJSONArray("tree")
+        if (entries != null) {
+            for (index in 0 until entries.length()) {
+                val entry = entries.optJSONObject(index) ?: continue
+                when (entry.optString("type")) {
+                    "tree" -> {
+                        val path = entry.optString("path")
+                        val sha = entry.optString("sha")
+                        if (path.isNotBlank() && sha.isNotBlank()) {
+                            treeShasByDirPath[path] = sha
+                        }
+                    }
+                    "blob" -> blobEntries.add(entry)
+                }
+            }
+        }
+
+        for (path in normalizedSelectedPaths) {
+            val expectedSkillPath = if (path == ".") SKILL_FILE_NAME else "$path/$SKILL_FILE_NAME"
+            val hasSkillMd = blobEntries.any { it.optString("path") == expectedSkillPath }
+            if (!hasSkillMd) {
+                throw GitHubSkillSourceException(
+                    "SKILL_NOT_FOUND_IN_TREE",
+                    "未在仓库树中找到所选 Skill 文件",
+                )
+            }
+        }
+
+        val matchingBlobs = blobEntries.filter { entry ->
+            val blobPath = entry.optString("path")
+            normalizedSelectedPaths.any { selectedPath ->
+                if (selectedPath == ".") {
+                    true
+                } else {
+                    blobPath == "$selectedPath/$SKILL_FILE_NAME" || blobPath.startsWith("$selectedPath/")
+                }
+            }
+        }.sortedBy { it.optString("path") }
+
+        if (matchingBlobs.isEmpty()) {
+            throw GitHubSkillSourceException(
+                "SKILL_NOT_FOUND_IN_TREE",
+                "未在仓库树中找到所选 Skill 文件",
+            )
+        }
+
+        val treeShasByPath = normalizedSelectedPaths.associateWith { path ->
+            val expectedSkillPath = if (path == ".") SKILL_FILE_NAME else "$path/$SKILL_FILE_NAME"
+            val skillBlobSha = blobEntries.firstOrNull { it.optString("path") == expectedSkillPath }
+                ?.optString("sha")
+                .orEmpty()
+            resolveTreeShaForPath(path, treeShasByDirPath, skillBlobSha, commit.treeSha)
+        }
+
+        ensureSafeCacheDirectory()
+        cleanupStaleArchives()
+        val target = File.createTempFile("eta-skill-github-", ".zip", cacheDirectory)
+        val envelope = "${repository.repository}-$commitSha/"
+        var totalBytes = 0L
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+
+        return try {
+            ZipOutputStream(FileOutputStream(target).buffered()).use { zipOut ->
+                zipOut.putNextEntry(ZipEntry(envelope))
+                zipOut.closeEntry()
+
+                for (blob in matchingBlobs) {
+                    val blobPath = blob.optString("path")
+                    val entryName = "$envelope$blobPath"
+                    zipOut.putNextEntry(ZipEntry(entryName))
+
+                    val rawUrl = rawBlobUrl(repository, commitSha, blobPath)
+                    execute(rawUrl, accept = "*/*", token = token, allowRedirect = true) { response ->
+                        val contentLength = response.body.contentLength()
+                        if (contentLength > MAX_SINGLE_FILE_BYTES) {
+                            archiveTooLarge()
+                        }
+                        if (contentLength > 0 && totalBytes + contentLength > MAX_ARCHIVE_BYTES) {
+                            archiveTooLarge()
+                        }
+                        response.body.byteStream().use { input ->
+                            while (true) {
+                                val read = input.read(buffer)
+                                if (read < 0) break
+                                totalBytes += read
+                                if (totalBytes > MAX_ARCHIVE_BYTES) {
+                                    archiveTooLarge()
+                                }
+                                zipOut.write(buffer, 0, read)
+                            }
+                        }
+                    }
+                    zipOut.closeEntry()
+                }
+            }
+            DownloadedGitHubArchive(
+                file = target,
+                repository = repository.slug,
+                ref = ref,
+                commitSha = commitSha,
+                treeShasByPath = treeShasByPath,
+                defaultBranch = ref,
+            )
+        } catch (throwable: Throwable) {
+            target.delete()
+            throw throwable
+        }
+    }
+
+    private fun resolveTreeShaForPath(
+        path: String,
+        treeShasByDirPath: Map<String, String>,
+        skillBlobSha: String,
+        rootTreeSha: String,
+    ): String {
+        return when {
+            path == "." -> rootTreeSha
+            treeShasByDirPath[path]?.isNotBlank() == true -> treeShasByDirPath.getValue(path)
+            skillBlobSha.isNotBlank() -> skillBlobSha
+            else -> rootTreeSha
+        }
+    }
+
+    private fun rawBlobUrl(
+        repository: GitHubSkillRepository,
+        commitSha: String,
+        blobPath: String,
+    ): HttpUrl {
+        val builder = HttpUrl.Builder()
+            .scheme("https")
+            .host(RAW_HOST)
+            .addPathSegment(repository.owner)
+            .addPathSegment(repository.repository)
+            .addPathSegment(commitSha)
+        blobPath.split('/').filter(String::isNotBlank).forEach { segment ->
+            builder.addPathSegment(segment)
+        }
+        return builder.build()
     }
 
     fun downloadArchive(
@@ -459,7 +675,7 @@ internal class PublicGitHubSkillSource(
                         if (host !in ALLOWED_DOWNLOAD_REDIRECT_HOSTS) {
                             throw GitHubSkillSourceException("GITHUB_REDIRECT_REJECTED", "已拒绝重定向至未授权域名: $host")
                         }
-                        return execute(redirectUrl, accept = "application/zip", token = null, allowRedirect = false, block = block)
+                        return execute(redirectUrl, accept = accept, token = null, allowRedirect = false, block = block)
                     }
                     throw GitHubSkillSourceException(
                         "GITHUB_REDIRECT_REJECTED",
@@ -562,6 +778,8 @@ internal class PublicGitHubSkillSource(
         val repository: String,
         val ref: String,
         val commitSha: String,
+        val treeShasByPath: Map<String, String> = emptyMap(),
+        val defaultBranch: String = ref,
     ) : Closeable {
         override fun close() {
             file.delete()
@@ -581,12 +799,14 @@ internal class PublicGitHubSkillSource(
         const val SKILL_FILE_NAME = "SKILL.md"
         const val API_HOST = "api.github.com"
         const val CODELOAD_HOST = "codeload.github.com"
+        const val RAW_HOST = "raw.githubusercontent.com"
         const val USER_AGENT = "Eta-Skill-Installer"
         const val GITHUB_API_VERSION = "2022-11-28"
         const val MAX_CANDIDATES = 200
         const val MAX_METADATA_RESPONSE_BYTES = 1L * 1024 * 1024
         const val MAX_TREE_RESPONSE_BYTES = 8L * 1024 * 1024
         const val MAX_ARCHIVE_BYTES = 32L * 1024 * 1024
+        const val MAX_SINGLE_FILE_BYTES = 32L * 1024 * 1024
         const val STALE_ARCHIVE_AGE_MILLIS = 24L * 60 * 60 * 1_000
         val COMMIT_SHA_PATTERN = Regex("[a-fA-F0-9]{40,64}")
         val ALLOWED_DOWNLOAD_REDIRECT_HOSTS = setOf(

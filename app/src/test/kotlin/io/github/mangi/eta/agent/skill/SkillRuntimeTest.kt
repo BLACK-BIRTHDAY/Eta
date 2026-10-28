@@ -7,6 +7,8 @@ import java.nio.file.LinkOption
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeNoException
 import org.junit.Before
@@ -281,5 +283,121 @@ class SkillRuntimeTest {
         assertEquals("A brand new user skill.", found?.description)
         assertEquals("user", found?.source)
         assertFalse(found?.isOverridden ?: true)
+    }
+
+    @Test
+    fun skillOriginStoreWritesReadsAndDetectsLocalModifications() {
+        val skillDir = temporaryFolder.newFolder("origin-test-skill")
+        val skillFile = File(skillDir, "SKILL.md")
+        skillFile.writeText(
+            """
+            ---
+            name: origin-test
+            description: Test origin tracking.
+            ---
+            # Origin Test
+            """.trimIndent()
+        )
+        val initialSha = SkillOriginStore.computeSkillMdSha256(skillDir)
+        assertNotNull(initialSha)
+
+        val origin = SkillOrigin(
+            repository = "example/skills",
+            trackedRef = "main",
+            skillPath = "skills/origin-test",
+            commitSha = "1".repeat(40),
+            treeSha = "2".repeat(40),
+            skillMdSha256 = initialSha!!,
+        )
+
+        SkillOriginStore.write(skillDir, origin)
+        val originFile = File(skillDir, SkillOriginStore.ORIGIN_FILE_NAME)
+        assertTrue(originFile.isFile)
+
+        val readOrigin = SkillOriginStore.read(skillDir)
+        assertEquals(origin, readOrigin)
+        assertFalse(SkillOriginStore.isLocallyModified(skillDir, origin))
+
+        // Modify SKILL.md
+        skillFile.appendText("\nAdded local modifications")
+        assertTrue(SkillOriginStore.isLocallyModified(skillDir, origin))
+    }
+
+    @Test
+    fun skillOriginStoreRefusesSymlinks() {
+        val externalSkillDir = temporaryFolder.newFolder("symlink-target-origin")
+        val skillFile = File(externalSkillDir, "SKILL.md")
+        skillFile.writeText("---\nname: symlink-origin\n---\n")
+        val symlinkSkillDir = File(temporaryFolder.root, "symlink-skill-dir")
+        try {
+            Files.createSymbolicLink(symlinkSkillDir.toPath(), externalSkillDir.toPath())
+        } catch (error: Exception) {
+            assumeNoException(error)
+        }
+
+        assertNull(SkillOriginStore.read(symlinkSkillDir))
+        assertNull(SkillOriginStore.computeSkillMdSha256(symlinkSkillDir))
+
+        val normalSkillDir = temporaryFolder.newFolder("normal-dir-symlink-origin")
+        val externalOriginFile = File(externalSkillDir, ".eta-skill-origin.json")
+        externalOriginFile.writeText("{}")
+        val symlinkOriginFile = File(normalSkillDir, ".eta-skill-origin.json")
+        try {
+            Files.createSymbolicLink(symlinkOriginFile.toPath(), externalOriginFile.toPath())
+        } catch (error: Exception) {
+            assumeNoException(error)
+        }
+
+        assertNull(SkillOriginStore.read(normalSkillDir))
+    }
+
+    @Test
+    fun skillIndexServiceSurfacesOriginAndLocalModificationForUserSkills() {
+        val skillsRoot = temporaryFolder.newFolder("skills-origin-index")
+        val service = SkillIndexService(
+            context = RuntimeEnvironment.getApplication(),
+            skillsRoot = skillsRoot,
+        )
+        service.seedBuiltinSkillsIfNeeded()
+
+        val skillDir = File(skillsRoot, "user-tracked-skill").also { it.mkdirs() }
+        val skillFile = File(skillDir, "SKILL.md")
+        skillFile.writeText(
+            """
+            ---
+            name: user-tracked-skill
+            description: Skill with origin.
+            ---
+            # Body
+            """.trimIndent()
+        )
+        val initialSha = SkillOriginStore.computeSkillMdSha256(skillDir)!!
+        val origin = SkillOrigin(
+            repository = "example/tracked-repo",
+            trackedRef = "main",
+            skillPath = "skills/user-tracked-skill",
+            commitSha = "a".repeat(40),
+            treeSha = "b".repeat(40),
+            skillMdSha256 = initialSha,
+        )
+        SkillOriginStore.write(skillDir, origin)
+
+        val entriesInitial = service.listSkillsForManagement(forceRefresh = true)
+        val trackedEntry = entriesInitial.single { it.id == "user-tracked-skill" }
+        assertEquals("user", trackedEntry.source)
+        assertEquals(origin, trackedEntry.origin)
+        assertFalse(trackedEntry.isLocallyModified)
+
+        // Builtin skill must have null origin and false isLocallyModified
+        val builtinEntry = entriesInitial.first { it.source == "builtin" }
+        assertNull(builtinEntry.origin)
+        assertFalse(builtinEntry.isLocallyModified)
+
+        // Modify the user skill's SKILL.md
+        skillFile.appendText("\n## Local customization")
+        val entriesModified = service.listSkillsForManagement(forceRefresh = true)
+        val modifiedTrackedEntry = entriesModified.single { it.id == "user-tracked-skill" }
+        assertEquals(origin, modifiedTrackedEntry.origin)
+        assertTrue(modifiedTrackedEntry.isLocallyModified)
     }
 }

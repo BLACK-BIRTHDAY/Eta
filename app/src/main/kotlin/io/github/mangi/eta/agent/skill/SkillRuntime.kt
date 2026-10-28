@@ -572,6 +572,10 @@ class SkillIndexService(
         } else {
             false
         }
+        val source = registryState?.source?.ifBlank { null }
+            ?: if (builtinAsset != null) BUILTIN_SOURCE else USER_SOURCE
+        val origin = if (source == USER_SOURCE) SkillOriginStore.read(canonicalDir) else null
+        val isLocallyModified = origin != null && SkillOriginStore.isLocallyModified(canonicalDir, origin)
         return SkillIndexEntry(
             id = id,
             name = frontmatter["name"]?.ifBlank { id } ?: id,
@@ -585,10 +589,11 @@ class SkillIndexService(
             hasAssets = File(canonicalDir, "assets").isDirectory,
             hasEvals = File(canonicalDir, "evals").isDirectory,
             enabled = registryState?.enabled ?: true,
-            source = registryState?.source?.ifBlank { null }
-                ?: if (builtinAsset != null) BUILTIN_SOURCE else USER_SOURCE,
+            source = source,
             installed = true,
             isOverridden = isOverridden,
+            origin = origin,
+            isLocallyModified = isLocallyModified,
         )
     }
 

@@ -22,6 +22,21 @@ data class SkillIndexEntry(
     val source: String = "user",
     val installed: Boolean = true,
     val isOverridden: Boolean = false,
+    val origin: SkillOrigin? = null,
+    val isLocallyModified: Boolean = false,
+)
+
+/**
+ * 技能来源追踪元数据（存放在技能目录内 [.eta-skill-origin.json] 旁路文件）。
+ */
+@Immutable
+data class SkillOrigin(
+    val repository: String,
+    val trackedRef: String,
+    val skillPath: String,
+    val commitSha: String,
+    val treeSha: String,
+    val skillMdSha256: String,
 )
 
 /**
