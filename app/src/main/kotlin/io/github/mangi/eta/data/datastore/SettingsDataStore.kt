@@ -18,6 +18,7 @@ import io.github.mangi.eta.data.model.AppearanceThemeMode
 import io.github.mangi.eta.data.model.AppearanceTopBarBlurStyle
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.model.SpeechSettings
+import io.github.mangi.eta.data.model.SubagentSettings
 import io.github.mangi.eta.data.model.WebToolsSettings
 import kotlinx.serialization.json.Json
 import io.github.mangi.eta.data.model.Settings
@@ -30,6 +31,7 @@ import kotlinx.coroutines.flow.map
 internal object SettingsDataStore {
     private val SPEECH_SETTINGS = stringPreferencesKey("speech_settings_v1")
     private val WEB_TOOLS_SETTINGS = stringPreferencesKey("web_tools_settings_v1")
+    private val SUBAGENT_SETTINGS = stringPreferencesKey("subagent_settings_v1")
     private val speechJson = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     fun speechSettingsFlow(): Flow<SpeechSettings> {
@@ -67,15 +69,32 @@ internal object SettingsDataStore {
         dataStore.edit { it[WEB_TOOLS_SETTINGS] = speechJson.encodeToString(settings) }
     }
 
+    fun subagentSettingsFlow(): Flow<SubagentSettings> {
+        ensureInitialized()
+        return dataStore.data
+            .catch { cause ->
+                if (cause is IOException) emit(emptyPreferences()) else throw cause
+            }
+            .map { prefs ->
+                prefs[SUBAGENT_SETTINGS]?.let { raw ->
+                    runCatching { speechJson.decodeFromString<SubagentSettings>(raw) }.getOrNull()
+                } ?: SubagentSettings()
+            }
+    }
+
+    suspend fun subagentSettings(): SubagentSettings = subagentSettingsFlow().first()
+
+    suspend fun setSubagentSettings(settings: SubagentSettings) {
+        ensureInitialized()
+        dataStore.edit { it[SUBAGENT_SETTINGS] = speechJson.encodeToString(settings) }
+    }
+
     private const val STORE_NAME = "eta_settings"
 
     private val SELECTED_PROVIDER_ID = stringPreferencesKey("selected_provider_id")
     private val SELECTED_MODEL_ID = stringPreferencesKey("selected_model_id")
     private val OFFICIAL_MODEL_CATALOG_REVISION = intPreferencesKey("official_model_catalog_revision")
     private val MEMORY_ENABLED = booleanPreferencesKey("memory_enabled")
-    private val SUBAGENT_ENABLED = booleanPreferencesKey("subagent_enabled")
-    private val SUBAGENT_MODEL_ID = stringPreferencesKey("subagent_model_id")
-    private val SUBAGENT_REASONING_EFFORT = stringPreferencesKey("subagent_reasoning_effort")
     private val LINUX_DISTRIBUTION = stringPreferencesKey("linux_distribution")
     private val APPEARANCE_THEME_MODE = stringPreferencesKey("appearance_theme_mode")
     private val APPEARANCE_MONET_ENABLED = booleanPreferencesKey("appearance_monet_enabled")
@@ -138,9 +157,6 @@ internal object SettingsDataStore {
             prefs.putOrRemove(SELECTED_PROVIDER_ID, updated.selectedProviderId)
             prefs.putOrRemove(SELECTED_MODEL_ID, updated.selectedModelId)
             prefs[MEMORY_ENABLED] = updated.memoryEnabled
-            prefs[SUBAGENT_ENABLED] = updated.subagentEnabled
-            prefs.putOrRemove(SUBAGENT_MODEL_ID, updated.subagentModelId)
-            prefs[SUBAGENT_REASONING_EFFORT] = updated.subagentReasoningEffort.wireValue
             prefs.putAppearance(updated.appearance.normalized())
         }
     }
@@ -231,27 +247,6 @@ internal object SettingsDataStore {
         updateSettings { it.copy(memoryEnabled = enabled) }
     }
 
-    fun subagentEnabledFlow(): Flow<Boolean> =
-        settingsFlow().map { it.subagentEnabled }
-
-    fun subagentModelIdFlow(): Flow<String?> =
-        settingsFlow().map { it.subagentModelId }
-
-    fun subagentReasoningEffortFlow(): Flow<ReasoningEffort> =
-        settingsFlow().map { it.subagentReasoningEffort }
-
-    suspend fun setSubagentEnabled(enabled: Boolean) {
-        updateSettings { it.copy(subagentEnabled = enabled) }
-    }
-
-    suspend fun setSubagentModelId(id: String?) {
-        updateSettings { it.copy(subagentModelId = id) }
-    }
-
-    suspend fun setSubagentReasoningEffort(effort: ReasoningEffort) {
-        updateSettings { it.copy(subagentReasoningEffort = effort) }
-    }
-
     suspend fun setLinuxDistribution(value: String?) {
         ensureInitialized()
         dataStore.edit { preferences -> preferences.putOrRemove(LINUX_DISTRIBUTION, value) }
@@ -309,9 +304,6 @@ internal object SettingsDataStore {
         selectedProviderId = this[SELECTED_PROVIDER_ID],
         selectedModelId = this[SELECTED_MODEL_ID],
         memoryEnabled = this[MEMORY_ENABLED] ?: true,
-        subagentEnabled = this[SUBAGENT_ENABLED] ?: false,
-        subagentModelId = this[SUBAGENT_MODEL_ID],
-        subagentReasoningEffort = this[SUBAGENT_REASONING_EFFORT]?.let { ReasoningEffort.fromWireValue(it) } ?: ReasoningEffort.DEFAULT,
         appearance = AppearanceSettings(
             themeMode = AppearanceThemeMode.fromPersistedValue(this[APPEARANCE_THEME_MODE]),
             monetEnabled = this[APPEARANCE_MONET_ENABLED] ?: false,

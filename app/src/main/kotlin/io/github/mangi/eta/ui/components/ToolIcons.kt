@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.rounded.MenuBook
 import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.automirrored.rounded.StickyNote2
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
+import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.AdsClick
 import androidx.compose.material.icons.rounded.Alarm
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.FindReplace
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Insights
 import androidx.compose.material.icons.rounded.Key
@@ -85,7 +87,6 @@ internal fun iconForTool(toolId: String): ImageVector = when (toolId) {
     "computer", "computer_call", "计算机操作" -> Icons.Rounded.Computer
     "image_generation", "image_generation_call", "图像生成" -> Icons.Rounded.Image
     "mcp_call", "MCP 工具" -> Icons.Rounded.Extension
-    "delegate_task",
     "memory_get", "memory_write", "character_memory_get", "character_memory_write" ->
         Icons.Rounded.Psychology
     "release_gui" -> Icons.Rounded.Smartphone
@@ -127,6 +128,7 @@ internal fun iconForTool(toolId: String): ImageVector = when (toolId) {
     "search_system_memories", "search_coloros_memories" -> Icons.Rounded.Psychology
     "search_personal_orders" -> Icons.Rounded.ShoppingBag
     "terminal", "terminal_job", "terminal_daemon", "run_command" -> Icons.Rounded.Terminal
+    "subagent", "subagent_profile" -> Icons.Rounded.Hub
     "read_file", "stat_file" -> Icons.Rounded.Description
     "write_file", "edit_file" -> Icons.Rounded.EditNote
     "list_directory", "glob_files", "grep_files" -> Icons.Rounded.FolderOpen

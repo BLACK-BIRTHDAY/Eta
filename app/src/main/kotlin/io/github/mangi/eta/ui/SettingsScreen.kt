@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.FilterAlt
 import androidx.compose.material.icons.rounded.GppMaybe
 import androidx.compose.material.icons.rounded.Hearing
+import androidx.compose.material.icons.rounded.Hub
 import androidx.compose.material.icons.rounded.ImportContacts
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Inventory
@@ -251,57 +252,6 @@ private fun SettingsPageContent(
         DropdownItem(text = target.displayName(context))
     }
 
-    val settings by SettingsDataStore.settingsFlow().collectAsState(initial = Settings())
-    val subagentModelCandidates = remember(providers) {
-        providers.filter { it.isEnabled }.flatMap { provider ->
-            provider.models.filter { it.isEnabled }.map { model ->
-                provider to model
-            }
-        }
-    }
-    val subagentModelItems = remember(subagentModelCandidates) {
-        listOf(
-            DropdownItem(
-                text = "关闭子代理",
-                summary = "所有任务均由主模型直接执行",
-            ),
-        ) + subagentModelCandidates.map { (provider, model) ->
-            DropdownItem(
-                text = "${provider.name} / ${model.displayName}",
-                summary = listOfNotNull(
-                    model.modelId,
-                    model.effectiveContextWindow?.let { "${formatCompactTokenCount(it)} 上下文" },
-                    "可在模型提供商中编辑上下文窗口与参数",
-                ).joinToString(" · "),
-            )
-        }
-    }
-    val subagentModelSelectedIndex = if (!settings.subagentEnabled || settings.subagentModelId.isNullOrBlank()) {
-        0
-    } else {
-        val idx = subagentModelCandidates.indexOfFirst { (_, model) -> model.id == settings.subagentModelId }
-        if (idx >= 0) idx + 1 else 0
-    }
-    val subagentEffortOptions = remember {
-        listOf(
-            ReasoningEffort.DEFAULT,
-            ReasoningEffort.OFF,
-            ReasoningEffort.MINIMAL,
-            ReasoningEffort.LOW,
-            ReasoningEffort.MEDIUM,
-            ReasoningEffort.HIGH,
-            ReasoningEffort.MAX,
-        )
-    }
-    val subagentEffortItems = remember(subagentEffortOptions) {
-        subagentEffortOptions.map { effort ->
-            DropdownItem(text = effort.displayName)
-        }
-    }
-    val subagentEffortSelectedIndex = subagentEffortOptions.indexOf(settings.subagentReasoningEffort).let {
-        if (it >= 0) it else 0
-    }
-
     MiuixScaffoldPage(
         title = stringResource(R.string.ui_set_up_7debf9),
         onBack = onBack,
@@ -331,55 +281,6 @@ private fun SettingsPageContent(
                         icon = Icons.Rounded.Psychology,
                         iconTint = EtaPreferenceColors.Blue,
                     )
-
-                    EtaPreferenceDivider()
-                    EtaDropdownPreference(
-                        title = "子代理模型",
-                        items = subagentModelItems,
-                        selectedIndex = subagentModelSelectedIndex,
-                        summary = subagentModelItems.getOrNull(subagentModelSelectedIndex)?.summary,
-                        onSelectedIndexChange = { index ->
-                            coroutineScope.launch {
-                                if (index == 0) {
-                                    SettingsDataStore.setSubagentEnabled(false)
-                                    SettingsDataStore.setSubagentModelId(null)
-                                } else {
-                                    val picked = subagentModelCandidates.getOrNull(index - 1) ?: return@launch
-                                    SettingsDataStore.setSubagentEnabled(true)
-                                    SettingsDataStore.setSubagentModelId(picked.second.id)
-                                }
-                                RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                            }
-                        },
-                        startAction = {
-                            EtaPreferenceIcon(
-                                icon = Icons.Rounded.SupportAgent,
-                                tint = EtaPreferenceColors.Blue,
-                            )
-                        },
-                    )
-
-                    if (subagentModelSelectedIndex > 0) {
-                        EtaPreferenceDivider()
-                        EtaDropdownPreference(
-                            title = "子代理思考深度",
-                            items = subagentEffortItems,
-                            selectedIndex = subagentEffortSelectedIndex,
-                            onSelectedIndexChange = { index ->
-                                val effort = subagentEffortOptions.getOrNull(index) ?: return@EtaDropdownPreference
-                                coroutineScope.launch {
-                                    SettingsDataStore.setSubagentReasoningEffort(effort)
-                                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
-                                }
-                            },
-                            startAction = {
-                                EtaPreferenceIcon(
-                                    icon = Icons.Rounded.Psychology,
-                                    tint = EtaPreferenceColors.Blue,
-                                )
-                            },
-                        )
-                    }
                 }
             }
 
@@ -406,6 +307,18 @@ private fun SettingsPageContent(
                             )
                         },
                         onClick = { onNavigate(AppRoute.Memory) },
+                    )
+
+                    EtaPreferenceDivider()
+                    EtaArrowPreference(
+                        title = "Subagent",
+                        startAction = {
+                            EtaPreferenceIcon(
+                                icon = Icons.Rounded.Hub,
+                                tint = EtaPreferenceColors.Blue,
+                            )
+                        },
+                        onClick = { onNavigate(AppRoute.Subagents) },
                     )
 
                     EtaPreferenceDivider()

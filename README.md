@@ -1,19 +1,14 @@
-# Eta
+<h1 align="center">Eta</h1>
 
-**简体中文** | [English](README_EN.md)
+<p align="center"><strong>简体中文</strong> | <a href="README_EN.md">English</a></p>
 
-<p>
-  <a href="https://github.com/Mangi-11/Eta/releases"><img src="https://img.shields.io/github/downloads/Mangi-11/Eta/total?logo=github&amp;label=Downloads&amp;color=1677FF" alt="GitHub Releases 累计下载量"></a>
-  <img src="https://img.shields.io/badge/minSdk-33-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 33">
-  <img src="https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.20">
-  <img src="https://img.shields.io/badge/AGP-9.4.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.4.1">
-  <img src="https://img.shields.io/badge/Gemini%203.x-Native%201M%20Context-4285F4?logo=google&amp;logoColor=white" alt="Gemini 3.x Native">
-  <img src="https://img.shields.io/badge/Zero--Copy%20IPC-Pipe%202M%20Chars-FF6F00" alt="Zero-Copy IPC">
-  <img src="https://img.shields.io/badge/ColorOS%2016-Fluid%20Cloud%20LiveAlert-00C853" alt="ColorOS 16 Fluid Cloud">
-  <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS">
+<p align="center"><strong>面向 Android 的第三方系统级 AI Agent（BLACK-BIRTHDAY 专属增强版）</strong></p>
+
+<p align="center"><a href="https://github.com/Mangi-11/Eta/stargazers"><img src="https://img.shields.io/github/stars/Mangi-11/Eta?logo=github&amp;label=Stars&amp;color=1677FF" alt="GitHub Stars"></a> <a href="https://github.com/Mangi-11/Eta/releases"><img src="https://img.shields.io/github/downloads/Mangi-11/Eta/total?logo=github&amp;label=Downloads&amp;color=1677FF" alt="GitHub Releases 累计下载量"></a> <img src="https://img.shields.io/badge/minSdk-33-3DDC84?logo=android&amp;logoColor=white" alt="minSdk 33"> <img src="https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin 2.4.20"> <img src="https://img.shields.io/badge/AGP-9.4.1-3DDC84?logo=android&amp;logoColor=white" alt="AGP 9.4.1"> <img src="https://img.shields.io/badge/Gemini%203.x-Native%201M%20Context-4285F4?logo=google&amp;logoColor=white" alt="Gemini 3.x Native"> <img src="https://img.shields.io/badge/Zero--Copy%20IPC-Pipe%202M%20Chars-FF6F00" alt="Zero-Copy IPC"> <img src="https://img.shields.io/badge/ColorOS%2016-Fluid%20Cloud%20LiveAlert-00C853" alt="ColorOS 16 Fluid Cloud"> <img src="https://img.shields.io/badge/Assistant%20Integrations-ColorOS%20%26%20HyperOS-1677FF" alt="Assistant integrations for ColorOS and HyperOS"></p>
+
+<p align="center">
+  <a href="https://trendshift.io/repositories/116433"><img src="https://trendshift.io/api/badge/trendshift/repositories/116433/daily?language=Kotlin" alt="Eta · Trendshift Kotlin 日榜" width="250" height="55"></a>
 </p>
-
-**面向 Android 的第三方系统级 AI Agent（BLACK-BIRTHDAY 专属增强版）**
 
 Eta 借助 Root 与 LSPosed 越过 App 沙盒，直接进入系统底层：Hook 系统组件，接管电源键与厂商助手入口，读取原厂与第三方应用的私有数据。同时支持普通免 Root 设备运行 Linux PRoot 终端与沙盒。这些接近原厂、又比原厂更自由的能力，全部开放给你自己接入的模型（ChatGPT、Gemini 3.x、DeepSeek、Kimi 等，自带 API Key——BYOK，以及 Codex / Grok 订阅登录）。
 
@@ -22,7 +17,7 @@ Eta 借助 Root 与 LSPosed 越过 App 沙盒，直接进入系统底层：Hook 
 > 1. **💎 Google Gemini 双栈引擎（GenerateContent + Interactions）**：默认直接对接原生 `generateContent` 端点与 Vertex AI 服务账号 JSON，内置彩钻标识，支持 1M 超大上下文 (`gemini-3.8-flash-tiered`)、原生自适应 Thinking 预算控制（对齐 Antigravity Manager / Cherry Studio 精准阶梯）、思考签名兼容与 400 自动重试、多模态生图与 `inlineData` Base64 实时 Markdown 图片渲染，亦可选官方 Interactions API。
 > 2. **⚡ 内核管道 Zero-Copy Pipe IPC**：彻底终结 Android 1MB Binder 事务物理限制。会话历史超 32KB 自动切换为 `ParcelFileDescriptor.createPipe()` 内核流式传输，支持高达 2,000,000 字符超长上下文；智能 `user` 轮次原子裁剪边界，杜绝断头 400 语法错误。
 > 3. **🌊 ColorOS 16 / Android 16 原生流体云与实时胶囊**：全面接入 Android 16 `POST_PROMOTED_NOTIFICATIONS` 规范与 ColorOS 16 官方实况架构。在 Agent 执行构思思考、代码编辑写入、终端命令测试时，状态栏挖孔旁实时升起动态呼吸胶囊；支持锁屏磨砂卡片、AOD 静态微标、点击以 ColorOS 自由小窗弹出交互，任务完成后 5 秒优雅自动收回。
-> 4. **🔀 多会话真正并发与 GUI 阶段互斥协调**：采用官方 `RuntimeRunRegistry` 与 `GuiControlCoordinator` 架构，支持 `delegate_task` 并发派发多个后台子代理狂飙，物理屏幕操作完整锁定“观察—推理—操作—验证”阶段防冲突。
+> 4. **🔀 多会话真正并发与 Subagent 子智能体**：采用官方 `RuntimeRunRegistry`、`GuiControlCoordinator` 与 `subagent` 并发派发架构，支持内置预设（`explore`、`coder`、`plan`）、对话内临时专职角色与自定义模板（`agents/<name>.md`），并融合单次 100 步防死循环软护栏与中断阶段性结果兜底。
 > 5. **💳 ColorOS 双击电源键直达钱包**：深度 Hook ColorOS 系统输入分发，双击电源键无论在锁屏还是亮屏状态，瞬间拉起 Google 钱包或一加钱包，支付出行一触即达。
 
 ---
@@ -61,7 +56,8 @@ Eta 独立实现了 Agent Runtime 与 Agent Loop，统一编排模型调用、�
 ### 执行工具
 
 - **系统与一方应用操作**：直接调用 Android API 与一方应用接口，读写日历日程（支持单条或批量创建、修改、删除）、管理闹钟与计时器、创建和回收系统便签；控制手电筒、亮度、息屏时间、响铃与勿扰、护眼与深色模式、音量、媒体播放，以及 Wi‑Fi、蓝牙、移动数据、个人热点、NFC、定位和省电模式。也可查询应用版本、安装来源与权限，停止或冻结应用，在 Root 授权下筛选系统日志。设置、开关和一方应用写操作都会读回实际状态，未确认时明确报告，不盲目重复执行。
-- **GUI Agent**：结合无障碍 UI 树、控件定位与按需截图，执行点击、长按、滑动、滚动和文本输入；动作成功后会自动附带新界面的节点快照，截图按原始尺寸与像素传递，不在上传前缩放或转 JPEG。执行期间保持屏幕常亮，屏幕边缘流光提示正在接管，状态栏下方的状态胶囊显示当前步骤（手势经过时自动让路），点击展开补充、暂停与停止；Android 16 QPR2 及以上的设备还会把运行状态显示到状态栏胶囊与锁屏（Live Updates，部分系统映射到流体云等）。
+- **GUI Agent**：结合无障碍 UI 树、控件定位与按需截图，执行点击、长按、滑动、滚动和文本输入；动作成功后会自动附带新界面的节点快照，截图按原始尺寸与像素传递，不在上传前缩放或转 JPEG。执行期间保持屏幕常亮，屏幕边缘流光提示正在接管，状态栏下方的状态胶囊显示当前步骤（手势经过时自动让路），点击展开补充、暂停与停止。
+- **运行通知**：Android 16 及以上且支持 Live Updates 的系统可在状态栏胶囊与锁屏显示 Agent 任务状态，纯后台任务同样适用；具体展示取决于系统支持和通知设置，部分系统映射到流体云或超级岛。仅驻留的终端会话、Linux 等任务保持普通前台通知。
 - **网页搜索与内置浏览器**：提供轻量的公开网页搜索与静态正文分页读取，可在设置中切换内置默认、DeepSeek Search / Fetch 或自定义 HTTP 接口；动态 JavaScript 页面通过内置 WebView 加载，支持读取正文、操作 DOM 与截图，用户可随时打开同一浏览器会话接管。
 - **终端**：Android user/root Shell、Alpine / Debian Linux 与脚本执行，支持会话、异步后台命令和常驻守护任务；返回实际 Shell、执行身份与可解析命令的信息。
 - **文件工具**：读取、写入、精确编辑、元数据查询、目录分页、路径匹配、文本搜索与本机图片读取。文本读取按 UTF-8 字节边界续读，编辑检查旧内容，搜索结果说明实际范围与未完成部分。
@@ -80,6 +76,7 @@ Eta 独立实现了 Agent Runtime 与 Agent Loop，统一编排模型调用、�
 - **个人上下文**：通过结构化只读工具按需获取本机与厂商 ROM 数据。普通授权下可读取时间与时区、最近位置、设备环境（锁屏、勿扰、音频输出与外接显示状态）、当前通知与最近 7 天通知历史、最近打开应用与前台使用时长，以及日历日程。Root 授权下进一步开放通讯录、通话记录、短信与验证码提取、相册图片（支持按文件名，或通过内容索引按图片 OCR 文字、画面描述与标签检索）、音频与录音、共享文件与下载记录、输入法剪贴板历史、Health Connect 健康汇总（步数、睡眠、运动、心率、体重、血氧）、已保存的 Wi‑Fi 密码及微信/QQ 聊天图片缓存。在 ColorOS 上，还可通过小布记忆进程内 Hook 桥与系统 DMP 索引直接检索小布记忆、便签、通话与普通录音摘要，以及账单与收支汇总、航班/火车/酒店行程、外卖快递订单、待办线索、生活事件和收藏地点。
 - **内核管道跨进程通信（Zero-Copy Pipe IPC）**：突破 Android 1MB Binder 事务大小限制，当会话历史超过 32KB 时自动启用 `ParcelFileDescriptor.createPipe()` 流式传输，直通核心 Service；支持高达 2,000,000 字符超大上下文容量，以 `user` 轮次为最小原子边界智能裁剪，彻底杜绝孤立 `model`/`tool` 截断造成的 400 语法错误。
 - **长期记忆**：使用本机 `MEMORY.md` 保存跨对话背景，核心内容按预算加入上下文，其余按需读取；支持编辑、清空和关闭。
+- **Subagent**：支持在独立子上下文中派发并并发运行多个 Subagent（内置 `explore`、`coder`、`plan`，支持在对话中按需拉起任意临时专职 Subagent 或保存 `agents/<name>.md` 复用模板），可单独配置轻量/高速模型（Secondary Model）并在聊天时间线中点击实时检视内部步骤。
 - **Skills**：按需加载任务方法、参考资料与脚本资源，支持公开 GitHub 仓库安装和本地 ZIP 导入；安装不会执行脚本或开启额外权限。
 - **MCP**：通过 Streamable HTTP 连接远程工具，支持 Bearer Token；工具逐项启用，与本机工具共同参与任务。
 - **会话与结果**：外部入口触发的运行结果归档到 App 会话，进程被杀也会尝试恢复；长按消息可复制、编辑或从该轮删除，最终回复可重新生成。
@@ -280,6 +277,17 @@ Eta 先从现有 Android 上的模型、上下文与工具做起。真正落地�
 - [HyperOS 系统入口](docs/HYPEROS_SYSTEM_ENTRY.md)：电源键、一圈即搜的适配条件与验证边界。
 - [终端原生组件](docs/TERMINAL_NATIVE.md)：PTY、PRoot 及随包源码的构建方式。
 
+## Star History
+
+<p align="center">
+  <a href="https://www.star-history.com/#Mangi-11/Eta&amp;Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Mangi-11/Eta&amp;type=Date&amp;theme=dark">
+      <img src="https://api.star-history.com/svg?repos=Mangi-11/Eta&amp;type=Date" alt="Eta Star History" width="800">
+    </picture>
+  </a>
+</p>
+
 ## 参考与致谢
 
 - [Pi Coding Agent](https://github.com/earendil-works/pi)：Eta Agent Runtime 的核心参考，包括 Agent Loop、Tool Calling、steering 与 transcript 状态管理。
@@ -291,5 +299,4 @@ Eta 先从现有 Android 上的模型、上下文与工具做起。真正落地�
 
 Eta 采用 [PolyForm Noncommercial License 1.0.0](LICENSE)，未经[作者](https://github.com/Mangi-11)书面授权，禁止个人二次分发、贩卖、收费代装及其他商业使用。
 
-<sub></sub>社区：<a href="https://linux.do">LINUX DO</sub>
->>>>>>> upstream/main
+<sub>社区：<a href="https://linux.do">LINUX DO</a></sub>

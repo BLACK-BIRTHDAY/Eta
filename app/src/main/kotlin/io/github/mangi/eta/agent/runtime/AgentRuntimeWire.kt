@@ -122,18 +122,13 @@ internal object AgentRuntimeWire {
     private const val KEY_DEVICE_DIRECT_TOOLS = "device_direct_tools"
     private const val KEY_DEVICE_SENSITIVE_READ_TOOLS = "device_sensitive_read_tools"
     private const val KEY_DEVICE_SENSITIVE_ACTION_TOOLS = "device_sensitive_action_tools"
+    private const val KEY_SUBAGENT_TOOLS = "subagent_tools"
     private const val KEY_THINKING_ENABLED = "thinking_enabled"
     private const val KEY_REASONING_EFFORT = "reasoning_effort"
     private const val KEY_REASONING_CAPABILITIES_JSON = "reasoning_capabilities_json"
     private const val KEY_EXTRA_BODY_JSON = "extra_body_json"
     private const val KEY_CUSTOM_HEADERS_JSON = "custom_headers_json"
     private const val KEY_CUSTOM_BODY_JSON = "custom_body_json"
-    private const val KEY_SUBAGENT_MODEL = "subagent_model"
-    private const val KEY_SUBAGENT_ENABLED = "subagent_enabled"
-    private const val KEY_SUBAGENT_REASONING_EFFORT = "subagent_reasoning_effort"
-    private const val KEY_SUBAGENT_CONTEXT_WINDOW = "subagent_context_window"
-    private const val KEY_SUBAGENT_MAX_OUTPUT_TOKENS = "subagent_max_output_tokens"
-    private const val KEY_SUBAGENT_CONFIG_JSON = "subagent_config_json"
     private const val KEY_IMAGES = "images"
     private const val KEY_HISTORY = "history"
     const val KEY_HISTORY_FD = "history_fd"
@@ -441,6 +436,7 @@ internal object AgentRuntimeWire {
         putBoolean(KEY_DEVICE_DIRECT_TOOLS, request.config.deviceDirectTools)
         putBoolean(KEY_DEVICE_SENSITIVE_READ_TOOLS, request.config.deviceSensitiveReadTools)
         putBoolean(KEY_DEVICE_SENSITIVE_ACTION_TOOLS, request.config.deviceSensitiveActionTools)
+        putBoolean(KEY_SUBAGENT_TOOLS, request.config.subagentTools)
         putBoolean(KEY_THINKING_ENABLED, request.config.effectiveReasoningEffort.enablesReasoning)
         putString(KEY_REASONING_EFFORT, request.config.effectiveReasoningEffort.wireValue)
         request.config.reasoningCapabilities?.let {
@@ -449,12 +445,6 @@ internal object AgentRuntimeWire {
         putString(KEY_EXTRA_BODY_JSON, request.config.extraBodyJson)
         putString(KEY_CUSTOM_HEADERS_JSON, json.encodeToString(request.config.customHeaders))
         putString(KEY_CUSTOM_BODY_JSON, json.encodeToString(request.config.customBody))
-        putString(KEY_SUBAGENT_MODEL, request.config.subagentModel)
-        putBoolean(KEY_SUBAGENT_ENABLED, request.config.subagentEnabled)
-        putString(KEY_SUBAGENT_REASONING_EFFORT, request.config.subagentReasoningEffort.wireValue)
-        request.config.subagentContextWindow?.let { putInt(KEY_SUBAGENT_CONTEXT_WINDOW, it) }
-        request.config.subagentMaxOutputTokens?.let { putInt(KEY_SUBAGENT_MAX_OUTPUT_TOKENS, it) }
-        putString(KEY_SUBAGENT_CONFIG_JSON, request.config.subagentConfigJson)
         request.handoff?.let { putBundle(KEY_HANDOFF, toBundle(it)) }
         putParcelableArrayList(
             KEY_IMAGES,
@@ -587,6 +577,10 @@ internal object AgentRuntimeWire {
                     bundle.getBoolean(KEY_DEVICE_SENSITIVE_READ_TOOLS, false),
                 deviceSensitiveActionTools =
                     bundle.getBoolean(KEY_DEVICE_SENSITIVE_ACTION_TOOLS, false),
+                subagentTools = bundle.getBoolean(
+                    KEY_SUBAGENT_TOOLS,
+                    Prefs.Keys.BOOLEAN_DEFAULTS.getValue(Prefs.Keys.AGENT_SUBAGENT_ENABLED),
+                ),
                 thinkingEnabled = bundle.getBoolean(KEY_THINKING_ENABLED),
                 reasoningEffort = if (bundle.containsKey(KEY_REASONING_EFFORT)) {
                     ReasoningEffort.fromWireValue(bundle.getString(KEY_REASONING_EFFORT))
@@ -600,22 +594,6 @@ internal object AgentRuntimeWire {
                 extraBodyJson = bundle.getString(KEY_EXTRA_BODY_JSON).orEmpty(),
                 customHeaders = decodeCustomHeaders(bundle.getString(KEY_CUSTOM_HEADERS_JSON)),
                 customBody = decodeCustomBody(bundle.getString(KEY_CUSTOM_BODY_JSON)),
-                subagentModel = bundle.getString(KEY_SUBAGENT_MODEL)?.ifBlank { null }
-                    ?: AgentModelClient.DEFAULT_SUBAGENT_MODEL,
-                subagentEnabled = if (bundle.containsKey(KEY_SUBAGENT_ENABLED)) {
-                    bundle.getBoolean(KEY_SUBAGENT_ENABLED)
-                } else {
-                    true
-                },
-                subagentReasoningEffort = if (bundle.containsKey(KEY_SUBAGENT_REASONING_EFFORT)) {
-                    ReasoningEffort.fromWireValue(bundle.getString(KEY_SUBAGENT_REASONING_EFFORT))
-                        ?: ReasoningEffort.DEFAULT
-                } else {
-                    ReasoningEffort.DEFAULT
-                },
-                subagentContextWindow = bundle.optionalInt(KEY_SUBAGENT_CONTEXT_WINDOW),
-                subagentMaxOutputTokens = bundle.optionalInt(KEY_SUBAGENT_MAX_OUTPUT_TOKENS),
-                subagentConfigJson = bundle.getString(KEY_SUBAGENT_CONFIG_JSON).orEmpty(),
             ),
             history = when {
                 !readText -> emptyList()
@@ -933,6 +911,16 @@ internal object AgentRuntimeWire {
                 putInt("image_count", event.imageCount)
                 putInt("image_bytes", event.imageBytes)
                 event.success?.let { putBoolean("success", it) }
+                event.command?.let { putString("command", it.boundedText(MAX_DRAIN_CONTENT_CHARS)) }
+            }
+
+            is AgentEvent.SubagentProgress -> {
+                putString(KEY_TYPE, "subagent_progress")
+                putInt("round", event.round)
+                putString("tool_call_id", event.toolCallId)
+                putString("subagent_id", event.subagentId)
+                putString("subagent_type", event.subagentType)
+                putString("snapshot_json", event.snapshotJson.boundedText(MAX_DRAIN_CONTENT_CHARS))
             }
 
             is AgentEvent.HostedToolStarted -> {
@@ -1084,6 +1072,15 @@ internal object AgentRuntimeWire {
             imageBytes = bundle.getInt("image_bytes"),
             // 旧版本 Runtime 不发送 success，缺省为 null 由消费端回退判断
             success = if (bundle.containsKey("success")) bundle.getBoolean("success") else null,
+            command = bundle.getString("command"),
+        )
+
+        "subagent_progress" -> AgentEvent.SubagentProgress(
+            round = bundle.getInt("round"),
+            toolCallId = bundle.getString("tool_call_id").orEmpty(),
+            subagentId = bundle.getString("subagent_id").orEmpty(),
+            subagentType = bundle.getString("subagent_type").orEmpty(),
+            snapshotJson = bundle.getString("snapshot_json").orEmpty(),
         )
 
         "hosted_tool_started" -> AgentEvent.HostedToolStarted(

@@ -27,8 +27,6 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal object AgentModelClient {
-    const val DEFAULT_SUBAGENT_MODEL = "gemini-3.8-flash-tiered"
-
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = false
@@ -58,6 +56,7 @@ internal object AgentModelClient {
                     thinkingEnabled = effort.enablesReasoning,
                     reasoningEffort = effort,
                     autoCompactionEnabled = Prefs.isEnabled(Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED),
+                    subagentTools = Prefs.isEnabled(Prefs.Keys.AGENT_SUBAGENT_ENABLED),
                 )
             }
         }
@@ -76,6 +75,7 @@ internal object AgentModelClient {
             modelDisplayName = "GPT-5.5",
             systemPrompt = BuiltinProviders.DEFAULT_SYSTEM_PROMPT,
             autoCompactionEnabled = Prefs.isEnabled(Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED),
+            subagentTools = Prefs.isEnabled(Prefs.Keys.AGENT_SUBAGENT_ENABLED),
             terminalTools = Prefs.isEnabled(Prefs.Keys.AGENT_TERMINAL_TOOLS),
             browserTools = Prefs.isEnabled(Prefs.Keys.AGENT_BROWSER_TOOLS),
             deviceDirectTools = Prefs.isEnabled(Prefs.Keys.AGENT_DEVICE_DIRECT_TOOLS),
@@ -97,9 +97,6 @@ internal object AgentModelClient {
         images: List<ModelImage> = emptyList(),
         history: List<ConversationMessage> = emptyList(),
         provider: AgentProviderClient? = null,
-        providerResolver: (ModelConfig) -> AgentProviderClient = {
-            if (it.model == config.model && provider != null) provider else ProviderClientFactory.getClient(it)
-        },
         runController: AgentRunController = AgentRunController(),
         skillContext: SkillContext = SkillContext.EMPTY,
         memoryContext: AgentMemoryContext = AgentMemoryContext.DISABLED,
@@ -114,6 +111,7 @@ internal object AgentModelClient {
         roleplayContext: RoleplayRunContext? = null,
         rewriteReply: Boolean = false,
         assistantScreenContext: String = "",
+        toolFilter: ((JSONArray) -> JSONArray)? = null,
         onContextSnapshot: (AgentContextSnapshot) -> Unit = {},
         onTranscript: (List<ConversationMessage>) -> Unit = {},
         onEvent: (AgentEvent) -> Unit = {}
@@ -168,10 +166,7 @@ internal object AgentModelClient {
             for (index in 0 until additionalTools.length()) {
                 tools.put(additionalTools.opt(index))
             }
-            if (config.subagentEnabled && !rewriteReply && !compactOnly) {
-                tools.put(AgentSubagentToolCatalog.schema())
-            }
-            return tools
+            return toolFilter?.invoke(tools) ?: tools
         }
         val tools = toolsFor(initialCapabilities)
         val eventLock = Any()
@@ -226,23 +221,7 @@ internal object AgentModelClient {
                 )
             }
         }
-        val subagentExecutor = if (config.subagentEnabled && !rewriteReply && !compactOnly) {
-            SubagentExecutor(
-                parentConfig = config,
-                parentToolExecutor = checkedToolExecutor,
-                providerResolver = providerResolver,
-                runController = runController,
-                skillContext = skillContext,
-                memoryContext = memoryContext,
-                additionalTools = additionalTools,
-                executionContext = executionContext,
-                capabilitiesProvider = capabilitiesProvider,
-                parentOnEvent = synchronizedOnEvent,
-            )
-        } else {
-            null
-        }
-        val resolvedProvider = provider ?: providerResolver(config)
+        val resolvedProvider = provider ?: ProviderClientFactory.getClient(config)
         val loop = AgentLoop(
             transcript = transcript,
             systemCount = systemCount,
@@ -256,16 +235,7 @@ internal object AgentModelClient {
             provider = resolvedProvider,
             // 目录在运行内只增不减，可见不再等于可用：执行前用同一规则复核，
             // 中途失去的能力返回与目录过滤一致的错误码，而不是让底层接口给出含糊的失败。
-            toolExecutor = AgentModelClient.ToolExecutor { call ->
-                if (call.name == AgentSubagentToolCatalog.TOOL_NAME) {
-                    subagentExecutor?.execute(call) ?: ToolResult(
-                        JSONObject().put("ok", false).put("code", "SUBAGENT_NOT_ENABLED")
-                            .put("message", "子代理功能未启用").toString(),
-                    )
-                } else {
-                    checkedToolExecutor.execute(call)
-                }
-            },
+            toolExecutor = checkedToolExecutor,
             runController = runController,
             traceFormatter = traceFormatter,
             onEvent = synchronizedOnEvent,
@@ -372,49 +342,10 @@ internal object AgentModelClient {
         val customHeaders: List<CustomHeader> = emptyList(),
         val customBody: List<CustomBody> = emptyList(),
         val autoCompactionEnabled: Boolean = Prefs.Keys.BOOLEAN_DEFAULTS.getValue(Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED),
+        val subagentTools: Boolean = Prefs.Keys.BOOLEAN_DEFAULTS.getValue(Prefs.Keys.AGENT_SUBAGENT_ENABLED),
         val geminiEndpointMode: String = GeminiEndpointMode.GENERATE_CONTENT,
         val authMode: String = ProviderAuthModes.API_KEY,
-        val subagentModel: String = DEFAULT_SUBAGENT_MODEL,
-        val subagentEnabled: Boolean = true,
-        val subagentReasoningEffort: ReasoningEffort = ReasoningEffort.DEFAULT,
-        val subagentContextWindow: Int? = null,
-        val subagentMaxOutputTokens: Int? = null,
-        val subagentConfigJson: String = "",
     ) {
-        fun toSubagentConfig(): ModelConfig {
-            if (subagentConfigJson.isNotBlank()) {
-                val decoded = runCatching {
-                    json.decodeFromString<ModelConfig>(subagentConfigJson)
-                }.getOrNull()
-                if (decoded != null) {
-                    return decoded.copy(
-                        terminalTools = terminalTools,
-                        browserTools = browserTools,
-                        deviceDirectTools = deviceDirectTools,
-                        deviceSensitiveReadTools = deviceSensitiveReadTools,
-                        deviceSensitiveActionTools = deviceSensitiveActionTools,
-                        autoCompactionEnabled = autoCompactionEnabled,
-                        subagentEnabled = false,
-                        subagentConfigJson = "",
-                        thinkingEnabled = subagentReasoningEffort.enablesReasoning,
-                        reasoningEffort = subagentReasoningEffort,
-                        contextWindow = subagentContextWindow ?: decoded.contextWindow ?: contextWindow,
-                        maxOutputTokens = subagentMaxOutputTokens ?: decoded.maxOutputTokens,
-                    )
-                }
-            }
-            return copy(
-                model = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
-                modelDisplayName = subagentModel.ifBlank { DEFAULT_SUBAGENT_MODEL },
-                contextWindow = subagentContextWindow ?: contextWindow,
-                maxOutputTokens = subagentMaxOutputTokens,
-                subagentEnabled = false,
-                subagentConfigJson = "",
-                thinkingEnabled = subagentReasoningEffort.enablesReasoning,
-                reasoningEffort = subagentReasoningEffort,
-            )
-        }
-
         val usesHostedWebSearch: Boolean
             get() = hostedWebSearchEnabled && when (providerType) {
                 ProviderTypes.OPENAI_COMPATIBLE -> openAiEndpointMode == OpenAiEndpointMode.RESPONSES
@@ -457,6 +388,7 @@ internal object AgentModelClient {
         val name: String,
         val argumentsJson: String,
         val thoughtSignature: String = "",
+        val round: Int = 1,
     )
 
     data class ToolResult(
@@ -467,6 +399,7 @@ internal object AgentModelClient {
          * 最终 assistant 自己组织的答复不受此标记影响。
          */
         val sensitive: Boolean = false,
+        val command: String? = null,
     )
 
     /** 图片引用：入口侧可为本地 URI/路径，进入模型协议前必须解析为远程 URL 或 data URL。 */
@@ -489,7 +422,6 @@ internal object AgentModelClient {
             val contextSnapshot: AgentContextSnapshot? = null,
         ) : ModelResponse
     }
-
 }
 
 internal class AgentModelExecutionException(

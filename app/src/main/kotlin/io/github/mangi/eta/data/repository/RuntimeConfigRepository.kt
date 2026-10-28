@@ -15,7 +15,7 @@ import io.github.mangi.eta.data.model.OpenAiEndpointMode
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ReasoningEffort
-import io.github.mangi.eta.data.model.Settings
+import io.github.mangi.eta.data.model.SubagentSettings
 import io.github.mangi.eta.data.model.enabledModel
 import io.github.mangi.eta.data.model.runtimeProviderType
 import io.github.mangi.eta.data.model.selectedOrFirstModel
@@ -36,6 +36,59 @@ internal object RuntimeConfigRepository {
     fun selectedProviderIdFlow() = SettingsDataStore.selectedProviderIdFlow()
 
     fun selectedModelIdFlow() = SettingsDataStore.selectedModelIdFlow()
+
+    fun subagentSettingsFlow() = SettingsDataStore.subagentSettingsFlow()
+
+    suspend fun setSubagentSettings(settings: SubagentSettings) {
+        SettingsDataStore.setSubagentSettings(settings)
+    }
+
+    /**
+     * 解析 Subagent 实际运行所用的模型配置。
+     *
+     * 指定了独立子模型且该模型仍处于启用状态时优先使用子模型，否则平滑回退到主模型；
+     * 工具开关继承父请求，并强制关闭 `subagentTools` 防止递归派发。
+     */
+    suspend fun subagentRuntimeConfig(
+        primaryConfig: AgentModelClient.ModelConfig,
+    ): AgentModelClient.ModelConfig {
+        val settings = SettingsDataStore.subagentSettings()
+        val secondaryModelId = settings.modelId?.takeIf { it.isNotBlank() }
+        val resolvedSecondary = if (secondaryModelId != null) {
+            ProviderRepository.ensureBuiltInsMerged()
+            ProviderRepository.allProviders().enabledModel(secondaryModelId)
+        } else {
+            null
+        }
+        val base = resolvedSecondary?.let { (provider, model) ->
+            buildRuntimeConfig(provider, model)
+        } ?: primaryConfig
+        val explicitEffort = settings.resolvedReasoningEffort
+        val effort = when {
+            explicitEffort != null -> {
+                val capabilities = base.reasoningCapabilities
+                when {
+                    capabilities != null -> capabilities.normalize(explicitEffort)
+                    explicitEffort == ReasoningEffort.OFF -> ReasoningEffort.OFF
+                    else -> base.effectiveReasoningEffort
+                }
+            }
+            resolvedSecondary != null -> base.effectiveReasoningEffort
+            else -> primaryConfig.effectiveReasoningEffort
+        }
+        return base.copy(
+            terminalTools = primaryConfig.terminalTools,
+            browserTools = primaryConfig.browserTools,
+            deviceDirectTools = primaryConfig.deviceDirectTools,
+            deviceSensitiveReadTools = primaryConfig.deviceSensitiveReadTools,
+            deviceSensitiveActionTools = primaryConfig.deviceSensitiveActionTools,
+            subagentTools = false,
+            thinkingEnabled = effort.enablesReasoning,
+            reasoningEffort = effort,
+            autoCompactionEnabled = primaryConfig.autoCompactionEnabled,
+            supportsSearchSuggestions = false,
+        )
+    }
 
     suspend fun selectedProvider(): ProviderSetting? {
         val settings = ProviderRepository.repairSelection()
@@ -77,16 +130,14 @@ internal object RuntimeConfigRepository {
         val settings = ProviderRepository.repairSelection()
         val provider = settings.selectedProviderId?.let { ProviderRepository.providerById(it) } ?: return null
         val model = provider.selectedOrFirstModel(settings.selectedModelId) ?: return null
-        val base = buildRuntimeConfig(provider, model)
-        return applySubagentSettings(base)
+        return buildRuntimeConfig(provider, model)
     }
 
     /** 会话绑定的模型仍可用时使用它，否则回落到默认模型。 */
     suspend fun runtimeConfigFor(modelId: String?): AgentModelClient.ModelConfig? {
         ProviderRepository.ensureBuiltInsMerged()
         ProviderRepository.allProviders().enabledModel(modelId)?.let { (provider, model) ->
-            val base = buildRuntimeConfig(provider, model)
-            return applySubagentSettings(base)
+            return buildRuntimeConfig(provider, model)
         }
         return currentRuntimeConfig()
     }
@@ -101,44 +152,6 @@ internal object RuntimeConfigRepository {
             ?.takeIf { it.isEnabled && it.authMode == authMode } ?: return null
         val model = provider.models.firstOrNull { it.isEnabled && it.modelId == modelName } ?: return null
         return buildRuntimeConfig(provider, model)
-    }
-
-    suspend fun applySubagentSettings(base: AgentModelClient.ModelConfig): AgentModelClient.ModelConfig {
-        val settings = runCatching { SettingsDataStore.settings() }.getOrElse { Settings() }
-        val thinkingAllowed = Prefs.isEnabled(Prefs.Keys.AGENT_THINKING_ENABLED)
-        val effectiveEffort = if (thinkingAllowed) {
-            settings.subagentReasoningEffort
-        } else {
-            ReasoningEffort.OFF
-        }
-
-        val subModelPair = if (settings.subagentEnabled && !settings.subagentModelId.isNullOrBlank()) {
-            ProviderRepository.allProviders().enabledModel(settings.subagentModelId)
-        } else {
-            null
-        }
-
-        return if (subModelPair != null) {
-            val (subProvider, subModel) = subModelPair
-            val subConfig = buildRuntimeConfig(subProvider, subModel)
-            base.copy(
-                subagentEnabled = true,
-                subagentModel = subModel.modelId.trim(),
-                subagentReasoningEffort = effectiveEffort,
-                subagentContextWindow = subModel.effectiveContextWindow,
-                subagentMaxOutputTokens = subModel.effectiveMaxOutputTokens,
-                subagentConfigJson = runtimeConfigJson(subConfig),
-            )
-        } else {
-            base.copy(
-                subagentEnabled = false,
-                subagentModel = "",
-                subagentReasoningEffort = effectiveEffort,
-                subagentContextWindow = null,
-                subagentMaxOutputTokens = null,
-                subagentConfigJson = "",
-            )
-        }
     }
 
     suspend fun syncToRemotePreferences(service: XposedService?): Boolean {
@@ -175,6 +188,7 @@ internal object RuntimeConfigRepository {
             contextWindow = model.effectiveContextWindow,
             maxOutputTokens = model.effectiveMaxOutputTokens,
             autoCompactionEnabled = Prefs.isEnabled(Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED),
+            subagentTools = Prefs.isEnabled(Prefs.Keys.AGENT_SUBAGENT_ENABLED),
             systemPrompt = systemPrompt,
             anthropicVersion = (provider as? AnthropicProviderSetting)?.anthropicVersion
                 ?: AnthropicProviderSetting.DEFAULT_ANTHROPIC_VERSION,

@@ -13,10 +13,6 @@ import org.json.JSONObject
 
 /** Runtime 自己裁决可选能力，不能把入口进程提交的布尔值当作授权。 */
 internal object AgentRuntimePolicy {
-    private val json = Json {
-        ignoreUnknownKeys = true
-        encodeDefaults = true
-    }
     data class Permissions(
         val terminalTools: Boolean,
         val browserTools: Boolean,
@@ -25,6 +21,7 @@ internal object AgentRuntimePolicy {
         val deviceSensitiveActionTools: Boolean = false,
         val thinking: Boolean,
         val autoCompaction: Boolean = Prefs.Keys.BOOLEAN_DEFAULTS.getValue(Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED),
+        val subagentTools: Boolean = Prefs.Keys.BOOLEAN_DEFAULTS.getValue(Prefs.Keys.AGENT_SUBAGENT_ENABLED),
     )
 
     fun permissions(preferences: SharedPreferences?): Permissions =
@@ -38,6 +35,7 @@ internal object AgentRuntimePolicy {
                 preferences.allowed(Prefs.Keys.AGENT_DEVICE_SENSITIVE_ACTION_TOOLS),
             thinking = preferences.allowed(Prefs.Keys.AGENT_THINKING_ENABLED),
             autoCompaction = preferences.allowed(Prefs.Keys.AGENT_AUTO_COMPACTION_ENABLED),
+            subagentTools = preferences.allowed(Prefs.Keys.AGENT_SUBAGENT_ENABLED),
         )
 
     fun constrain(
@@ -47,16 +45,6 @@ internal object AgentRuntimePolicy {
         val requestedEffort = config.effectiveReasoningEffort
         val effectiveEffort = if (permissions.thinking) requestedEffort else ReasoningEffort.OFF
         val thinkingEnabled = effectiveEffort.enablesReasoning
-        val effectiveSubagentEffort = if (permissions.thinking) config.subagentReasoningEffort else ReasoningEffort.OFF
-        val constrainedSubagentConfigJson = if (!permissions.thinking && config.subagentConfigJson.isNotBlank()) {
-            runCatching {
-                val decoded = json.decodeFromString<AgentModelClient.ModelConfig>(config.subagentConfigJson)
-                val constrainedSub = constrain(decoded.copy(subagentConfigJson = ""), permissions)
-                json.encodeToString(constrainedSub)
-            }.getOrDefault(config.subagentConfigJson)
-        } else {
-            config.subagentConfigJson
-        }
         val constrained = config.copy(
             terminalTools = config.terminalTools && permissions.terminalTools,
             browserTools = config.browserTools && permissions.browserTools,
@@ -67,9 +55,8 @@ internal object AgentRuntimePolicy {
                 config.deviceSensitiveActionTools && permissions.deviceSensitiveActionTools,
             thinkingEnabled = thinkingEnabled,
             reasoningEffort = effectiveEffort,
-            subagentReasoningEffort = effectiveSubagentEffort,
-            subagentConfigJson = constrainedSubagentConfigJson,
             autoCompactionEnabled = config.autoCompactionEnabled && permissions.autoCompaction,
+            subagentTools = config.subagentTools && permissions.subagentTools,
         )
         if (thinkingEnabled) return constrained
         return constrained.copy(

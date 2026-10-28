@@ -8,7 +8,4 @@ data class Settings(
     val selectedModelId: String? = null,
     val memoryEnabled: Boolean = true,
     val appearance: AppearanceSettings = AppearanceSettings(),
-    val subagentEnabled: Boolean = false,
-    val subagentModelId: String? = null,
-    val subagentReasoningEffort: ReasoningEffort = ReasoningEffort.DEFAULT,
 )
