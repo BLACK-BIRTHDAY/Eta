@@ -32,15 +32,20 @@ import io.github.mangi.eta.agent.skill.SkillIndexService
 import io.github.mangi.eta.agent.skill.SkillInstallErrorCode
 import io.github.mangi.eta.agent.skill.SkillInstallResult
 import io.github.mangi.eta.agent.skill.SkillLoader
+import io.github.mangi.eta.agent.skill.SkillOrigin
+import io.github.mangi.eta.agent.skill.SkillOriginStore
 import io.github.mangi.eta.agent.skill.SkillPackageInstaller
 import io.github.mangi.eta.agent.skill.SkillParser
 import io.github.mangi.eta.agent.skill.SkillResourceReader
 import io.github.mangi.eta.agent.skill.SkillResourceReadResult
+import io.github.mangi.eta.agent.skill.SkillRuntime
+import io.github.mangi.eta.agent.skill.GitHubSkillCandidate
 import io.github.mangi.eta.agent.skill.GitHubSkillRepositoryParser
 import io.github.mangi.eta.agent.skill.GitHubSkillInspection
 import io.github.mangi.eta.agent.skill.GitHubSkillRepository
 import io.github.mangi.eta.agent.skill.GitHubSkillSourceException
 import io.github.mangi.eta.agent.skill.PublicGitHubSkillSource
+import java.io.File
 import io.github.mangi.eta.agent.terminal.TerminalExecutionContext
 import io.github.mangi.eta.agent.terminal.DetachedTaskSupervisor
 import io.github.mangi.eta.agent.terminal.LinuxEnvironmentPaths
@@ -1175,53 +1180,162 @@ internal class AgentLocalTools(
                 )
             }
             val expectedReplacementId = args.optString("expectedReplacementId").trim()
-            val repository = if (replaceExisting) {
-                validateReplacementReplay(
-                    requestedRepository = requestedRepository,
-                    selectedPaths = selectedPaths,
-                    expectedReplacementId = expectedReplacementId,
-                )?.let { return@skillSourceResult it }
-                requestedRepository.copy(ref = pendingSkillConflict.get()!!.commitSha)
-            } else {
-                val snapshot = inspectedGitHubSnapshots[
+            val explicitToken = args.optString("token").trim().takeIf { args.has("token") && it.isNotBlank() }
+
+            val snapshot: GitHubInspectionSnapshot
+            val repository: GitHubSkillRepository
+            if (!replaceExisting) {
+                val initialSnapshot = inspectedGitHubSnapshots[
                     inspectionKey(requestedRepository.slug, requestedRepository.ref)
-                ] ?: return@skillSourceResult errorResult(
-                    "SKILL_INSPECTION_REQUIRED",
-                    "安装前必须在本轮先检查同一仓库与 ref 的 Skill 候选",
-                )
-                val invalidSelection = selectedPaths.firstOrNull {
-                    it !in snapshot.candidatesByPath
-                }
-                if (invalidSelection != null) {
-                    return@skillSourceResult errorResult(
-                        "INVALID_SKILL_SELECTION",
-                        "所选路径不在本轮检查返回的候选中：$invalidSelection",
-                    )
-                }
-                val snapshotPrefix = snapshot.prefix
-                if (
-                    snapshotPrefix != null &&
-                    selectedPaths.any {
-                        it != snapshotPrefix && !it.startsWith("$snapshotPrefix/")
+                ] ?: inspectedGitHubSnapshots[
+                    inspectionKey(requestedRepository.slug, null)
+                ]
+                val needsHeal = initialSnapshot == null ||
+                    selectedPaths.any { it !in initialSnapshot.candidatesByPath } ||
+                    (initialSnapshot.prefix != null && selectedPaths.any {
+                        it != initialSnapshot.prefix && !it.startsWith("${initialSnapshot.prefix}/")
+                    })
+                if (needsHeal) {
+                    val repoSnapshots = findRepoSnapshots(requestedRepository.slug)
+                    if (repoSnapshots.isEmpty()) {
+                        return@skillSourceResult errorResult(
+                            "SKILL_INSPECTION_REQUIRED",
+                            "安装前必须在本轮先检查同一仓库与 ref 的 Skill 候选",
+                        )
                     }
-                ) {
-                    return@skillSourceResult errorResult(
-                        "INVALID_SKILL_SELECTION",
-                        "所选路径不在本轮检查的目录范围内",
+                    val source = githubSkillSource
+                        ?: return@skillSourceResult errorResult(
+                            "SKILL_INSTALLER_UNAVAILABLE",
+                            "GitHub Skill 服务未初始化",
+                        )
+                    val existingRepoSnapshot = initialSnapshot ?: repoSnapshots.firstOrNull()
+                    val targetRef = requestedRepository.ref
+                        ?: existingRepoSnapshot?.defaultBranch?.takeIf { it.isNotBlank() }
+                        ?: existingRepoSnapshot?.commitSha
+                    val fullRepo = requestedRepository.copy(ref = targetRef, path = null)
+                    val autoInspection = source.inspect(fullRepo, tokenOverride = explicitToken)
+                    rememberInspection(
+                        repository = fullRepo,
+                        inspection = autoInspection,
+                        rememberDefault = true,
                     )
+                    val healedSnapshot = inspectedGitHubSnapshots[
+                        inspectionKey(requestedRepository.slug, requestedRepository.ref)
+                    ] ?: inspectedGitHubSnapshots[
+                        inspectionKey(requestedRepository.slug, null)
+                    ] ?: GitHubInspectionSnapshot(
+                        defaultBranch = autoInspection.defaultBranch,
+                        commitSha = autoInspection.commitSha,
+                        prefix = autoInspection.prefix,
+                        candidatesByPath = autoInspection.candidates.associateBy { it.path },
+                    )
+                    val invalidSelection = selectedPaths.firstOrNull {
+                        it !in healedSnapshot.candidatesByPath
+                    }
+                    if (invalidSelection != null) {
+                        return@skillSourceResult errorResult(
+                            "INVALID_SKILL_SELECTION",
+                            "所选路径不在本轮检查返回的候选中：$invalidSelection",
+                        )
+                    }
+                    snapshot = healedSnapshot
+                } else {
+                    snapshot = initialSnapshot
                 }
-                requestedRepository.copy(ref = snapshot.commitSha)
+                repository = requestedRepository.copy(ref = snapshot.commitSha, path = null)
+            } else {
+                val pending = pendingSkillConflict.get()
+                if (pending != null) {
+                    validateReplacementReplay(
+                        requestedRepository = requestedRepository,
+                        selectedPaths = selectedPaths,
+                        expectedReplacementId = expectedReplacementId,
+                    )?.let { return@skillSourceResult it }
+                    val commitSha = pending.commitSha
+                    val existingSnapshot = inspectedGitHubSnapshots[
+                        inspectionKey(requestedRepository.slug, requestedRepository.ref)
+                    ] ?: inspectedGitHubSnapshots[
+                        inspectionKey(requestedRepository.slug, null)
+                    ] ?: findRepoSnapshots(requestedRepository.slug).firstOrNull()
+                    snapshot = existingSnapshot ?: GitHubInspectionSnapshot(
+                        defaultBranch = requestedRepository.ref.orEmpty(),
+                        commitSha = commitSha,
+                        prefix = null,
+                        candidatesByPath = emptyMap(),
+                    )
+                    repository = requestedRepository.copy(ref = commitSha, path = null)
+                } else {
+                    val repoSnapshots = findRepoSnapshots(requestedRepository.slug)
+                    if (repoSnapshots.isEmpty()) {
+                        return@skillSourceResult errorResult(
+                            "SKILL_REPLACE_CAPABILITY_REQUIRED",
+                            "没有可供精确重放的 Skill 冲突",
+                        )
+                    }
+                    if (expectedReplacementId.isBlank()) {
+                        return@skillSourceResult errorResult(
+                            "SKILL_REPLACE_CAPABILITY_REQUIRED",
+                            "直接替换必须指定 expectedReplacementId",
+                        )
+                    }
+                    val installedSkills = skillIndexService?.listSkillsForManagement().orEmpty()
+                    val existingSkill = installedSkills.firstOrNull {
+                        SkillParser.normalizeSkillLookup(it.id) == SkillParser.normalizeSkillLookup(expectedReplacementId)
+                    }
+                    if (existingSkill == null || !existingSkill.installed || existingSkill.source != "user") {
+                        return@skillSourceResult errorResult(
+                            "SKILL_REPLACE_NOT_ALLOWED",
+                            "要替换的 Skill 不存在或不是已安装的用户 Skill",
+                        )
+                    }
+                    val selectedPath = selectedPaths.single()
+                    var currentSnapshot = inspectedGitHubSnapshots[
+                        inspectionKey(requestedRepository.slug, requestedRepository.ref)
+                    ] ?: inspectedGitHubSnapshots[
+                        inspectionKey(requestedRepository.slug, null)
+                    ] ?: repoSnapshots.first()
+
+                    val needsHeal = selectedPath !in currentSnapshot.candidatesByPath ||
+                        (currentSnapshot.prefix != null && selectedPath != currentSnapshot.prefix && !selectedPath.startsWith("${currentSnapshot.prefix}/"))
+                    if (needsHeal) {
+                        val source = githubSkillSource
+                            ?: return@skillSourceResult errorResult(
+                                "SKILL_INSTALLER_UNAVAILABLE",
+                                "GitHub Skill 服务未初始化",
+                            )
+                        val targetRef = requestedRepository.ref
+                            ?: currentSnapshot.defaultBranch.takeIf { it.isNotBlank() }
+                            ?: repoSnapshots.firstOrNull()?.defaultBranch?.takeIf { it.isNotBlank() }
+                            ?: currentSnapshot.commitSha
+                        val fullRepo = requestedRepository.copy(ref = targetRef, path = null)
+                        val autoInspection = source.inspect(fullRepo, tokenOverride = explicitToken)
+                        rememberInspection(
+                            repository = fullRepo,
+                            inspection = autoInspection,
+                            rememberDefault = true,
+                        )
+                        currentSnapshot = inspectedGitHubSnapshots[
+                            inspectionKey(requestedRepository.slug, requestedRepository.ref)
+                        ] ?: inspectedGitHubSnapshots[
+                            inspectionKey(requestedRepository.slug, null)
+                        ] ?: GitHubInspectionSnapshot(
+                            defaultBranch = autoInspection.defaultBranch,
+                            commitSha = autoInspection.commitSha,
+                            prefix = autoInspection.prefix,
+                            candidatesByPath = autoInspection.candidates.associateBy { it.path },
+                        )
+                    }
+                    if (selectedPath !in currentSnapshot.candidatesByPath) {
+                        return@skillSourceResult errorResult(
+                            "INVALID_SKILL_SELECTION",
+                            "所选路径不在本轮检查返回的候选中：$selectedPath",
+                        )
+                    }
+                    snapshot = currentSnapshot
+                    repository = requestedRepository.copy(ref = snapshot.commitSha, path = null)
+                }
             }
-            val prefix = requestedRepository.path?.takeUnless { it == "." }
-            if (
-                prefix != null &&
-                selectedPaths.any { it != prefix && !it.startsWith("$prefix/") }
-            ) {
-                return@skillSourceResult errorResult(
-                    "INVALID_SKILL_SELECTION",
-                    "所选路径不在 GitHub URL 指定目录内",
-                )
-            }
+
             val source = githubSkillSource
                 ?: return@skillSourceResult errorResult(
                     "SKILL_INSTALLER_UNAVAILABLE",
@@ -1232,8 +1346,7 @@ internal class AgentLocalTools(
                     "SKILL_INSTALLER_UNAVAILABLE",
                     "Skill 安装器未初始化",
                 )
-            val explicitToken = args.optString("token").trim().takeIf { args.has("token") && it.isNotBlank() }
-            source.downloadArchive(repository, tokenOverride = explicitToken).use { archive ->
+            source.downloadSkillSubtreeArchive(repository, selectedPaths, tokenOverride = explicitToken).use { archive ->
                 if (closed.get()) {
                     return@skillSourceResult errorResult(
                         "SKILL_INSTALL_CANCELLED",
@@ -1257,6 +1370,9 @@ internal class AgentLocalTools(
                     ref = archive.ref,
                     commitSha = archive.commitSha,
                     selectedPaths = selectedPaths,
+                    snapshot = snapshot,
+                    requestedRef = requestedRepository.ref,
+                    archive = archive,
                 )
             }
         }
@@ -1265,21 +1381,37 @@ internal class AgentLocalTools(
     private fun inspectionResult(
         inspection: io.github.mangi.eta.agent.skill.GitHubSkillInspection,
     ): String {
-        val installedIds = skillIndexService
+        val installedSkills = skillIndexService
             ?.listSkillsForManagement()
             .orEmpty()
             .filter { it.installed }
-            .mapTo(mutableSetOf()) { SkillParser.normalizeSkillLookup(it.id) }
+        val installedIdentifiers = installedSkills
+            .flatMapTo(mutableSetOf()) { entry ->
+                listOfNotNull(
+                    SkillParser.normalizeSkillLookup(entry.id),
+                    SkillParser.normalizeSkillLookup(entry.name),
+                    SkillParser.normalizeSkillLookup(entry.id.removeSuffix("-skill")),
+                    SkillParser.normalizeSkillLookup(entry.name.removeSuffix("-skill")),
+                    entry.rootPath.substringAfterLast('/').takeIf { it.isNotBlank() }?.let(SkillParser::normalizeSkillLookup),
+                    entry.origin?.skillPath?.let(SkillParser::normalizeSkillLookup),
+                    entry.origin?.skillPath?.substringAfterLast('/')?.let(SkillParser::normalizeSkillLookup),
+                )
+            }
         val items = JSONArray()
         inspection.candidates.forEach { candidate ->
+            val normName = SkillParser.normalizeSkillLookup(candidate.name)
+            val normPath = SkillParser.normalizeSkillLookup(candidate.path.substringAfterLast('/'))
+            val isInstalled = normName in installedIdentifiers ||
+                normPath in installedIdentifiers ||
+                normName.removeSuffix("-skill") in installedIdentifiers ||
+                normPath.removeSuffix("-skill") in installedIdentifiers ||
+                "$normName-skill" in installedIdentifiers ||
+                "$normPath-skill" in installedIdentifiers
             items.put(
                 JSONObject()
                     .put("name", candidate.name)
                     .put("path", candidate.path)
-                    .put(
-                        "installed",
-                        SkillParser.normalizeSkillLookup(candidate.name) in installedIds,
-                    ),
+                    .put("installed", isInstalled),
             )
         }
         return JSONObject()
@@ -1293,21 +1425,58 @@ internal class AgentLocalTools(
             .toString()
     }
 
+    private fun findRepoSnapshots(slug: String): List<GitHubInspectionSnapshot> {
+        val prefix = "${slug.lowercase(Locale.ROOT)}@"
+        return inspectedGitHubSnapshots.entries
+            .filter { it.key.startsWith(prefix) }
+            .map { it.value }
+    }
+
     private fun rememberInspection(
         repository: GitHubSkillRepository,
         inspection: GitHubSkillInspection,
-        rememberDefault: Boolean,
+        rememberDefault: Boolean = true,
     ) {
+        val slugPrefix = "${repository.slug.lowercase(Locale.ROOT)}@"
+        val existing = inspectedGitHubSnapshots.entries
+            .filter { it.key.startsWith(slugPrefix) }
+            .map { it.value }
+            .firstOrNull { it.commitSha == inspection.commitSha }
+
+        val newCandidates = inspection.candidates.associateBy { it.path }
+        val mergedCandidates = if (existing != null) {
+            existing.candidatesByPath + newCandidates
+        } else {
+            newCandidates
+        }
+        val defaultBranch = when {
+            inspection.defaultBranch.isNotBlank() -> inspection.defaultBranch
+            existing != null && existing.defaultBranch.isNotBlank() -> existing.defaultBranch
+            inspection.ref.isNotBlank() -> inspection.ref
+            else -> repository.ref.orEmpty()
+        }
+        val prefix = when {
+            existing != null && existing.prefix == null -> null
+            inspection.prefix == null -> null
+            existing != null && existing.prefix != inspection.prefix -> null
+            else -> inspection.prefix
+        }
         val snapshot = GitHubInspectionSnapshot(
+            defaultBranch = defaultBranch,
             commitSha = inspection.commitSha,
-            prefix = inspection.prefix,
-            candidatesByPath = inspection.candidates.associate { it.path to it.name },
+            prefix = prefix,
+            candidatesByPath = mergedCandidates,
         )
         inspectedGitHubSnapshots[inspectionKey(repository.slug, repository.ref)] = snapshot
         inspectedGitHubSnapshots[inspectionKey(repository.slug, inspection.ref)] = snapshot
         inspectedGitHubSnapshots[inspectionKey(repository.slug, inspection.commitSha)] = snapshot
-        if (rememberDefault) {
-            inspectedGitHubSnapshots[inspectionKey(repository.slug, null)] = snapshot
+        inspectedGitHubSnapshots[inspectionKey(repository.slug, null)] = snapshot
+        if (existing != null) {
+            inspectedGitHubSnapshots.keys.forEach { key ->
+                if (key.startsWith(slugPrefix) && inspectedGitHubSnapshots[key]?.commitSha == inspection.commitSha) {
+                    inspectedGitHubSnapshots[key] = snapshot
+                }
+            }
         }
     }
 
@@ -1353,10 +1522,25 @@ internal class AgentLocalTools(
         ref: String,
         commitSha: String,
         selectedPaths: List<String>,
+        snapshot: GitHubInspectionSnapshot? = null,
+        requestedRef: String? = null,
+        archive: PublicGitHubSkillSource.DownloadedGitHubArchive? = null,
     ): String = when (result) {
         is SkillInstallResult.Success -> {
             pendingSkillConflict.set(null)
             val installed = JSONArray()
+            val entries = skillIndexService?.listSkillsForManagement(forceRefresh = true).orEmpty()
+            val entriesById = entries.associateBy { it.id }
+
+            val trackedRef = when {
+                requestedRef != null && !requestedRef.matches(Regex("^[0-9a-fA-F]{40}$")) -> requestedRef
+                snapshot?.defaultBranch?.isNotBlank() == true && !snapshot.defaultBranch.matches(Regex("^[0-9a-fA-F]{40}$")) -> snapshot.defaultBranch
+                archive?.defaultBranch?.isNotBlank() == true && !archive.defaultBranch.matches(Regex("^[0-9a-fA-F]{40}$")) -> archive.defaultBranch
+                snapshot?.defaultBranch?.isNotBlank() == true -> snapshot.defaultBranch
+                archive?.defaultBranch?.isNotBlank() == true -> archive.defaultBranch
+                else -> ref
+            }
+
             result.installed.forEach { skill ->
                 mutatedSkillIds += SkillParser.normalizeSkillLookup(skill.id)
                 installed.put(
@@ -1364,7 +1548,35 @@ internal class AgentLocalTools(
                         .put("id", skill.id)
                         .put("name", skill.name),
                 )
+                val skillDir = entriesById[skill.id]?.rootPath?.let(::File)
+                    ?: File(SkillRuntime.skillsRoot(context), skill.id)
+                if (skillDir.exists() && skillDir.isDirectory) {
+                    val skillPath = if (selectedPaths.size == 1) {
+                        selectedPaths.single()
+                    } else {
+                        selectedPaths.firstOrNull { path ->
+                            snapshot?.candidatesByPath?.get(path)?.name == skill.id ||
+                                path.substringAfterLast('/') == skill.id
+                        } ?: selectedPaths.first()
+                    }
+                    val treeSha = archive?.treeShasByPath?.get(skillPath)
+                        ?: snapshot?.candidatesByPath?.get(skillPath)?.treeSha.orEmpty()
+                    val skillMdSha256 = SkillOriginStore.computeSkillMdSha256(skillDir).orEmpty()
+                    val origin = SkillOrigin(
+                        repository = repository,
+                        trackedRef = trackedRef,
+                        skillPath = skillPath,
+                        commitSha = commitSha,
+                        treeSha = treeSha,
+                        skillMdSha256 = skillMdSha256,
+                    )
+                    runCatching {
+                        SkillOriginStore.write(skillDir, origin)
+                    }
+                }
             }
+            skillIndexService?.listSkillsForManagement(forceRefresh = true)
+
             JSONObject()
                 .put("ok", true)
                 .put("repository", repository)
@@ -1449,9 +1661,10 @@ internal class AgentLocalTools(
     )
 
     private data class GitHubInspectionSnapshot(
+        val defaultBranch: String,
         val commitSha: String,
         val prefix: String?,
-        val candidatesByPath: Map<String, String>,
+        val candidatesByPath: Map<String, GitHubSkillCandidate>,
     )
 
     /** 手势经过状态胶囊时让它暂时穿透并淡出；滑动按起止点包围盒判断。 */

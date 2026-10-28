@@ -2,10 +2,22 @@ package io.github.mangi.eta.agent.tool
 
 import android.content.Context
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.agent.skill.PublicGitHubSkillSource
+import io.github.mangi.eta.agent.skill.SkillIndexService
 import io.github.mangi.eta.core.AgentLogger
+import io.github.mangi.eta.data.db.EtaDatabase
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
+import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
@@ -14,6 +26,15 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class AgentLocalSkillInstallAuthorizationTest {
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
+    @Before
+    fun setUp() {
+        EtaDatabase.closeForTests()
+        RuntimeEnvironment.getApplication().deleteDatabase("eta.db")
+    }
+
     @Test
     fun installationRequiresInspectionInTheSameExecutor() {
         val tools = tools()
@@ -32,6 +53,138 @@ class AgentLocalSkillInstallAuthorizationTest {
         val tools = tools()
 
         val result = tools.execute(installCall(replaceExisting = true))
+
+        assertEquals(
+            "SKILL_REPLACE_CAPABILITY_REQUIRED",
+            JSONObject(result.content).getString("code"),
+        )
+        tools.close()
+    }
+
+    @Test
+    fun directReplacementWithoutConflictFailsIfSkillNotInstalled() {
+        val context = RuntimeEnvironment.getApplication() as Context
+        val skillsRoot = temporaryFolder.newFolder("auth-skills")
+        val indexService = SkillIndexService(context, skillsRoot)
+        val source = PublicGitHubSkillSource(
+            cacheRoot = temporaryFolder.newFolder("auth-cache"),
+            baseClient = OkHttpClient.Builder()
+                .addInterceptor { chain ->
+                    val request = chain.request()
+                    val body = if ("/git/trees/" in request.url.encodedPath) {
+                        JSONObject()
+                            .put("truncated", false)
+                            .put("tree", JSONArray().put(JSONObject().put("type", "blob").put("path", "skills/demo/SKILL.md")))
+                            .toString()
+                            .toResponseBody("application/json".toMediaType())
+                    } else {
+                        JSONObject()
+                            .put("sha", COMMIT_SHA)
+                            .put("default_branch", "main")
+                            .put("commit", JSONObject().put("tree", JSONObject().put("sha", "2222222222222222222222222222222222222222")))
+                            .toString()
+                            .toResponseBody("application/json".toMediaType())
+                    }
+                    Response.Builder()
+                        .request(request)
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(200)
+                        .message("OK")
+                        .body(body)
+                        .build()
+                }
+                .build(),
+        )
+        val tools = AgentLocalTools(
+            context = context,
+            logger = NoOpLogger,
+            githubSkillSource = source,
+            skillIndexService = indexService,
+        )
+
+        tools.execute(
+            AgentModelClient.ToolCall(
+                id = "inspect",
+                name = "skills_inspect_github",
+                argumentsJson = JSONObject().put("repository", "example/skills").put("ref", "main").toString(),
+            ),
+        )
+
+        val result = tools.execute(
+            installCall(
+                replaceExisting = true,
+                repository = "example/skills",
+                ref = "main",
+                paths = listOf("skills/demo"),
+                expectedReplacementId = "not-installed",
+            ),
+        )
+
+        assertEquals(
+            "SKILL_REPLACE_NOT_ALLOWED",
+            JSONObject(result.content).getString("code"),
+        )
+        tools.close()
+    }
+
+    @Test
+    fun directReplacementWithoutConflictFailsIfExpectedReplacementIdIsBlank() {
+        val context = RuntimeEnvironment.getApplication() as Context
+        val skillsRoot = temporaryFolder.newFolder("auth-skills-blank")
+        val indexService = SkillIndexService(context, skillsRoot)
+        val source = PublicGitHubSkillSource(
+            cacheRoot = temporaryFolder.newFolder("auth-cache-blank"),
+            baseClient = OkHttpClient.Builder()
+                .addInterceptor { chain ->
+                    val request = chain.request()
+                    val body = if ("/git/trees/" in request.url.encodedPath) {
+                        JSONObject()
+                            .put("truncated", false)
+                            .put("tree", JSONArray().put(JSONObject().put("type", "blob").put("path", "skills/demo/SKILL.md")))
+                            .toString()
+                            .toResponseBody("application/json".toMediaType())
+                    } else {
+                        JSONObject()
+                            .put("sha", COMMIT_SHA)
+                            .put("default_branch", "main")
+                            .put("commit", JSONObject().put("tree", JSONObject().put("sha", "2222222222222222222222222222222222222222")))
+                            .toString()
+                            .toResponseBody("application/json".toMediaType())
+                    }
+                    Response.Builder()
+                        .request(request)
+                        .protocol(Protocol.HTTP_1_1)
+                        .code(200)
+                        .message("OK")
+                        .body(body)
+                        .build()
+                }
+                .build(),
+        )
+        val tools = AgentLocalTools(
+            context = context,
+            logger = NoOpLogger,
+            githubSkillSource = source,
+            skillIndexService = indexService,
+        )
+
+        tools.execute(
+            AgentModelClient.ToolCall(
+                id = "inspect",
+                name = "skills_inspect_github",
+                argumentsJson = JSONObject().put("repository", "example/skills").put("ref", "main").toString(),
+            ),
+        )
+
+        val result = tools.execute(
+            installCall(
+                replaceExisting = true,
+                repository = "example/skills",
+                ref = "main",
+                paths = listOf("skills/demo"),
+                expectedReplacementId = "   ",
+            ),
+        )
 
         assertEquals(
             "SKILL_REPLACE_CAPABILITY_REQUIRED",

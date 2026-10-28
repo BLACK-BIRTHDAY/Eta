@@ -19,7 +19,7 @@ description: 从受信任的 curated 目录或公共 GitHub 仓库发现并安�
 1. 查看 curated 候选时调用 `skills_list_curated`；处理指定公共 GitHub 仓库时调用 `skills_inspect_github`。
 2. 根据任务和候选名称、描述选择最匹配的路径；信息不足且多个候选同样合理时才询问。一次最多选择 20 个。
 3. 调用 `skills_install_from_github` 时，只传检查结果中的 `paths`，并把检查返回的 `commitSha` 作为 `ref`。
-4. 工具返回单个可替换的 `SKILL_CONFLICT` 时，可直接以相同仓库、`commitSha`、唯一 `path` 和精确 `id` 重试：设置 `replaceExisting=true` 和 `expectedReplacementId`。任一字段不一致都不能覆盖。
+4. 若检查结果中某项已安装（`installed: true`）且为用户 Skill，可直接以相同仓库、`commitSha`、唯一 `path` 进行 1 步更新：设置 `replaceExisting=true` 和 `expectedReplacementId`。工具返回单个可替换的 `SKILL_CONFLICT` 时，也可按相同规则重试覆盖。任一字段不一致都不能覆盖。
 5. 多个冲突不能合并扩大范围；内置 Skill 冲突不可重试覆盖。
 6. 安装成功后说明 Skill 已启用，并会从下一轮对话开始可用。
 

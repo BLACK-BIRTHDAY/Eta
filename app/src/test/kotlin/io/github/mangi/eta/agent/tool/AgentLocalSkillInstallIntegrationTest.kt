@@ -23,6 +23,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -32,6 +33,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
+import io.github.mangi.eta.agent.skill.SkillOriginStore
 import io.github.mangi.eta.data.db.EtaDatabase
 
 @RunWith(RobolectricTestRunner::class)
@@ -115,10 +117,20 @@ class AgentLocalSkillInstallIntegrationTest {
         assertEquals("demo-skill", json.getJSONArray("installed").getJSONObject(0).getString("id"))
         assertFalse(json.getJSONArray("installed").getJSONObject(0).has("description"))
         assertTrue(requestedUrls.any { "/commits/$COMMIT_SHA" in it })
-        assertTrue(requestedUrls.any { "codeload.github.com/example/skills/zip/$COMMIT_SHA" in it })
+        assertTrue(requestedUrls.any { "/git/trees/$TREE_SHA" in it })
+        assertTrue(requestedUrls.any { "raw.githubusercontent.com/example/skills/$COMMIT_SHA/skills/demo/SKILL.md" in it })
+        val installedDir = File(skillsRoot, "demo-skill")
+        val origin = SkillOriginStore.read(installedDir)
+        assertNotNull(origin)
+        assertEquals("example/skills", origin?.repository)
+        assertEquals("main", origin?.trackedRef)
+        assertEquals("skills/demo", origin?.skillPath)
+        assertEquals(COMMIT_SHA, origin?.commitSha)
+        assertEquals("3333333333333333333333333333333333333333", origin?.treeSha)
+        assertFalse(origin?.skillMdSha256.isNullOrBlank())
         assertTrue(
             indexService.listSkillsForManagement(forceRefresh = true)
-                .any { it.id == "demo-skill" && it.enabled && it.source == "user" },
+                .any { it.id == "demo-skill" && it.enabled && it.source == "user" && it.origin == origin },
         )
 
         val sameTurnList = JSONObject(
@@ -376,33 +388,235 @@ class AgentLocalSkillInstallIntegrationTest {
         tools.close()
     }
 
+    @Test
+    fun inspectingTreeUrlWithSubpathAllowsInstallingOtherRepoPathsWithoutInvalidSelection() {
+        val context = RuntimeEnvironment.getApplication() as Context
+        val skillsRoot = temporaryFolder.newFolder("tree-subpath-skills")
+        val indexService = SkillIndexService(context, skillsRoot)
+        val requestedUrls = mutableListOf<String>()
+        val client = githubClient(requestedUrls)
+        val source = PublicGitHubSkillSource(
+            cacheRoot = temporaryFolder.newFolder("tree-subpath-cache"),
+            baseClient = client,
+        )
+        val tools = AgentLocalTools(
+            context = context,
+            logger = NoOpLogger,
+            githubSkillSource = source,
+            skillPackageInstaller = SkillPackageInstaller(skillsRoot, indexService),
+            skillIndexService = indexService,
+            skillLoader = SkillLoader(skillsRoot),
+            skillResourceReader = SkillResourceReader(skillsRoot),
+        )
+
+        val inspection = tools.execute(
+            AgentModelClient.ToolCall(
+                id = "inspect-subpath",
+                name = "skills_inspect_github",
+                argumentsJson = JSONObject()
+                    .put("repository", "https://github.com/example/skills/tree/main/skills/demo")
+                    .toString(),
+            ),
+        )
+        val inspectionJson = JSONObject(inspection.content)
+        assertTrue(inspectionJson.toString(), inspectionJson.getBoolean("ok"))
+        assertEquals("skills/demo", inspectionJson.getString("prefix"))
+
+        val installResult = tools.execute(
+            AgentModelClient.ToolCall(
+                id = "install-other",
+                name = "skills_install_from_github",
+                argumentsJson = JSONObject()
+                    .put("repository", "example/skills")
+                    .put("paths", JSONArray().put("skills/other"))
+                    .put("replaceExisting", false)
+                    .toString(),
+            ),
+        )
+        val installJson = JSONObject(installResult.content)
+        assertTrue(installJson.toString(), installJson.getBoolean("ok"))
+        assertEquals("next_turn", installJson.getString("available"))
+        assertEquals("other-skill", installJson.getJSONArray("installed").getJSONObject(0).getString("id"))
+
+        val otherDir = File(skillsRoot, "other-skill")
+        val origin = SkillOriginStore.read(otherDir)
+        assertNotNull(origin)
+        assertEquals("example/skills", origin?.repository)
+        assertEquals("main", origin?.trackedRef)
+        assertEquals("skills/other", origin?.skillPath)
+        assertEquals(COMMIT_SHA, origin?.commitSha)
+        assertEquals("6666666666666666666666666666666666666666", origin?.treeSha)
+
+        tools.close()
+    }
+
+    @Test
+    fun directOneStepUpdateReplacesExistingUserSkillAfterInspection() {
+        val context = RuntimeEnvironment.getApplication() as Context
+        val skillsRoot = temporaryFolder.newFolder("direct-update-skills")
+        val existingRoot = File(skillsRoot, "demo-skill").also { it.mkdirs() }
+        File(existingRoot, "SKILL.md").writeText(
+            """
+            ---
+            name: demo-skill
+            description: Existing demo Skill before update.
+            ---
+
+            # Old demo
+            """.trimIndent(),
+        )
+        val indexService = SkillIndexService(context, skillsRoot)
+        indexService.listSkillsForManagement(forceRefresh = true)
+        val source = PublicGitHubSkillSource(
+            cacheRoot = temporaryFolder.newFolder("direct-update-cache"),
+            baseClient = githubClient(mutableListOf()),
+        )
+        val tools = AgentLocalTools(
+            context = context,
+            logger = NoOpLogger,
+            githubSkillSource = source,
+            skillPackageInstaller = SkillPackageInstaller(skillsRoot, indexService),
+            skillIndexService = indexService,
+            skillLoader = SkillLoader(skillsRoot),
+            skillResourceReader = SkillResourceReader(skillsRoot),
+            runAvailableSkillIds = setOf("demo-skill"),
+        )
+
+        val inspection = JSONObject(
+            tools.execute(
+                AgentModelClient.ToolCall(
+                    id = "inspect-direct",
+                    name = "skills_inspect_github",
+                    argumentsJson = JSONObject()
+                        .put("repository", "example/skills")
+                        .put("ref", "main")
+                        .toString(),
+                ),
+            ).content,
+        )
+        assertTrue(inspection.toString(), inspection.getBoolean("ok"))
+
+        val candidates = inspection.getJSONArray("items")
+        val demoCandidate = (0 until candidates.length())
+            .map { candidates.getJSONObject(it) }
+            .first { it.getString("name") == "demo" || it.getString("path") == "skills/demo" }
+        assertTrue(demoCandidate.getBoolean("installed"))
+
+        val updateResult = JSONObject(
+            tools.execute(
+                AgentModelClient.ToolCall(
+                    id = "direct-update",
+                    name = "skills_install_from_github",
+                    argumentsJson = JSONObject()
+                        .put("repository", "example/skills")
+                        .put("ref", "main")
+                        .put("paths", JSONArray().put("skills/demo"))
+                        .put("replaceExisting", true)
+                        .put("expectedReplacementId", "demo-skill")
+                        .toString(),
+                ),
+            ).content,
+        )
+        assertTrue(updateResult.toString(), updateResult.getBoolean("ok"))
+        assertEquals("next_turn", updateResult.getString("available"))
+
+        val updatedSkillMd = File(existingRoot, "SKILL.md").readText()
+        assertTrue(updatedSkillMd.contains("Demo Skill installed by the GitHub tool integration test"))
+        assertFalse(updatedSkillMd.contains("# Old demo"))
+
+        val origin = SkillOriginStore.read(existingRoot)
+        assertNotNull(origin)
+        assertEquals("example/skills", origin?.repository)
+        assertEquals("main", origin?.trackedRef)
+        assertEquals("skills/demo", origin?.skillPath)
+        assertEquals(COMMIT_SHA, origin?.commitSha)
+
+        tools.close()
+    }
+
     private fun githubClient(requestedUrls: MutableList<String>): OkHttpClient =
         OkHttpClient.Builder()
             .addInterceptor { chain ->
                 val request = chain.request()
                 requestedUrls += request.url.toString()
+                val path = request.url.encodedPath
+                val host = request.url.host
                 val body = when {
-                    request.url.host != "api.github.com" ->
+                    host == "raw.githubusercontent.com" -> {
+                        when {
+                            path.endsWith("/skills/demo/SKILL.md") ->
+                                """
+                                ---
+                                name: demo-skill
+                                description: Demo Skill installed by the GitHub tool integration test.
+                                ---
+
+                                # Demo Skill
+                                """.trimIndent().toResponseBody("text/plain".toMediaType())
+                            path.endsWith("/skills/demo/references/guide.md") ->
+                                "guide".toResponseBody("text/plain".toMediaType())
+                            path.endsWith("/skills/other/SKILL.md") ->
+                                """
+                                ---
+                                name: other-skill
+                                description: Other Skill installed by the GitHub tool integration test.
+                                ---
+
+                                # Other Skill
+                                """.trimIndent().toResponseBody("text/plain".toMediaType())
+                            else ->
+                                "blob content".toResponseBody("text/plain".toMediaType())
+                        }
+                    }
+                    host == "codeload.github.com" || (host != "api.github.com" && host != "raw.githubusercontent.com") ->
                         repositoryZip().toResponseBody("application/zip".toMediaType())
-                    "/git/trees/" in request.url.encodedPath ->
+                    "/git/trees/" in path ->
                         JSONObject()
                             .put("truncated", false)
                             .put(
                                 "tree",
-                                JSONArray().put(
-                                    JSONObject()
-                                        .put("type", "blob")
-                                        .put("path", "skills/demo/SKILL.md"),
-                                ).put(
-                                    JSONObject()
-                                        .put("type", "blob")
-                                        .put("path", "skills/other/SKILL.md"),
-                                ),
+                                JSONArray()
+                                    .put(
+                                        JSONObject()
+                                            .put("type", "tree")
+                                            .put("path", "skills/demo")
+                                            .put("sha", "3333333333333333333333333333333333333333"),
+                                    )
+                                    .put(
+                                        JSONObject()
+                                            .put("type", "blob")
+                                            .put("path", "skills/demo/SKILL.md")
+                                            .put("sha", "4444444444444444444444444444444444444444"),
+                                    )
+                                    .put(
+                                        JSONObject()
+                                            .put("type", "blob")
+                                            .put("path", "skills/demo/references/guide.md")
+                                            .put("sha", "5555555555555555555555555555555555555555"),
+                                    )
+                                    .put(
+                                        JSONObject()
+                                            .put("type", "tree")
+                                            .put("path", "skills/other")
+                                            .put("sha", "6666666666666666666666666666666666666666"),
+                                    )
+                                    .put(
+                                        JSONObject()
+                                            .put("type", "blob")
+                                            .put("path", "skills/other/SKILL.md")
+                                            .put("sha", "7777777777777777777777777777777777777777"),
+                                    ),
                             )
+                            .toString()
+                            .toResponseBody("application/json".toMediaType())
+                    path.matches(Regex("^/repos/[^/]+/[^/]+/?$")) ->
+                        JSONObject()
+                            .put("default_branch", "main")
                             .toString()
                             .toResponseBody("application/json".toMediaType())
                     else -> JSONObject()
                         .put("sha", COMMIT_SHA)
+                        .put("default_branch", "main")
                         .put(
                             "commit",
                             JSONObject().put(
