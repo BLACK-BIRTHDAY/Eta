@@ -66,7 +66,7 @@ internal class AgentModelRetry(
     }
 
     companion object {
-        private const val MAX_RETRIES = 3
+        internal const val MAX_RETRIES = 10
         private const val BASE_DELAY_MS = 2_000L
     }
 }

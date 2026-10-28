@@ -10,6 +10,7 @@ import android.os.Parcel
 import android.os.ParcelFileDescriptor
 import io.github.mangi.eta.agent.model.AgentConversationCodec
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.agent.model.AgentModelRetry
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.CustomBody
 import io.github.mangi.eta.data.model.CustomHeader
@@ -996,7 +997,7 @@ internal object AgentRuntimeWire {
         "model_retry_scheduled" -> AgentEvent.ModelRetryScheduled(
             round = bundle.getInt("round"),
             attempt = bundle.getInt("attempt", 1),
-            maxAttempts = bundle.getInt("max_attempts", 3),
+            maxAttempts = bundle.getInt("max_attempts", AgentModelRetry.MAX_RETRIES),
             delayMs = bundle.getInt("delay_ms", 2_000),
             reasonCode = bundle.getString("reason_code").orEmpty(),
         )

@@ -25,9 +25,13 @@ class AgentModelRetryTest {
         val failure = assertThrows(AgentModelFailure::class.java) {
             complete(retry, provider { _, _ -> calls++; throw SocketTimeoutException("timeout") })
         }
-        assertEquals(4, calls)
-        assertEquals(listOf(2_000L, 4_000L, 8_000L), delays)
-        assertTrue(failure.message.orEmpty().contains("已重试 3 次"))
+        assertEquals(11, calls)
+        val expectedDelays = listOf(
+            2_000L, 4_000L, 8_000L, 16_000L, 32_000L,
+            64_000L, 128_000L, 256_000L, 512_000L, 1_024_000L,
+        )
+        assertEquals(expectedDelays, delays)
+        assertTrue(failure.message.orEmpty().contains("已重试 10 次"))
         delays.clear()
         calls = 0
         val result = complete(retry, provider { _, _ ->
