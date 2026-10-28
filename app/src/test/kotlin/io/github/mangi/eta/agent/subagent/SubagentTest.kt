@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.subagent
 
+import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.model.AgentLoop
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.model.AgentProviderClient
@@ -13,6 +14,7 @@ import io.github.mangi.eta.agent.model.ProviderResponse
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.runtime.AgentRuntimeWire
+import io.github.mangi.eta.agent.skill.SkillContext
 import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -285,6 +287,423 @@ class SubagentTest {
         val decoded = AgentRuntimeWire.eventFromBundle(bundle) as? AgentEvent.SubagentProgress
         assertEquals(event, decoded)
         assertEquals(snapshot, SubagentActivitySnapshot.decode(decoded?.snapshotJson))
+    }
+
+    @Test
+    fun subagentStepGuardrailEnforcesMaxStepsAndCollectsOutputs() {
+        val executedToolCalls = mutableListOf<String>()
+        val baseToolExecutor = AgentModelClient.ToolExecutor { subCall ->
+            executedToolCalls.add(subCall.name)
+            AgentModelClient.ToolResult(
+                content = JSONObject()
+                    .put("ok", true)
+                    .put("result", "content_for_${subCall.name}")
+                    .toString(),
+            )
+        }
+
+        var interceptedLimitMessage: String? = null
+
+        val provider = object : AgentProviderClient {
+            override val id: String = "fake-provider"
+            override val capabilities = ProviderCapabilities(
+                endpoint = EndpointKind.CHAT_COMPLETIONS,
+                streamingText = true,
+                streamingToolCalls = true,
+                imageInput = false,
+                toolResultImages = false,
+                strictTools = false,
+                parallelToolCalls = true,
+            )
+            private var callCount = 0
+
+            override fun complete(
+                request: ProviderRequest,
+                runController: AgentRunController,
+                onEvent: (ProviderEvent) -> Unit,
+            ): ProviderResponse {
+                callCount += 1
+                return when (callCount) {
+                    1 -> ProviderResponse(
+                        assistantMessage = JSONObject()
+                            .put("role", "assistant")
+                            .put("content", "")
+                            .put("finish_reason", "tool_calls")
+                            .put(
+                                "tool_calls",
+                                JSONArray().put(
+                                    JSONObject()
+                                        .put("id", "call_1")
+                                        .put("type", "function")
+                                        .put(
+                                            "function",
+                                            JSONObject()
+                                                .put("name", "read_file")
+                                                .put(
+                                                    "arguments",
+                                                    JSONObject().put("path", "/first.txt").toString(),
+                                                ),
+                                        ),
+                                ),
+                            ),
+                    )
+
+                    2 -> ProviderResponse(
+                        assistantMessage = JSONObject()
+                            .put("role", "assistant")
+                            .put("content", "")
+                            .put("finish_reason", "tool_calls")
+                            .put(
+                                "tool_calls",
+                                JSONArray().put(
+                                    JSONObject()
+                                        .put("id", "call_2")
+                                        .put("type", "function")
+                                        .put(
+                                            "function",
+                                            JSONObject()
+                                                .put("name", "glob_files")
+                                                .put(
+                                                    "arguments",
+                                                    JSONObject().put("pattern", "*.txt").toString(),
+                                                ),
+                                        ),
+                                ),
+                            ),
+                    )
+
+                    3 -> ProviderResponse(
+                        assistantMessage = JSONObject()
+                            .put("role", "assistant")
+                            .put("content", "")
+                            .put("finish_reason", "tool_calls")
+                            .put(
+                                "tool_calls",
+                                JSONArray().put(
+                                    JSONObject()
+                                        .put("id", "call_3")
+                                        .put("type", "function")
+                                        .put(
+                                            "function",
+                                            JSONObject()
+                                                .put("name", "read_file")
+                                                .put(
+                                                    "arguments",
+                                                    JSONObject().put("path", "/second.txt").toString(),
+                                                ),
+                                        ),
+                                ),
+                            ),
+                    )
+
+                    else -> {
+                        val toolMessages = (0 until request.messages.length())
+                            .map { request.messages.getJSONObject(it) }
+                            .filter { it.optString("role") == "tool" }
+                        val call3Result = toolMessages.find { it.optString("tool_call_id") == "call_3" }
+                        interceptedLimitMessage = call3Result?.optString("content")
+
+                        ProviderResponse(
+                            assistantMessage = JSONObject()
+                                .put("role", "assistant")
+                                .put("content", "已汇总前两步获取到的信息：完成分析")
+                                .put("finish_reason", "stop"),
+                        )
+                    }
+                }
+            }
+        }
+
+        val executor = SubagentExecutor(
+            conversationKey = "conv-guardrail-test",
+            parentController = AgentRunController(),
+            configProvider = {
+                AgentModelClient.ModelConfig(
+                    baseUrl = "https://example.com/v1",
+                    apiKey = "test-key",
+                    model = "test-model",
+                    systemPrompt = "sys",
+                    terminalTools = true,
+                )
+            },
+            capabilitiesProvider = { AgentToolCapabilities(rootAvailable = false) },
+            baseToolExecutor = baseToolExecutor,
+            skillContext = SkillContext.EMPTY,
+            memoryContext = AgentMemoryContext.DISABLED,
+            mcpTools = JSONArray(),
+            executionContext = null,
+            onProgress = {},
+            maxSteps = 2,
+            providerOverride = provider,
+        )
+
+        val toolCall = AgentModelClient.ToolCall(
+            id = "tc_guardrail",
+            name = "subagent",
+            argumentsJson = JSONObject()
+                .put("subagent_type", "explore")
+                .put("description", "测试工具步数限制")
+                .put("prompt", "执行三步工具调用")
+                .toString(),
+        )
+
+        val result = executor.execute(parentRound = 1, toolCall = toolCall)
+        val json = JSONObject(result.content)
+
+        assertTrue(json.getBoolean("ok"))
+        assertTrue(json.getBoolean("limit_reached"))
+        assertEquals(2, json.getInt("max_steps"))
+        assertEquals(3, json.getInt("tool_calls"))
+        assertEquals("已汇总前两步获取到的信息：完成分析", json.getString("summary"))
+        assertEquals(listOf("read_file", "glob_files"), executedToolCalls)
+
+        // 验证第 3 个工具调用确实收到 SUBAGENT_MAX_STEPS_REACHED
+        assertNotNull(interceptedLimitMessage)
+        val call3Json = JSONObject(interceptedLimitMessage!!)
+        assertTrue(call3Json.getBoolean("ok"))
+        assertTrue(call3Json.getBoolean("limit_reached"))
+        assertEquals("SUBAGENT_MAX_STEPS_REACHED", call3Json.getString("code"))
+        assertTrue(call3Json.getString("message").contains("2 步"))
+
+        val collected = json.getJSONArray("collected_outputs")
+        assertEquals(2, collected.length())
+
+        val step1 = collected.getJSONObject(0)
+        assertEquals(1, step1.getInt("step"))
+        assertEquals("read_file", step1.getString("tool"))
+        assertTrue(step1.getBoolean("ok"))
+        assertTrue(step1.getString("output").contains("content_for_read_file"))
+
+        val step2 = collected.getJSONObject(1)
+        assertEquals(2, step2.getInt("step"))
+        assertEquals("glob_files", step2.getString("tool"))
+        assertTrue(step2.getBoolean("ok"))
+        assertTrue(step2.getString("output").contains("content_for_glob_files"))
+    }
+
+    @Test
+    fun midRunFailurePreservesPartialCollectedOutputs() {
+        val executedToolCalls = mutableListOf<String>()
+        val baseToolExecutor = AgentModelClient.ToolExecutor { subCall ->
+            executedToolCalls.add(subCall.name)
+            AgentModelClient.ToolResult(
+                content = JSONObject()
+                    .put("ok", true)
+                    .put("result", "first_tool_result_content")
+                    .toString(),
+            )
+        }
+
+        val provider = object : AgentProviderClient {
+            override val id: String = "fake-provider"
+            override val capabilities = ProviderCapabilities(
+                endpoint = EndpointKind.CHAT_COMPLETIONS,
+                streamingText = true,
+                streamingToolCalls = true,
+                imageInput = false,
+                toolResultImages = false,
+                strictTools = false,
+                parallelToolCalls = true,
+            )
+            private var callCount = 0
+
+            override fun complete(
+                request: ProviderRequest,
+                runController: AgentRunController,
+                onEvent: (ProviderEvent) -> Unit,
+            ): ProviderResponse {
+                callCount += 1
+                if (callCount == 1) {
+                    return ProviderResponse(
+                        assistantMessage = JSONObject()
+                            .put("role", "assistant")
+                            .put("content", "")
+                            .put("finish_reason", "tool_calls")
+                            .put(
+                                "tool_calls",
+                                JSONArray().put(
+                                    JSONObject()
+                                        .put("id", "call_first")
+                                        .put("type", "function")
+                                        .put(
+                                            "function",
+                                            JSONObject()
+                                                .put("name", "read_file")
+                                                .put(
+                                                    "arguments",
+                                                    JSONObject().put("path", "/test.txt").toString(),
+                                                ),
+                                        ),
+                                ),
+                            ),
+                    )
+                }
+                throw IllegalStateException("Model service crashed on round 2")
+            }
+        }
+
+        val executor = SubagentExecutor(
+            conversationKey = "conv-failure-test",
+            parentController = AgentRunController(),
+            configProvider = {
+                AgentModelClient.ModelConfig(
+                    baseUrl = "https://example.com/v1",
+                    apiKey = "test-key",
+                    model = "test-model",
+                    systemPrompt = "sys",
+                    terminalTools = true,
+                )
+            },
+            capabilitiesProvider = { AgentToolCapabilities(rootAvailable = false) },
+            baseToolExecutor = baseToolExecutor,
+            skillContext = SkillContext.EMPTY,
+            memoryContext = AgentMemoryContext.DISABLED,
+            mcpTools = JSONArray(),
+            executionContext = null,
+            onProgress = {},
+            maxSteps = 100,
+            providerOverride = provider,
+        )
+
+        val toolCall = AgentModelClient.ToolCall(
+            id = "tc_failure",
+            name = "subagent",
+            argumentsJson = JSONObject()
+                .put("subagent_type", "explore")
+                .put("description", "测试中间异常部分输出保留")
+                .put("prompt", "先调用工具再发生错误")
+                .toString(),
+        )
+
+        val result = executor.execute(parentRound = 1, toolCall = toolCall)
+        val json = JSONObject(result.content)
+
+        assertFalse(json.getBoolean("ok"))
+        assertEquals("SUBAGENT_FAILED", json.getString("code"))
+        assertEquals(SubagentActivitySnapshot.STATUS_FAILED, json.getString("status"))
+        assertEquals(1, json.getInt("tool_calls"))
+        assertEquals(100, json.getInt("max_steps"))
+        assertFalse(json.getBoolean("limit_reached"))
+        assertTrue(json.has("collected_outputs"))
+
+        val collected = json.getJSONArray("collected_outputs")
+        assertEquals(1, collected.length())
+        val item = collected.getJSONObject(0)
+        assertEquals(1, item.getInt("step"))
+        assertEquals("read_file", item.getString("tool"))
+        assertTrue(item.getBoolean("ok"))
+        assertTrue(item.getString("output").contains("first_tool_result_content"))
+        assertEquals(listOf("read_file"), executedToolCalls)
+    }
+
+    @Test
+    fun subagentNormalCompletionUnderMaxStepsOmitsCollectedOutputs() {
+        val executedToolCalls = mutableListOf<String>()
+        val baseToolExecutor = AgentModelClient.ToolExecutor { subCall ->
+            executedToolCalls.add(subCall.name)
+            AgentModelClient.ToolResult(
+                content = JSONObject()
+                    .put("ok", true)
+                    .put("result", "tool_result")
+                    .toString(),
+            )
+        }
+
+        val provider = object : AgentProviderClient {
+            override val id: String = "fake-provider"
+            override val capabilities = ProviderCapabilities(
+                endpoint = EndpointKind.CHAT_COMPLETIONS,
+                streamingText = true,
+                streamingToolCalls = true,
+                imageInput = false,
+                toolResultImages = false,
+                strictTools = false,
+                parallelToolCalls = true,
+            )
+            private var callCount = 0
+
+            override fun complete(
+                request: ProviderRequest,
+                runController: AgentRunController,
+                onEvent: (ProviderEvent) -> Unit,
+            ): ProviderResponse {
+                callCount += 1
+                if (callCount == 1) {
+                    return ProviderResponse(
+                        assistantMessage = JSONObject()
+                            .put("role", "assistant")
+                            .put("content", "")
+                            .put("finish_reason", "tool_calls")
+                            .put(
+                                "tool_calls",
+                                JSONArray().put(
+                                    JSONObject()
+                                        .put("id", "call_normal")
+                                        .put("type", "function")
+                                        .put(
+                                            "function",
+                                            JSONObject()
+                                                .put("name", "read_file")
+                                                .put(
+                                                    "arguments",
+                                                    JSONObject().put("path", "/test.txt").toString(),
+                                                ),
+                                        ),
+                                ),
+                            ),
+                    )
+                }
+                return ProviderResponse(
+                    assistantMessage = JSONObject()
+                        .put("role", "assistant")
+                        .put("content", "正常完成")
+                        .put("finish_reason", "stop"),
+                )
+            }
+        }
+
+        val executor = SubagentExecutor(
+            conversationKey = "conv-normal-test",
+            parentController = AgentRunController(),
+            configProvider = {
+                AgentModelClient.ModelConfig(
+                    baseUrl = "https://example.com/v1",
+                    apiKey = "test-key",
+                    model = "test-model",
+                    systemPrompt = "sys",
+                    terminalTools = true,
+                )
+            },
+            capabilitiesProvider = { AgentToolCapabilities(rootAvailable = false) },
+            baseToolExecutor = baseToolExecutor,
+            skillContext = SkillContext.EMPTY,
+            memoryContext = AgentMemoryContext.DISABLED,
+            mcpTools = JSONArray(),
+            executionContext = null,
+            onProgress = {},
+            maxSteps = 100,
+            providerOverride = provider,
+        )
+
+        val toolCall = AgentModelClient.ToolCall(
+            id = "tc_normal",
+            name = "subagent",
+            argumentsJson = JSONObject()
+                .put("subagent_type", "explore")
+                .put("description", "测试正常步数内完成")
+                .put("prompt", "一步工具后完成")
+                .toString(),
+        )
+
+        val result = executor.execute(parentRound = 1, toolCall = toolCall)
+        val json = JSONObject(result.content)
+
+        assertTrue(json.getBoolean("ok"))
+        assertFalse(json.getBoolean("limit_reached"))
+        assertEquals(100, json.getInt("max_steps"))
+        assertEquals(1, json.getInt("tool_calls"))
+        assertEquals("正常完成", json.getString("summary"))
+        assertFalse(json.has("collected_outputs"))
     }
 
     private fun JSONArray.toolNames(): Set<String> =

@@ -46,6 +46,7 @@ internal object EtaBackupValidation {
             header.roleplay?.let { CharacterBackupTransfer.validate(it, bindingIds) }
             header.skills?.let { SkillBackupTransfer.validate(it) }
             header.mcpServers?.let { McpBackupTransfer.validate(it) }
+            header.subagent?.let { SubagentBackupTransfer.validate(it) }
             val skillCount = when {
                 header.skills == null -> 0
                 header.skills.packages.isNotEmpty() -> header.skills.packages.size
@@ -96,6 +97,7 @@ internal object EtaBackupValidation {
         if (selectedModel != null && selectedModel.second != document.selectedProviderId) {
             throw EtaBackupException("备份中的当前模型与提供商不匹配")
         }
+        // subagent.settings.modelId 故意不在 modelIds 中强校验：当模型未配置或已被删除时，Subagent 运行时会平滑回退到主 Agent 模型
         if (document.conversationState != null && document.conversationState.id != ConversationStateEntity.SINGLETON_ID) {
             throw EtaBackupException("备份中的会话状态无效")
         }

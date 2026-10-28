@@ -14,6 +14,7 @@ import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.SpeechSettings
 import io.github.mangi.eta.data.model.WebToolsSettings
+import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.core.safeStackTrace
@@ -50,6 +51,7 @@ internal data class EtaBackupDocument(
     val mcpServers: List<McpBackupServer>? = null,
     val webTools: WebToolsSettings? = null,
     val speech: SpeechSettings? = null,
+    val subagent: SubagentBackupData? = null,
 ) {
     companion object {
         const val FORMAT = "eta-backup"
@@ -146,6 +148,8 @@ internal object EtaBackupRepository {
                     writer.value("webTools", WebToolsSettings.serializer().nullable, webTools)
                     val speech = SettingsDataStore.speechSettings()
                     writer.value("speech", SpeechSettings.serializer().nullable, speech)
+                    val subagent = SubagentBackupTransfer.snapshot()
+                    writer.value("subagent", SubagentBackupData.serializer().nullable, subagent)
                     val skillCount = if (skills.packages.isNotEmpty()) skills.packages.size else skills.registry.count { it.installState == "installed" }
                     val mcpServerCount = mcpServers.size
                     EtaBackupSummary(
@@ -196,6 +200,7 @@ internal object EtaBackupRepository {
                 }
                 phase = "restore_assets"
                 val avatarPaths = document.roleplay?.let { CharacterBackupTransfer.restoreAssets(appContext, it) }.orEmpty()
+                document.subagent?.let { SubagentBackupTransfer.restoreCustomProfiles(it) }
                 var stagedSkillSwap: StagedSkillSwap? = null
                 val cancellation = currentCoroutineContext()
                 val oauthProviders = document.providers.map { it.provider }
@@ -309,6 +314,13 @@ internal object EtaBackupRepository {
                         SettingsDataStore.setOfficialModelCatalogRevision(document.catalogRevision)
                         document.webTools?.let { SettingsDataStore.setWebToolsSettings(it) }
                         document.speech?.let { SettingsDataStore.setSpeechSettings(it) }
+                        if (document.subagent != null) {
+                            SettingsDataStore.setSubagentSettings(document.subagent.settings)
+                            Prefs.initLocal(appContext)
+                            Prefs.localAgentPreferences()?.edit()
+                                ?.putBoolean(Prefs.Keys.AGENT_SUBAGENT_ENABLED, document.subagent.enabled)
+                                ?.commit()
+                        }
                         ProviderRepository.ensureBuiltInsMerged()
                         ProviderRepository.repairSelection()
                     } catch (failure: Exception) {

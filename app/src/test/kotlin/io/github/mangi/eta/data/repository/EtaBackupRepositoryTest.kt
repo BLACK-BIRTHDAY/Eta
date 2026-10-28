@@ -34,6 +34,10 @@ import io.github.mangi.eta.agent.roleplay.RoleplayMessageState
 import io.github.mangi.eta.agent.roleplay.RoleplayReplyRevision
 import io.github.mangi.eta.agent.roleplay.UserPersona
 import io.github.mangi.eta.agent.skill.SkillRuntime
+import io.github.mangi.eta.agent.subagent.SubagentProfileCatalog
+import io.github.mangi.eta.agent.terminal.TerminalRuntime
+import io.github.mangi.eta.config.Prefs
+import io.github.mangi.eta.data.model.SubagentSettings
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.Base64
@@ -65,12 +69,17 @@ class EtaBackupRepositoryTest {
         context.deleteDatabase("eta.db")
         File(context.filesDir, "skills").deleteRecursively()
         context.getSharedPreferences("eta_mcp_secrets", 0).edit().clear().commit()
+        TerminalRuntime.initialize(context)
+        Prefs.initLocal(context)
+        SubagentProfileCatalog.defaultAgentsDir().deleteRecursively()
+        Prefs.localAgentPreferences()?.edit()?.putBoolean(Prefs.Keys.AGENT_SUBAGENT_ENABLED, true)?.commit()
         SettingsDataStore.init(context)
         runBlocking {
             SettingsDataStore.setSelection(null, null)
             SettingsDataStore.setOfficialModelCatalogRevision(0)
             SettingsDataStore.setWebToolsSettings(WebToolsSettings())
             SettingsDataStore.setSpeechSettings(SpeechSettings())
+            SettingsDataStore.setSubagentSettings(SubagentSettings())
         }
         ProviderRepository.init(context)
         AgentMemoryRepository.init(context)
@@ -1085,5 +1094,143 @@ class EtaBackupRepositoryTest {
 
         assertEquals(customWebTools, SettingsDataStore.webToolsSettings())
         assertEquals(customSpeech, SettingsDataStore.speechSettings())
+    }
+
+    @Test
+    fun exportAndImportRestoresSubagentSettingsAndCustomProfiles() = runBlocking {
+        Prefs.initLocal(context)
+        Prefs.localAgentPreferences()?.edit()?.putBoolean(Prefs.Keys.AGENT_SUBAGENT_ENABLED, false)?.commit()
+        val customSettings = SubagentSettings(modelId = "custom-subagent-model", reasoningEffort = "high")
+        SettingsDataStore.setSubagentSettings(customSettings)
+
+        val agentsDir = SubagentProfileCatalog.defaultAgentsDir()
+        agentsDir.mkdirs()
+        val customFile = File(agentsDir, "bill-analyzer.md")
+        customFile.writeText("---\nname: bill-analyzer\ndescription: 账单分析\nwhenToUse: 统计账单\ntools: [summarize_bills]\n---\n角色设定正文")
+
+        val output = ByteArrayOutputStream()
+        val summary = EtaBackupRepository.export(context, output)
+        assertTrue(summary.providerCount >= 0)
+
+        // Mutate local state
+        Prefs.localAgentPreferences()?.edit()?.putBoolean(Prefs.Keys.AGENT_SUBAGENT_ENABLED, true)?.commit()
+        SettingsDataStore.setSubagentSettings(SubagentSettings())
+        customFile.delete()
+        val tempFile = File(agentsDir, "temporary-agent.md")
+        tempFile.writeText("---\nname: temporary-agent\ndescription: 临时代理\n---\n临时正文")
+        assertTrue(tempFile.isFile)
+
+        val imported = EtaBackupRepository.import(context, ByteArrayInputStream(output.toByteArray()))
+        assertTrue(imported.providerCount >= 0)
+
+        // Verify subagent enabled state and settings restored
+        assertFalse(Prefs.isEnabled(Prefs.Keys.AGENT_SUBAGENT_ENABLED))
+        assertEquals(customSettings, SettingsDataStore.subagentSettings())
+
+        // Verify custom profile restored and temporary profile deleted
+        assertTrue(customFile.isFile)
+        assertTrue(customFile.readText().contains("账单分析"))
+        assertFalse(tempFile.exists())
+        val customProfiles = SubagentProfileCatalog.listCustom(agentsDir)
+        assertEquals(listOf("bill-analyzer"), customProfiles.map { it.name })
+    }
+
+    @Test
+    fun legacyBackupWithoutSubagentPreservesExistingSubagentState() = runBlocking {
+        Prefs.initLocal(context)
+        Prefs.localAgentPreferences()?.edit()?.putBoolean(Prefs.Keys.AGENT_SUBAGENT_ENABLED, false)?.commit()
+        val customSettings = SubagentSettings(modelId = "existing-model", reasoningEffort = "medium")
+        SettingsDataStore.setSubagentSettings(customSettings)
+
+        val agentsDir = SubagentProfileCatalog.defaultAgentsDir()
+        agentsDir.mkdirs()
+        val existingFile = File(agentsDir, "existing-agent.md")
+        existingFile.writeText("---\nname: existing-agent\ndescription: 保留已有代理\n---\n已有正文")
+
+        val legacyJson = """{"format":"eta-backup","schemaVersion":4,"exportedAt":1000}"""
+        val imported = EtaBackupRepository.import(context, ByteArrayInputStream(legacyJson.toByteArray()))
+        assertTrue(imported.providerCount >= 0)
+
+        // Preserved because legacy backup had subagent = null
+        assertFalse(Prefs.isEnabled(Prefs.Keys.AGENT_SUBAGENT_ENABLED))
+        assertEquals(customSettings, SettingsDataStore.subagentSettings())
+        assertTrue(existingFile.isFile)
+    }
+
+    @Test
+    fun invalidSubagentBackupIsRejectedBeforeModifyingData() = runBlocking {
+        Prefs.initLocal(context)
+        Prefs.localAgentPreferences()?.edit()?.putBoolean(Prefs.Keys.AGENT_SUBAGENT_ENABLED, true)?.commit()
+        SettingsDataStore.setSubagentSettings(SubagentSettings())
+
+        val invalidBackups = listOf(
+            // Invalid reasoning effort
+            EtaBackupDocument(
+                exportedAt = 0,
+                subagent = SubagentBackupData(
+                    settings = SubagentSettings(reasoningEffort = "ultra_hyper_effort"),
+                ),
+            ),
+            // Duplicate custom profile names
+            EtaBackupDocument(
+                exportedAt = 0,
+                subagent = SubagentBackupData(
+                    customProfiles = listOf(
+                        SubagentBackupProfile("dup-agent", "---\nname: dup-agent\ndescription: a\n---\nbody"),
+                        SubagentBackupProfile("dup-agent", "---\nname: dup-agent\ndescription: b\n---\nbody"),
+                    ),
+                ),
+            ),
+            // Invalid profile name (uppercase / spaces)
+            EtaBackupDocument(
+                exportedAt = 0,
+                subagent = SubagentBackupData(
+                    customProfiles = listOf(
+                        SubagentBackupProfile("Invalid_Name", "---\nname: Invalid_Name\ndescription: a\n---\nbody"),
+                    ),
+                ),
+            ),
+            // Blank description
+            EtaBackupDocument(
+                exportedAt = 0,
+                subagent = SubagentBackupData(
+                    customProfiles = listOf(
+                        SubagentBackupProfile("blank-desc", "---\nname: blank-desc\ndescription:  \n---\nbody"),
+                    ),
+                ),
+            ),
+            // Blank body
+            EtaBackupDocument(
+                exportedAt = 0,
+                subagent = SubagentBackupData(
+                    customProfiles = listOf(
+                        SubagentBackupProfile("blank-body", "---\nname: blank-body\ndescription: valid\n---\n   "),
+                    ),
+                ),
+            ),
+        )
+
+        for (invalidDoc in invalidBackups) {
+            var failed = false
+            try {
+                EtaBackupRepository.import(context, ByteArrayInputStream(Json.encodeToString(invalidDoc).toByteArray()))
+            } catch (_: EtaBackupException) {
+                failed = true
+            }
+            assertTrue(failed)
+        }
+    }
+
+    @Test
+    fun subagentBackupWithUnknownModelIdPassesValidation() = runBlocking {
+        // Requirement 3: if modelId is non-blank, do NOT fail validation if modelId is not in providers
+        val doc = EtaBackupDocument(
+            exportedAt = 0,
+            subagent = SubagentBackupData(
+                settings = SubagentSettings(modelId = "unknown-or-deleted-model", reasoningEffort = "low"),
+            ),
+        )
+        val summary = EtaBackupRepository.inspect(context, ByteArrayInputStream(Json.encodeToString(doc).toByteArray()))
+        assertTrue(summary.providerCount == 0)
     }
 }

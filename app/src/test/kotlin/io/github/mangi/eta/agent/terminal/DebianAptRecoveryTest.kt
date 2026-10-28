@@ -130,15 +130,19 @@ class DebianAptRecoveryTest {
         fun flag(path: String) = file(path).writeText("")
 
         fun install(): InstallerCommandResult {
+            val sourcesPath = file("sources.list").absolutePath.replace('\\', '/')
+            val binPath = file("bin").absolutePath.replace('\\', '/')
+            val fixturePath = root.absolutePath.replace('\\', '/')
             val script = file("eta-apt").apply {
-                writeText(DebianEnvironmentInstaller.aptMirrorScript().replace("/etc/apt/sources.list", file("sources.list").absolutePath))
+                writeText(DebianEnvironmentInstaller.aptMirrorScript().replace("/etc/apt/sources.list", sourcesPath))
             }
             val output = file("output")
-            val process = ProcessBuilder("sh", script.absolutePath, "install", "curl")
+            val process = ProcessBuilder("sh", script.absolutePath.replace('\\', '/'), "install", "curl")
                 .redirectErrorStream(true).redirectOutput(output)
                 .apply {
-                    environment()["PATH"] = "${file("bin").absolutePath}:${System.getenv("PATH")}"
-                    environment()["ETA_FIXTURE"] = root.absolutePath
+                    val pathSep = if (File.pathSeparatorChar == ';') ":" else File.pathSeparator
+                    environment()["PATH"] = "$binPath$pathSep${System.getenv("PATH")}"
+                    environment()["ETA_FIXTURE"] = fixturePath
                 }.start()
             try {
                 assertTrue("package script did not finish", process.waitFor(10, TimeUnit.SECONDS))

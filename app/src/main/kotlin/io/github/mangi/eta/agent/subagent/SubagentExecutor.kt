@@ -4,6 +4,7 @@ import android.os.SystemClock
 import io.github.mangi.eta.agent.memory.AgentMemoryContext
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.model.AgentModelExecutionException
+import io.github.mangi.eta.agent.model.AgentProviderClient
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentRunCancelledException
 import io.github.mangi.eta.agent.runtime.AgentRunController
@@ -29,6 +30,8 @@ internal class SubagentExecutor(
     private val executionContext: TerminalExecutionContext?,
     private val onProgress: (AgentEvent.SubagentProgress) -> Unit,
     private val nanoTime: () -> Long = System::nanoTime,
+    private val maxSteps: Int = MAX_TOOL_STEPS,
+    private val providerOverride: AgentProviderClient? = null,
 ) {
     private val latestSnapshots = ConcurrentHashMap<String, String>()
 
@@ -134,6 +137,11 @@ internal class SubagentExecutor(
 
         publishSnapshot(force = true)
 
+        val stepLock = Any()
+        var stepsTaken = 0
+        var limitTriggered = false
+        val collectedOutputs = mutableListOf<JSONObject>()
+
         val childToolExecutor = AgentModelClient.ToolExecutor { subCall ->
             childController.throwIfCancelled()
             if (!profile.isToolAllowed(subCall.name)) {
@@ -148,7 +156,38 @@ internal class SubagentExecutor(
                         .toString(),
                 )
             } else {
-                baseToolExecutor.execute(subCall)
+                val stepNum: Int
+                synchronized(stepLock) {
+                    if (stepsTaken >= maxSteps) {
+                        limitTriggered = true
+                        return@ToolExecutor AgentModelClient.ToolResult(
+                            content = JSONObject()
+                                .put("ok", true)
+                                .put("limit_reached", true)
+                                .put("code", "SUBAGENT_MAX_STEPS_REACHED")
+                                .put(
+                                    "message",
+                                    "已达到子代理单次调用最大工具步数上限 ($maxSteps 步)。请不要再调用任何工具，立即将前面 $maxSteps 步已经获取到的所有结果与进展整理成详细报告交回主 Agent，不要丢弃任何已有信息。",
+                                )
+                                .toString(),
+                        )
+                    }
+                    stepsTaken += 1
+                    stepNum = stepsTaken
+                }
+                val result = baseToolExecutor.execute(subCall)
+                val entry = JSONObject()
+                    .put("step", stepNum)
+                    .put("tool", subCall.name)
+                    .put(
+                        "ok",
+                        runCatching { JSONObject(result.content).optBoolean("ok", true) }.getOrDefault(true),
+                    )
+                    .put("output", result.content.take(MAX_COLLECTED_OUTPUT_CHARS))
+                synchronized(stepLock) {
+                    collectedOutputs.add(entry)
+                }
+                result
             }
         }
 
@@ -164,6 +203,7 @@ internal class SubagentExecutor(
                 prompt = prompt,
                 toolExecutor = childToolExecutor,
                 history = priorHistory,
+                provider = providerOverride,
                 runController = childController,
                 skillContext = skillContext,
                 memoryContext = memoryContext,
@@ -199,6 +239,14 @@ internal class SubagentExecutor(
                         "resume_hint",
                         "如需在此 Subagent 已有上下文基础上继续追问或深挖，可调用 subagent(resume=\"$subagentId\", prompt=\"...\", description=\"...\")。",
                     )
+                    .put("max_steps", maxSteps)
+                    .put("limit_reached", limitTriggered)
+                    .apply {
+                        if (limitTriggered) {
+                            val outputs = synchronized(stepLock) { JSONArray(collectedOutputs) }
+                            put("collected_outputs", outputs)
+                        }
+                    }
                     .toString(),
                 command = latestSnapshots[toolCall.id],
             )
@@ -249,6 +297,9 @@ internal class SubagentExecutor(
                             SubagentActivitySnapshot.STATUS_FAILED
                         },
                     )
+                    .put("tool_calls", tracker.toolCount())
+                    .put("max_steps", maxSteps)
+                    .put("limit_reached", limitTriggered)
                     .put("message", errorMessage)
                     .apply {
                         if (partial.isNotBlank()) put("partial_output", partial)
@@ -257,6 +308,12 @@ internal class SubagentExecutor(
                                 "resume_hint",
                                 "可调用 subagent(resume=\"$subagentId\", prompt=\"继续完成未完部分\", description=\"$description\") 恢复执行，或由主 Agent 直接接手。",
                             )
+                        }
+                        val outputs = synchronized(stepLock) {
+                            if (collectedOutputs.isNotEmpty()) JSONArray(collectedOutputs) else null
+                        }
+                        if (outputs != null) {
+                            put("collected_outputs", outputs)
                         }
                     }
                     .toString(),
@@ -598,6 +655,8 @@ internal class SubagentExecutor(
     }
 
     companion object {
+        const val MAX_TOOL_STEPS = 100
+        private const val MAX_COLLECTED_OUTPUT_CHARS = 2_000
         private const val PROGRESS_THROTTLE_NANOS = 80_000_000L
         private const val MAX_STEP_DETAIL_CHARS = 2_000
         private const val MAX_OUTPUT_CHARS = 12_000

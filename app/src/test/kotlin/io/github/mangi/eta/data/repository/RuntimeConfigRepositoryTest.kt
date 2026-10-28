@@ -1,6 +1,7 @@
 package io.github.mangi.eta.data.repository
 
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.CustomHeader
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.ModelReasoningCapabilities
@@ -145,5 +146,30 @@ class RuntimeConfigRepositoryTest {
         )
         val configNull = RuntimeConfigRepository.buildRuntimeConfig(provider, modelNull)
         assertNull(configNull.maxOutputTokens)
+    }
+
+    @Test
+    fun buildRuntimeConfigIncludesSubagentToolsPreference() {
+        val provider = OpenAiCompatibleProviderSetting(
+            id = "p1",
+            name = "Provider",
+            baseUrl = "https://api.example.com/v1",
+            apiKey = "key",
+            sourceType = ProviderSourceTypes.OPENAI,
+        )
+        val model = Model(
+            id = "m1",
+            modelId = "gpt-5.5",
+            displayName = "GPT-5.5",
+        )
+        val config = RuntimeConfigRepository.buildRuntimeConfig(provider, model)
+        assertEquals(Prefs.isEnabled(Prefs.Keys.AGENT_SUBAGENT_ENABLED), config.subagentTools)
+
+        val raw = RuntimeConfigRepository.runtimeConfigJson(config)
+        val root = Json.parseToJsonElement(raw).jsonObject
+        assertEquals(config.subagentTools.toString(), root.getValue("subagentTools").jsonPrimitive.content)
+
+        val decoded = Json.decodeFromString<AgentModelClient.ModelConfig>(raw)
+        assertEquals(config.subagentTools, decoded.subagentTools)
     }
 }

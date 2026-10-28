@@ -34,18 +34,46 @@ class AgentExecutionServiceTest {
         val controller = Robolectric.buildService(AgentExecutionService::class.java).create()
         try {
             val notification = requireNotNull(shadowOf(controller.get()).lastForegroundNotification)
-            assertEquals(Build.VERSION.SDK_INT >= 36, notification.extras.getBoolean("android.requestPromotedOngoing"))
-            if (Build.VERSION.SDK_INT >= 36) {
-                assertEquals(Notification.ProgressStyle::class.java.name, notification.extras.getString(Notification.EXTRA_TEMPLATE))
-                assertEquals(context.getString(R.string.overlay_reasoning), notification.extras.getString("android.shortCriticalText"))
-            }
+            // AgentExecutionService updates its notification content text with the localized Reasoning status
+            // while keeping android.requestPromotedOngoing false to avoid dual-capsule conflict on ColorOS 16 / Android 16
+            assertEquals(context.getString(R.string.overlay_reasoning), notification.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
+            assertFalse(notification.extras.getBoolean("android.requestPromotedOngoing"))
+            assertFalse(notification.extras.containsKey("android.shortCriticalText"))
 
+            // When run status is cleared, AgentExecutionService reverts to the task summary text
             AgentExecutionService.updateRunStatus(context, null, activeRunCount = 0)
             shadowOf(Looper.getMainLooper()).idle()
             val remaining = context.getSystemService(NotificationManager::class.java).activeNotifications.single().notification
+            val expectedSummary = context.resources.getQuantityString(R.plurals.execution_summary, 1, 1)
+            assertEquals(expectedSummary, remaining.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString())
             assertFalse(remaining.extras.getBoolean("android.requestPromotedOngoing"))
             assertFalse(remaining.extras.containsKey("android.shortCriticalText"))
             assertTrue(remaining.flags and Notification.FLAG_ONGOING_EVENT != 0)
+
+            // Meanwhile, EtaLiveUpdateManager exclusively owns the Promoted Ongoing notification on API 36 when active in the background
+            val liveNotification = EtaLiveUpdateManager.buildNotification(
+                context = context,
+                runId = "test-run",
+                shortText = "🧠 构思",
+                detailText = "正在执行任务...",
+                progress = null,
+                isOngoing = true,
+            )
+            assertEquals(Build.VERSION.SDK_INT >= 36, liveNotification.extras.getBoolean("android.requestPromotedOngoing"))
+            if (Build.VERSION.SDK_INT >= 36) {
+                assertEquals("🧠 构思", liveNotification.extras.getString("android.shortCriticalText"))
+            }
+
+            val completedNotification = EtaLiveUpdateManager.buildNotification(
+                context = context,
+                runId = "test-run",
+                shortText = "✅ 完成",
+                detailText = "任务已完成",
+                progress = null,
+                isOngoing = false,
+                requestPromoted = false,
+            )
+            assertFalse(completedNotification.extras.getBoolean("android.requestPromotedOngoing"))
         } finally {
             AgentExecutionService.release(leaseId)
             shadowOf(Looper.getMainLooper()).idle()

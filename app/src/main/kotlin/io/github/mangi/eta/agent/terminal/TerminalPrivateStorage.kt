@@ -17,5 +17,5 @@ internal object TerminalPrivateStorage {
     }
 
     fun isProotPath(path: String?): Boolean =
-        path?.let { "/terminal-user/proot/" in it || "/terminal/proot/" in it } == true
+        path?.replace('\\', '/')?.let { "/terminal-user/proot/" in it || "/terminal/proot/" in it } == true
 }

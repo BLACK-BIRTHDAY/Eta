@@ -6,6 +6,8 @@ import android.os.Parcel
 import android.util.Base64
 import io.github.mangi.eta.agent.media.AgentImageCodec
 import io.github.mangi.eta.agent.model.AgentModelClient
+import io.github.mangi.eta.agent.model.AgentModelRetry
+import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.ModelReasoningCapabilities
 import io.github.mangi.eta.data.model.ProviderAuthModes
 import io.github.mangi.eta.data.model.ReasoningEffort
@@ -99,28 +101,33 @@ class AgentRuntimeWireTest {
     }
 
     @Test
-    fun maxOutputTokensAndSubagentMaxOutputTokensSurviveIpcWire() {
-        val config = AgentModelClient.ModelConfig(
-            baseUrl = "https://example.invalid", apiKey = "fixture", model = "fixture", systemPrompt = "",
-            contextWindow = 900_000,
-            maxOutputTokens = 16_000,
-            subagentMaxOutputTokens = 8_000,
-            reasoningEffort = ReasoningEffort.OFF,
-        )
-        val request = AgentRuntimeWire.RunRequest(
-            runId = "max-tokens-wire", prompt = "测试", config = config,
-            images = emptyList(),
-        )
-        val bundle = AgentRuntimeWire.toLegacyBundle(request)
-        assertEquals(request, AgentRuntimeWire.runRequestFromBundle(bundle))
-        assertEquals(16_000, AgentRuntimeWire.runRequestFromBundle(bundle).config.maxOutputTokens)
-        assertEquals(8_000, AgentRuntimeWire.runRequestFromBundle(bundle).config.subagentMaxOutputTokens)
+    fun maxOutputTokensAndSubagentToolsSurviveIpcWire() {
+        for (subagentToolsEnabled in listOf(false, true)) {
+            val config = AgentModelClient.ModelConfig(
+                baseUrl = "https://example.invalid", apiKey = "fixture", model = "fixture", systemPrompt = "",
+                contextWindow = 900_000,
+                maxOutputTokens = 16_000,
+                subagentTools = subagentToolsEnabled,
+                reasoningEffort = ReasoningEffort.OFF,
+            )
+            val request = AgentRuntimeWire.RunRequest(
+                runId = "max-tokens-wire-$subagentToolsEnabled", prompt = "测试", config = config,
+                images = emptyList(),
+            )
+            val bundle = AgentRuntimeWire.toLegacyBundle(request)
+            assertEquals(request, AgentRuntimeWire.runRequestFromBundle(bundle))
+            assertEquals(16_000, AgentRuntimeWire.runRequestFromBundle(bundle).config.maxOutputTokens)
+            assertEquals(subagentToolsEnabled, AgentRuntimeWire.runRequestFromBundle(bundle).config.subagentTools)
 
-        bundle.remove("max_output_tokens")
-        bundle.remove("subagent_max_output_tokens")
-        val fallback = AgentRuntimeWire.runRequestFromBundle(bundle)
-        assertNull(fallback.config.maxOutputTokens)
-        assertNull(fallback.config.subagentMaxOutputTokens)
+            bundle.remove("max_output_tokens")
+            bundle.remove("subagent_tools")
+            val fallback = AgentRuntimeWire.runRequestFromBundle(bundle)
+            assertNull(fallback.config.maxOutputTokens)
+            assertEquals(
+                Prefs.Keys.BOOLEAN_DEFAULTS.getValue(Prefs.Keys.AGENT_SUBAGENT_ENABLED),
+                fallback.config.subagentTools,
+            )
+        }
     }
 
     @Test
@@ -284,9 +291,15 @@ class AgentRuntimeWireTest {
 
     @Test
     fun retryEventSurvivesIpcAndArchiveJson() {
-        val event = AgentEvent.ModelRetryScheduled(7, 2, 3, 4_000, "MODEL_TIMEOUT")
+        val event = AgentEvent.ModelRetryScheduled(7, 2, AgentModelRetry.MAX_RETRIES, 4_000, "MODEL_TIMEOUT")
         assertEquals(event, AgentRuntimeWire.eventFromBundle(AgentRuntimeWire.eventToBundle(event)))
         assertEquals(event, AgentEventJsonCodec.decode(AgentEventJsonCodec.encode(event)))
+
+        val bundle = AgentRuntimeWire.eventToBundle(event)
+        bundle.remove("max_attempts")
+        val fallback = AgentRuntimeWire.eventFromBundle(bundle) as AgentEvent.ModelRetryScheduled
+        assertEquals(AgentModelRetry.MAX_RETRIES, fallback.maxAttempts)
+        assertEquals(10, fallback.maxAttempts)
     }
 
     @Test

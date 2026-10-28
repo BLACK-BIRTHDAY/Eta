@@ -309,7 +309,7 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
         currentRunId = null
     }
 
-    private fun buildNotification(
+    internal fun buildNotification(
         context: Context,
         runId: String,
         shortText: String,
@@ -335,8 +335,12 @@ internal object EtaLiveUpdateManager : Application.ActivityLifecycleCallbacks {
         }
 
         // Android 16 (API 36+) 官方原生 Promoted Ongoing 与实时胶囊规范
-        if (Build.VERSION.SDK_INT >= 36) {
-            builder.setRequestPromotedOngoing(requestPromoted)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            if (Build.VERSION.SDK_INT_FULL >= Build.VERSION_CODES_FULL.BAKLAVA_1) {
+                builder.setRequestPromotedOngoing(requestPromoted)
+            }
+            // 请求方法从 API 36.1 才公开；标准 extra 也可供支持该协议的 API 36 系统读取。
+            builder.extras.putBoolean("android.requestPromotedOngoing", requestPromoted)
             if (requestPromoted) {
                 builder.setShortCriticalText(shortText)
             }

@@ -7,6 +7,9 @@ import io.github.mangi.eta.agent.skill.BUILTIN_SKILL_SOURCE
 import io.github.mangi.eta.agent.skill.SkillParser
 import io.github.mangi.eta.agent.skill.SkillRuntime
 import io.github.mangi.eta.agent.skill.USER_SKILL_SOURCE
+import io.github.mangi.eta.agent.subagent.SubagentProfileCatalog
+import io.github.mangi.eta.config.Prefs
+import io.github.mangi.eta.data.datastore.SettingsDataStore
 import io.github.mangi.eta.data.db.EtaDatabase
 import io.github.mangi.eta.data.db.McpServerEntity
 import io.github.mangi.eta.data.db.SkillRegistryEntity
@@ -14,6 +17,8 @@ import io.github.mangi.eta.data.model.McpAuthorizationType
 import io.github.mangi.eta.data.model.McpProtocolMode
 import io.github.mangi.eta.data.model.McpStdioEnvironment
 import io.github.mangi.eta.data.model.McpTransportType
+import io.github.mangi.eta.data.model.ReasoningEffort
+import io.github.mangi.eta.data.model.SubagentSettings
 import java.io.File
 import java.io.IOException
 import java.nio.ByteBuffer
@@ -32,6 +37,19 @@ internal data class McpBackupServer(
     val server: McpServerEntity,
     val bearerToken: String? = null,
     val envVars: Map<String, String> = emptyMap(),
+)
+
+@Serializable
+internal data class SubagentBackupProfile(
+    val name: String,
+    val markdown: String,
+)
+
+@Serializable
+internal data class SubagentBackupData(
+    val enabled: Boolean = true,
+    val settings: SubagentSettings = SubagentSettings(),
+    val customProfiles: List<SubagentBackupProfile> = emptyList(),
 )
 
 @Serializable
@@ -430,6 +448,103 @@ internal object SkillBackupTransfer {
     private fun collisionKey(path: String): String = Normalizer
         .normalize(path, Normalizer.Form.NFC)
         .lowercase(Locale.ROOT)
+}
+
+internal object SubagentBackupTransfer {
+    suspend fun snapshot(agentsDir: File = SubagentProfileCatalog.defaultAgentsDir()): SubagentBackupData {
+        val enabled = Prefs.isEnabled(Prefs.Keys.AGENT_SUBAGENT_ENABLED)
+        val settings = SettingsDataStore.subagentSettings()
+        val customProfiles = SubagentProfileCatalog.listCustom(agentsDir).map { profile ->
+            val file = profile.filePath?.let(::File)
+            val markdown = if (file != null && file.exists() && !Files.isSymbolicLink(file.toPath())) {
+                file.readText(Charsets.UTF_8)
+            } else {
+                buildString {
+                    appendLine("---")
+                    appendLine("name: ${profile.name}")
+                    appendLine("description: ${profile.summary}")
+                    if (profile.whenToUse.isNotBlank() && profile.whenToUse != profile.summary) {
+                        appendLine("whenToUse: ${profile.whenToUse}")
+                    }
+                    if (profile.override) {
+                        appendLine("override: true")
+                    }
+                    val tools = profile.explicitTools?.filterNot { it == "*" }.orEmpty()
+                    if (tools.isNotEmpty()) {
+                        appendLine("tools: ${tools.joinToString(", ")}")
+                    }
+                    if (profile.disallowedTools.isNotEmpty()) {
+                        appendLine("disallowedTools: ${profile.disallowedTools.joinToString(", ")}")
+                    }
+                    appendLine("---")
+                    appendLine()
+                    appendLine(profile.roleInstruction)
+                }
+            }
+            SubagentBackupProfile(name = profile.name, markdown = markdown)
+        }
+        return SubagentBackupData(
+            enabled = enabled,
+            settings = settings,
+            customProfiles = customProfiles,
+        )
+    }
+
+    fun validate(data: SubagentBackupData) {
+        if (data.settings.reasoningEffort != null) {
+            require(ReasoningEffort.fromWireValue(data.settings.reasoningEffort) != null) {
+                "备份中的 Subagent 思考档位无效"
+            }
+        }
+        val names = data.customProfiles.map { it.name }
+        require(names.size == names.toSet().size) { "备份中的 Subagent 名称重复" }
+        for (profile in data.customProfiles) {
+            require(SubagentProfileCatalog.isValidName(profile.name)) {
+                "备份中的 Subagent 名称无效: ${profile.name}"
+            }
+            val bytes = profile.markdown.toByteArray(Charsets.UTF_8)
+            require(bytes.size in 1..(64 * 1024)) {
+                "备份中的 Subagent 模板大小无效: ${profile.name}"
+            }
+            val parsed = SkillParser.parseSkillContent(profile.markdown)
+            require(parsed != null && !parsed.frontmatter["description"]?.trim().isNullOrBlank() && parsed.body.isNotBlank()) {
+                "备份中的 Subagent 模板内容无效: ${profile.name}"
+            }
+        }
+    }
+
+    fun restoreCustomProfiles(
+        data: SubagentBackupData,
+        agentsDir: File = SubagentProfileCatalog.defaultAgentsDir(),
+    ) {
+        if (agentsDir.exists()) {
+            if (!Files.isSymbolicLink(agentsDir.toPath())) {
+                agentsDir.listFiles().orEmpty()
+                    .filter { it.isFile && it.name.endsWith(".md") && !Files.isSymbolicLink(it.toPath()) }
+                    .forEach { it.delete() }
+            }
+        }
+        if (data.customProfiles.isNotEmpty()) {
+            if (!agentsDir.exists() && !agentsDir.mkdirs()) {
+                throw IOException("无法创建 agents 目录: ${agentsDir.absolutePath}")
+            }
+            require(!Files.isSymbolicLink(agentsDir.toPath())) {
+                "拒绝写入符号链接目录: ${agentsDir.absolutePath}"
+            }
+            val canonicalRoot = agentsDir.canonicalFile.toPath()
+            for (profile in data.customProfiles) {
+                val targetFile = File(agentsDir, "${profile.name}.md")
+                val canonicalTarget = targetFile.canonicalFile.toPath()
+                require(canonicalTarget.startsWith(canonicalRoot) && canonicalTarget != canonicalRoot) {
+                    "非法的 Subagent 文件路径: ${profile.name}"
+                }
+                require(!targetFile.exists() || !Files.isSymbolicLink(targetFile.toPath())) {
+                    "拒绝写入符号链接文件: ${targetFile.absolutePath}"
+                }
+                targetFile.writeText(profile.markdown, Charsets.UTF_8)
+            }
+        }
+    }
 }
 
 private fun copyDirectoryRecursively(source: File, target: File) {
