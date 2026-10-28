@@ -47,13 +47,14 @@ internal data class SubagentProfile(
         if (customAllowlist != null) {
             if ("*" in customAllowlist) return true
             return toolName in customAllowlist ||
+                ("mcp" in customAllowlist && toolName.startsWith("mcp_")) ||
                 ("personal_data" in customAllowlist && (toolName in PersonalSearchTools.names || toolName in AgentPhoneToolCatalog.reads))
         }
-        if (toolName in READ_ONLY_TOOLS || toolName in PersonalSearchTools.names || toolName in AgentPhoneToolCatalog.reads) {
+        if (toolName in READ_ONLY_TOOLS || toolName in PersonalSearchTools.names || toolName in AgentPhoneToolCatalog.reads || toolName.startsWith("mcp_")) {
             return true
         }
         if (!allowWriteFilesAndTerminal) return false
-        return toolName in CODER_EXTRA_TOOLS || toolName.startsWith("mcp_")
+        return toolName in CODER_EXTRA_TOOLS
     }
 
     companion object {
@@ -165,11 +166,11 @@ internal data class SubagentProfile(
 
         val EXPLORE = SubagentProfile(
             name = TYPE_EXPLORE,
-            summary = "只读探索与多源信息检索",
-            whenToUse = "Fast read-only agent specialized for exploring files, personal device data (calendar, notes, messages, notifications, bills, media, system memories), logs, and web pages. Specify desired thoroughness in the prompt: \"quick\", \"medium\", or \"thorough\".",
-            toolHighlights = listOf("read_file", "glob_files", "grep_files", "web_search", "fetch_url", "personal_data", "get_logcat"),
-            roleInstruction = "你是只读探索 Subagent（explore）。你的职责是快速、准确地检索文件、设备个人数据、系统状态或网页资料，" +
-                "严禁尝试修改任何文件或设备状态。在最终回复中直接给出结构化证据、关键路径/时间点与结论摘要。",
+            summary = "只读探索、MCP 检索与多源信息收集",
+            whenToUse = "Fast exploration agent specialized for searching files, personal device data (calendar, notes, messages, notifications, bills, media, system memories), logs, web pages, and all enabled external MCP tools (e.g. `mcp_*`). Specify desired thoroughness in the prompt: \"quick\", \"medium\", or \"thorough\".",
+            toolHighlights = listOf("read_file", "glob_files", "grep_files", "web_search", "fetch_url", "personal_data", "get_logcat", "mcp_*"),
+            roleInstruction = "你是只读探索 Subagent（explore）。你的职责是快速、准确地检索文件、设备个人数据、系统状态、网页资料或调用已启用的外部 MCP 工具（`mcp_*`）获取数据，" +
+                "严禁尝试修改任何本机文件或设备状态。在最终回复中直接给出结构化证据、关键路径/时间点与结论摘要。",
             allowWriteFilesAndTerminal = false,
             builtin = true,
         )
@@ -177,8 +178,8 @@ internal data class SubagentProfile(
         val CODER = SubagentProfile(
             name = TYPE_CODER,
             summary = "工程执行、文件编辑与终端任务",
-            whenToUse = "General engineering and terminal agent with file-editing and shell execution tools; use it for delegated tasks that run commands, analyze APKs, edit files, or execute scripts.",
-            toolHighlights = listOf("terminal", "read_file", "write_file", "edit_file", "glob_files", "grep_files", "web_search"),
+            whenToUse = "General engineering and terminal agent with file-editing, shell execution, and MCP tools; use it for delegated tasks that run commands, analyze APKs, edit files, or execute scripts.",
+            toolHighlights = listOf("terminal", "read_file", "write_file", "edit_file", "glob_files", "grep_files", "web_search", "mcp_*"),
             roleInstruction = "你是工程与终端执行 Subagent（coder）。你的最后一条消息就是交给主 Agent 的完整交接报告：" +
                 "请清楚说明你执行了哪些命令或修改了哪些文件、关键输出与验证结果，以及任何未完成或需后续处理的事项。",
             allowWriteFilesAndTerminal = true,
@@ -189,8 +190,8 @@ internal data class SubagentProfile(
             name = TYPE_PLAN,
             summary = "只读架构分析与分步方案设计",
             whenToUse = "Read-only planning agent. Use when you need a step-by-step implementation or execution plan, key file/data identification, and trade-off analysis before making changes.",
-            toolHighlights = listOf("read_file", "glob_files", "grep_files", "web_search", "fetch_url", "skills_read"),
-            roleInstruction = "你是只读规划 Subagent（plan）。你拥有只读检索能力，不得修改文件或执行破坏性操作。" +
+            toolHighlights = listOf("read_file", "glob_files", "grep_files", "web_search", "fetch_url", "skills_read", "mcp_*"),
+            roleInstruction = "你是只读规划 Subagent（plan）。你拥有只读检索与 MCP 工具调用能力，不得修改本机文件或执行破坏性操作。" +
                 "请在最终回复中清晰列出：1. 已确认的上下文事实；2. 仍待核实的关键问题；3. 分步执行方案与风险权衡。",
             allowWriteFilesAndTerminal = false,
             builtin = true,
@@ -247,7 +248,7 @@ internal data class SubagentProfile(
                 toolHighlights = if (cleanTools.isNotEmpty()) {
                     cleanTools.take(8)
                 } else {
-                    listOf("read_file", "glob_files", "grep_files", "web_search", "personal_data", "terminal")
+                    listOf("read_file", "glob_files", "grep_files", "web_search", "personal_data", "terminal", "mcp_*")
                 },
                 roleInstruction = instruction,
                 allowWriteFilesAndTerminal = true,

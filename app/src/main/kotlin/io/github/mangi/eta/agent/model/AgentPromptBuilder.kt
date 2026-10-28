@@ -155,8 +155,9 @@ internal object AgentPromptBuilder {
         if (config.subagentTools) {
             messages.put(
                 systemMessage(
-                    "当任务包含互不依赖的多源取证、深度代码/文件/日志检索或耗时的终端操作，且将中间原始输出隔离在子上下文能显著节省主上下文窗口时，" +
+                    "当任务包含互不依赖的多源取证、外部 MCP 工具（mcp_*）多通道调研、深度代码/文件/日志检索或耗时的终端操作，且将中间原始输出隔离在子上下文能显著节省主上下文窗口时，" +
                         "可调用 subagent 派发子智能体。" +
+                        "所有内置预设（explore、coder、plan）以及临时专职 Subagent 均默认直接继承并支持调用当前已启用的全部外部 MCP 工具（mcp_*），不存在跨上下文无法调用 MCP 的限制。" +
                         "在对话中你可以根据任务需要随时创建任意数量、不同职责的临时 Subagent 去完成工作：" +
                         "既可使用内置预设（explore、coder、plan）或用户已保存的预设，也可直接传入任意自定义英文标识作为 subagent_type（并可按需指定 role 与 tools），" +
                         "当场拉起临时专职 Subagent 执行，无需也不要每次都保存为持久化模板；" +

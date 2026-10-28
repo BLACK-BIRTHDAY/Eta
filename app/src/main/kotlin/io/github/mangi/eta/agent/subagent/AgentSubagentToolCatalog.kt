@@ -31,7 +31,8 @@ internal object AgentSubagentToolCatalog {
         val description = buildString {
             append("Launch a subagent in an isolated context to handle an autonomous subtask and return a concise summary. ")
             append("You can freely spawn as many specialized ephemeral subagents as needed for the conversation without saving them to disk, ")
-            append("or use one of the preset types below. When multiple independent subtasks can run in parallel, issue multiple `subagent` tool calls in the same turn — the runtime executes them concurrently.\n\n")
+            append("or use one of the preset types below. All built-in presets (`explore`, `coder`, `plan`) and ephemeral subagents have full access to enabled external MCP tools (`mcp_*`) as well as web search and local tools. ")
+            append("When multiple independent subtasks can run in parallel, issue multiple `subagent` tool calls in the same turn — the runtime executes them concurrently.\n\n")
             append("Writing the prompt:\n")
             append("- A fresh subagent starts with zero conversation history. State the goal clearly and include any known file paths, time ranges, package names, or constraints.\n")
             append("- Prefer resuming an existing subagent (pass its `resume` id) when continuing earlier work so it retains its prior context.\n")

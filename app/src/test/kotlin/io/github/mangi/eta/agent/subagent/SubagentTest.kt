@@ -42,7 +42,20 @@ class SubagentTest {
             deviceSensitiveActionTools = true,
             memoryTools = true,
             capabilities = AgentToolCapabilities(rootAvailable = true),
-        ).also { it.put(AgentSubagentToolCatalog.schema()) }
+        ).also {
+            it.put(AgentSubagentToolCatalog.schema())
+            it.put(
+                JSONObject()
+                    .put("type", "function")
+                    .put(
+                        "function",
+                        JSONObject()
+                            .put("name", "mcp_xhs_search_abcd")
+                            .put("description", "MCP tool")
+                            .put("parameters", JSONObject()),
+                    ),
+            )
+        }
 
         SubagentProfile.BUILTIN_PROFILES.forEach { profile ->
             val allowed = profile.filterTools(fullCatalog).toolNames()
@@ -56,6 +69,7 @@ class SubagentTest {
             assertTrue("glob_files" in allowed)
             assertTrue("grep_files" in allowed)
             assertTrue("web_search" in allowed)
+            assertTrue("mcp_xhs_search_abcd" in allowed)
         }
 
         val exploreTools = SubagentProfile.EXPLORE.filterTools(fullCatalog).toolNames()
