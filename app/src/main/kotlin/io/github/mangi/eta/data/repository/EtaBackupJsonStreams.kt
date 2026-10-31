@@ -39,7 +39,7 @@ internal object EtaBackupJsonStreams {
     private val knownFields = EtaBackupDocument.serializer().descriptor.let { descriptor ->
         (0 until descriptor.elementsCount).mapTo(mutableSetOf(), descriptor::getElementName)
     }
-    val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = true }
+    val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; explicitNulls = true; coerceInputValues = true }
 
     suspend fun export(
         context: Context,

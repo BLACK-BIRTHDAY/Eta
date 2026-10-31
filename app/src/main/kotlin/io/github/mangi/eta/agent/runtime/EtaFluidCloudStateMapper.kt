@@ -79,8 +79,16 @@ internal object EtaFluidCloudStateMapper {
         emitThrottled(runId, shortText, detailText, immediate)
     }
 
-    private fun formatToolTexts(toolName: String, args: String, command: String?): Pair<String, String> {
+    internal fun formatToolTexts(
+        toolName: String,
+        args: String = "",
+        command: String? = null,
+    ): Pair<String, String> {
         return when (toolName) {
+            "present_to_user" -> Pair("🖥️ 呈递", "正在将虚拟屏画面移交主屏...")
+            "launch_app" -> Pair("🚀 启动", "正在启动应用...")
+            "open_uri" -> Pair("🔗 打开", "正在打开链接...")
+
             "Edit", "Write" -> {
                 val fileName = extractFileName(args)
                 if (fileName.isNotBlank()) {

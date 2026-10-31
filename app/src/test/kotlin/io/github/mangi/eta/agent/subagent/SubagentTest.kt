@@ -65,6 +65,7 @@ class SubagentTest {
             assertFalse("type_text" in allowed)
             assertFalse("browser_use" in allowed)
             assertFalse("memory_write" in allowed)
+            assertFalse("present_to_user" in allowed)
             assertTrue("read_file" in allowed)
             assertTrue("glob_files" in allowed)
             assertTrue("grep_files" in allowed)

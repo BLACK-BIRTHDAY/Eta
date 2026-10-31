@@ -1233,4 +1233,32 @@ class EtaBackupRepositoryTest {
         val summary = EtaBackupRepository.inspect(context, ByteArrayInputStream(Json.encodeToString(doc).toByteArray()))
         assertTrue(summary.providerCount == 0)
     }
+
+    @Test
+    fun legacySystemAsrInBackupCoercesToQwenRealtimeOnRestore() = runBlocking {
+        SettingsDataStore.setSpeechSettings(SpeechSettings(asr = AsrProvider.DOUBAO))
+        assertEquals(AsrProvider.DOUBAO, SettingsDataStore.speechSettings().asr)
+
+        val legacyJson = """
+            {
+              "format": "eta-backup",
+              "schemaVersion": 4,
+              "exportedAt": 1000,
+              "speech": {
+                "asr": "SYSTEM"
+              }
+            }
+        """.trimIndent()
+
+        EtaBackupJsonStreams.stage(context, ByteArrayInputStream(legacyJson.toByteArray())).use { staged ->
+            assertEquals(AsrProvider.QWEN_REALTIME, staged.header.speech?.asr)
+        }
+
+        val inspectSummary = EtaBackupRepository.inspect(context, ByteArrayInputStream(legacyJson.toByteArray()))
+        assertEquals(0, inspectSummary.providerCount)
+
+        val importSummary = EtaBackupRepository.import(context, ByteArrayInputStream(legacyJson.toByteArray()))
+        assertEquals(0, importSummary.providerCount)
+        assertEquals(AsrProvider.QWEN_REALTIME, SettingsDataStore.speechSettings().asr)
+    }
 }
