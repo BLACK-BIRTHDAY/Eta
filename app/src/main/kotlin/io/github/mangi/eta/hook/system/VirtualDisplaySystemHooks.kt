@@ -2,6 +2,8 @@ package io.github.mangi.eta.hook.system
 
 import android.hardware.display.VirtualDisplayConfig
 import android.os.Binder
+import android.os.Build
+import androidx.annotation.RequiresApi
 import io.github.libxposed.api.XposedModule
 import io.github.mangi.eta.agent.virtualdisplay.CanvasRoutingPolicy
 import io.github.mangi.eta.config.Prefs
@@ -37,6 +39,9 @@ internal object VirtualDisplaySystemHooks {
     }
 
     private fun installDisplayManagerHooks(hooks: HookRegistrar, classLoader: ClassLoader) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            return
+        }
         val dmsClass = HookSupport.findClassOrNull(classLoader, DMS_CLASS)
         val binderClass = HookSupport.findClassOrNull(classLoader, DMS_BINDER_CLASS)
         val createMethod = binderClass?.let { clazz ->
@@ -61,33 +66,19 @@ internal object VirtualDisplaySystemHooks {
             executable = createMethod,
             description = "DisplayManagerService\$BinderService.createVirtualDisplay",
         ) { chain ->
-            if (!Prefs.isEnabled(Prefs.Keys.AGENT_VIRTUAL_DISPLAY_ENABLED)) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE ||
+                !Prefs.isEnabled(Prefs.Keys.AGENT_VIRTUAL_DISPLAY_ENABLED)
+            ) {
                 return@intercept chain.proceed()
             }
             val args = chain.args.toMutableList()
             val config = args.getOrNull(0) as? VirtualDisplayConfig
             val packageName = args.getOrNull(3) as? String
-            if (
-                packageName != ModuleConfig.ETA_PACKAGE ||
-                config == null ||
-                config.name != CanvasRoutingPolicy.VIRTUAL_DISPLAY_NAME
-            ) {
-                return@intercept chain.proceed()
-            }
-            val upgraded = runCatching {
-                VirtualDisplayConfig.Builder(
-                    config.name,
-                    config.width,
-                    config.height,
-                    config.densityDpi,
-                ).apply {
-                    config.surface?.let(::setSurface)
-                    setFlags(config.flags or CanvasRoutingPolicy.TRUSTED_INTERACTIVE_FLAGS)
-                    if (config.requestedRefreshRate > 0f) {
-                        setRequestedRefreshRate(config.requestedRefreshRate)
-                    }
-                }.build()
-            }.getOrDefault(config)
+            val upgraded = if (packageName == ModuleConfig.ETA_PACKAGE && config != null) {
+                upgradeVirtualDisplayConfig(config)
+            } else {
+                null
+            } ?: return@intercept chain.proceed()
             args[0] = upgraded
             activeEtaDisplayCreation.set(true)
             try {
@@ -118,6 +109,26 @@ internal object VirtualDisplaySystemHooks {
                 }
             }
         }
+    }
+
+    @android.annotation.SuppressLint("WrongConstant")
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    private fun upgradeVirtualDisplayConfig(config: VirtualDisplayConfig): VirtualDisplayConfig? {
+        if (config.name != CanvasRoutingPolicy.VIRTUAL_DISPLAY_NAME) return null
+        return runCatching {
+            VirtualDisplayConfig.Builder(
+                config.name,
+                config.width,
+                config.height,
+                config.densityDpi,
+            ).apply {
+                config.surface?.let(::setSurface)
+                setFlags(config.flags or CanvasRoutingPolicy.TRUSTED_INTERACTIVE_FLAGS)
+                if (config.requestedRefreshRate > 0f) {
+                    setRequestedRefreshRate(config.requestedRefreshRate)
+                }
+            }.build()
+        }.getOrDefault(config)
     }
 
     private fun installTaskMoveHooks(hooks: HookRegistrar, classLoader: ClassLoader) {

@@ -610,6 +610,7 @@ internal object VirtualDisplayController {
         return source.scale(targetW, targetH)
     }
 
+    @android.annotation.SuppressLint("WrongConstant")
     private fun tryCreateInProcessVirtualDisplay(
         appContext: Context,
         surface: android.view.Surface,
@@ -621,16 +622,27 @@ internal object VirtualDisplayController {
             runCatching { HiddenApiBypass.addHiddenApiExemptions("Landroid/hardware/display/") }
         }
         val dm = appContext.getSystemService(DisplayManager::class.java) ?: return@runCatching null
-        val config = VirtualDisplayConfig.Builder(
-            CanvasRoutingPolicy.VIRTUAL_DISPLAY_NAME,
-            width,
-            height,
-            densityDpi,
-        )
-            .setSurface(surface)
-            .setFlags(CanvasRoutingPolicy.TRUSTED_INTERACTIVE_FLAGS)
-            .build()
-        dm.createVirtualDisplay(config)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val config = VirtualDisplayConfig.Builder(
+                CanvasRoutingPolicy.VIRTUAL_DISPLAY_NAME,
+                width,
+                height,
+                densityDpi,
+            )
+                .setSurface(surface)
+                .setFlags(CanvasRoutingPolicy.TRUSTED_INTERACTIVE_FLAGS)
+                .build()
+            dm.createVirtualDisplay(config)
+        } else {
+            dm.createVirtualDisplay(
+                CanvasRoutingPolicy.VIRTUAL_DISPLAY_NAME,
+                width,
+                height,
+                densityDpi,
+                surface,
+                CanvasRoutingPolicy.TRUSTED_INTERACTIVE_FLAGS,
+            )
+        }
     }.getOrNull()
 
     private fun tryCreateRootBridgedVirtualDisplay(
