@@ -72,6 +72,7 @@ internal data class SubagentProfile(
             AgentSubagentToolCatalog.PROFILE_TOOL_NAME,
             "observe_screen",
             "release_gui",
+            "present_to_user",
             "tap",
             "tap_area",
             "tap_element",

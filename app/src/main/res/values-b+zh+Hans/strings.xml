@@ -7,6 +7,16 @@
   <string name="run_gui_user_paused">用户接管中</string>
   <string name="tool_release_gui">释放手机操作</string>
   <string name="tool_release_gui_description">完成当前手机操作阶段，将控制权交给等待中的任务。</string>
+  <string name="tool_present_to_user">呈现到主屏</string>
+  <string name="tool_present_to_user_description">将后台虚拟屏中已准备就绪的页面无缝移交到物理主屏前台。</string>
+  <string name="settings_virtual_display_title">后台虚拟屏执行</string>
+  <string name="overlay_virtual_canvas_auto">后台画布</string>
+  <string name="overlay_virtual_canvas_takeover">手动接管中</string>
+  <string name="overlay_virtual_takeover">接管</string>
+  <string name="overlay_virtual_continue">继续</string>
+  <string name="overlay_virtual_fullscreen">全屏</string>
+  <string name="overlay_virtual_collapse">收起画板</string>
+  <string name="overlay_result_open_virtual_app">打开画面</string>
   <string name="browser_clear_shared_data">清除全部浏览器数据</string>
   <string name="browser_clear_shared_data_message">将关闭全部页面，清除 Cookie、缓存和网站数据，包括登录状态。</string>
   <string name="browser_user_action_failed">浏览器操作未完成，请重试。</string>

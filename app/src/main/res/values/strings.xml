@@ -7,6 +7,16 @@
     <string name="run_gui_user_paused">User has control</string>
     <string name="tool_release_gui">Release phone control</string>
     <string name="tool_release_gui_description">Finish the current phone interaction and hand control to waiting tasks.</string>
+    <string name="tool_present_to_user">Present to main screen</string>
+    <string name="tool_present_to_user_description">Seamlessly hand off the prepared virtual display page to the physical main screen.</string>
+    <string name="settings_virtual_display_title">Background virtual display</string>
+    <string name="overlay_virtual_canvas_auto">Background canvas</string>
+    <string name="overlay_virtual_canvas_takeover">Manual control</string>
+    <string name="overlay_virtual_takeover">Take over</string>
+    <string name="overlay_virtual_continue">Continue</string>
+    <string name="overlay_virtual_fullscreen">Fullscreen</string>
+    <string name="overlay_virtual_collapse">Collapse stage</string>
+    <string name="overlay_result_open_virtual_app">Open screen</string>
   <string name="permission_local_network_title">Local network access</string>
   <string name="permission_local_network_summary">Allow models, MCP, the built-in browser and terminals to access your local network when needed. Internet access remains available without this permission.</string>
   <string name="permission_local_network_denied">Local network access was not granted. You can allow Nearby devices in the system app permission settings when you need a local service. Internet access remains available.</string>
