@@ -125,7 +125,7 @@ class EtaFluidCloudStateMapperTest {
             args = "",
             command = null,
         )
-        assertEquals("🔨 ", shortFallback)
+        assertEquals("🔨 命令", shortFallback)
         assertEquals("正在执行命令: ", detailFallback)
     }
 

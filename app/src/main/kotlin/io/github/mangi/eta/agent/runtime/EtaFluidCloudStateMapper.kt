@@ -115,7 +115,9 @@ internal object EtaFluidCloudStateMapper {
                     .trim()
                     .split("\\s+".toRegex())
                     .firstOrNull()
+                    ?.takeIf { it.isNotBlank() }
                     ?.let { File(it).name }
+                    ?.takeIf { it.isNotBlank() }
                     ?.take(8)
                     ?: "命令"
                 Pair("🔨 $cmdHeader".take(5), "正在执行命令: ${command ?: extractCommand(args)}")
