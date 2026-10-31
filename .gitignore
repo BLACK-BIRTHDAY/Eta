@@ -42,4 +42,5 @@ google-services.json
 *.stackdump
 *.png
 .scratch/
+.superpowers/
 graphify-out/cache/
