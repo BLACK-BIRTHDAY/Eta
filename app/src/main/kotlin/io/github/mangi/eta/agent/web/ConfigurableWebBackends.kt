@@ -8,6 +8,7 @@ import io.github.mangi.eta.data.model.DeepSeekWebConfig
 import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.WebHttpMethod
 import io.github.mangi.eta.data.model.WebToolBackend
+import io.github.mangi.eta.data.provider.GeminiModelCapabilities
 import java.net.URLEncoder
 import java.util.Locale
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -46,13 +47,6 @@ internal object ConfigurableWebBackends {
     private const val MAX_RESULT_CHARS = 24_000
     private const val MAX_SCAN_ITEMS = 100
 
-    private val MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})(?:[.-].*|$)""", RegexOption.IGNORE_CASE)
-
-    private fun isModernGemini(model: String): Boolean {
-        val normalized = VertexAiServiceAccountAuth.normalizeVertexModelId(model).lowercase()
-        return MODERN_GEMINI_REGEX.matches(normalized) || normalized.contains("gemini-3") || normalized.contains("gemini-4")
-    }
-
     fun searchGemini(
         transport: WebHttpTransport,
         baseUrl: String,
@@ -86,7 +80,7 @@ internal object ConfigurableWebBackends {
         } else {
             ProviderUrls.geminiStreamGenerateContentUrl(effectiveBaseUrl, effectiveModel)
         }
-        val isModern = isModernGemini(effectiveModel)
+        val isModern = GeminiModelCapabilities.isModernGemini(VertexAiServiceAccountAuth.normalizeVertexModelId(effectiveModel))
         val thinkingConfig = JSONObject()
             .put("includeThoughts", false)
             .apply {

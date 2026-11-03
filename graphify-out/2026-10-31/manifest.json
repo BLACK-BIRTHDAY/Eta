@@ -2832,9 +2832,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/EtaFluidCloudStateMapper.kt": {
-    "mtime": 1793431182.6837013,
-    "seen": 1793431523.3318226,
-    "ast_hash": "2c0f9700e7033573e65367e005507d47",
+    "mtime": 1793432108.3648367,
+    "seen": 1793432221.0745697,
+    "ast_hash": "38cb27f072d910469a370f9021a27dc5",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/EtaLiveUpdateManager.kt": {
@@ -6204,15 +6204,15 @@
     "semantic_hash": ""
   },
   "docs/adr/0003-v340-virtual-display-and-local-integration.md": {
-    "mtime": 1793430790.037657,
-    "seen": 1793430839.3125844,
-    "ast_hash": "0c78a4579b4529b82d29a6677615cfe7",
+    "mtime": 1793432061.1660442,
+    "seen": 1793432221.0757065,
+    "ast_hash": "386f872fb13fc1ed6a11da7cd1a3e4e5",
     "semantic_hash": ""
   },
   "docs/v340-integration-spec.md": {
-    "mtime": 1793430805.45341,
-    "seen": 1793430839.3125887,
-    "ast_hash": "3ab81692e40aef8a6ed9c4748459cdd6",
+    "mtime": 1793432069.319724,
+    "seen": 1793432221.0757103,
+    "ast_hash": "3e9f711706a1ec9b684dc0ac74061d57",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/overlay/VirtualDisplayStageCard.kt": {
@@ -6258,9 +6258,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/runtime/EtaFluidCloudStateMapperTest.kt": {
-    "mtime": 1793431450.9186842,
-    "seen": 1793431523.332577,
-    "ast_hash": "591b91776b54856b39bf3b5f15d9fb3a",
+    "mtime": 1793432059.0091789,
+    "seen": 1793432221.0753736,
+    "ast_hash": "73b5dce4aec9e1db078a22e289e1310a",
     "semantic_hash": ""
   }
 }

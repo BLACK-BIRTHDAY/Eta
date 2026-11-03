@@ -4,6 +4,7 @@ import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.runtime.AgentTokenUsage
 import io.github.mangi.eta.agent.runtime.SearchSuggestionsPayload
 import io.github.mangi.eta.data.model.ReasoningEffort
+import io.github.mangi.eta.data.provider.GeminiModelCapabilities
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
@@ -344,7 +345,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             config.model.contains("nano-banana", ignoreCase = true)
 
         if (!isImageGenerationModel) {
-            val thinkingConfig = buildThinkingConfig(config, isVertexEndpoint)
+            val thinkingConfig = buildThinkingConfig(config)
             generationConfig.put("thinkingConfig", thinkingConfig)
         }
         // 若是生图模型（modelId 含 image / nano-banana）：
@@ -993,16 +994,11 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             .replace('\r', ' ')
             .let { if (it.length > MAX_ERROR_CHARS) it.take(MAX_ERROR_CHARS) + "..." else it }
 
-    private val MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})(?:[.-].*|$)""", RegexOption.IGNORE_CASE)
-
-    private fun isModernGemini(model: String): Boolean {
-        val lower = VertexAiServiceAccountAuth.normalizeVertexModelId(model).lowercase()
-        return MODERN_GEMINI_REGEX.matches(lower) || lower.contains("gemini-3") || lower.contains("gemini-4")
-    }
+    private fun isModernGemini(model: String): Boolean =
+        GeminiModelCapabilities.isModernGemini(VertexAiServiceAccountAuth.normalizeVertexModelId(model))
 
     private fun buildThinkingConfig(
         config: AgentModelClient.ModelConfig,
-        isVertexEndpoint: Boolean,
     ): JSONObject {
         val thinkingConfig = JSONObject()
         val normalizedModel = VertexAiServiceAccountAuth.normalizeVertexModelId(config.model).lowercase()

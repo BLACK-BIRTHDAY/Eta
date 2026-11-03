@@ -5,6 +5,8 @@ import io.github.mangi.eta.data.model.ReasoningEffort
 
 /** 仅明确确认的模型启用原生能力，不能由 generateContent 目录能力推断工具混用。 */
 internal object GeminiModelCapabilities {
+    private val MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})(?:[.-].*|$)""", RegexOption.IGNORE_CASE)
+
     private data class Capabilities(
         val reasoning: ModelReasoningCapabilities,
         val hostedSearch: Boolean,
@@ -31,6 +33,11 @@ internal object GeminiModelCapabilities {
         reasoningCapabilities(modelId) ?: ModelReasoningCapabilities()
 
     fun supportsHostedSearch(modelId: String): Boolean = knownModels[normalize(modelId)]?.hostedSearch == true
+
+    fun isModernGemini(modelId: String): Boolean {
+        val normalized = normalize(modelId).substringAfterLast('/')
+        return MODERN_GEMINI_REGEX.matches(normalized) || normalized.contains("gemini-3") || normalized.contains("gemini-4")
+    }
 
     fun normalize(modelId: String): String = modelId.trim().removePrefix("models/").lowercase()
 

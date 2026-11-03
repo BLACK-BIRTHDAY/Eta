@@ -756,58 +756,27 @@ class GeminiGenerateContentProviderTest {
         )
 
         // 1. Modern Gemini (gemini-3.8-flash) on proxy gateway:
-        // DEFAULT: includeThoughts=true, no thinkingLevel, no thinkingBudget
-        val defaultReq = GeminiGenerateContentProvider.buildRequestJson(
-            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.DEFAULT),
+        val modernCases = listOf(
+            ReasoningEffort.DEFAULT to null,
+            ReasoningEffort.MINIMAL to "MINIMAL",
+            ReasoningEffort.LOW to "LOW",
+            ReasoningEffort.MEDIUM to "MEDIUM",
+            ReasoningEffort.HIGH to "HIGH",
+            ReasoningEffort.MAX to "HIGH",
         )
-        val defaultThinking = defaultReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
-        assertTrue(defaultThinking.getBoolean("includeThoughts"))
-        assertFalse(defaultThinking.has("thinkingLevel"))
-        assertFalse(defaultThinking.has("thinkingBudget"))
-
-        // MINIMAL: includeThoughts=true, thinkingLevel="MINIMAL", no thinkingBudget
-        val minimalReq = GeminiGenerateContentProvider.buildRequestJson(
-            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.MINIMAL),
-        )
-        val minimalThinking = minimalReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
-        assertTrue(minimalThinking.getBoolean("includeThoughts"))
-        assertEquals("MINIMAL", minimalThinking.getString("thinkingLevel"))
-        assertFalse(minimalThinking.has("thinkingBudget"))
-
-        // LOW: includeThoughts=true, thinkingLevel="LOW", no thinkingBudget
-        val lowReq = GeminiGenerateContentProvider.buildRequestJson(
-            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.LOW),
-        )
-        val lowThinking = lowReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
-        assertTrue(lowThinking.getBoolean("includeThoughts"))
-        assertEquals("LOW", lowThinking.getString("thinkingLevel"))
-        assertFalse(lowThinking.has("thinkingBudget"))
-
-        // MEDIUM: includeThoughts=true, thinkingLevel="MEDIUM", no thinkingBudget
-        val mediumReq = GeminiGenerateContentProvider.buildRequestJson(
-            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.MEDIUM),
-        )
-        val mediumThinking = mediumReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
-        assertTrue(mediumThinking.getBoolean("includeThoughts"))
-        assertEquals("MEDIUM", mediumThinking.getString("thinkingLevel"))
-        assertFalse(mediumThinking.has("thinkingBudget"))
-
-        // HIGH / MAX: includeThoughts=true, thinkingLevel="HIGH", no thinkingBudget
-        val highReq = GeminiGenerateContentProvider.buildRequestJson(
-            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.HIGH),
-        )
-        val highThinking = highReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
-        assertTrue(highThinking.getBoolean("includeThoughts"))
-        assertEquals("HIGH", highThinking.getString("thinkingLevel"))
-        assertFalse(highThinking.has("thinkingBudget"))
-
-        val maxReq = GeminiGenerateContentProvider.buildRequestJson(
-            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.MAX),
-        )
-        val maxThinking = maxReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
-        assertTrue(maxThinking.getBoolean("includeThoughts"))
-        assertEquals("HIGH", maxThinking.getString("thinkingLevel"))
-        assertFalse(maxThinking.has("thinkingBudget"))
+        for ((effort, expectedLevel) in modernCases) {
+            val req = GeminiGenerateContentProvider.buildRequestJson(
+                config = proxyBaseConfig.copy(reasoningEffort = effort),
+            )
+            val thinking = req.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+            assertTrue(thinking.getBoolean("includeThoughts"))
+            if (expectedLevel != null) {
+                assertEquals(expectedLevel, thinking.getString("thinkingLevel"))
+            } else {
+                assertFalse(thinking.has("thinkingLevel"))
+            }
+            assertFalse(thinking.has("thinkingBudget"))
+        }
 
         // OFF (thinkingEnabled=false): includeThoughts=false, no thinkingLevel, no thinkingBudget
         val offReq = GeminiGenerateContentProvider.buildRequestJson(
