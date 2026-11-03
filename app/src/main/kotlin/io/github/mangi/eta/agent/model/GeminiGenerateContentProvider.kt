@@ -1006,23 +1006,23 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
     ): JSONObject {
         val thinkingConfig = JSONObject()
         val normalizedModel = VertexAiServiceAccountAuth.normalizeVertexModelId(config.model).lowercase()
-        // Vertex AI 原生 Gemini 3.x / 4.x（如 gemini-4-argon, gemini-3.8-flash）使用 thinkingLevel，
-        // 且 gemini-4-argon 严格禁止传 thinkingBudget（传了即报 400: Thinking budget is not supported for this model. Use thinking level instead）。
-        // 而 Gemini 2.5 系列在 Vertex AI 上仅支持 thinkingBudget。
-        val usesVertexThinkingLevel = isVertexEndpoint && isModernGemini(normalizedModel)
+        // 所有现代 Gemini 3.x / 4.x 模型（涵盖官方 v1beta、Vertex AI 及第三方代理网关如 Antigravity Manager）
+        // 均使用 thinkingLevel，且严格禁止传 thinkingBudget；而传统的 Gemini 2.5 系列使用 thinkingBudget。
+        val usesThinkingLevel = isModernGemini(normalizedModel)
 
         if (!config.thinkingEnabled || config.effectiveReasoningEffort == ReasoningEffort.OFF) {
             thinkingConfig.put("includeThoughts", false)
-            if (!usesVertexThinkingLevel) {
+            if (!usesThinkingLevel) {
                 thinkingConfig.put("thinkingBudget", 0)
             }
             return thinkingConfig
         }
 
         thinkingConfig.put("includeThoughts", true)
-        if (usesVertexThinkingLevel) {
+        if (usesThinkingLevel) {
             val level = when (config.effectiveReasoningEffort) {
-                ReasoningEffort.MINIMAL, ReasoningEffort.LOW -> "LOW"
+                ReasoningEffort.MINIMAL -> "MINIMAL"
+                ReasoningEffort.LOW -> "LOW"
                 ReasoningEffort.MEDIUM -> "MEDIUM"
                 ReasoningEffort.HIGH, ReasoningEffort.XHIGH, ReasoningEffort.MAX -> "HIGH"
                 ReasoningEffort.DEFAULT, ReasoningEffort.OFF -> null

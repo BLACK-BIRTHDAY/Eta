@@ -14,7 +14,7 @@ Eta is an AI agent designed for phones and other mobile devices. It pairs the au
 
 > [!TIP]
 > 🌟 **Key Enhancements in this Fork**
-> 1. **💎 Native Google Gemini Dual-Protocol Integration**: Support for both `generateContent` and `Interactions` endpoints with official branding; 1M ultra-long context window (`gemini-3.8-flash-tiered`), native adaptive thinking budget precisely aligned with Antigravity Manager / Cherry Studio variant tiers, thought signature compatibility & HTTP 400 auto-retry, multimodal image generation with `inlineData` Base64 stream live-rendered into Markdown images, and dual authentication (`x-goog-api-key` for official endpoints + `Bearer` token for proxy gateways).
+> 1. **💎 Native Google Gemini Dual-Protocol Integration**: Support for both `generateContent` and `Interactions` endpoints with official branding; 1M ultra-long context window (`gemini-3.8-flash`), native thinking control (Gemini 3.x / 4.x native `thinkingLevel` tiers and adaptive mode, with full backward compatibility for legacy Gemini 2.5 `thinkingBudget`), thought signature compatibility & HTTP 400 auto-retry, multimodal image generation with `inlineData` Base64 stream live-rendered into Markdown images, and dual authentication (`x-goog-api-key` for official endpoints + `Bearer` token for proxy gateways).
 > 2. **⚡ Zero-Copy Pipe IPC Architecture**: Completely breaks through Android's 1MB Binder transaction limit. Transcripts exceeding 32KB automatically stream over a kernel pipe (`ParcelFileDescriptor.createPipe()`), lifting context capacity up to 2,000,000 characters; atomic `user`-turn boundary truncation prevents orphan tool-result syntax errors.
 > 3. **🌊 ColorOS 16 / Android 16 Native Fluid Cloud (Live Updates)**: Full integration with Android 16 `POST_PROMOTED_NOTIFICATIONS` specifications and ColorOS 16 Pantanal LiveAlert architecture. As the agent plans, writes code, or runs terminal tests, a live breathing capsule animates beside the punch-hole camera; includes lockscreen frosted cards, AOD micro-badges, and tap-to-open ColorOS Freeform Floating Windows with 5s auto-dismiss upon completion.
 > 4. **🔀 True Multi-Conversation Concurrency & Subagents**: Adopting upstream's `RuntimeRunRegistry`, `GuiControlCoordinator`, and parallel `subagent` dispatch (`explore`, `coder`, `plan`, ad-hoc specialized roles, and reusable `agents/<name>.md` profiles) enhanced with a 100-step guardrail and partial output preservation.
@@ -102,16 +102,18 @@ This fork integrates Google Gemini alongside OpenAI and Anthropic as a first-cla
   - Positioned 2nd in global provider order, calling `v1beta/models/{model}:streamGenerateContent` directly.
   - **Dual Smart Authentication**: Calls to official Google endpoints (`generativelanguage.googleapis.com`) use `x-goog-api-key` (preventing `ACCESS_TOKEN_TYPE_UNSUPPORTED` errors); calls to third-party gateways (e.g., One API, New API, custom reverse proxies) automatically inject `Authorization: Bearer`.
 - **Curated Models & Forward Compatibility**:
-  - `gemini-3.8-flash-tiered`: Flagship conversation and coding model with a massive **1,048,576 (1M)** context window, multimodal input, and native thinking.
+  - `gemini-3.8-flash`: Flagship conversation and coding model with a massive **1,048,576 (1M)** context window, multimodal input, and native thinking.
   - `gemini-3.1-flash-image` / `gemini-3-pro-image`: Native image generation models, automatically whitelisted from chat-capability filters.
-  - **Regex Forward Matching**: Matches `^gemini-(?:[3-9]|\d{2,})\..*`, granting future Gemini 4.x / 5.x releases instant 1M context privileges without app updates.
-- **Native Thinking Budget Control**:
-  - `Adaptive (Default)`: Passes `-1` to let Gemini dynamically assess reasoning depth.
-  - `Off`: Passes `0` for instantaneous responses without deliberation.
-  - `Low`: `4096` tokens
-  - `Medium`: `16384` tokens
-  - `High`: `32768` tokens
-  - `Max`: `65535` tokens (avoiding the 65536 overflow boundary)
+  - **Regex Forward Matching**: Matches `^gemini-(?:[3-9]|\d{2,})(?:[.-].*|$)`, granting future Gemini 3.x / 4.x / 5.x releases instant 1M context privileges without app updates.
+- **Native Thinking Level & Budget Control**:
+  - **Gemini 3.x / 4.x Native `thinkingLevel` Control** (supported across official API, Vertex AI, and Antigravity Manager / reverse proxy gateways):
+    - `Adaptive (Default)`: Sends `{"includeThoughts": true}` without level restriction so Gemini dynamically assesses reasoning depth (recommended).
+    - `Minimal`: Sends `thinkingLevel: "MINIMAL"` for light, fast thoughts.
+    - `Low`: Sends `thinkingLevel: "LOW"`.
+    - `Medium`: Sends `thinkingLevel: "MEDIUM"` (official default level for `gemini-3.8-flash`).
+    - `High`: Sends `thinkingLevel: "HIGH"` for complex reasoning and multi-step orchestration.
+    - `Off`: Sends `{"includeThoughts": false}` without sending deprecated `thinkingBudget: 0`.
+  - **Gemini 2.5 Compatibility**: Preserves legacy token `thinkingBudget` for Gemini 2.5 (`Default` passes `-1`, `Off` passes `0`, with tiers `4096` / `16384` / `32768` / `65535` tokens).
 - **Multimodal Image Generation & Live Markdown Rendering**:
   - Parses `inlineData` Base64 streams from image models into standard Markdown images for instant, inline rendering in chat.
 

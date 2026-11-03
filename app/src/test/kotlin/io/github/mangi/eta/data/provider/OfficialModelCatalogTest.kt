@@ -65,11 +65,19 @@ class OfficialModelCatalogTest {
     @Test
     fun enrichMergesCuratedGeminiModelsWithFullCapabilitiesAndWindows() {
         val rawModels = listOf(
-            Model(id = "m1", modelId = "gemini-3.8-flash-tiered", displayName = ""),
+            Model(id = "m1", modelId = "gemini-3.8-flash", displayName = ""),
+            Model(id = "m1-legacy", modelId = "gemini-3.8-flash-tiered", displayName = ""),
             Model(id = "m2", modelId = "gemini-3.1-flash-image", displayName = ""),
             Model(id = "m3", modelId = "gemini-3-pro-image", displayName = ""),
         )
         val enriched = OfficialModelCatalog.enrich(io.github.mangi.eta.data.model.ProviderSourceTypes.GEMINI, rawModels).associateBy { it.modelId }
+
+        val flash = enriched.getValue("gemini-3.8-flash")
+        assertEquals(1_048_576, flash.contextWindow)
+        assertEquals("Gemini 3.8 Flash", flash.displayName)
+        assertTrue(flash.toolCall == true)
+        assertTrue(flash.reasoning == true)
+        assertTrue(flash.inputModalities.containsAll(listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY, "audio", "video")))
 
         val tiered = enriched.getValue("gemini-3.8-flash-tiered")
         assertEquals(1_048_576, tiered.contextWindow)

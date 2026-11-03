@@ -5,6 +5,7 @@ import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.data.model.CustomBody
 import io.github.mangi.eta.data.model.GeminiEndpointMode
 import io.github.mangi.eta.data.model.ProviderTypes
+import io.github.mangi.eta.data.model.ReasoningEffort
 import java.io.OutputStream
 import java.net.InetSocketAddress
 import java.util.concurrent.Executors
@@ -741,6 +742,108 @@ class GeminiGenerateContentProviderTest {
             assertEquals(3, attempts)
             assertEquals("两次重试后成功", response.assistantMessage.optString("content"))
         }
+    }
+
+    @Test
+    fun modernGeminiUsesThinkingLevelAcrossAllEndpointsAndLegacyUsesBudget() {
+        val proxyBaseConfig = AgentModelClient.ModelConfig(
+            providerSourceType = "gemini",
+            baseUrl = "https://antigravity.example/v1beta",
+            apiKey = "test-key",
+            model = "gemini-3.8-flash",
+            systemPrompt = "",
+            thinkingEnabled = true,
+        )
+
+        // 1. Modern Gemini (gemini-3.8-flash) on proxy gateway:
+        // DEFAULT: includeThoughts=true, no thinkingLevel, no thinkingBudget
+        val defaultReq = GeminiGenerateContentProvider.buildRequestJson(
+            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.DEFAULT),
+        )
+        val defaultThinking = defaultReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+        assertTrue(defaultThinking.getBoolean("includeThoughts"))
+        assertFalse(defaultThinking.has("thinkingLevel"))
+        assertFalse(defaultThinking.has("thinkingBudget"))
+
+        // MINIMAL: includeThoughts=true, thinkingLevel="MINIMAL", no thinkingBudget
+        val minimalReq = GeminiGenerateContentProvider.buildRequestJson(
+            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.MINIMAL),
+        )
+        val minimalThinking = minimalReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+        assertTrue(minimalThinking.getBoolean("includeThoughts"))
+        assertEquals("MINIMAL", minimalThinking.getString("thinkingLevel"))
+        assertFalse(minimalThinking.has("thinkingBudget"))
+
+        // LOW: includeThoughts=true, thinkingLevel="LOW", no thinkingBudget
+        val lowReq = GeminiGenerateContentProvider.buildRequestJson(
+            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.LOW),
+        )
+        val lowThinking = lowReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+        assertTrue(lowThinking.getBoolean("includeThoughts"))
+        assertEquals("LOW", lowThinking.getString("thinkingLevel"))
+        assertFalse(lowThinking.has("thinkingBudget"))
+
+        // MEDIUM: includeThoughts=true, thinkingLevel="MEDIUM", no thinkingBudget
+        val mediumReq = GeminiGenerateContentProvider.buildRequestJson(
+            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.MEDIUM),
+        )
+        val mediumThinking = mediumReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+        assertTrue(mediumThinking.getBoolean("includeThoughts"))
+        assertEquals("MEDIUM", mediumThinking.getString("thinkingLevel"))
+        assertFalse(mediumThinking.has("thinkingBudget"))
+
+        // HIGH / MAX: includeThoughts=true, thinkingLevel="HIGH", no thinkingBudget
+        val highReq = GeminiGenerateContentProvider.buildRequestJson(
+            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.HIGH),
+        )
+        val highThinking = highReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+        assertTrue(highThinking.getBoolean("includeThoughts"))
+        assertEquals("HIGH", highThinking.getString("thinkingLevel"))
+        assertFalse(highThinking.has("thinkingBudget"))
+
+        val maxReq = GeminiGenerateContentProvider.buildRequestJson(
+            config = proxyBaseConfig.copy(reasoningEffort = ReasoningEffort.MAX),
+        )
+        val maxThinking = maxReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+        assertTrue(maxThinking.getBoolean("includeThoughts"))
+        assertEquals("HIGH", maxThinking.getString("thinkingLevel"))
+        assertFalse(maxThinking.has("thinkingBudget"))
+
+        // OFF (thinkingEnabled=false): includeThoughts=false, no thinkingLevel, no thinkingBudget
+        val offReq = GeminiGenerateContentProvider.buildRequestJson(
+            config = proxyBaseConfig.copy(
+                thinkingEnabled = false,
+                reasoningEffort = ReasoningEffort.OFF,
+            ),
+        )
+        val offThinking = offReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+        assertFalse(offThinking.getBoolean("includeThoughts"))
+        assertFalse(offThinking.has("thinkingLevel"))
+        assertFalse(offThinking.has("thinkingBudget"))
+
+        // 2. Legacy Gemini (gemini-2.5-pro):
+        val legacyBaseConfig = proxyBaseConfig.copy(model = "gemini-2.5-pro")
+
+        // HIGH: includeThoughts=true, thinkingBudget=16384, no thinkingLevel
+        val legacyHighReq = GeminiGenerateContentProvider.buildRequestJson(
+            config = legacyBaseConfig.copy(reasoningEffort = ReasoningEffort.HIGH),
+        )
+        val legacyHighThinking = legacyHighReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+        assertTrue(legacyHighThinking.getBoolean("includeThoughts"))
+        assertEquals(16384, legacyHighThinking.getInt("thinkingBudget"))
+        assertFalse(legacyHighThinking.has("thinkingLevel"))
+
+        // OFF (thinkingEnabled=false): includeThoughts=false, thinkingBudget=0, no thinkingLevel
+        val legacyOffReq = GeminiGenerateContentProvider.buildRequestJson(
+            config = legacyBaseConfig.copy(
+                thinkingEnabled = false,
+                reasoningEffort = ReasoningEffort.OFF,
+            ),
+        )
+        val legacyOffThinking = legacyOffReq.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+        assertFalse(legacyOffThinking.getBoolean("includeThoughts"))
+        assertEquals(0, legacyOffThinking.getInt("thinkingBudget"))
+        assertFalse(legacyOffThinking.has("thinkingLevel"))
     }
 
     private fun withHttpExchangeServer(

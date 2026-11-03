@@ -107,7 +107,7 @@ internal object WebToolsSettingsRepository {
                 it.isEnabled && it.outputModalities.none { mod -> mod.equals(Model.IMAGE_MODALITY, ignoreCase = true) }
             }
 
-            val modelId = activeModel?.modelId?.ifBlank { null } ?: "gemini-3.8-flash-tiered"
+            val modelId = activeModel?.modelId?.ifBlank { null } ?: "gemini-3.8-flash"
 
             GeminiWebCredentials(
                 baseUrl = chosen.baseUrl.trim().ifEmpty { GeminiProviderSetting.DEFAULT_BASE_URL },
@@ -140,7 +140,7 @@ internal object WebToolsSettingsRepository {
             fetchBackend = settings.fetchBackend,
             geminiBaseUrl = providerGemini?.baseUrl ?: GeminiProviderSetting.DEFAULT_BASE_URL,
             geminiApiKey = providerGemini?.apiKey.orEmpty(),
-            geminiModel = providerGemini?.model ?: "gemini-3.8-flash-tiered",
+            geminiModel = providerGemini?.model ?: "gemini-3.8-flash",
             geminiAutoGrounding = providerGemini?.hostedWebSearchEnabled ?: false,
             deepSeekBaseUrl = deepSeekBaseUrl,
             deepSeekApiKey = deepSeekApiKey,

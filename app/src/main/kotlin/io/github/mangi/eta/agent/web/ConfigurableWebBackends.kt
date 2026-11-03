@@ -20,7 +20,7 @@ internal data class WebToolsRuntimeConfig(
     val fetchBackend: WebToolBackend = WebToolBackend.BUILTIN,
     val geminiBaseUrl: String = "",
     val geminiApiKey: String = "",
-    val geminiModel: String = "gemini-3.8-flash-tiered",
+    val geminiModel: String = "gemini-3.8-flash",
     val geminiAutoGrounding: Boolean = false,
     val deepSeekBaseUrl: String = DeepSeekWebConfig.DEFAULT_BASE_URL,
     val deepSeekApiKey: String = "",
@@ -46,6 +46,13 @@ internal object ConfigurableWebBackends {
     private const val MAX_RESULT_CHARS = 24_000
     private const val MAX_SCAN_ITEMS = 100
 
+    private val MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})(?:[.-].*|$)""", RegexOption.IGNORE_CASE)
+
+    private fun isModernGemini(model: String): Boolean {
+        val normalized = VertexAiServiceAccountAuth.normalizeVertexModelId(model).lowercase()
+        return MODERN_GEMINI_REGEX.matches(normalized) || normalized.contains("gemini-3") || normalized.contains("gemini-4")
+    }
+
     fun searchGemini(
         transport: WebHttpTransport,
         baseUrl: String,
@@ -62,7 +69,7 @@ internal object ConfigurableWebBackends {
             throw WebSearchException("SEARCH_AUTH_REQUIRED", "Google Gemini 搜索未配置 API Key，请在 Google Gemini 提供商中配置")
         }
         val effectiveBaseUrl = baseUrl.trim().ifEmpty { GeminiProviderSetting.DEFAULT_BASE_URL }
-        val effectiveModel = model.trim().ifEmpty { "gemini-3.8-flash-tiered" }
+        val effectiveModel = model.trim().ifEmpty { "gemini-3.8-flash" }
         val isServiceAccount = VertexAiServiceAccountAuth.looksLikeServiceAccountJson(key)
         val isVertex = isServiceAccount || ProviderUrls.isVertexAiEndpoint(effectiveBaseUrl)
         val saCredentials = if (isServiceAccount) {
@@ -79,10 +86,18 @@ internal object ConfigurableWebBackends {
         } else {
             ProviderUrls.geminiStreamGenerateContentUrl(effectiveBaseUrl, effectiveModel)
         }
+        val isModern = isModernGemini(effectiveModel)
+        val thinkingConfig = JSONObject()
+            .put("includeThoughts", false)
+            .apply {
+                if (!isModern) {
+                    put("thinkingBudget", 0)
+                }
+            }
         val body = JSONObject()
             .put("contents", JSONArray().put(JSONObject().put("role", "user").put("parts", JSONArray().put(JSONObject().put("text", trimmedQuery)))))
             .put("tools", JSONArray().put(JSONObject().put("google_search", JSONObject())))
-            .put("generationConfig", JSONObject().put("thinkingConfig", JSONObject().put("includeThoughts", false).put("thinkingBudget", 0)))
+            .put("generationConfig", JSONObject().put("thinkingConfig", thinkingConfig))
             .toString()
             .toByteArray(Charsets.UTF_8)
         val headers = mutableMapOf(

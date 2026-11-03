@@ -269,7 +269,15 @@ class VertexAiServiceAccountAuthTest {
         assertFalse(defaultThinking.has("thinkingBudget"))
         assertFalse(defaultThinking.has("thinkingLevel"))
 
-        // 2. High 档位：发送 includeThoughts=true, thinkingLevel="HIGH"，不发送 thinkingBudget
+        // 2. Minimal 档位：发送 includeThoughts=true, thinkingLevel="MINIMAL"，不发送 thinkingBudget
+        val minimalConfig = defaultConfig.copy(reasoningEffort = io.github.mangi.eta.data.model.ReasoningEffort.MINIMAL)
+        val minimalPayload = method.invoke(GeminiGenerateContentProvider, minimalConfig, JSONArray(), JSONArray(), null) as JSONObject
+        val minimalThinking = minimalPayload.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+        assertTrue(minimalThinking.getBoolean("includeThoughts"))
+        assertEquals("MINIMAL", minimalThinking.getString("thinkingLevel"))
+        assertFalse(minimalThinking.has("thinkingBudget"))
+
+        // 3. High 档位：发送 includeThoughts=true, thinkingLevel="HIGH"，不发送 thinkingBudget
         val highConfig = defaultConfig.copy(reasoningEffort = io.github.mangi.eta.data.model.ReasoningEffort.HIGH)
         val highPayload = method.invoke(GeminiGenerateContentProvider, highConfig, JSONArray(), JSONArray(), null) as JSONObject
         val highThinking = highPayload.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
@@ -277,7 +285,7 @@ class VertexAiServiceAccountAuthTest {
         assertEquals("HIGH", highThinking.getString("thinkingLevel"))
         assertFalse(highThinking.has("thinkingBudget"))
 
-        // 3. Off 档位：仅发送 includeThoughts=false，绝不发送 thinkingBudget: 0
+        // 4. Off 档位：仅发送 includeThoughts=false，绝不发送 thinkingBudget: 0
         val offConfig = defaultConfig.copy(
             thinkingEnabled = false,
             reasoningEffort = io.github.mangi.eta.data.model.ReasoningEffort.OFF,
@@ -287,7 +295,7 @@ class VertexAiServiceAccountAuthTest {
         assertFalse(offThinking.getBoolean("includeThoughts"))
         assertFalse(offThinking.has("thinkingBudget"))
 
-        // 4. Vertex AI 生图模型不发送 outputMimeType 与 thinkingConfig
+        // 5. Vertex AI 生图模型不发送 outputMimeType 与 thinkingConfig
         val imgConfig = defaultConfig.copy(model = "gemini-nano-banana-2.1")
         val imgPayload = method.invoke(GeminiGenerateContentProvider, imgConfig, JSONArray(), JSONArray(), null) as JSONObject
         val imgGenConfig = imgPayload.getJSONObject("generationConfig")

@@ -14,7 +14,7 @@ Eta 借助 Root 与 LSPosed 越过 App 沙盒，直接进入系统底层：Hook 
 
 > [!TIP]
 > 🌟 **本分支专属核心增强速览**
-> 1. **💎 Google Gemini 双栈引擎（GenerateContent + Interactions）**：默认直接对接原生 `generateContent` 端点与 Vertex AI 服务账号 JSON，内置彩钻标识，支持 1M 超大上下文 (`gemini-3.8-flash-tiered`)、原生自适应 Thinking 预算控制（对齐 Antigravity Manager / Cherry Studio 精准阶梯）、思考签名兼容与 400 自动重试、多模态生图与 `inlineData` Base64 实时 Markdown 图片渲染，亦可选官方 Interactions API。
+> 1. **💎 Google Gemini 双栈引擎（GenerateContent + Interactions）**：默认直接对接原生 `generateContent` 端点与 Vertex AI 服务账号 JSON，内置彩钻标识，支持 1M 超大上下文 (`gemini-3.8-flash`)、原生 Thinking 控制（Gemini 3.x / 4.x 原生 `thinkingLevel` 四档阶梯与自适应模式，兼容旧版 Gemini 2.5 `thinkingBudget`）、思考签名兼容与 400 自动重试、多模态生图与 `inlineData` Base64 实时 Markdown 图片渲染，亦可选官方 Interactions API。
 > 2. **⚡ 内核管道 Zero-Copy Pipe IPC**：彻底终结 Android 1MB Binder 事务物理限制。会话历史超 32KB 自动切换为 `ParcelFileDescriptor.createPipe()` 内核流式传输，支持高达 2,000,000 字符超长上下文；智能 `user` 轮次原子裁剪边界，杜绝断头 400 语法错误。
 > 3. **🌊 ColorOS 16 / Android 16 原生流体云与实时胶囊**：全面接入 Android 16 `POST_PROMOTED_NOTIFICATIONS` 规范与 ColorOS 16 官方实况架构。在 Agent 执行构思思考、代码编辑写入、终端命令测试时，状态栏挖孔旁实时升起动态呼吸胶囊；支持锁屏磨砂卡片、AOD 静态微标、点击以 ColorOS 自由小窗弹出交互，任务完成后 5 秒优雅自动收回。
 > 4. **🔀 多会话真正并发与 Subagent 子智能体**：采用官方 `RuntimeRunRegistry`、`GuiControlCoordinator` 与 `subagent` 并发派发架构，支持内置预设（`explore`、`coder`、`plan`）、对话内临时专职角色与自定义模板（`agents/<name>.md`），并融合单次 100 步防死循环软护栏与中断阶段性结果兜底。
@@ -115,17 +115,18 @@ Runtime 同时管理流式事件、steering、取消和增量 transcript。回�
   - 位于全局提供商第 2 顺位，原生直连 Google Gemini `v1beta/models/{model}:streamGenerateContent` 端点。
   - **双重智能鉴权**：请求官方端点（`generativelanguage.googleapis.com`）时，自动采用 `x-goog-api-key` 请求头（避免 Bearer 认证被 Google 判定为 `ACCESS_TOKEN_TYPE_UNSUPPORTED`）；请求第三方代理网关（如 One API / New API / 自建反代）时，自动双向附加 `Authorization: Bearer`，无缝兼容任何中转服务。
 - **精选预置模型与前向通配**：
-  - `gemini-3.8-flash-tiered`：主力对话与 Coding 模型，拥有 **1,048,576 (1M)** 顶级上下文窗口，全面支持多模态输入与原生 Thinking。
+  - `gemini-3.8-flash`：主力对话与 Coding 模型，拥有 **1,048,576 (1M)** 顶级上下文窗口，全面支持多模态输入与原生 Thinking。
   - `gemini-3.1-flash-image` / `gemini-3-pro-image`：官方生图模型，自动加入白名单豁免，免遭文本对话过滤机制误杀。
-  - **前向通配规则**：内置 `MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})\..*""")`，自动为后续面世的 Gemini 4.x / 5.x 赋予超长窗口与多模态特权，无需等待版本更新。
-- **Google 原生 Thinking 思考预算支持**：
-  - 支持自适应思考、关闭思考以及分级阶梯控制：
-    - `自适应 (Default)`：预算传 `-1`，交由 Google 官方模型自主动态评估思考深度（推荐）。
-    - `关闭 (Off)`：预算传 `0`，零等待极速输出。
-    - `微念 / Low`：`4096` tokens
-    - `斟酌 / Medium`：`16384` tokens
-    - `沉思 / High`：`32768` tokens
-    - `极致 / Max`：`65535` tokens（严格规避 65536 溢出报错）
+  - **前向通配规则**：内置 `MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})(?:[.-].*|$)""")`，自动为后续面世的 Gemini 3.x / 4.x / 5.x 赋予超长 1M 窗口与多模态特权，无需等待版本更新。
+- **Google 原生 Thinking 深度与思考预算支持**：
+  - **Gemini 3.x / 4.x 原生 `thinkingLevel` 深度控制**（官方 API、Vertex AI 及代理网关全渠道支持）：
+    - `自适应 (Default)`：仅发送 `{"includeThoughts": true}`，不限定档位，由模型自主评估思考深度（推荐）。
+    - `微念 / Minimal`：发送 `thinkingLevel: "MINIMAL"`，轻量浅度思考。
+    - `低度 / Low`：发送 `thinkingLevel: "LOW"`。
+    - `中度 / Medium`：发送 `thinkingLevel: "MEDIUM"`（`gemini-3.8-flash` 推荐默认档位）。
+    - `深度 / High`：发送 `thinkingLevel: "HIGH"`，用于深度逻辑推理与复杂代码生成。
+    - `关闭 (Off)`：发送 `{"includeThoughts": false}`，零等待极速输出（现代模型不再下发已被废弃的 `thinkingBudget: 0`）。
+  - **Gemini 2.5 兼容支持**：针对旧版 2.5 系列保留 `thinkingBudget` 数值预算控制（`Default` 传 `-1` 自适应，`Off` 传 `0`，分级映射 `4096` / `16384` / `32768` / `65535` tokens）。
 - **多模态图像生成与 Markdown 实时渲染**：
   - 对生图模型返回的 `inlineData` 数据结构提供无缝解析，自动将原始 Base64 转换为标准 Markdown 图片语法嵌入消息流中，在聊天界面直接无缝展现精美画作。
 

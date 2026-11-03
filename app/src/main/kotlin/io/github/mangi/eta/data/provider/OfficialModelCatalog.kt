@@ -380,9 +380,9 @@ internal object OfficialModelCatalog {
 
     val curatedGeminiModels = listOf(
         officialModel(
-            id = "builtin-gemini-3.8-flash-tiered",
-            modelId = "gemini-3.8-flash-tiered",
-            displayName = "Gemini 3.8 Flash Tiered",
+            id = "builtin-gemini-3-8-flash",
+            modelId = "gemini-3.8-flash",
+            displayName = "Gemini 3.8 Flash",
             ownedBy = "google",
             inputModalities = listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY, "audio", "video"),
             outputModalities = listOf(Model.TEXT_MODALITY),

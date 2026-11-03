@@ -386,7 +386,7 @@ class AgentWebToolsTest {
             searchBackend = WebToolBackend.GEMINI,
             geminiBaseUrl = "https://generativelanguage.googleapis.com",
             geminiApiKey = "test-gemini-key",
-            geminiModel = "gemini-3.8-flash-tiered",
+            geminiModel = "gemini-3.8-flash",
         )
         AgentWebTools(WebHttpTransport(client), runtimeConfig = { config }).use { tools ->
             val result = call(tools, "web_search", JSONObject().put("query", "Kotlin Coroutines"))
@@ -400,7 +400,7 @@ class AgentWebToolsTest {
             assertEquals("https://kotlinlang.org/docs/coroutines-overview.html", first.getString("url"))
             assertEquals("Kotlin 协程是用于异步编程的轻量级线程。", first.getString("snippet"))
 
-            assertEquals("/v1beta/models/gemini-3.8-flash-tiered:streamGenerateContent", capturedPath)
+            assertEquals("/v1beta/models/gemini-3.8-flash:streamGenerateContent", capturedPath)
             assertEquals("POST", capturedMethod)
             assertEquals("text/event-stream", capturedAccept)
             assertEquals("test-gemini-key", capturedApiKey)
@@ -413,7 +413,46 @@ class AgentWebToolsTest {
             val toolObj = toolsArr.getJSONObject(0)
             assertTrue(toolObj.has("google_search"))
             assertFalse(toolObj.has("functionDeclarations"))
-            assertEquals(0, reqJson.getJSONObject("generationConfig").getJSONObject("thinkingConfig").getInt("thinkingBudget"))
+            val thinkingConfig = reqJson.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+            assertFalse(thinkingConfig.getBoolean("includeThoughts"))
+            assertFalse(thinkingConfig.has("thinkingBudget"))
+        }
+    }
+
+    @Test fun geminiSearchLegacyModelSendsThinkingBudgetZero() {
+        var capturedBody: String? = null
+        val client = OkHttpClient.Builder().addInterceptor(Interceptor { chain ->
+            val request = chain.request()
+            val buffer = Buffer()
+            request.body?.writeTo(buffer)
+            capturedBody = buffer.readUtf8()
+            val sse = "data: " + JSONObject().put(
+                "candidates",
+                JSONArray().put(
+                    JSONObject().put(
+                        "content",
+                        JSONObject().put("parts", JSONArray().put(JSONObject().put("text", "legacy result"))),
+                    ),
+                ),
+            ).toString() + "\n\n"
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")
+                .header("Content-Type", "text/event-stream")
+                .body(sse.toResponseBody()).build()
+        }).build()
+
+        val config = WebToolsRuntimeConfig(
+            searchBackend = WebToolBackend.GEMINI,
+            geminiBaseUrl = "https://generativelanguage.googleapis.com",
+            geminiApiKey = "test-gemini-key",
+            geminiModel = "gemini-2.5-flash",
+        )
+        AgentWebTools(WebHttpTransport(client), runtimeConfig = { config }).use { tools ->
+            val result = call(tools, "web_search", JSONObject().put("query", "legacy test"))
+            assertTrue(result.toString(), result.getBoolean("ok"))
+            val reqJson = JSONObject(capturedBody!!)
+            val thinkingConfig = reqJson.getJSONObject("generationConfig").getJSONObject("thinkingConfig")
+            assertFalse(thinkingConfig.getBoolean("includeThoughts"))
+            assertEquals(0, thinkingConfig.getInt("thinkingBudget"))
         }
     }
 
@@ -440,7 +479,7 @@ class AgentWebToolsTest {
             searchBackend = WebToolBackend.GEMINI,
             geminiBaseUrl = "https://gemini-proxy.example.com",
             geminiApiKey = "proxy-api-key",
-            geminiModel = "gemini-3.8-flash-tiered",
+            geminiModel = "gemini-3.8-flash",
         )
         AgentWebTools(WebHttpTransport(client), runtimeConfig = { config }).use { tools ->
             val result = call(tools, "web_search", JSONObject().put("query", "代理搜索测试"))
