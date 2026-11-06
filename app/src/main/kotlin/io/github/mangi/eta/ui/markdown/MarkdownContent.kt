@@ -586,34 +586,35 @@ private val TableMaxColumnWidth = 260.dp
 @Immutable
 private data class LoadedMarkdownImage(
     val bitmap: ImageBitmap,
-    val bytes: ByteArray,
     val mimeType: String,
 )
+
+private fun readMarkdownImageBytes(dest: String): ByteArray? = when {
+    dest.startsWith("file:", ignoreCase = true) -> {
+        runCatching {
+            File(java.net.URI(dest)).takeIf(File::isFile)?.readBytes()
+        }.getOrNull() ?: android.net.Uri.parse(dest).path?.let(::File)?.takeIf(File::isFile)?.readBytes()
+    }
+    dest.startsWith("/") -> {
+        File(dest).takeIf(File::isFile)?.readBytes()
+    }
+    dest.startsWith("data:image/", ignoreCase = true) -> {
+        val b64 = dest.substringAfter("base64,", "")
+        if (b64.isNotBlank()) {
+            runCatching { android.util.Base64.decode(b64, android.util.Base64.DEFAULT) }.getOrNull()
+        } else {
+            null
+        }
+    }
+    else -> null
+}
 
 @Composable
 private fun MarkdownImageBlock(block: MarkdownImage, scope: MarkdownRenderScope) {
     val loadedState = produceState<LoadedMarkdownImage?>(initialValue = null, key1 = block.destination) {
         value = withContext(Dispatchers.IO) {
             val dest = block.destination
-            val bytes = when {
-                dest.startsWith("file:", ignoreCase = true) -> {
-                    runCatching {
-                        File(java.net.URI(dest)).takeIf(File::isFile)?.readBytes()
-                    }.getOrNull() ?: android.net.Uri.parse(dest).path?.let(::File)?.takeIf(File::isFile)?.readBytes()
-                }
-                dest.startsWith("/") -> {
-                    File(dest).takeIf(File::isFile)?.readBytes()
-                }
-                dest.startsWith("data:image/", ignoreCase = true) -> {
-                    val b64 = dest.substringAfter("base64,", "")
-                    if (b64.isNotBlank()) {
-                        runCatching { android.util.Base64.decode(b64, android.util.Base64.DEFAULT) }.getOrNull()
-                    } else {
-                        null
-                    }
-                }
-                else -> null
-            } ?: return@withContext null
+            val bytes = readMarkdownImageBytes(dest) ?: return@withContext null
 
             val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOpts)
@@ -639,7 +640,7 @@ private fun MarkdownImageBlock(block: MarkdownImage, scope: MarkdownRenderScope)
                 dest.endsWith(".gif", ignoreCase = true) -> "image/gif"
                 else -> "image/jpeg"
             }
-            LoadedMarkdownImage(bitmap = bitmap, bytes = bytes, mimeType = mime)
+            LoadedMarkdownImage(bitmap = bitmap, mimeType = mime)
         }
     }
 
@@ -730,7 +731,7 @@ private fun MarkdownImageBlock(block: MarkdownImage, scope: MarkdownRenderScope)
                             saving = true
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
-                                    saveImageToGallery(context, loaded)
+                                    saveImageToGallery(context, block.destination, loaded.mimeType)
                                 } finally {
                                     saving = false
                                 }
@@ -745,10 +746,17 @@ private fun MarkdownImageBlock(block: MarkdownImage, scope: MarkdownRenderScope)
     }
 }
 
-private suspend fun saveImageToGallery(context: Context, image: LoadedMarkdownImage) {
+private suspend fun saveImageToGallery(context: Context, destination: String, mimeType: String) {
     try {
+        val bytes = readMarkdownImageBytes(destination)
+        if (bytes == null || bytes.isEmpty()) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
+            }
+            return
+        }
         val resolver = context.contentResolver
-        val extension = when (image.mimeType) {
+        val extension = when (mimeType) {
             "image/png" -> "png"
             "image/webp" -> "webp"
             "image/gif" -> "gif"
@@ -757,7 +765,7 @@ private suspend fun saveImageToGallery(context: Context, image: LoadedMarkdownIm
         val filename = "IMG_${System.currentTimeMillis()}.$extension"
         val values = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
-            put(MediaStore.MediaColumns.MIME_TYPE, image.mimeType)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Eta")
                 put(MediaStore.MediaColumns.IS_PENDING, 1)
@@ -773,7 +781,7 @@ private suspend fun saveImageToGallery(context: Context, image: LoadedMarkdownIm
         val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
         if (uri != null) {
             resolver.openOutputStream(uri)?.use { stream ->
-                stream.write(image.bytes)
+                stream.write(bytes)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 values.clear()

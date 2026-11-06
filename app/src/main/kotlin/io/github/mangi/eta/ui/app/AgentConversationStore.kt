@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.JsonReader
 import android.util.JsonToken
 import androidx.room.withTransaction
+import io.github.mangi.eta.agent.media.GeneratedImageStore
 import io.github.mangi.eta.agent.model.AgentConversationCodec
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.roleplay.RoleplayBinding
@@ -412,7 +413,7 @@ internal object AgentConversationStore {
                         conversationId = conversationId,
                         sortIndex = sortIndex,
                         type = TYPE_ASSISTANT,
-                        content = content,
+                        content = GeneratedImageStore.migrateInlineDataUrlsToFiles(content),
                         renderMarkdown = renderMarkdown,
                         contextTokens = usage?.contextTokens,
                         inputTokens = usage?.inputTokens,
@@ -479,7 +480,7 @@ internal object AgentConversationStore {
 
             TYPE_ASSISTANT -> AgentMessageUi(
                 id = id,
-                content = content,
+                content = GeneratedImageStore.migrateInlineDataUrlsToFiles(content),
                 isStreaming = false,
                 renderMarkdown = renderMarkdown ?: true,
                 usage = TokenUsageUi(
