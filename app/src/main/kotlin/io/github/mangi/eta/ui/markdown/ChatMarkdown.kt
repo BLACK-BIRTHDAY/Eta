@@ -41,7 +41,7 @@ internal fun StaticMarkdown(
     }.value
     if (document == null) {
         // 解析完成前以同字号原文占位，高度与最终排版接近，避免列表越界绘制。
-        Text(text = content, style = style.body, modifier = modifier)
+        Text(text = boundedMarkdownPlaceholderText(content), style = style.body, modifier = modifier)
     } else {
         MarkdownContent(document = document, style = style, modifier = modifier)
     }
@@ -131,3 +131,8 @@ internal fun StreamingMarkdown(
         },
     )
 }
+
+internal const val MAX_PLACEHOLDER_TEXT_CHARS = 4_096
+
+internal fun boundedMarkdownPlaceholderText(content: String): String =
+    if (content.length <= MAX_PLACEHOLDER_TEXT_CHARS) content else content.take(MAX_PLACEHOLDER_TEXT_CHARS)

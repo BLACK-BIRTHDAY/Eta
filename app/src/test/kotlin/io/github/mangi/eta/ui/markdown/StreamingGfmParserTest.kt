@@ -181,6 +181,102 @@ class StreamingGfmParserTest {
         assertEquals(listOf("https://example.com/docs"), originalParagraph.text.linkUrls())
     }
 
+    @Test
+    fun standaloneImageParsesIntoMarkdownImageBlock() {
+        val source = "![Generated Image](file:///tmp/img-123.jpg)"
+        val snapshot = StreamingGfmParserSession().parse(
+            source = source,
+            isComplete = true,
+        )
+
+        val block = snapshot.document.blocks.single() as MarkdownImage
+        assertEquals("Generated Image", block.alt)
+        assertEquals("file:///tmp/img-123.jpg", block.destination)
+        assertEquals(0, block.offset)
+    }
+
+    @Test
+    fun paragraphWithTextFollowedByImageSplitsIntoParagraphAndImage() {
+        val source = "说明文字 ![Generated Image](file:///tmp/img-123.jpg)"
+        val snapshot = StreamingGfmParserSession().parse(
+            source = source,
+            isComplete = true,
+        )
+
+        val blocks = snapshot.document.blocks
+        assertEquals(2, blocks.size)
+        val paragraph = blocks[0] as MarkdownParagraph
+        assertEquals("说明文字", paragraph.text.text)
+        val image = blocks[1] as MarkdownImage
+        assertEquals("Generated Image", image.alt)
+        assertEquals("file:///tmp/img-123.jpg", image.destination)
+    }
+
+    @Test
+    fun imageFollowedByTextSplitsIntoImageAndParagraph() {
+        val source = "![Generated Image](file:///tmp/img-123.jpg)\n后续文字"
+        val snapshot = StreamingGfmParserSession().parse(
+            source = source,
+            isComplete = true,
+        )
+
+        val blocks = snapshot.document.blocks
+        assertEquals(2, blocks.size)
+        val image = blocks[0] as MarkdownImage
+        assertEquals("Generated Image", image.alt)
+        assertEquals("file:///tmp/img-123.jpg", image.destination)
+        val paragraph = blocks[1] as MarkdownParagraph
+        assertEquals("后续文字", paragraph.text.text)
+    }
+
+    @Test
+    fun dataUriAndAbsolutePathImagesAreRecognizedAsMarkdownImageBlocks() {
+        val dataUri = "![Base64](data:image/png;base64,iVBORw0KGgo=)"
+        val snapData = StreamingGfmParserSession().parse(dataUri, isComplete = true)
+        val imgData = snapData.document.blocks.single() as MarkdownImage
+        assertEquals("Base64", imgData.alt)
+        assertEquals("data:image/png;base64,iVBORw0KGgo=", imgData.destination)
+
+        val absPath = "![Local](/data/user/0/img.jpg)"
+        val snapAbs = StreamingGfmParserSession().parse(absPath, isComplete = true)
+        val imgAbs = snapAbs.document.blocks.single() as MarkdownImage
+        assertEquals("Local", imgAbs.alt)
+        assertEquals("/data/user/0/img.jpg", imgAbs.destination)
+    }
+
+    @Test
+    fun remoteHttpImageRemainsInlineParagraph() {
+        val source = "![Remote Image](https://example.com/test.jpg)"
+        val snapshot = StreamingGfmParserSession().parse(source, isComplete = true)
+        val block = snapshot.document.blocks.single()
+        assertTrue(block is MarkdownParagraph)
+        assertEquals("Remote Image", (block as MarkdownParagraph).text.text)
+    }
+
+    @Test
+    fun inlineImageWithBlankAltAndLocalDestinationUsesGeneratedImageFallback() {
+        // 在表格单元格中，图片作为行内节点处理
+        val source = "| 图示 |\n| --- |\n| ![](file:///tmp/pic.jpg) |"
+        val snapshot = StreamingGfmParserSession().parse(source, isComplete = true)
+        val table = snapshot.document.blocks.single() as MarkdownTable
+        val cellText = table.rows.single().single().text.text
+        assertEquals("Generated Image", cellText)
+    }
+
+    @Test
+    fun boundedMarkdownPlaceholderTextCapsStringsExceedingLimit() {
+        val shortText = "短文本"
+        assertEquals(shortText, boundedMarkdownPlaceholderText(shortText))
+
+        val exactText = "a".repeat(MAX_PLACEHOLDER_TEXT_CHARS)
+        assertEquals(exactText, boundedMarkdownPlaceholderText(exactText))
+
+        val longText = "a".repeat(MAX_PLACEHOLDER_TEXT_CHARS + 500)
+        val bounded = boundedMarkdownPlaceholderText(longText)
+        assertEquals(MAX_PLACEHOLDER_TEXT_CHARS, bounded.length)
+        assertEquals(longText.take(MAX_PLACEHOLDER_TEXT_CHARS), bounded)
+    }
+
     private fun AnnotatedString.hasSpanCovering(
         substring: String,
         predicate: (SpanStyle) -> Boolean,

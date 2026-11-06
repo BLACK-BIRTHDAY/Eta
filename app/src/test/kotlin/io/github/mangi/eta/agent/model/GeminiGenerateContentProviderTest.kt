@@ -6,8 +6,10 @@ import io.github.mangi.eta.data.model.CustomBody
 import io.github.mangi.eta.data.model.GeminiEndpointMode
 import io.github.mangi.eta.data.model.ProviderTypes
 import io.github.mangi.eta.data.model.ReasoningEffort
+import java.io.File
 import java.io.OutputStream
 import java.net.InetSocketAddress
+import java.net.URI
 import java.util.concurrent.Executors
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -860,6 +862,180 @@ class GeminiGenerateContentProviderTest {
             server.stop(0)
             executor.shutdownNow()
         }
+    }
+
+    @Test
+    fun streamingPersistsInlineDataImageToFileUriInsteadOfBase64InContent() {
+        val pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        val inlineChunk = JSONObject().put(
+            "candidates",
+            JSONArray().put(
+                JSONObject().put(
+                    "content",
+                    JSONObject().put(
+                        "parts",
+                        JSONArray().put(
+                            JSONObject().put(
+                                "inlineData",
+                                JSONObject()
+                                    .put("mimeType", "image/png")
+                                    .put("data", pngBase64)
+                            )
+                        )
+                    )
+                ).put("finishReason", "STOP")
+            )
+        )
+
+        withSseServer(
+            writeBody = { output ->
+                output.write("data: $inlineChunk\n\n".toByteArray())
+                output.write("data: [DONE]\n\n".toByteArray())
+                output.flush()
+            }
+        ) { baseUrl ->
+            val request = ProviderRequest(
+                config = AgentModelClient.ModelConfig(
+                    providerSourceType = "gemini",
+                    baseUrl = baseUrl,
+                    apiKey = "test-key",
+                    model = "imagen-3.0-generate-002",
+                    systemPrompt = "",
+                ),
+                messages = JSONArray().put(JSONObject().put("role", "user").put("content", "生成图片")),
+                tools = JSONArray()
+            )
+
+            val response = GeminiGenerateContentProvider.complete(request, AgentRunController()) {}
+            val assistant = response.assistantMessage
+            val content = assistant.optString("content")
+
+            assertTrue("Content should contain markdown image with file URI: $content", content.contains("![Generated Image](file:"))
+            assertFalse("Content must NOT contain raw base64 data: $content", content.contains(pngBase64))
+
+            val fileUriStr = Regex("""!\[Generated Image]\((file:[^)]+)\)""").find(content)?.groupValues?.get(1)
+            assertTrue("Should match file URI", fileUriStr != null)
+            val file = File(URI(fileUriStr!!))
+            assertTrue("Persisted image file should exist", file.exists())
+            assertTrue("Persisted image file should not be empty", file.length() > 0)
+        }
+    }
+
+    @Test
+    fun oversizedThoughtSignatureIsDroppedDuringStreaming() {
+        val oversizedSig = "A".repeat(70_000)
+        val chunk = JSONObject().put(
+            "candidates",
+            JSONArray().put(
+                JSONObject().put(
+                    "thoughtSignature", oversizedSig
+                ).put(
+                    "content",
+                    JSONObject().put(
+                        "parts",
+                        JSONArray().put(
+                            JSONObject()
+                                .put("thought", true)
+                                .put("text", "正在思考...")
+                                .put("thoughtSignature", oversizedSig)
+                        ).put(
+                            JSONObject().put("text", "回答完毕")
+                        )
+                    )
+                ).put("finishReason", "STOP")
+            )
+        )
+
+        withSseServer(
+            writeBody = { output ->
+                output.write("data: $chunk\n\n".toByteArray())
+                output.write("data: [DONE]\n\n".toByteArray())
+                output.flush()
+            }
+        ) { baseUrl ->
+            val request = ProviderRequest(
+                config = AgentModelClient.ModelConfig(
+                    providerSourceType = "gemini",
+                    baseUrl = baseUrl,
+                    apiKey = "test-key",
+                    model = "gemini-3.8-flash",
+                    systemPrompt = "",
+                ),
+                messages = JSONArray().put(JSONObject().put("role", "user").put("content", "测试超长签名")),
+                tools = JSONArray()
+            )
+
+            val response = GeminiGenerateContentProvider.complete(request, AgentRunController()) {}
+            val assistant = response.assistantMessage
+
+            assertFalse("Oversized thoughtSignature should be dropped from assistant", assistant.has("thoughtSignature"))
+            assertFalse("Oversized thought_signature should be dropped from assistant", assistant.has("thought_signature"))
+        }
+    }
+
+    @Test
+    fun isImageGenerationModelOmitsToolsAndToolConfigInBuildRequestJson() {
+        val tools = JSONArray("""[
+            {
+                "type": "function",
+                "function": {
+                    "name": "search",
+                    "parameters": { "type": "object" }
+                }
+            }
+        ]""")
+
+        val imageConfig = AgentModelClient.ModelConfig(
+            providerSourceType = "gemini",
+            baseUrl = "https://generativelanguage.googleapis.com",
+            apiKey = "test-key",
+            model = "imagen-3.0-generate-002",
+            systemPrompt = "",
+            hostedWebSearchEnabled = true,
+        )
+
+        val request = GeminiGenerateContentProvider.buildRequestJson(
+            config = imageConfig,
+            tools = tools,
+        )
+
+        assertFalse("Image generation model must NOT attach tools", request.has("tools"))
+        assertFalse("Image generation model must NOT attach toolConfig", request.has("toolConfig"))
+
+        // Also test nano-banana model
+        val nanoBananaConfig = imageConfig.copy(model = "gemini-nano-banana")
+        val nanoRequest = GeminiGenerateContentProvider.buildRequestJson(
+            config = nanoBananaConfig,
+            tools = tools,
+        )
+        assertFalse("nano-banana model must NOT attach tools", nanoRequest.has("tools"))
+        assertFalse("nano-banana model must NOT attach toolConfig", nanoRequest.has("toolConfig"))
+    }
+
+    @Test
+    fun multiTurnConvertAssistantContentSanitizesMarkdownImagesForContext() {
+        val message = JSONObject()
+            .put("role", "assistant")
+            .put(
+                "content",
+                "这是生成的结果：\n\n![Generated Image](file:///data/user/0/io.github.mangi.eta/files/generated_images/img-123.png)\n\n" +
+                    "历史图片：![Old Chart](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==)"
+            )
+
+        val parts = GeminiGenerateContentProvider.convertAssistantContent(
+            message = message,
+            model = "gemini-3.8-flash",
+        )
+
+        assertEquals(1, parts.length())
+        val textPart = parts.getJSONObject(0)
+        val text = textPart.getString("text")
+
+        assertTrue("Should contain [Generated Image]: $text", text.contains("[Generated Image]"))
+        assertTrue("Should contain [Generated Image: Old Chart]: $text", text.contains("[Generated Image: Old Chart]"))
+        assertFalse("Must NOT contain file: URI: $text", text.contains("file:"))
+        assertFalse("Must NOT contain data:image/ URI: $text", text.contains("data:image/"))
+        assertFalse("Must NOT contain base64: $text", text.contains("base64"))
     }
 
     private fun providerRequest(baseUrl: String): ProviderRequest =

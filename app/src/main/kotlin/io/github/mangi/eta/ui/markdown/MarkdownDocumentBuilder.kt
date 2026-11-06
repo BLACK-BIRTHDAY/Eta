@@ -33,18 +33,20 @@ internal class MarkdownDocumentBuilder {
         }
         val converter = BlockConverter(source, links, style)
         val nextCache = HashMap<Int, CachedBlock>()
-        val blocks = root.children.mapNotNull { node ->
+        val blocks = root.children.flatMap { node ->
             val slice = source.substring(node.startOffset, node.endOffset)
-            val reused = cache[node.startOffset]?.takeIf { it.source == slice }?.block
-            val block = reused ?: converter.convert(node) ?: return@mapNotNull null
-            nextCache[node.startOffset] = CachedBlock(slice, block)
-            block
+            val reused = cache[node.startOffset]?.takeIf { it.source == slice }?.blocks
+            val nodeBlocks = reused ?: converter.convert(node)
+            if (nodeBlocks.isNotEmpty()) {
+                nextCache[node.startOffset] = CachedBlock(slice, nodeBlocks)
+            }
+            nodeBlocks
         }
         cache = nextCache
         return MarkdownDocument(blocks = blocks, revealKeys = blocks.revealKeys(), inlineStyle = style)
     }
 
-    private class CachedBlock(val source: String, val block: MarkdownBlock)
+    private class CachedBlock(val source: String, val blocks: List<MarkdownBlock>)
 }
 
 private class BlockConverter(
@@ -52,49 +54,109 @@ private class BlockConverter(
     private val links: LinkMap?,
     private val style: MarkdownInlineStyle,
 ) {
-    fun convert(node: ASTNode): MarkdownBlock? = when (node.type) {
+    fun convert(node: ASTNode): List<MarkdownBlock> = when (node.type) {
         MarkdownTokenTypes.EOL,
         MarkdownTokenTypes.WHITE_SPACE,
         MarkdownTokenTypes.BLOCK_QUOTE,
         MarkdownElementTypes.LINK_DEFINITION,
-        -> null
+        -> emptyList()
 
         MarkdownElementTypes.PARAGRAPH -> paragraph(node)
-        MarkdownElementTypes.ATX_1 -> heading(node, 1, MarkdownTokenTypes.ATX_CONTENT)
-        MarkdownElementTypes.ATX_2 -> heading(node, 2, MarkdownTokenTypes.ATX_CONTENT)
-        MarkdownElementTypes.ATX_3 -> heading(node, 3, MarkdownTokenTypes.ATX_CONTENT)
-        MarkdownElementTypes.ATX_4 -> heading(node, 4, MarkdownTokenTypes.ATX_CONTENT)
-        MarkdownElementTypes.ATX_5 -> heading(node, 5, MarkdownTokenTypes.ATX_CONTENT)
-        MarkdownElementTypes.ATX_6 -> heading(node, 6, MarkdownTokenTypes.ATX_CONTENT)
-        MarkdownElementTypes.SETEXT_1 -> heading(node, 1, MarkdownTokenTypes.SETEXT_CONTENT)
-        MarkdownElementTypes.SETEXT_2 -> heading(node, 2, MarkdownTokenTypes.SETEXT_CONTENT)
-        MarkdownElementTypes.CODE_FENCE -> codeFence(node)
-        MarkdownElementTypes.CODE_BLOCK -> indentedCode(node)
-        MarkdownElementTypes.BLOCK_QUOTE -> MarkdownQuote(node.startOffset, children(node))
-        GFMElementTypes.ALERT -> alert(node)
-        MarkdownElementTypes.UNORDERED_LIST -> list(node, ordered = false)
-        MarkdownElementTypes.ORDERED_LIST -> list(node, ordered = true)
-        GFMElementTypes.TABLE -> table(node)
-        MarkdownTokenTypes.HORIZONTAL_RULE -> MarkdownRule(node.startOffset)
+        MarkdownElementTypes.ATX_1 -> listOf(heading(node, 1, MarkdownTokenTypes.ATX_CONTENT))
+        MarkdownElementTypes.ATX_2 -> listOf(heading(node, 2, MarkdownTokenTypes.ATX_CONTENT))
+        MarkdownElementTypes.ATX_3 -> listOf(heading(node, 3, MarkdownTokenTypes.ATX_CONTENT))
+        MarkdownElementTypes.ATX_4 -> listOf(heading(node, 4, MarkdownTokenTypes.ATX_CONTENT))
+        MarkdownElementTypes.ATX_5 -> listOf(heading(node, 5, MarkdownTokenTypes.ATX_CONTENT))
+        MarkdownElementTypes.ATX_6 -> listOf(heading(node, 6, MarkdownTokenTypes.ATX_CONTENT))
+        MarkdownElementTypes.SETEXT_1 -> listOf(heading(node, 1, MarkdownTokenTypes.SETEXT_CONTENT))
+        MarkdownElementTypes.SETEXT_2 -> listOf(heading(node, 2, MarkdownTokenTypes.SETEXT_CONTENT))
+        MarkdownElementTypes.CODE_FENCE -> listOf(codeFence(node))
+        MarkdownElementTypes.CODE_BLOCK -> listOf(indentedCode(node))
+        MarkdownElementTypes.BLOCK_QUOTE -> listOf(MarkdownQuote(node.startOffset, children(node)))
+        GFMElementTypes.ALERT -> listOf(alert(node))
+        MarkdownElementTypes.UNORDERED_LIST -> listOf(list(node, ordered = false))
+        MarkdownElementTypes.ORDERED_LIST -> listOf(list(node, ordered = true))
+        GFMElementTypes.TABLE -> listOfNotNull(table(node))
+        MarkdownTokenTypes.HORIZONTAL_RULE -> listOf(MarkdownRule(node.startOffset))
         // 未支持的块（HTML 块等）按原文显示：宁可露出标记，也不能让内容凭空消失。
-        else -> raw(node)
+        else -> listOfNotNull(raw(node))
     }
 
-    private fun children(node: ASTNode): List<MarkdownBlock> = node.children.mapNotNull(::convert)
+    private fun children(node: ASTNode): List<MarkdownBlock> = node.children.flatMap(::convert)
 
-    private fun paragraph(node: ASTNode): MarkdownBlock? {
+    private fun paragraph(node: ASTNode): List<MarkdownBlock> {
         val meaningful = node.children.filterNot { it.isWhitespaceLike() }
         val math = meaningful.singleOrNull()?.takeIf { it.type == GFMElementTypes.BLOCK_MATH }
         if (math != null) {
-            return MarkdownCode(
-                offset = node.startOffset,
-                language = MATH_LANGUAGE,
-                text = AnnotatedString(mathSource(math)),
-                isMath = true,
+            return listOf(
+                MarkdownCode(
+                    offset = node.startOffset,
+                    language = MATH_LANGUAGE,
+                    text = AnnotatedString(mathSource(math)),
+                    isMath = true,
+                ),
             )
         }
-        val text = inline(node.children)
-        return if (text.isEmpty()) null else MarkdownParagraph(node.startOffset, text)
+        val hasRenderableImage = node.children.any { child ->
+            child.type == MarkdownElementTypes.IMAGE && isRenderableImage(child)
+        }
+        if (!hasRenderableImage) {
+            val text = inline(node.children)
+            return if (text.isEmpty()) emptyList() else listOf(MarkdownParagraph(node.startOffset, text))
+        }
+
+        val result = mutableListOf<MarkdownBlock>()
+        val currentSlice = mutableListOf<ASTNode>()
+
+        fun flushSlice() {
+            if (currentSlice.isEmpty()) return
+            val firstMeaningful = currentSlice.indexOfFirst { !it.isWhitespaceLike() }
+            if (firstMeaningful == -1) {
+                currentSlice.clear()
+                return
+            }
+            val lastMeaningful = currentSlice.indexOfLast { !it.isWhitespaceLike() }
+            val trimmedSlice = currentSlice.subList(firstMeaningful, lastMeaningful + 1)
+            val text = inline(trimmedSlice)
+            if (text.isNotEmpty()) {
+                result += MarkdownParagraph(trimmedSlice.first().startOffset, text)
+            }
+            currentSlice.clear()
+        }
+
+        for (child in node.children) {
+            if (child.type == MarkdownElementTypes.IMAGE && isRenderableImage(child)) {
+                flushSlice()
+                val dest = extractImageDestination(child) ?: ""
+                val alt = extractImageAlt(child)
+                result += MarkdownImage(offset = child.startOffset, destination = dest, alt = alt)
+            } else {
+                currentSlice += child
+            }
+        }
+        flushSlice()
+        return result
+    }
+
+    private fun isRenderableImage(node: ASTNode): Boolean {
+        val destination = extractImageDestination(node) ?: return false
+        return destination.startsWith("file:", ignoreCase = true) ||
+            destination.startsWith("/") ||
+            destination.startsWith("data:image/", ignoreCase = true)
+    }
+
+    private fun extractImageDestination(node: ASTNode): String? {
+        val link = node.child(MarkdownElementTypes.INLINE_LINK) ?: return null
+        return link.child(MarkdownElementTypes.LINK_DESTINATION)?.text()
+            ?.removeSurrounding("<", ">")
+            ?.trim()
+    }
+
+    private fun extractImageAlt(node: ASTNode): String {
+        val link = node.child(MarkdownElementTypes.INLINE_LINK) ?: return ""
+        return link.child(MarkdownElementTypes.LINK_TEXT)?.text()
+            ?.removeSurrounding("[", "]")
+            .orEmpty()
     }
 
     private fun heading(node: ASTNode, level: Int, contentType: org.intellij.markdown.IElementType): MarkdownBlock {
@@ -143,7 +205,7 @@ private class BlockConverter(
             "CAUTION" -> MarkdownAlertKind.Caution
             else -> MarkdownAlertKind.Note
         }
-        val blocks = node.children.filterNot { it.type == GFMTokenTypes.ALERT_TITLE }.mapNotNull(::convert)
+        val blocks = node.children.filterNot { it.type == GFMTokenTypes.ALERT_TITLE }.flatMap(::convert)
         return MarkdownAlert(node.startOffset, kind, blocks)
     }
 
@@ -156,12 +218,12 @@ private class BlockConverter(
             null
         }
         val items = itemNodes.mapIndexed { index, item ->
-            val blocks = item.children.mapNotNull { child ->
+            val blocks = item.children.flatMap { child ->
                 when (child.type) {
                     MarkdownTokenTypes.LIST_BULLET,
                     MarkdownTokenTypes.LIST_NUMBER,
                     GFMTokenTypes.CHECK_BOX,
-                    -> null
+                    -> emptyList()
                     else -> convert(child)
                 }
             }
@@ -259,6 +321,7 @@ internal fun List<MarkdownBlock>.revealKeys(): Set<RevealBlockKey> = buildSet {
             is MarkdownList -> block.items.forEach { item -> item.blocks.forEach(::collect) }
             is MarkdownTable -> (block.header + block.rows.flatten()).forEach(::collect)
             is MarkdownRule -> Unit
+            is MarkdownImage -> Unit
         }
     }
     this@revealKeys.forEach(::collect)
@@ -274,6 +337,7 @@ private fun List<MarkdownBlock>.firstRevealKey(): RevealBlockKey? = asSequence()
             is MarkdownList -> block.items.firstOrNull()?.markerRevealKey
             is MarkdownTable -> block.header.firstOrNull { it.text.isNotEmpty() }?.revealKey
             is MarkdownRule -> null
+            is MarkdownImage -> null
         }
     }
     .firstOrNull()

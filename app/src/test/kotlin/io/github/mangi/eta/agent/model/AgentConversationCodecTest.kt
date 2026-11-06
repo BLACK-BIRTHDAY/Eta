@@ -128,4 +128,68 @@ class AgentConversationCodecTest {
         assertFalse(encoded.contains("opaque-secret"))
         assertFalse(encoded.contains("_eta_responses_output_items"))
     }
+
+    @Test
+    fun oversizedThoughtSignatureIsDroppedInDurableMessage() {
+        val oversizedSig = "A".repeat(70_000)
+        val assistant = JSONObject()
+            .put("role", "assistant")
+            .put("content", "完成任务")
+            .put("thoughtSignature", oversizedSig)
+
+        val durable = AgentConversationCodec.durableMessage(assistant)
+        assertEquals("", durable.thoughtSignature)
+
+        // Normal signature is preserved
+        val normalSig = "NormalSig123"
+        val normalAssistant = JSONObject()
+            .put("role", "assistant")
+            .put("content", "完成任务")
+            .put("thoughtSignature", normalSig)
+
+        val normalDurable = AgentConversationCodec.durableMessage(normalAssistant)
+        assertEquals(normalSig, normalDurable.thoughtSignature)
+    }
+
+    @Test
+    fun durableMessageMigratesInlineDataUrlsToFiles() {
+        val pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        val assistant = JSONObject()
+            .put("role", "assistant")
+            .put("content", "请看图片：\n\n![Generated Image](data:image/png;base64,$pngBase64)")
+
+        val durable = AgentConversationCodec.durableMessage(assistant)
+        assertTrue("Content should contain file: URI: ${durable.content}", durable.content.contains("![Generated Image](file:"))
+        assertFalse("Content must NOT contain base64: ${durable.content}", durable.content.contains("base64"))
+    }
+
+    @Test
+    fun toJsonObjectReplacesMarkdownImagesWithGeneratedImagePlaceholderForAssistant() {
+        val message = AgentModelClient.ConversationMessage(
+            role = "assistant",
+            content = "生成的图：![Generated Image](file:///tmp/generated_images/img-123.png) 以及 ![Custom Plot](data:image/png;base64,ABCDEF) 和说明",
+            contentJson = "",
+        )
+
+        val json = AgentConversationCodec.toJsonObject(message)
+        val content = json.getString("content")
+
+        assertTrue("Should contain [Generated Image]: $content", content.contains("[Generated Image]"))
+        assertTrue("Should contain [Generated Image: Custom Plot]: $content", content.contains("[Generated Image: Custom Plot]"))
+        assertFalse("Must NOT contain file: URI: $content", content.contains("file:"))
+        assertFalse("Must NOT contain data:image/ URI: $content", content.contains("data:image/"))
+        assertFalse("Must NOT contain ABCDEF: $content", content.contains("ABCDEF"))
+    }
+
+    @Test
+    fun toJsonObjectPreservesUserMarkdownImages() {
+        val message = AgentModelClient.ConversationMessage(
+            role = "user",
+            content = "用户消息 ![User Photo](file:///path/photo.png)",
+            contentJson = "",
+        )
+
+        val json = AgentConversationCodec.toJsonObject(message)
+        assertEquals("用户消息 ![User Photo](file:///path/photo.png)", json.getString("content"))
+    }
 }

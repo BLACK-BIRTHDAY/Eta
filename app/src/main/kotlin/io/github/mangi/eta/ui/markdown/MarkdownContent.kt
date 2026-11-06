@@ -1,20 +1,35 @@
 package io.github.mangi.eta.ui.markdown
 
+import android.content.ContentValues
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckBox
@@ -33,19 +48,26 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -59,10 +81,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.github.mangi.eta.R
+import io.github.mangi.eta.ui.components.EtaTextButton
 import io.github.mangi.eta.ui.components.StatusSuccess
 import io.github.mangi.eta.ui.components.StatusWarning
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
@@ -70,6 +99,7 @@ import top.yukonga.miuix.kmp.squircle.squircleBorder
 import top.yukonga.miuix.kmp.squircle.squircleClip
 import top.yukonga.miuix.kmp.squircle.squircleSurface
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import java.io.File
 
 /**
  * 绘制一份已解析的 [MarkdownDocument]。
@@ -146,6 +176,7 @@ private fun MarkdownBlockView(block: MarkdownBlock, scope: MarkdownRenderScope) 
                 .height(0.5.dp)
                 .background(scope.style.dividerColor),
         )
+        is MarkdownImage -> MarkdownImageBlock(block, scope)
     }
 }
 
@@ -549,3 +580,217 @@ private val MarkdownColumnAlign.textAlign: TextAlign
 
 private val TableMinColumnWidth = 72.dp
 private val TableMaxColumnWidth = 260.dp
+
+// ── 图片 ────────────────────────────────────────────────────────────────
+
+@Immutable
+private data class LoadedMarkdownImage(
+    val bitmap: ImageBitmap,
+    val bytes: ByteArray,
+    val mimeType: String,
+)
+
+@Composable
+private fun MarkdownImageBlock(block: MarkdownImage, scope: MarkdownRenderScope) {
+    val loadedState = produceState<LoadedMarkdownImage?>(initialValue = null, key1 = block.destination) {
+        value = withContext(Dispatchers.IO) {
+            val dest = block.destination
+            val bytes = when {
+                dest.startsWith("file:", ignoreCase = true) -> {
+                    runCatching {
+                        File(java.net.URI(dest)).takeIf(File::isFile)?.readBytes()
+                    }.getOrNull() ?: android.net.Uri.parse(dest).path?.let(::File)?.takeIf(File::isFile)?.readBytes()
+                }
+                dest.startsWith("/") -> {
+                    File(dest).takeIf(File::isFile)?.readBytes()
+                }
+                dest.startsWith("data:image/", ignoreCase = true) -> {
+                    val b64 = dest.substringAfter("base64,", "")
+                    if (b64.isNotBlank()) {
+                        runCatching { android.util.Base64.decode(b64, android.util.Base64.DEFAULT) }.getOrNull()
+                    } else {
+                        null
+                    }
+                }
+                else -> null
+            } ?: return@withContext null
+
+            val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOpts)
+            val outWidth = boundsOpts.outWidth
+            val outHeight = boundsOpts.outHeight
+            if (outWidth <= 0 || outHeight <= 0) return@withContext null
+
+            var sampleSize = 1
+            val maxDim = maxOf(outWidth, outHeight)
+            while (maxDim / sampleSize > 2048) {
+                sampleSize *= 2
+            }
+            val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, decodeOpts)?.asImageBitmap()
+                ?: return@withContext null
+
+            val mime = boundsOpts.outMimeType?.takeIf(String::isNotBlank) ?: when {
+                dest.startsWith("data:image/", ignoreCase = true) -> {
+                    dest.substringAfter("data:").substringBefore(";", "image/png").trim()
+                }
+                dest.endsWith(".png", ignoreCase = true) -> "image/png"
+                dest.endsWith(".webp", ignoreCase = true) -> "image/webp"
+                dest.endsWith(".gif", ignoreCase = true) -> "image/gif"
+                else -> "image/jpeg"
+            }
+            LoadedMarkdownImage(bitmap = bitmap, bytes = bytes, mimeType = mime)
+        }
+    }
+
+    val loaded = loadedState.value
+    if (loaded == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(scope.style.codeBackground),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = block.alt.ifBlank { "图片加载中…" },
+                style = scope.style.body,
+                color = scope.style.secondaryColor,
+            )
+        }
+        return
+    }
+
+    var showFullscreen by remember { mutableStateOf(false) }
+    val rawRatio = if (loaded.bitmap.height > 0) {
+        loaded.bitmap.width.toFloat() / loaded.bitmap.height.toFloat()
+    } else {
+        1f
+    }
+    val aspectRatio = rawRatio.coerceIn(0.4f, 2.5f)
+
+    Box(
+        modifier = Modifier
+            .heightIn(max = 360.dp)
+            .aspectRatio(aspectRatio)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { showFullscreen = true },
+    ) {
+        Image(
+            bitmap = loaded.bitmap,
+            contentDescription = block.alt.ifBlank { null },
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+
+    if (showFullscreen) {
+        val context = LocalContext.current
+        val coroutineScope = rememberCoroutineScope()
+        var saving by remember { mutableStateOf(false) }
+
+        Dialog(
+            onDismissRequest = { showFullscreen = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.94f)),
+            ) {
+                Image(
+                    bitmap = loaded.bitmap,
+                    contentDescription = block.alt.ifBlank { null },
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 80.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { showFullscreen = false },
+                )
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    EtaTextButton(
+                        text = "关闭",
+                        onClick = { showFullscreen = false },
+                        modifier = Modifier.weight(1f),
+                    )
+                    EtaTextButton(
+                        text = if (saving) "保存中…" else "保存到相册",
+                        enabled = !saving,
+                        onClick = {
+                            saving = true
+                            coroutineScope.launch(Dispatchers.IO) {
+                                try {
+                                    saveImageToGallery(context, loaded)
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private suspend fun saveImageToGallery(context: Context, image: LoadedMarkdownImage) {
+    try {
+        val resolver = context.contentResolver
+        val extension = when (image.mimeType) {
+            "image/png" -> "png"
+            "image/webp" -> "webp"
+            "image/gif" -> "gif"
+            else -> "jpg"
+        }
+        val filename = "IMG_${System.currentTimeMillis()}.$extension"
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+            put(MediaStore.MediaColumns.MIME_TYPE, image.mimeType)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/Eta")
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            } else {
+                @Suppress("DEPRECATION")
+                val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+                val etaDir = File(picturesDir, "Eta").apply { mkdirs() }
+                val targetFile = File(etaDir, filename)
+                @Suppress("DEPRECATION")
+                put(MediaStore.MediaColumns.DATA, targetFile.absolutePath)
+            }
+        }
+        val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+        if (uri != null) {
+            resolver.openOutputStream(uri)?.use { stream ->
+                stream.write(image.bytes)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                values.clear()
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+            }
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "已保存到相册", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "保存失败", Toast.LENGTH_SHORT).show()
+            }
+        }
+    } catch (e: Exception) {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, "保存失败: ${e.message ?: "未知错误"}", Toast.LENGTH_SHORT).show()
+        }
+    }
+}

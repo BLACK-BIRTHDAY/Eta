@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.model
 
+import io.github.mangi.eta.agent.media.GeneratedImageStore
 import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.runtime.AgentTokenUsage
 import io.github.mangi.eta.agent.runtime.SearchSuggestionsPayload
@@ -17,7 +18,11 @@ import org.json.JSONObject
 
 internal object GeminiGenerateContentProvider : AgentProviderClient {
     private const val MAX_ERROR_CHARS = 600
+    internal const val MAX_THOUGHT_SIGNATURE_CHARS = 65_536
     private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
+
+    private fun isValidThoughtSignature(sig: String): Boolean =
+        sig.isNotBlank() && sig != "skip_thought_signature_validator" && sig.length <= MAX_THOUGHT_SIGNATURE_CHARS
 
     override val id: String = "gemini_generate_content"
 
@@ -372,21 +377,23 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                 }
                 val isOfficialGoogle = config.baseUrl.contains("generativelanguage.googleapis.com", ignoreCase = true)
                 val toolsArray = JSONArray()
-                convertTools(tools)?.let { toolsArray.put(it) }
-                if (config.hostedWebSearchEnabled && !ignoreHostedWebSearch && !hasGoogleSearchTool(toolsArray)) {
-                    if (toolsArray.length() == 0 || isOfficialGoogle) {
-                        toolsArray.put(JSONObject().put("google_search", JSONObject()))
+                if (!isImageGenerationModel) {
+                    convertTools(tools)?.let { toolsArray.put(it) }
+                    if (config.hostedWebSearchEnabled && !ignoreHostedWebSearch && !hasGoogleSearchTool(toolsArray)) {
+                        if (toolsArray.length() == 0 || isOfficialGoogle) {
+                            toolsArray.put(JSONObject().put("google_search", JSONObject()))
+                        }
                     }
-                }
-                if (toolsArray.length() > 0) {
-                    root.put("tools", toolsArray)
-                }
-                if (tools.length() > 0) {
-                    val toolConfig = JSONObject().put("functionCallingConfig", JSONObject().put("mode", "AUTO"))
-                    if (isOfficialGoogle && hasGoogleSearchTool(toolsArray)) {
-                        toolConfig.put("includeServerSideToolInvocations", true)
+                    if (toolsArray.length() > 0) {
+                        root.put("tools", toolsArray)
                     }
-                    root.put("toolConfig", toolConfig)
+                    if (tools.length() > 0) {
+                        val toolConfig = JSONObject().put("functionCallingConfig", JSONObject().put("mode", "AUTO"))
+                        if (isOfficialGoogle && hasGoogleSearchTool(toolsArray)) {
+                            toolConfig.put("includeServerSideToolInvocations", true)
+                        }
+                        root.put("toolConfig", toolConfig)
+                    }
                 }
                 config.maxOutputTokens?.takeIf { it > 0 }?.let { generationConfig.put("maxOutputTokens", it) }
                 root.put("generationConfig", generationConfig)
@@ -414,7 +421,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
     private fun extractThoughtSignature(message: JSONObject): String? {
         val direct = message.optString("thoughtSignature")
             .ifBlank { message.optString("thought_signature") }
-            .takeIf { it.isNotBlank() && it != "skip_thought_signature_validator" }
+            .takeIf(::isValidThoughtSignature)
         if (!direct.isNullOrBlank()) return direct
 
         val toolCalls = message.optJSONArray("tool_calls") ?: return null
@@ -422,7 +429,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
             val tc = toolCalls.optJSONObject(i) ?: continue
             val s = tc.optString("thoughtSignature")
                 .ifBlank { tc.optString("thought_signature") }
-            if (s.isNotBlank() && s != "skip_thought_signature_validator") {
+            if (isValidThoughtSignature(s)) {
                 return s
             }
         }
@@ -502,7 +509,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                 } else {
                     val directTcSig = toolCall.optString("thoughtSignature")
                         .ifBlank { toolCall.optString("thought_signature") }
-                        .takeIf { it.isNotBlank() && it != "skip_thought_signature_validator" }
+                        .takeIf(::isValidThoughtSignature)
                         ?.takeIf { model.isBlank() || isCompatibleThoughtSignature(it, isVertexEndpoint, model) }
 
                     directTcSig
@@ -521,9 +528,10 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         // 4. 普通文本：
         // 若无工具调用，普通文本即为权威锚点，携带签名；
         // 若有工具调用，普通文本作为动作意图附注排在工具调用之后，不抢占锚点位置。
-        val text = providerMessageText(message.opt("content"))
+        val rawText = providerMessageText(message.opt("content"))
             .takeIf { it.isNotBlank() && it != "null" }
-        if (text != null) {
+        if (rawText != null) {
+            val text = GeneratedImageStore.sanitizeMarkdownImagesForContext(rawText)
             val textPart = JSONObject().put("text", text)
             if (!hasToolCalls && !ignoreThoughtSignatures && !rawSig.isNullOrBlank()) {
                 textPart.put("thoughtSignature", rawSig)
@@ -540,7 +548,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
         model: String,
     ): Boolean {
         val trimmed = sig.trim()
-        if (trimmed.isBlank() || trimmed == "skip_thought_signature_validator") return false
+        if (!isValidThoughtSignature(trimmed)) return false
         val canonicalModel = VertexAiServiceAccountAuth.normalizeVertexModelId(model).lowercase()
         val isVertexGemini4 = isVertexEndpoint && (canonicalModel.startsWith("gemini-4") || canonicalModel.contains("gemini-4"))
         return if (isVertexGemini4) {
@@ -750,7 +758,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                 candidate.optString("finishReason").ifBlank { null }?.let { finishReason = it }
                 val candidateSig = candidate.optString("thoughtSignature")
                     .ifBlank { candidate.optString("thought_signature") }
-                if (candidateSig.isNotBlank() && candidateSig != "skip_thought_signature_validator") {
+                if (isValidThoughtSignature(candidateSig)) {
                     turnThoughtSignature = candidateSig
                 }
 
@@ -838,7 +846,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     val part = parts.optJSONObject(p) ?: continue
                     val partSig = part.optString("thoughtSignature")
                         .ifBlank { part.optString("thought_signature") }
-                    if (partSig.isNotBlank() && partSig != "skip_thought_signature_validator") {
+                    if (isValidThoughtSignature(partSig)) {
                         turnThoughtSignature = partSig
                     }
                     val text = part.optString("text")
@@ -861,7 +869,8 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                         val mimeType = inlineData.optString("mimeType").ifBlank { inlineData.optString("mime_type") }
                         val imgData = inlineData.optString("data")
                         if (mimeType.isNotBlank() && imgData.isNotBlank()) {
-                            val imgMd = "\n\n![Generated Image](data:$mimeType;base64,$imgData)\n\n"
+                            val imageUri = GeneratedImageStore.persistBase64(mimeType, imgData)
+                            val imgMd = if (imageUri != null) "\n\n![Generated Image]($imageUri)\n\n" else "\n\n[Generated Image]\n\n"
                             ensureBlock(AssistantBlockKind.TEXT)
                             fullText.append(imgMd)
                             onEvent(ProviderEvent.BlockDelta(kind = AssistantBlockKind.TEXT, index = blockIndex, delta = imgMd))
@@ -895,19 +904,19 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                             part.optString("thoughtSignature")
                                 .ifBlank { part.optString("thought_signature") }
                         }
-                        if (thoughtSig.isBlank() || thoughtSig == "skip_thought_signature_validator") {
+                        if (!isValidThoughtSignature(thoughtSig)) {
                             for (sp in 0 until parts.length()) {
                                 val item = parts.optJSONObject(sp) ?: continue
                                 val candidateCandidate = item.optString("thoughtSignature")
                                     .ifBlank { item.optString("thought_signature") }
-                                if (candidateCandidate.isNotBlank() && candidateCandidate != "skip_thought_signature_validator") {
+                                if (isValidThoughtSignature(candidateCandidate)) {
                                     thoughtSig = candidateCandidate
                                     turnThoughtSignature = candidateCandidate
                                     break
                                 }
                             }
                         }
-                        val effectiveSig = thoughtSig.takeIf { it.isNotBlank() && it != "skip_thought_signature_validator" }
+                        val effectiveSig = thoughtSig.takeIf(::isValidThoughtSignature)
                         val toolCallId = "call_${toolCalls.length()}_${System.currentTimeMillis()}"
                         val toolCall = JSONObject()
                             .put("id", toolCallId)
@@ -959,7 +968,7 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                     assistant.put("reasoning", fullReasoning.toString())
                     assistant.put("reasoning_content", fullReasoning.toString())
                 }
-                if (turnThoughtSignature.isNotBlank() && turnThoughtSignature != "skip_thought_signature_validator") {
+                if (isValidThoughtSignature(turnThoughtSignature)) {
                     assistant.put("thoughtSignature", turnThoughtSignature)
                     assistant.put("thought_signature", turnThoughtSignature)
                 }

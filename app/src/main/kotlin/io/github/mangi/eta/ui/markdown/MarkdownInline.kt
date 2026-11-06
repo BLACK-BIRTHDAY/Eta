@@ -326,7 +326,15 @@ internal class MarkdownInlineBuilder(
         val link = node.child(MarkdownElementTypes.INLINE_LINK)
         val alt = link?.child(MarkdownElementTypes.LINK_TEXT)?.text()?.removeSurrounding("[", "]").orEmpty()
         val destination = link?.child(MarkdownElementTypes.LINK_DESTINATION)?.text()?.removeSurrounding("<", ">")
-        val label = alt.ifBlank { destination.orEmpty() }
+        val label = alt.ifBlank {
+            if (destination?.startsWith("data:", ignoreCase = true) == true ||
+                destination?.startsWith("file:", ignoreCase = true) == true
+            ) {
+                "Generated Image"
+            } else {
+                destination.orEmpty()
+            }
+        }
         val safeUrl = destination?.let(::safeLinkUrl)
         if (safeUrl == null) append(label) else withLink(linkAnnotation(safeUrl)) { append(label) }
         state.atLineStart = false

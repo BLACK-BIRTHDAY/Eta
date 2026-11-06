@@ -95,3 +95,10 @@ internal data class MarkdownTableCell(
 internal enum class MarkdownColumnAlign { Start, Center, End }
 
 internal data class MarkdownRule(override val offset: Int) : MarkdownBlock
+
+internal data class MarkdownImage(
+    override val offset: Int,
+    val destination: String,
+    val alt: String,
+) : MarkdownBlock
+

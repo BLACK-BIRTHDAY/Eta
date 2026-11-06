@@ -1,5 +1,6 @@
 package io.github.mangi.eta.agent.model
 
+import io.github.mangi.eta.agent.media.GeneratedImageStore
 import java.io.InputStream
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.encodeToString
@@ -65,6 +66,8 @@ internal object AgentConversationCodec {
                 when {
                     message.contentJson.isNotBlank() ->
                         target.put("content", JSONTokener(message.contentJson).nextValue())
+                    message.role == "assistant" ->
+                        target.put("content", GeneratedImageStore.sanitizeMarkdownImagesForContext(message.content))
                     else -> target.put("content", message.content)
                 }
                 if (message.toolCallId.isNotBlank()) {
@@ -318,16 +321,23 @@ internal object AgentConversationCodec {
 
     private fun sanitizeMessage(
         message: AgentModelClient.ConversationMessage,
-    ): AgentModelClient.ConversationMessage =
-        message.copy(
+    ): AgentModelClient.ConversationMessage {
+        val sanitizedContent = GeneratedImageStore.migrateInlineDataUrlsToFiles(message.content)
+        val sanitizedThoughtSig = if (message.thoughtSignature.length > GeminiGenerateContentProvider.MAX_THOUGHT_SIGNATURE_CHARS) {
+            ""
+        } else {
+            message.thoughtSignature
+        }
+        return message.copy(
             role = message.role,
-            content = message.content,
+            content = sanitizedContent,
             contentJson = sanitizeContentJson(message.contentJson),
             toolCallId = message.toolCallId,
             reasoningContent = message.reasoningContent,
             toolCallsJson = message.toolCallsJson,
-            thoughtSignature = message.thoughtSignature,
+            thoughtSignature = sanitizedThoughtSig,
         )
+    }
 
     private fun sanitizeContentJson(raw: String): String {
         if (raw.isBlank()) return ""

@@ -67,3 +67,14 @@ _Avoid_: Display selector, screen switcher
 **Canvas Materialization**:
 The seamless in-place handoff that migrates the active root task from the Virtual Display Canvas back to the physical main display when the agent reaches a payment confirmation, QR code, security-protected window, or final result screen requiring the user's direct attention.
 _Avoid_: Screen cast, task relaunch
+
+### Multimodal & Media Assets
+
+**Generated Media Asset**:
+An image produced by a multimodal or image-generation model during an assistant turn, persisted as an immutable local file and referenced by URI in the message transcript rather than inlined as raw Base64 text.
+_Avoid_: Inline Base64 image, raw image blob
+
+**Context Media Sanitization**:
+The replacement of heavy generated media payloads and oversized model state tokens with lightweight text placeholders when persisting or replaying multi-turn conversation history.
+_Avoid_: History truncation, payload stripping
+
