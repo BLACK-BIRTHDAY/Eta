@@ -35,7 +35,6 @@
   "123": "ContentProvider",
   "130": "ProviderRequest",
   "137": "McpServerRepository",
-  "138": ".build",
   "140": "ScrollEventObservationGate",
   "143": "PersonalContextQueryServiceTest",
   "144": "AgentChatScrollPolicyTest",

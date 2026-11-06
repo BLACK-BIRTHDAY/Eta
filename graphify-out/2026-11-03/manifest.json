@@ -2826,9 +2826,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/GeminiGenerateContentProvider.kt": {
-    "mtime": 1793704608.8726494,
-    "seen": 1793704928.2992532,
-    "ast_hash": "55903bb56bcec22beaf84085a2171d4f",
+    "mtime": 1793705734.71465,
+    "seen": 1793705915.9660263,
+    "ast_hash": "019ceb3ee7da34e0d780e48fe07439d1",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/EtaFluidCloudStateMapper.kt": {
@@ -4572,9 +4572,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/GeminiGenerateContentProviderTest.kt": {
-    "mtime": 1793704652.5395086,
-    "seen": 1793704928.300835,
-    "ast_hash": "01dee4f77e7916f12675cff1583a433b",
+    "mtime": 1793705780.8808055,
+    "seen": 1793705915.966856,
+    "ast_hash": "55ee4f1a310eeca5f1e1497d9b573ec6",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/OpenAiChatToolCallIdsTest.kt": {
@@ -5484,9 +5484,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/web/ConfigurableWebBackends.kt": {
-    "mtime": 1793704565.6693234,
-    "seen": 1793704928.2997458,
-    "ast_hash": "537afd9ef761c107ae9589f8206e687d",
+    "mtime": 1793705754.2246487,
+    "seen": 1793705915.96633,
+    "ast_hash": "586ec4fa03aa2d8e13fac4f9df0456d8",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/db/ChunkedTextInputStream.kt": {
@@ -5502,9 +5502,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/provider/GeminiModelCapabilities.kt": {
-    "mtime": 1792984906.690641,
-    "seen": 1792984950.092305,
-    "ast_hash": "c427dbdd76b1f74652e3c75bc9e529fc",
+    "mtime": 1793705714.5335817,
+    "seen": 1793705915.966403,
+    "ast_hash": "b23bed1650268be38a7720241c764866",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/provider/ProviderConnectionProfile.kt": {
