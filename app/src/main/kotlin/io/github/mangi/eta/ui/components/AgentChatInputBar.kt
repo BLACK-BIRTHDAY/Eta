@@ -847,7 +847,33 @@ internal fun AgentSlashCommandPopup(
     onSelectSkill: (SkillItemUi) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(16.dp)
+    val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+    val couiDark = CouiTheme.isDark
+    val shape = if (isCoui) CouiShape(18.dp, 2.2f) else RoundedCornerShape(16.dp)
+    val surfaceModifier = if (isCoui) {
+        Modifier
+            .clip(shape)
+            .background(
+                if (couiDark) Color(0xFF1E2024) else Color(0xFFF5F6F8),
+                shape,
+            )
+            .border(
+                width = 0.5.dp,
+                color = if (couiDark) Color(0x22FFFFFF) else Color(0x10000000),
+                shape = shape,
+            )
+    } else {
+        Modifier
+            .squircleSurface(
+                color = MiuixTheme.colorScheme.surfaceContainer,
+                cornerRadius = 16.dp,
+            )
+            .squircleBorder(
+                width = 0.5.dp,
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
+                cornerRadius = 16.dp,
+            )
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -860,15 +886,7 @@ internal fun AgentSlashCommandPopup(
                     alpha = 0.12f,
                 ),
             )
-            .squircleSurface(
-                color = MiuixTheme.colorScheme.surfaceContainer,
-                cornerRadius = 16.dp,
-            )
-            .squircleBorder(
-                width = 0.5.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
-                cornerRadius = 16.dp,
-            )
+            .then(surfaceModifier)
             .heightIn(max = 200.dp),
     ) {
         LazyColumn(

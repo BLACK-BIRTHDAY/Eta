@@ -8,10 +8,17 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import android.os.SystemClock
+import android.provider.Settings
 import java.lang.reflect.Method
 
 internal object CircleToSearchInvoker {
     private const val GOOGLE_AVAILABILITY_CACHE_TTL_MS = 30_000L
+    const val GESTURE_TRIGGER_SWITCH_KEY = "setting_Before_Trigger_Switch"
+
+    fun isGestureTriggerSwitchEnabled(context: Context): Boolean =
+        runCatching {
+            Settings.System.getInt(context.contentResolver, GESTURE_TRIGGER_SWITCH_KEY, 1) == 1
+        }.getOrDefault(true)
 
     @Volatile
     private var getServiceMethod: Method? = null

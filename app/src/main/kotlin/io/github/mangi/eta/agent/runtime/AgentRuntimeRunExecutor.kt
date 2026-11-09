@@ -262,7 +262,9 @@ internal class AgentRuntimeRunExecutor(
                 }
             }
             val subagentAllowed = {
-                request.config.subagentTools && currentPermissions().subagentTools
+                request.config.subagentTools &&
+                    currentPermissions().subagentTools &&
+                    Prefs.isToolEnabled(AgentSubagentToolCatalog.TOOL_NAME)
             }
             val subagentExecutor = SubagentExecutor(
                 conversationKey = browserKey,

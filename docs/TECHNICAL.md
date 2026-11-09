@@ -57,7 +57,7 @@ GUI、Root、数字助理与内置浏览器的模型截图保持原尺寸与像�
 - **唤起逻辑优化**：Gemini 恢复原有 `VoiceInteractionManagerService`、`ACTION_ASSIST`、`ACTION_VOICE_COMMAND` 顺序；Eta 优先使用活动 `voiceinteraction` 会话，再在已经配置为默认助理时尝试同包 `ACTION_ASSIST` 桥。所有路径失败后立即执行小布原逻辑，不阻塞系统回调。
 - **息屏后维持 Hey Google 可用**：Hook `PhoneWindowManager.screenTurnedOff()`，在默认显示息屏后短延迟检查 Google 的 `SoftwareTrustedHotwordDetectorSession`。只有已有 `mSoftwareCallback` 且当前未 running 时，才恢复 `startListeningFromMicLocked()`；亮屏或恢复成功后会取消未执行任务。
 - **一圈即搜支持**：强制启用 `ContextualSearchManagerService`，将包名指向 Google App，并放行 `system_server`、`SystemUI` 与 ColorDirectService 的调用权限。作为一圈即搜的底层依赖始终执行，不可关闭。
-- **双指长按一圈即搜加速**：拦截 `OplusScreenDirectManager.startDirectService(int)` 的双指长按分支（`actionType == 1`、`mPointerCount == 2`），在系统手势判定完成的当下直接调用 `contextual_search` 服务并补发原生线性马达震感（`effectType = 49`），跳过 `system_server` 预截图及 `com.coloros.colordirectservice` / `com.oplus.aiunit` 的冷启动与绑定链路；顶层位于桌面、最近任务或一圈即搜自身时静默忽略。
+- **双指长按一圈即搜加速**：拦截 `OplusScreenDirectManager.startDirectService(int)` 的双指长按分支（`actionType == 1`、`mPointerCount == 2`），在系统手势判定完成的当下直接调用 `contextual_search` 服务（对 Google App 入口做 30s TTL 缓存并复用存活的 `IBinder` / `IContextualSearchManager` 实例）并补发原生线性马达震感（`effectType = 49`），跳过 `system_server` 预截图及 `com.coloros.colordirectservice` / `com.oplus.aiunit` 的冷启动与绑定链路；顶层位于桌面、最近任务或一圈即搜自身时静默忽略。
 - **无障碍保护**：复用已验证的 `SystemServer.startOtherServices(TimingsTraceAndSlog)` 生命周期点，在系统服务启动完成后接入事件驱动保护。后台工作复用 Android `BackgroundThread`，不开模块线程、不轮询；开关默认关闭，开启请求需同时通过 signature 权限、真实发送 UID、服务声明与 APK signer 钉扎校验。保护只维护 owner 用户中的 Eta 组件和总开关，保留其他服务；断连时通过仅允许 `system` UID 调用的健康 Provider 确认，并对 Eta 做带次数上限和冷却的定向重绑。
 
 ## 无障碍保护

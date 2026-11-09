@@ -230,9 +230,7 @@ internal object OplusScreenDirectHooks {
     }
 
     private fun isGestureTriggerSwitchEnabled(context: Context): Boolean =
-        runCatching {
-            Settings.System.getInt(context.contentResolver, GESTURE_TRIGGER_SWITCH_KEY, 1) == 1
-        }.getOrDefault(true)
+        CircleToSearchInvoker.isGestureTriggerSwitchEnabled(context)
 
     private fun resolveTopActivityComponent(classLoader: ClassLoader): ComponentName? =
         runCatching {

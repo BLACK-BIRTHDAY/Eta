@@ -30,18 +30,24 @@ internal data class SubagentProfile(
     fun buildSystemPrompt(): String =
         "$SUBAGENT_ROLE_PREFIX\n\n$roleInstruction"
 
-    fun filterTools(allTools: JSONArray): JSONArray = JSONArray().also { filtered ->
+    fun filterTools(
+        allTools: JSONArray,
+        isToolEnabled: (String) -> Boolean = { Prefs.isToolEnabled(it) },
+    ): JSONArray = JSONArray().also { filtered ->
         for (index in 0 until allTools.length()) {
             val item = allTools.optJSONObject(index) ?: continue
             val toolName = item.optJSONObject("function")?.optString("name").orEmpty()
-            if (isToolAllowed(toolName)) {
+            if (isToolAllowed(toolName, isToolEnabled)) {
                 filtered.put(JSONObject(item.toString()))
             }
         }
     }
 
-    fun isToolAllowed(toolName: String): Boolean {
-        if (toolName.isBlank() || !Prefs.isToolEnabled(toolName) || toolName in FORBIDDEN_TOOLS || toolName in disallowedTools) {
+    fun isToolAllowed(
+        toolName: String,
+        isToolEnabled: (String) -> Boolean = { Prefs.isToolEnabled(it) },
+    ): Boolean {
+        if (toolName.isBlank() || !isToolEnabled(toolName) || toolName in FORBIDDEN_TOOLS || toolName in disallowedTools) {
             return false
         }
         val customAllowlist = explicitTools
