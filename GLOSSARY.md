@@ -78,3 +78,20 @@ _Avoid_: Inline Base64 image, raw image blob
 The replacement of heavy generated media payloads and oversized model state tokens with lightweight text placeholders when persisting or replaying multi-turn conversation history.
 _Avoid_: History truncation, payload stripping
 
+### Conversation & Telemetry
+
+**Conversation Branch**:
+An independent conversation forked from a completed assistant reply that inherits the exact transcript prefix and roleplay revision candidates up to that boundary, isolated from any subsequent turns or context summaries in the source conversation.
+_Avoid_: Chat copy, thread clone
+
+**Turn Performance Telemetry**:
+The per-reply execution metrics captured and persisted across an assistant turn, including step count, model inference time, tool execution time, average time-to-first-token (TTFT), and decode throughput (TPS).
+_Avoid_: Debug timing log, token counter
+
+### Appearance & UI Architecture
+
+**Dual-Design UI Style**:
+The runtime-switchable visual and interaction system that renders the application in either ColorOS (COUI) or HyperOS (Miuix) native design language while preserving the active navigation stack, unsent drafts, and in-flight background tasks across switches.
+_Avoid_: Skin pack, color theme
+
+
