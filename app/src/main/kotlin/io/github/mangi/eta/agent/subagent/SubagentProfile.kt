@@ -4,6 +4,7 @@ import io.github.mangi.eta.agent.context.PersonalSearchTools
 import io.github.mangi.eta.agent.model.AgentFileToolCatalog
 import io.github.mangi.eta.agent.model.AgentPhoneToolCatalog
 import io.github.mangi.eta.agent.model.AgentTerminalToolCatalog
+import io.github.mangi.eta.config.Prefs
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -40,7 +41,7 @@ internal data class SubagentProfile(
     }
 
     fun isToolAllowed(toolName: String): Boolean {
-        if (toolName.isBlank() || toolName in FORBIDDEN_TOOLS || toolName in disallowedTools) {
+        if (toolName.isBlank() || !Prefs.isToolEnabled(toolName) || toolName in FORBIDDEN_TOOLS || toolName in disallowedTools) {
             return false
         }
         val customAllowlist = explicitTools

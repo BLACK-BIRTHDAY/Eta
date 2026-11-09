@@ -11,8 +11,10 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -57,6 +59,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.dropShadow
@@ -75,11 +78,21 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.itos.coui.effect.couiButtonFeedback
+import com.itos.coui.layout.CouiPageDefaults
+import com.itos.coui.shape.CouiShape
+import com.itos.coui.text.CouiTextKind
+import com.itos.coui.text.Text as CouiText
+import com.itos.coui.theme.CouiTheme
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.browser.BrowserSessionSnapshot
+import io.github.mangi.eta.data.model.AppearanceUiStyle
 import io.github.mangi.eta.data.model.ReasoningEffort
+import io.github.mangi.eta.data.repository.ConversationBranchBoundary
+import io.github.mangi.eta.ui.model.branchMessageOutline
 import io.github.mangi.eta.ui.app.AgentConversationRevisionReducer
 import io.github.mangi.eta.ui.app.LocalBlurEnabled
+import io.github.mangi.eta.ui.app.LocalUiStyle
 import io.github.mangi.eta.ui.markdown.StreamingMarkdownStateCache
 import io.github.mangi.eta.ui.model.ConversationHistoryLoadState
 import io.github.mangi.eta.ui.model.AgentChatMessageUi
@@ -137,6 +150,7 @@ internal fun AgentChatBody(
     messages: List<AgentChatMessageUi>,
     modelPickerState: AgentModelPickerUiState,
     isCompacting: Boolean,
+    isBranching: Boolean,
     input: String,
     isStreaming: Boolean,
     reasoningEffort: ReasoningEffort,
@@ -145,6 +159,7 @@ internal fun AgentChatBody(
     pendingFileReferences: List<PendingFileReferenceUi>,
     queuedMessages: List<QueuedMessageUi> = emptyList(),
     inputSyncVersion: Int = 0,
+    focusInputOnSync: Boolean = true,
     messageEdit: MessageEditUiState?,
     onReasoningEffortChange: (ReasoningEffort) -> Unit,
     onCompactContext: () -> Unit,
@@ -166,6 +181,7 @@ internal fun AgentChatBody(
     onCancelMessageEdit: () -> Unit,
     onDeleteMessage: (String) -> Unit,
     onRegenerateMessage: (String) -> Unit,
+    onBranchMessage: (String) -> Unit,
     onSelectReplyCandidate: (String, Int) -> Unit,
     onSuggestionClick: (String) -> Unit,
     onRunTraceClick: () -> Unit,
@@ -242,6 +258,7 @@ internal fun AgentChatBody(
             input = input,
             modelPickerState = modelPickerState,
             isCompacting = isCompacting,
+            isBranching = isBranching,
             contextUsage = contextUsage,
             isStreaming = isStreaming,
             reasoningEffort = reasoningEffort,
@@ -250,6 +267,7 @@ internal fun AgentChatBody(
             pendingFileReferences = pendingFileReferences,
             queuedMessages = queuedMessages,
             inputSyncVersion = inputSyncVersion,
+            focusInputOnSync = focusInputOnSync,
             messageEdit = messageEdit,
             showEmptySuggestions = !isKeyboardVisible,
             keepBottomAnchored = keepBottomAnchored,
@@ -287,6 +305,7 @@ internal fun AgentChatBody(
             onCancelMessageEdit = onCancelMessageEdit,
             onDeleteMessage = onDeleteMessage,
             onRegenerateMessage = onRegenerateMessage,
+            onBranchMessage = onBranchMessage,
             onSelectReplyCandidate = onSelectReplyCandidate,
             onSuggestionClick = onSuggestionClick,
             onRunTraceClick = onRunTraceClick,
@@ -312,6 +331,7 @@ private fun AgentChatScaffold(
     input: String,
     modelPickerState: AgentModelPickerUiState,
     isCompacting: Boolean,
+    isBranching: Boolean,
     contextUsage: AgentContextUsageUi,
     isStreaming: Boolean,
     reasoningEffort: ReasoningEffort,
@@ -320,6 +340,7 @@ private fun AgentChatScaffold(
     pendingFileReferences: List<PendingFileReferenceUi>,
     queuedMessages: List<QueuedMessageUi>,
     inputSyncVersion: Int,
+    focusInputOnSync: Boolean,
     messageEdit: MessageEditUiState?,
     showEmptySuggestions: Boolean,
     keepBottomAnchored: Boolean,
@@ -344,6 +365,7 @@ private fun AgentChatScaffold(
     onCancelMessageEdit: () -> Unit,
     onDeleteMessage: (String) -> Unit,
     onRegenerateMessage: (String) -> Unit,
+    onBranchMessage: (String) -> Unit,
     onSelectReplyCandidate: (String, Int) -> Unit,
     onSuggestionClick: (String) -> Unit,
     onRunTraceClick: () -> Unit,
@@ -389,6 +411,7 @@ private fun AgentChatScaffold(
                 pendingFileReferences = pendingFileReferences,
                 queuedMessages = queuedMessages,
                 inputSyncVersion = inputSyncVersion,
+                focusInputOnSync = focusInputOnSync,
                 messageEdit = messageEdit,
                 onSubmit = onSubmit,
                 onInterruptAndSubmit = onInterruptAndSubmit,
@@ -434,8 +457,9 @@ private fun AgentChatScaffold(
                 onEditMessage = onEditMessage,
                 onDeleteMessage = onDeleteMessage,
                 onRegenerateMessage = onRegenerateMessage,
+                onBranchMessage = onBranchMessage,
                 onSelectReplyCandidate = onSelectReplyCandidate,
-                messageActionsEnabled = !isStreaming && messageEdit == null,
+                messageActionsEnabled = !isStreaming && !isCompacting && !isBranching && messageEdit == null,
                 editTargetMessageId = messageEdit?.targetMessageId,
                 currentBrowserMessageId = currentBrowserMessageId,
                 hasEarlierMessages = hasEarlierMessages,
@@ -467,6 +491,7 @@ internal fun AgentConversationMessages(
     onEditMessage: (String) -> Unit = {},
     onDeleteMessage: (String) -> Unit = {},
     onRegenerateMessage: (String) -> Unit = {},
+    onBranchMessage: (String) -> Unit = {},
     onSelectReplyCandidate: (String, Int) -> Unit = { _, _ -> },
     messageActionsEnabled: Boolean = false,
     editTargetMessageId: String? = null,
@@ -493,6 +518,9 @@ internal fun AgentConversationMessages(
     // 流式进行中当前这一轮尚未收尾，此时的“最后一条正文”只是中间步骤，不标记。
     val finalResultMessageIds = remember(visibleMessages, isStreaming) {
         resolveFinalResultMessageIds(visibleMessages, isStreaming = isStreaming)
+    }
+    val branchMessageIds = remember(visibleMessages, isStreaming) {
+        ConversationBranchBoundary.eligibleMessageIds(visibleMessages.branchMessageOutline(), running = isStreaming)
     }
     // 流式消息的渲染会话按 id 提升到列表层持有：item 滚出视口被 LazyColumn 销毁后，
     // 滑回时复用同一解析会话与打字机进度，避免整段内容重新解析并重放显现动画。
@@ -782,6 +810,8 @@ internal fun AgentConversationMessages(
                                     (message is AgentMessageUi && message.characterEditable)
                                 ),
                             messageActionsEnabled = messageActionsEnabled,
+                            showBranchAction = !assistantOverlay && message.id in branchMessageIds,
+                            onBranchMessage = onBranchMessage,
                             isEditing = message.id == editTargetMessageId,
                             onEditMessage = onEditMessage,
                             onDeleteMessage = onDeleteMessage,
@@ -827,25 +857,47 @@ internal fun AgentConversationMessages(
             enter = fadeIn(tween(160)) + scaleIn(tween(180), initialScale = 0.82f),
             exit = fadeOut(tween(100)) + scaleOut(tween(120), targetScale = 0.86f),
         ) {
+            val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
+            val couiDark = CouiTheme.isDark
             IconButton(
-                // 与输入框同一套浮起层次：消息背景接近按钮底色时仍能一眼认出。
-                modifier = Modifier
-                    .dropShadow(
-                        shape = CircleShape,
-                        shadow = Shadow(radius = 8.dp, color = Color.Black, alpha = 0.08f),
-                    )
-                    .squircleBorder(
-                        width = 0.5.dp,
-                        color = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
-                        cornerRadius = IconButtonDefaults.CornerRadius,
-                    ),
+                modifier = if (isCoui) {
+                    Modifier
+                        .dropShadow(
+                            shape = CircleShape,
+                            shadow = Shadow(
+                                radius = 12.dp,
+                                color = Color.Black,
+                                alpha = if (couiDark) 0.28f else 0.10f,
+                            ),
+                        )
+                        .border(
+                            width = 0.5.dp,
+                            color = if (couiDark) Color(0x22FFFFFF) else Color(0x12000000),
+                            shape = CircleShape,
+                        )
+                } else {
+                    Modifier
+                        .dropShadow(
+                            shape = CircleShape,
+                            shadow = Shadow(radius = 8.dp, color = Color.Black, alpha = 0.08f),
+                        )
+                        .squircleBorder(
+                            width = 0.5.dp,
+                            color = MiuixTheme.colorScheme.outline.copy(alpha = 0.55f),
+                            cornerRadius = IconButtonDefaults.CornerRadius,
+                        )
+                },
                 onClick = {
                     onBottomAnchorChanged(true)
                     coroutineScope.launch {
                         scrollState.animateScrollToItem(bottomItemIndex)
                     }
                 },
-                backgroundColor = MiuixTheme.colorScheme.surfaceContainerHigh,
+                backgroundColor = if (isCoui) {
+                    if (couiDark) Color(0xFF282A2E) else Color.White
+                } else {
+                    MiuixTheme.colorScheme.surfaceContainerHigh
+                },
                 minWidth = 40.dp,
                 minHeight = 40.dp,
             ) {
@@ -1009,6 +1061,7 @@ private fun AgentChatBottomBar(
     pendingFileReferences: List<PendingFileReferenceUi>,
     queuedMessages: List<QueuedMessageUi>,
     inputSyncVersion: Int,
+    focusInputOnSync: Boolean,
     messageEdit: MessageEditUiState?,
     onSubmit: (String) -> Unit,
     onInterruptAndSubmit: (String) -> Unit,
@@ -1100,6 +1153,7 @@ private fun AgentChatBottomBar(
                 pendingFileReferences = pendingFileReferences,
                 queuedMessages = queuedMessages,
                 inputSyncVersion = inputSyncVersion,
+                focusInputOnSync = focusInputOnSync,
                 isEditingMessage = messageEdit != null,
                 editHasLaterTurns = messageEdit?.hasLaterTurns == true,
                 preserveFollowingMessages = messageEdit?.preserveFollowingMessages == true,

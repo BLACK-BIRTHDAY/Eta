@@ -16,6 +16,7 @@ import io.github.mangi.eta.agent.runtime.AgentRunController
 import io.github.mangi.eta.agent.runtime.AgentRuntimeWire
 import io.github.mangi.eta.agent.skill.SkillContext
 import io.github.mangi.eta.agent.tool.AgentToolCapabilities
+import io.github.mangi.eta.config.Prefs
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.json.JSONArray
@@ -719,6 +720,32 @@ class SubagentTest {
         assertEquals(1, json.getInt("tool_calls"))
         assertEquals("正常完成", json.getString("summary"))
         assertFalse(json.has("collected_outputs"))
+    }
+
+    @Test
+    fun disabledToolInPrefsIsFilteredFromSubagentProfileAndForbiddenAtExecution() {
+        val context = org.robolectric.RuntimeEnvironment.getApplication()
+        Prefs.initLocal(context)
+        Prefs.setToolsEnabled(listOf("read_file"), false)
+        try {
+            assertFalse(Prefs.isToolEnabled("read_file"))
+            assertFalse(SubagentProfile.EXPLORE.isToolAllowed("read_file"))
+
+            val tools = JSONArray().put(
+                JSONObject()
+                    .put("type", "function")
+                    .put("function", JSONObject().put("name", "read_file")),
+            ).put(
+                JSONObject()
+                    .put("type", "function")
+                    .put("function", JSONObject().put("name", "glob_files")),
+            )
+            val filtered = SubagentProfile.EXPLORE.filterTools(tools).toolNames()
+            assertFalse("read_file" in filtered)
+            assertTrue("glob_files" in filtered)
+        } finally {
+            Prefs.setToolsEnabled(listOf("read_file"), true)
+        }
     }
 
     private fun JSONArray.toolNames(): Set<String> =

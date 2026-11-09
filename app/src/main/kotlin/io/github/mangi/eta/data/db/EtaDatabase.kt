@@ -26,7 +26,7 @@ import androidx.room.migration.Migration
         CharacterEntity::class,
         UserPersonaEntity::class,
     ],
-    version = 25,
+    version = 26,
     exportSchema = false,
 )
 internal abstract class EtaDatabase : RoomDatabase() {
@@ -68,6 +68,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                         MIGRATION_22_23,
                         MIGRATION_23_24,
                         MIGRATION_24_25,
+                        MIGRATION_25_26,
                     )
                     .addCallback(object : Callback() {
                         override fun onCreate(db: androidx.sqlite.db.SupportSQLiteDatabase) { createTextChunkCleanup(db) }
@@ -131,6 +132,48 @@ internal abstract class EtaDatabase : RoomDatabase() {
 
         internal val MIGRATION_24_25 = Migration(24, 25) { database ->
             database.execSQL("ALTER TABLE model_providers ADD COLUMN auth_mode TEXT NOT NULL DEFAULT 'api_key'")
+        }
+
+        internal val MIGRATION_25_26 = Migration(25, 26) { database ->
+            addColumnIfMissing(database, "conversations", "is_pinned", "INTEGER NOT NULL DEFAULT 0")
+            addColumnIfMissing(database, "conversation_messages", "step_count", "INTEGER")
+            addColumnIfMissing(database, "conversation_messages", "llm_ms", "INTEGER")
+            addColumnIfMissing(database, "conversation_messages", "tool_ms", "INTEGER")
+            addColumnIfMissing(database, "conversation_messages", "ttft_ms", "INTEGER")
+            addColumnIfMissing(database, "conversation_messages", "ttft_steps", "INTEGER")
+            addColumnIfMissing(database, "conversation_messages", "decode_ms", "INTEGER")
+            addColumnIfMissing(database, "conversation_messages", "decode_tokens", "INTEGER")
+
+            addColumnIfMissing(database, "mcp_servers", "transport_type", "TEXT NOT NULL DEFAULT 'http'")
+            addColumnIfMissing(database, "mcp_servers", "command", "TEXT NOT NULL DEFAULT ''")
+            addColumnIfMissing(database, "mcp_servers", "args_json", "TEXT NOT NULL DEFAULT '[]'")
+            addColumnIfMissing(database, "mcp_servers", "stdio_environment", "TEXT NOT NULL DEFAULT 'linux'")
+            addColumnIfMissing(database, "mcp_servers", "cwd", "TEXT NOT NULL DEFAULT ''")
+            addColumnIfMissing(database, "mcp_servers", "has_env_vars", "INTEGER NOT NULL DEFAULT 0")
+            addColumnIfMissing(database, "provider_models", "max_output_tokens", "INTEGER")
+            addColumnIfMissing(database, "model_providers", "auth_mode", "TEXT NOT NULL DEFAULT 'api_key'")
+        }
+
+        private fun addColumnIfMissing(
+            database: androidx.sqlite.db.SupportSQLiteDatabase,
+            table: String,
+            column: String,
+            definitionSql: String,
+        ) {
+            val exists = database.query("PRAGMA table_info($table)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                var found = false
+                while (cursor.moveToNext()) {
+                    if (nameIndex != -1 && cursor.getString(nameIndex).equals(column, ignoreCase = true)) {
+                        found = true
+                        break
+                    }
+                }
+                found
+            }
+            if (!exists) {
+                database.execSQL("ALTER TABLE $table ADD COLUMN $column $definitionSql")
+            }
         }
 
         private fun createTextChunkCleanup(database: androidx.sqlite.db.SupportSQLiteDatabase) {

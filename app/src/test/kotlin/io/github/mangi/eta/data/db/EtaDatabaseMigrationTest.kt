@@ -59,6 +59,7 @@ class EtaDatabaseMigrationTest {
                 EtaDatabase.MIGRATION_22_23,
                 EtaDatabase.MIGRATION_23_24,
                 EtaDatabase.MIGRATION_24_25,
+                EtaDatabase.MIGRATION_25_26,
             )
             .build()
         try {
@@ -120,6 +121,7 @@ class EtaDatabaseMigrationTest {
             assertEquals(emptyList<CharacterEntity>(), runBlocking(Dispatchers.IO) { database.characterDao().characters() })
             assertEquals("off", conversations.first { it.id == "conv-1" }.reasoningEffort)
             assertEquals(null, conversations.first { it.id == "conv-1" }.modelId)
+            assertEquals(false, conversations.first { it.id == "conv-1" }.isPinned)
             assertEquals("default", conversations.first { it.id == "conv-enabled" }.reasoningEffort)
             assertEquals(null, runBlocking(Dispatchers.IO) { database.conversationDao().state() })
             assertEquals(listOf("built-in", "manual"), provider.models.map { it.modelId })
@@ -127,6 +129,13 @@ class EtaDatabaseMigrationTest {
             assertEquals(ProviderAuthModes.API_KEY, provider.authMode)
             assertEquals("fixture-existing-api-key", provider.apiKey)
             assertEquals(false, migratedMessage.isEdited)
+            assertEquals(null, migratedMessage.stepCount)
+            assertEquals(null, migratedMessage.llmMs)
+            assertEquals(null, migratedMessage.toolMs)
+            assertEquals(null, migratedMessage.ttftMs)
+            assertEquals(null, migratedMessage.ttftSteps)
+            assertEquals(null, migratedMessage.decodeMs)
+            assertEquals(null, migratedMessage.decodeTokens)
             assertEquals(emptyList<RuntimeInFlightRunWithEvents>(), inFlightRuns)
             assertEquals(listOf("mcp-1"), mcpServers.map { it.id })
             assertEquals(null, mcpServers.single().toolsExpireAt)
@@ -147,6 +156,154 @@ class EtaDatabaseMigrationTest {
             database.close()
             context.deleteDatabase(databaseName)
         }
+    }
+
+    @Test
+    fun migration25To26AddsPinnedAndTelemetryColumnsIdempotently() {
+        val context = RuntimeEnvironment.getApplication() as Context
+        val databaseName = "migration-25-26-${UUID.randomUUID()}.db"
+        val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(databaseName)
+            .callback(
+                object : SupportSQLiteOpenHelper.Callback(25) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        db.execSQL(
+                            "CREATE TABLE conversations (" +
+                                "id TEXT NOT NULL PRIMARY KEY, " +
+                                "title TEXT NOT NULL, " +
+                                "thinking_enabled INTEGER NOT NULL DEFAULT 0, " +
+                                "history_json TEXT NOT NULL DEFAULT '[]', " +
+                                "created_at INTEGER NOT NULL, " +
+                                "updated_at INTEGER NOT NULL, " +
+                                "applied_runtime_run_ids_json TEXT NOT NULL DEFAULT '[]', " +
+                                "reasoning_effort TEXT NOT NULL DEFAULT 'default', " +
+                                "roleplay_json TEXT NOT NULL DEFAULT '', " +
+                                "revisions_json TEXT NOT NULL DEFAULT '', " +
+                                "model_id TEXT)"
+                        )
+                        db.execSQL(
+                            "CREATE TABLE conversation_messages (" +
+                                "id TEXT NOT NULL PRIMARY KEY, " +
+                                "conversation_id TEXT NOT NULL, " +
+                                "sort_index INTEGER NOT NULL, " +
+                                "type TEXT NOT NULL, " +
+                                "content TEXT NOT NULL, " +
+                                "images_json TEXT NOT NULL DEFAULT '[]', " +
+                                "is_edited INTEGER NOT NULL DEFAULT 0, " +
+                                "render_markdown INTEGER, " +
+                                "context_tokens INTEGER, " +
+                                "input_tokens INTEGER, " +
+                                "output_tokens INTEGER, " +
+                                "reasoning_tokens INTEGER, " +
+                                "cached_tokens INTEGER, " +
+                                "elapsed_seconds INTEGER, " +
+                                "tool_name TEXT, " +
+                                "tool_status TEXT, " +
+                                "arguments_summary TEXT, " +
+                                "result_summary TEXT, " +
+                                "image_count INTEGER NOT NULL DEFAULT 0, " +
+                                "tools_json TEXT NOT NULL DEFAULT '[]')"
+                        )
+                        db.execSQL(
+                            "CREATE TABLE mcp_servers (" +
+                                "id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, url TEXT NOT NULL, " +
+                                "enabled INTEGER NOT NULL, protocol_mode TEXT NOT NULL, authorization_type TEXT NOT NULL, " +
+                                "tools_json TEXT NOT NULL, enabled_tool_names_json TEXT NOT NULL, created_at INTEGER NOT NULL, " +
+                                "sort_order INTEGER NOT NULL, last_refreshed_at INTEGER, last_protocol_version TEXT, " +
+                                "tools_expire_at INTEGER)"
+                        )
+                        db.execSQL(
+                            "CREATE TABLE provider_models (" +
+                                "id TEXT NOT NULL PRIMARY KEY, provider_id TEXT NOT NULL, model_id TEXT NOT NULL, " +
+                                "display_name TEXT NOT NULL, is_enabled INTEGER NOT NULL, is_built_in INTEGER NOT NULL, " +
+                                "sort_order INTEGER NOT NULL, owned_by TEXT, context_window INTEGER, " +
+                                "input_modalities_json TEXT NOT NULL, output_modalities_json TEXT NOT NULL, " +
+                                "attachment INTEGER, tool_call INTEGER, reasoning INTEGER, structured_output INTEGER, " +
+                                "supports_temperature INTEGER, custom_headers_json TEXT NOT NULL, custom_body_json TEXT NOT NULL, " +
+                                "created_at INTEGER NOT NULL, source TEXT NOT NULL DEFAULT 'manual', " +
+                                "reasoning_capabilities_json TEXT NOT NULL DEFAULT 'null', context_window_override INTEGER, " +
+                                "reasoning_override INTEGER, reasoning_capabilities_override_json TEXT NOT NULL DEFAULT 'null')"
+                        )
+                        db.execSQL(
+                            "CREATE TABLE model_providers (" +
+                                "id TEXT NOT NULL PRIMARY KEY, type TEXT NOT NULL, name TEXT NOT NULL, " +
+                                "base_url TEXT NOT NULL, api_key TEXT NOT NULL, is_enabled INTEGER NOT NULL, " +
+                                "is_built_in INTEGER NOT NULL, sort_order INTEGER NOT NULL, system_prompt TEXT, " +
+                                "custom_headers_json TEXT NOT NULL, custom_body_json TEXT NOT NULL, created_at INTEGER NOT NULL, " +
+                                "endpoint_mode TEXT NOT NULL, anthropic_version TEXT NOT NULL, hosted_web_search_enabled INTEGER NOT NULL DEFAULT 0)"
+                        )
+                        db.execSQL(
+                            "INSERT INTO conversations (id, title, created_at, updated_at) " +
+                                "VALUES ('c-1', '测试对话', 100, 100)"
+                        )
+                        db.execSQL(
+                            "INSERT INTO conversation_messages (id, conversation_id, sort_index, type, content) " +
+                                "VALUES ('m-1', 'c-1', 0, 'user', 'hello')"
+                        )
+                    }
+
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+                }
+            )
+            .build()
+
+        val helper = FrameworkSQLiteOpenHelperFactory().create(configuration)
+        val db = helper.writableDatabase
+
+        EtaDatabase.MIGRATION_25_26.migrate(db)
+
+        db.query("SELECT is_pinned FROM conversations WHERE id = 'c-1'").use { cursor ->
+            check(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+        }
+
+        db.query("SELECT step_count, llm_ms, tool_ms, ttft_ms, ttft_steps, decode_ms, decode_tokens FROM conversation_messages WHERE id = 'm-1'").use { cursor ->
+            check(cursor.moveToFirst())
+            assertEquals(true, cursor.isNull(0))
+            assertEquals(true, cursor.isNull(1))
+            assertEquals(true, cursor.isNull(2))
+            assertEquals(true, cursor.isNull(3))
+            assertEquals(true, cursor.isNull(4))
+            assertEquals(true, cursor.isNull(5))
+            assertEquals(true, cursor.isNull(6))
+        }
+
+        db.query("PRAGMA table_info(mcp_servers)").use { cursor ->
+            val cols = mutableSetOf<String>()
+            val nameIdx = cursor.getColumnIndex("name")
+            while (cursor.moveToNext()) {
+                cols += cursor.getString(nameIdx)
+            }
+            assertEquals(true, cols.contains("transport_type"))
+            assertEquals(true, cols.contains("command"))
+            assertEquals(true, cols.contains("args_json"))
+            assertEquals(true, cols.contains("stdio_environment"))
+            assertEquals(true, cols.contains("cwd"))
+            assertEquals(true, cols.contains("has_env_vars"))
+        }
+
+        db.query("PRAGMA table_info(provider_models)").use { cursor ->
+            val cols = mutableSetOf<String>()
+            val nameIdx = cursor.getColumnIndex("name")
+            while (cursor.moveToNext()) {
+                cols += cursor.getString(nameIdx)
+            }
+            assertEquals(true, cols.contains("max_output_tokens"))
+        }
+
+        db.query("PRAGMA table_info(model_providers)").use { cursor ->
+            val cols = mutableSetOf<String>()
+            val nameIdx = cursor.getColumnIndex("name")
+            while (cursor.moveToNext()) {
+                cols += cursor.getString(nameIdx)
+            }
+            assertEquals(true, cols.contains("auth_mode"))
+        }
+
+        EtaDatabase.MIGRATION_25_26.migrate(db)
+
+        helper.close()
+        context.deleteDatabase(databaseName)
     }
 
     private fun createVersion6Database(
