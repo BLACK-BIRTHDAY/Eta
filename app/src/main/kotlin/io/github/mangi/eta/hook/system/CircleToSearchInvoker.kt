@@ -7,9 +7,11 @@ import io.github.mangi.eta.core.ModuleLogger
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.os.SystemClock
 import java.lang.reflect.Method
 
 internal object CircleToSearchInvoker {
+    private const val GOOGLE_AVAILABILITY_CACHE_TTL_MS = 30_000L
 
     @Volatile
     private var getServiceMethod: Method? = null
@@ -20,24 +22,22 @@ internal object CircleToSearchInvoker {
     @Volatile
     private var startContextualSearchMethod: StartContextualSearchMethod? = null
 
+    @Volatile
+    private var cachedBinder: IBinder? = null
+
+    @Volatile
+    private var cachedService: Any? = null
+
+    @Volatile
+    private var lastVerifiedGoogleEntryUptime: Long = 0L
+
     fun isAvailable(
         context: Context,
         logger: ModuleLogger,
         source: String,
         fallbackMessage: String
     ): Boolean {
-        if (!HookSupport.isPackageInstalled(context, ModuleConfig.GOOGLE_PACKAGE)) {
-            logger.warnThrottled("${source}_cts_google_missing") {
-                "$source: Google App 未安装，$fallbackMessage"
-            }
-            return false
-        }
-
-        val intent = Intent(ModuleConfig.CONTEXTUAL_SEARCH_ACTION).setPackage(ModuleConfig.GOOGLE_PACKAGE)
-        if (!HookSupport.resolvesActivity(context, intent)) {
-            logger.warnThrottled("${source}_cts_entry_missing") {
-                "$source: Google App 未暴露 Contextual Search 入口，$fallbackMessage"
-            }
+        if (!isGoogleContextualSearchAvailable(context, logger, source, fallbackMessage)) {
             return false
         }
 
@@ -51,6 +51,39 @@ internal object CircleToSearchInvoker {
         return binder.isBinderAlive
     }
 
+    private fun isGoogleContextualSearchAvailable(
+        context: Context,
+        logger: ModuleLogger,
+        source: String,
+        fallbackMessage: String,
+    ): Boolean {
+        val now = SystemClock.uptimeMillis()
+        val lastVerified = lastVerifiedGoogleEntryUptime
+        if (lastVerified > 0L && now >= lastVerified && now - lastVerified <= GOOGLE_AVAILABILITY_CACHE_TTL_MS) {
+            return true
+        }
+
+        if (!HookSupport.isPackageInstalled(context, ModuleConfig.GOOGLE_PACKAGE)) {
+            lastVerifiedGoogleEntryUptime = 0L
+            logger.warnThrottled("${source}_cts_google_missing") {
+                "$source: Google App 未安装，$fallbackMessage"
+            }
+            return false
+        }
+
+        val intent = Intent(ModuleConfig.CONTEXTUAL_SEARCH_ACTION).setPackage(ModuleConfig.GOOGLE_PACKAGE)
+        if (!HookSupport.resolvesActivity(context, intent)) {
+            lastVerifiedGoogleEntryUptime = 0L
+            logger.warnThrottled("${source}_cts_entry_missing") {
+                "$source: Google App 未暴露 Contextual Search 入口，$fallbackMessage"
+            }
+            return false
+        }
+
+        lastVerifiedGoogleEntryUptime = now
+        return true
+    }
+
     fun trigger(
         logger: ModuleLogger,
         source: String,
@@ -59,9 +92,8 @@ internal object CircleToSearchInvoker {
         val binder = getContextualSearchBinder() ?: return false
         return runCatching {
             // 直接调用系统 binder，避免再走 OEM OCR/识屏分发链。
-            val asInterface = resolveAsInterfaceMethod() ?: return@runCatching false
+            val service = resolveContextualSearchService(binder) ?: return@runCatching false
             val startContextualSearch = resolveStartContextualSearchMethod() ?: return@runCatching false
-            val service = asInterface.invoke(null, binder) ?: return@runCatching false
             if (startContextualSearch.hasConfigParameter) {
                 startContextualSearch.method.invoke(
                     service,
@@ -74,6 +106,8 @@ internal object CircleToSearchInvoker {
             logger.debug { "$source: 已触发 Circle to Search" }
             true
         }.getOrElse { throwable ->
+            cachedBinder = null
+            cachedService = null
             logger.errorThrottled(
                 key = "${source}_cts_trigger_failed",
                 throwable = throwable
@@ -82,10 +116,28 @@ internal object CircleToSearchInvoker {
         }
     }
 
-    private fun getContextualSearchBinder(): IBinder? =
-        runCatching {
+    private fun getContextualSearchBinder(): IBinder? {
+        cachedBinder?.takeIf { it.isBinderAlive }?.let { return it }
+        return runCatching {
             resolveGetServiceMethod()?.invoke(null, ModuleConfig.CONTEXTUAL_SEARCH_SERVICE) as? IBinder
-        }.getOrNull()
+        }.getOrNull()?.takeIf { it.isBinderAlive }?.also { binder ->
+            if (cachedBinder !== binder) {
+                cachedBinder = binder
+                cachedService = null
+            }
+        }
+    }
+
+    private fun resolveContextualSearchService(binder: IBinder): Any? {
+        if (cachedBinder === binder) {
+            cachedService?.let { return it }
+        }
+        val asInterface = resolveAsInterfaceMethod() ?: return null
+        return asInterface.invoke(null, binder)?.also { service ->
+            cachedBinder = binder
+            cachedService = service
+        }
+    }
 
     private fun resolveGetServiceMethod(): Method? {
         getServiceMethod?.let { return it }

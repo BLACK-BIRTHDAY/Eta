@@ -10,6 +10,7 @@ import io.github.mangi.eta.config.Prefs
 import android.content.Context
 import android.os.Binder
 import android.os.IBinder
+import android.os.Process
 import io.github.libxposed.api.XposedModule
 
 internal object ContextualSearchHooks {
@@ -146,6 +147,9 @@ internal object ContextualSearchHooks {
         // IContextualSearchManager 是 oneway AIDL，调用 PID 固定不可用；Android 权限主体本身也是 UID。
         // 因此这里只能按 UID 鉴权，getPackagesForUid 的结果代表整个 shared UID 安全边界。
         val callingUid = Binder.getCallingUid()
+        if (callingUid == Process.SYSTEM_UID) {
+            return true
+        }
         val packages = try {
             context.packageManager.getPackagesForUid(callingUid)
         } catch (_: Exception) {

@@ -42,6 +42,8 @@ internal object ModuleConfig {
     const val PHONE_WINDOW_MANAGER_CLASS = "com.android.server.policy.PhoneWindowManager"
     const val OP_LUS_SPEECH_HANDLER_CLASS =
         "com.android.server.policy.PhoneWindowManagerExtImpl\$OplusSpeechHandler"
+    const val OPLUS_SCREEN_DIRECT_MANAGER_CLASS =
+        "com.android.server.oplus.input.exinputservice.globalgesture.OplusScreenDirectManager"
 
     const val CIRCLE_TO_SEARCH_ENTRYPOINT = 2
     const val COLOR_DIRECT_EXTRA_START_INFO = "startInfo"

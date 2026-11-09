@@ -56,7 +56,8 @@ GUI、Root、数字助理与内置浏览器的模型截图保持原尺寸与像�
 - **数字助理配置修复**：独立自动设置开关开启后，开机、解锁、切用户及启动失败恢复时，通过 `AssistantManager` 异步校正当前 Gemini/Eta 目标的 `android.app.role.ASSISTANT` 与 secure settings。小布模式和开关关闭时不写系统配置；校验缓存及异步回调同时核对用户与目标，旧目标任务不会继续覆盖新选择。
 - **唤起逻辑优化**：Gemini 恢复原有 `VoiceInteractionManagerService`、`ACTION_ASSIST`、`ACTION_VOICE_COMMAND` 顺序；Eta 优先使用活动 `voiceinteraction` 会话，再在已经配置为默认助理时尝试同包 `ACTION_ASSIST` 桥。所有路径失败后立即执行小布原逻辑，不阻塞系统回调。
 - **息屏后维持 Hey Google 可用**：Hook `PhoneWindowManager.screenTurnedOff()`，在默认显示息屏后短延迟检查 Google 的 `SoftwareTrustedHotwordDetectorSession`。只有已有 `mSoftwareCallback` 且当前未 running 时，才恢复 `startListeningFromMicLocked()`；亮屏或恢复成功后会取消未执行任务。
-- **一圈即搜支持**：强制启用 `ContextualSearchManagerService`，将包名指向 Google App，并放行 `SystemUI` 与 ColorDirectService 的调用权限。作为一圈即搜的底层依赖始终执行，不可关闭。
+- **一圈即搜支持**：强制启用 `ContextualSearchManagerService`，将包名指向 Google App，并放行 `system_server`、`SystemUI` 与 ColorDirectService 的调用权限。作为一圈即搜的底层依赖始终执行，不可关闭。
+- **双指长按一圈即搜加速**：拦截 `OplusScreenDirectManager.startDirectService(int)` 的双指长按分支（`actionType == 1`、`mPointerCount == 2`），在系统手势判定完成的当下直接调用 `contextual_search` 服务并补发原生线性马达震感（`effectType = 49`），跳过 `system_server` 预截图及 `com.coloros.colordirectservice` / `com.oplus.aiunit` 的冷启动与绑定链路；顶层位于桌面、最近任务或一圈即搜自身时静默忽略。
 - **无障碍保护**：复用已验证的 `SystemServer.startOtherServices(TimingsTraceAndSlog)` 生命周期点，在系统服务启动完成后接入事件驱动保护。后台工作复用 Android `BackgroundThread`，不开模块线程、不轮询；开关默认关闭，开启请求需同时通过 signature 权限、真实发送 UID、服务声明与 APK signer 钉扎校验。保护只维护 owner 用户中的 Eta 组件和总开关，保留其他服务；断连时通过仅允许 `system` UID 调用的健康 Provider 确认，并对 Eta 做带次数上限和冷却的定向重绑。
 
 ## 无障碍保护
@@ -87,7 +88,10 @@ adb shell settings delete global eta_app_signer_sha256
 
 ## ColorDirectService
 
-在 `com.coloros.directui.ui.CollectInfoActivity` 中按 `Intent → void` 签名和输入诊断字符串定位识屏入口，不依赖混淆方法名。读取 `startInfo.directExt` 中的 `fingerTrigger` 与 `touchInfo.fingerCount`，确认是双指识屏后，直接调用 `contextual_search` 服务触发一圈即搜，并关闭小布识屏页面；调用失败才回退小布原逻辑。
+提供双指长按一圈即搜的进程内快速通道与 Activity 兜底：
+
+- **手势绑定快速通道**：拦截 `ColorAppServicesManagerClient$IScreenDirectGestureInterfaceStub.registerGestureCallBack()`，根据绑定 `Intent` 的 `action_type_press`、`press_type == 1` 与 `point_count == 2` 识别双指长按，直接触发 `contextual_search` 服务、补发原生震感并通知 `OplusScreenDirectManager` 结束手势会话，跳过后续截图管道、`AIUnitProvider`、`CollectService` 与 `CollectInfoActivity`。同时拦截 `AbstractDirectService.onUnbind(Intent)`，阻止服务解绑后在 `onDestroy()` 中调用 `Process.killProcess()` 自杀，维持进程热驻留。
+- **Activity 兜底**：在 `com.coloros.directui.ui.CollectInfoActivity` 中按 `Intent → void` 签名和输入诊断字符串定位识屏入口，不依赖混淆方法名。读取 `startInfo.directExt` 中的 `fingerTrigger` 与 `touchInfo.fingerCount`，确认是双指识屏后，直接调用 `contextual_search` 服务触发一圈即搜，并关闭小布识屏页面；调用失败才回退小布原逻辑。
 
 ## 小布助手
 
