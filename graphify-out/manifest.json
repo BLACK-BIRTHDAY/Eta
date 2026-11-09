@@ -1,8 +1,8 @@
 {
   "app/build.gradle.kts": {
-    "mtime": 1793432761.9392412,
-    "seen": 1793432791.64883,
-    "ast_hash": "68b922296b1237cfc67f28ac668cd462",
+    "mtime": 1794219711.3288531,
+    "seen": 1794221416.8089025,
+    "ast_hash": "42d4a928294d6671c1cacb6eafc659a6",
     "semantic_hash": ""
   },
   "app/src/main/assets/builtin_skills/manifest.json": {
@@ -60,9 +60,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/accessibility/AgentAccessibilityService.kt": {
-    "mtime": 1793432761.941241,
-    "seen": 1793432791.6497145,
-    "ast_hash": "44cfca90f7c80931f7126a4a78306545",
+    "mtime": 1794219711.3360212,
+    "seen": 1794221416.8089266,
+    "ast_hash": "c65b31bf92c5757e5a05a69fb4ba6024",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/accessibility/MainThreadCallGate.kt": {
@@ -162,9 +162,9 @@
     "semantic_hash": "5b2b3e4de8628f6de301d5a63271a703"
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/device/RootShellDeviceController.kt": {
-    "mtime": 1793432761.941241,
-    "seen": 1793432791.6529832,
-    "ast_hash": "45dc1df1734968a3b77a0d2c74a1000c",
+    "mtime": 1794219711.3370194,
+    "seen": 1794221416.8089912,
+    "ast_hash": "b3c86837ae67b73c135f8c95675e261c",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/device/ScreenshotOutcomePolicy.kt": {
@@ -246,9 +246,9 @@
     "semantic_hash": "71195caba41afed72f02a59549a2a9b6"
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentContextAppToolCatalog.kt": {
-    "mtime": 1793432761.9422414,
-    "seen": 1793432791.6541898,
-    "ast_hash": "7d9ef0eb0d312546e86cc5985be4ae75",
+    "mtime": 1794219711.3370194,
+    "seen": 1794221416.8090162,
+    "ast_hash": "bd6c04d02ade2995bf33cb08e3d64046",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentConversationCodec.kt": {
@@ -288,9 +288,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentLoop.kt": {
-    "mtime": 1793178086.7748487,
-    "seen": 1793178100.3134367,
-    "ast_hash": "1f55f2ad7a70d6d3035c22b0ffc8c3e4",
+    "mtime": 1794219856.1884403,
+    "seen": 1794221416.8090363,
+    "ast_hash": "725ce3c3be37ef451a0829ea9ab077ad",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentMemoryToolCatalog.kt": {
@@ -300,15 +300,15 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentModelClient.kt": {
-    "mtime": 1793178086.7748487,
-    "seen": 1793178100.313439,
-    "ast_hash": "c31532a31c39cfbe673b8dffee587137",
+    "mtime": 1794219711.351022,
+    "seen": 1794221416.8090384,
+    "ast_hash": "937970c807ba54f83723ae30cbc18a57",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentPromptBuilder.kt": {
-    "mtime": 1793432761.9422414,
-    "seen": 1793432791.6557481,
-    "ast_hash": "1a35c4fadcfa258f9febbacada8331fc",
+    "mtime": 1794219711.357155,
+    "seen": 1794221416.8090477,
+    "ast_hash": "0bb1ab112552921983e2111e0ea3f936",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentProvider.kt": {
@@ -348,9 +348,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentToolCatalog.kt": {
-    "mtime": 1791281039.473649,
-    "seen": 1791355883.2887938,
-    "ast_hash": "2a256f604e5ee2a3d8efca12d64945bc",
+    "mtime": 1794219711.358154,
+    "seen": 1794221416.809058,
+    "ast_hash": "2d2d26c54f42a00a096ff4cf173bc340",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentToolSchema.kt": {
@@ -360,9 +360,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentTraceFormatter.kt": {
-    "mtime": 1793432761.9432414,
-    "seen": 1793432791.656322,
-    "ast_hash": "a790eb1cdebc07c21d897ee216dd5a66",
+    "mtime": 1794219711.3641543,
+    "seen": 1794221416.8090606,
+    "ast_hash": "4823023a27b155757d0640dda31bb952",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AnthropicMessagesProvider.kt": {
@@ -378,9 +378,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/OpenAiChatCompletionsProvider.kt": {
-    "mtime": 1792984906.6752248,
-    "seen": 1792984928.0517557,
-    "ast_hash": "db83608a2d55f4d42d979b299ef70604",
+    "mtime": 1794219711.3701544,
+    "seen": 1794221416.809082,
+    "ast_hash": "19c126cf3e472484ce3d6c9c7bfde1dd",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/OpenAiRequestMessages.kt": {
@@ -390,9 +390,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/OpenAiResponsesProvider.kt": {
-    "mtime": 1792984906.6752248,
-    "seen": 1792984928.0519452,
-    "ast_hash": "ad8cba1e2627901d2310ed0091b34f10",
+    "mtime": 1794219711.3701544,
+    "seen": 1794221416.809085,
+    "ast_hash": "8244b5e17051427f38958d59005cec09",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/ProviderClientFactory.kt": {
@@ -432,9 +432,9 @@
     "semantic_hash": "d1c2469a47adb062f605aea2e28cc08c"
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/ResponsesRequestBuilder.kt": {
-    "mtime": 1792984906.6752248,
-    "seen": 1792984928.0522573,
-    "ast_hash": "568be6dc7296d9baffa781e42da14d5b",
+    "mtime": 1794219711.3782856,
+    "seen": 1794221416.809097,
+    "ast_hash": "e5fd4dc3f977abefdcd56307c066a4f1",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/overlay/AgentHapticFeedback.kt": {
@@ -444,9 +444,9 @@
     "semantic_hash": "a7f3ff2f055c0beb7683144d3681f2c6"
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/overlay/AgentOverlayContent.kt": {
-    "mtime": 1793432761.944242,
-    "seen": 1793432791.6587088,
-    "ast_hash": "262a27a183fb3281d5c98a2e835a4263",
+    "mtime": 1794219711.3792853,
+    "seen": 1794221416.809106,
+    "ast_hash": "d32af89cb1a8ebfa9df694523d003cec",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/overlay/AgentOverlayState.kt": {
@@ -582,15 +582,15 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentRuntimeRunExecutor.kt": {
-    "mtime": 1793432761.9462419,
-    "seen": 1793432791.6620293,
-    "ast_hash": "3603879f99900c494ac20357cc122ca7",
+    "mtime": 1794223191.338074,
+    "seen": 1794223527.9398246,
+    "ast_hash": "5937ece69086262943885b3b603f80e0",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentRuntimeService.kt": {
-    "mtime": 1793432761.947242,
-    "seen": 1793432791.6620312,
-    "ast_hash": "b1c31960484a6622fef21a8645cacecd",
+    "mtime": 1794219918.33301,
+    "seen": 1794221416.809171,
+    "ast_hash": "cb2ad956e94f846646833c09d78b57c3",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentRuntimeSession.kt": {
@@ -600,16 +600,16 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentRuntimeWire.kt": {
-    "mtime": 1793178086.7808504,
-    "seen": 1793178100.3135674,
-    "ast_hash": "637a50902bdfb52ce1e0786affd78f21",
+    "mtime": 1794219711.3989165,
+    "seen": 1794221416.8091733,
+    "ast_hash": "b11c91ad9c1768b87cd881028697dc88",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentTokenUsage.kt": {
-    "mtime": 1788325274.298103,
-    "seen": 1788326172.0403318,
-    "ast_hash": "f74ba1655b15bd15cd6b9d1dec054cb9",
-    "semantic_hash": "f74ba1655b15bd15cd6b9d1dec054cb9"
+    "mtime": 1794219711.3989165,
+    "seen": 1794221416.8091743,
+    "ast_hash": "06bb1529a8acc3e063f923c6f1f6403e",
+    "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/AgentUiHandoffPayload.kt": {
     "mtime": 1790158485.1729472,
@@ -810,9 +810,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/tool/AgentLocalTools.kt": {
-    "mtime": 1793432761.9482417,
-    "seen": 1793432791.6669085,
-    "ast_hash": "9e6c26feb2844cb4282e048a6ea55eee",
+    "mtime": 1794219711.4039228,
+    "seen": 1794221416.8092723,
+    "ast_hash": "f8f80ea97e08992fdd4e889ab3d9317d",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/tool/AgentPersonalContextTools.kt": {
@@ -912,9 +912,9 @@
     "semantic_hash": "a9ce45d9a0508a561c8866e05c08083c"
   },
   "app/src/main/kotlin/io/github/mangi/eta/config/Prefs.kt": {
-    "mtime": 1793432761.9552457,
-    "seen": 1793432791.6721654,
-    "ast_hash": "4cbf455ae961d675a75ca281965ca3fe",
+    "mtime": 1794219711.4130924,
+    "seen": 1794221416.8093755,
+    "ast_hash": "cb9ab6b7ca119c1bdff8f8b66c52d1cb",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/core/AgentLogger.kt": {
@@ -954,9 +954,9 @@
     "semantic_hash": "7f93d0ee11944eed8f05909f69249bb3"
   },
   "app/src/main/kotlin/io/github/mangi/eta/core/ModuleConfig.kt": {
-    "mtime": 1789095021.8710258,
-    "seen": 1789096177.7688882,
-    "ast_hash": "540457e7743f6a204e74c270e8a7912b",
+    "mtime": 1794060003.2202501,
+    "seen": 1794221416.8093915,
+    "ast_hash": "d0d56de32c63a61910893f250c30edfe",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/core/ModuleLogger.kt": {
@@ -966,27 +966,27 @@
     "semantic_hash": "ebbe057026cc82d4e60e71336baae5fa"
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/datastore/SettingsDataStore.kt": {
-    "mtime": 1793432761.956247,
-    "seen": 1793432791.6731806,
-    "ast_hash": "e5a6fd6037aa2cabb349f7f1410d929a",
+    "mtime": 1794220041.1389792,
+    "seen": 1794221416.809394,
+    "ast_hash": "74a9bf4a8103f9a3c3b4ae2bea10a79a",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/db/ConversationDao.kt": {
-    "mtime": 1792984906.690641,
-    "seen": 1792984928.065071,
-    "ast_hash": "be3d2833bdf105068376177828e6678b",
+    "mtime": 1794219711.4200883,
+    "seen": 1794221416.8093998,
+    "ast_hash": "704341eeae1a4dc5afb1a845fa158bae",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/db/ConversationEntities.kt": {
-    "mtime": 1792984906.690641,
-    "seen": 1792984928.0650723,
-    "ast_hash": "b8ed9a06745fc957ba2fe92af8a2438d",
+    "mtime": 1794219711.4200883,
+    "seen": 1794221416.8094008,
+    "ast_hash": "83de2826329e4e74360cf0740c01d173",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/db/EtaDatabase.kt": {
-    "mtime": 1792984906.690641,
-    "seen": 1792984928.065074,
-    "ast_hash": "9b548d1dd4e8364da7729526e3e62d14",
+    "mtime": 1794220219.1367204,
+    "seen": 1794221416.8094022,
+    "ast_hash": "2250cf417f320c3c746e7913af11d0ca",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/db/McpEntities.kt": {
@@ -1038,10 +1038,10 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/model/AppearanceSettings.kt": {
-    "mtime": 1788325274.3159685,
-    "seen": 1788326172.0403872,
-    "ast_hash": "1e92f6a610991ef22ba316ec8b742aaf",
-    "semantic_hash": "1e92f6a610991ef22ba316ec8b742aaf"
+    "mtime": 1794219711.42723,
+    "seen": 1794221416.809414,
+    "ast_hash": "3bd8b37d0f09ead2e169a2af690dd538",
+    "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/model/CustomBody.kt": {
     "mtime": 1788325274.3159685,
@@ -1116,10 +1116,10 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/repository/AppearanceSettingsRepository.kt": {
-    "mtime": 1788325274.3159685,
-    "seen": 1788326172.0403967,
-    "ast_hash": "c8486cfe3ca7de15da1a3b71c01f9eab",
-    "semantic_hash": "c8486cfe3ca7de15da1a3b71c01f9eab"
+    "mtime": 1794219711.4282305,
+    "seen": 1794221416.8094528,
+    "ast_hash": "2f59364b8946b5e9a262c94846809f69",
+    "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/repository/EtaBackupRepository.kt": {
     "mtime": 1793178086.7868521,
@@ -1140,9 +1140,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/repository/McpServerRepository.kt": {
-    "mtime": 1792217799.3578417,
-    "seen": 1792218878.689091,
-    "ast_hash": "9bccdab813eb9d6e319e1eda9870a8d9",
+    "mtime": 1794220096.5534692,
+    "seen": 1794221416.8094928,
+    "ast_hash": "3604c6dffc60f0654dfb332d8f5f72d8",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/repository/ModelRepository.kt": {
@@ -1206,9 +1206,9 @@
     "semantic_hash": "43b01d5425d038c766b2903349218986"
   },
   "app/src/main/kotlin/io/github/mangi/eta/hook/colordirect/ColorDirectHooks.kt": {
-    "mtime": 1791281039.507447,
-    "seen": 1792289745.8222206,
-    "ast_hash": "cb53b5ad535af630f08743e8a71ac65f",
+    "mtime": 1794223198.4792783,
+    "seen": 1794223527.9402356,
+    "ast_hash": "d9152c978f10127011849cda0ba281f0",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/hook/google/GoogleAppHooks.kt": {
@@ -1248,15 +1248,15 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/hook/system/CircleToSearchInvoker.kt": {
-    "mtime": 1789095021.8775454,
-    "seen": 1789096177.7689843,
-    "ast_hash": "1483fad191c16823adaa22379176ef26",
+    "mtime": 1794223195.9600434,
+    "seen": 1794223527.9402606,
+    "ast_hash": "55d2b04295583985f28a064197002e3b",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/hook/system/ContextualSearchHooks.kt": {
-    "mtime": 1789095021.8775454,
-    "seen": 1789096177.768987,
-    "ast_hash": "27865b3527a7eab65681818bef66c31e",
+    "mtime": 1794060003.2622516,
+    "seen": 1794221416.8095474,
+    "ast_hash": "9590e327d96d20052b567f9effaf71f8",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/hook/system/HotwordSelfHealHooks.kt": {
@@ -1272,9 +1272,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/hook/system/SystemServerHooks.kt": {
-    "mtime": 1793432761.957246,
-    "seen": 1793432791.6795423,
-    "ast_hash": "9932a691f1a1ae5d76e6781131bba891",
+    "mtime": 1794060076.4151144,
+    "seen": 1794221416.8095546,
+    "ast_hash": "49bdbfe4cf062f87d1008b4a147f39a5",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/hook/system/SystemUiHooks.kt": {
@@ -1320,45 +1320,45 @@
     "semantic_hash": "43304aa0108ea57b28f3fe78da9a3c5a"
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/AppearanceSettingsScreen.kt": {
-    "mtime": 1791966313.353356,
-    "seen": 1791966912.3983474,
-    "ast_hash": "99a34d2d2303ae2bbcf85f54c5216ace",
+    "mtime": 1794219711.4372323,
+    "seen": 1794221416.8095708,
+    "ast_hash": "f64df27c3ef59152cae786800f3431cc",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/MainActivity.kt": {
-    "mtime": 1793178086.7888498,
-    "seen": 1793178100.3138914,
-    "ast_hash": "6cabaecc5c593b440050cdf57f1d9aa5",
+    "mtime": 1794219711.4382305,
+    "seen": 1794221416.809572,
+    "ast_hash": "f14ea82196aeddce4a5f16240ecb8f86",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/SettingsScreen.kt": {
-    "mtime": 1793432761.9582465,
-    "seen": 1793432791.6802473,
-    "ast_hash": "9d0f2e46b0126d45f2dffe75389fad1b",
+    "mtime": 1794221229.8966577,
+    "seen": 1794221416.8095753,
+    "ast_hash": "04c88d353b41e64f8036e228dc70aad5",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentAppRoot.kt": {
-    "mtime": 1793178086.78985,
-    "seen": 1793178100.313895,
-    "ast_hash": "1dc244c83c7fb71840c98285fe081929",
+    "mtime": 1794220238.1396217,
+    "seen": 1794221416.8095772,
+    "ast_hash": "94ca014d2e8d06a8aa6967e180512e43",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentAppShell.kt": {
-    "mtime": 1793178086.78985,
-    "seen": 1793178100.3138957,
-    "ast_hash": "0ab06b8054de58f4bb293acd412bfe9a",
+    "mtime": 1794219711.4583516,
+    "seen": 1794221416.8095787,
+    "ast_hash": "dd39385d1c5de0e90fbfb3bbe4ed75f5",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentAppState.kt": {
-    "mtime": 1793178086.7908487,
-    "seen": 1793178100.3138967,
-    "ast_hash": "798f498ebce6a86201892d20c4066c38",
+    "mtime": 1794219711.459351,
+    "seen": 1794221416.8095806,
+    "ast_hash": "ee839b688b9cf8629be1fa60a523497f",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentAppTheme.kt": {
-    "mtime": 1790908217.1181142,
-    "seen": 1791355883.298632,
-    "ast_hash": "5a0f356e770525bef5cc7212aa88d4e3",
+    "mtime": 1794219711.459351,
+    "seen": 1794221416.809582,
+    "ast_hash": "d36789cc936abfb4c1f9fd3737b7eaf0",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentAppViewModel.kt": {
@@ -1374,9 +1374,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentConversationStore.kt": {
-    "mtime": 1793945944.5198672,
-    "seen": 1793945966.8207135,
-    "ast_hash": "3e4d786a69d389a9d4238b13ccb19285",
+    "mtime": 1794219711.4675255,
+    "seen": 1794221416.8095868,
+    "ast_hash": "3368db3b21f33d4c5d333e5d92ee18d8",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentPendingResultRecovery.kt": {
@@ -1392,9 +1392,9 @@
     "semantic_hash": "adc2a3a36107c760766b64c03a655669"
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentRunMessageProjector.kt": {
-    "mtime": 1793178086.7908487,
-    "seen": 1793178100.3139093,
-    "ast_hash": "56c7a2cd6d8bcbb2906c06ceec4b6465",
+    "mtime": 1794219711.469525,
+    "seen": 1794221416.8095927,
+    "ast_hash": "7f1f040c25eb891ca68dc256be55f599",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentRunRecoveryCoordinator.kt": {
@@ -1410,10 +1410,10 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AppearanceThemeLocals.kt": {
-    "mtime": 1788325274.3327093,
-    "seen": 1788326172.040434,
-    "ast_hash": "5e71d25637e645cee8db1a9abb84b2e8",
-    "semantic_hash": "5e71d25637e645cee8db1a9abb84b2e8"
+    "mtime": 1794219711.469525,
+    "seen": 1794221416.8096006,
+    "ast_hash": "04be1cf310435c08409f823ced73ace9",
+    "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/ConsoleStore.kt": {
     "mtime": 1791966313.3727927,
@@ -1458,33 +1458,33 @@
     "semantic_hash": "4d8b9e06f448bb8bdc6f30d8e874a22a"
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/AgentChatBody.kt": {
-    "mtime": 1793432761.9582465,
-    "seen": 1793432791.683348,
-    "ast_hash": "8791fe515f5599584c9c26ac0890efc3",
+    "mtime": 1794219711.4755304,
+    "seen": 1794221416.8096364,
+    "ast_hash": "7978ff3700d3594f4903d43dbde35be7",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/AgentChatFileAttachments.kt": {
-    "mtime": 1792216249.9153383,
-    "seen": 1792216353.6282012,
-    "ast_hash": "c728394818bd75810186282436c3555e",
+    "mtime": 1794219981.9918694,
+    "seen": 1794221416.8096373,
+    "ast_hash": "92a06a69bcde16670ca3296b3751bb3e",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/AgentChatInputBar.kt": {
-    "mtime": 1792984906.7086213,
-    "seen": 1792984928.0727985,
-    "ast_hash": "9b87bea2df97106268e5d6b94b35d9fc",
+    "mtime": 1794223358.0074809,
+    "seen": 1794223527.940361,
+    "ast_hash": "1def7d3ee52cf2fceec0b0990100720b",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/AgentChatModelControls.kt": {
-    "mtime": 1791966313.3896978,
-    "seen": 1791966912.4006977,
-    "ast_hash": "7caf2d770c4dc8d80a5e8f1af8239426",
+    "mtime": 1794219711.4881468,
+    "seen": 1794221416.8096395,
+    "ast_hash": "00fedd26ef64db261bfd6622b6b0c233",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/AgentStatusCard.kt": {
-    "mtime": 1790158485.2570422,
-    "seen": 1791355883.3002512,
-    "ast_hash": "0f13888f650743acd29932a5a091ed1c",
+    "mtime": 1794219711.4891508,
+    "seen": 1794221416.809645,
+    "ast_hash": "599fbe9555b3842f592eb1f86db28316",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/AnsiText.kt": {
@@ -1500,15 +1500,15 @@
     "semantic_hash": "246e29ef4072d4485d800fd64957159d"
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/ChatMessageItem.kt": {
-    "mtime": 1792984906.7086213,
-    "seen": 1792984928.0733724,
-    "ast_hash": "18578389af2fa6e180628466d884f019",
+    "mtime": 1794219711.4901538,
+    "seen": 1794221416.809657,
+    "ast_hash": "997e0c16eb2f6d62bc9d413bf8dac2b5",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/ConversationSidePaneScaffold.kt": {
-    "mtime": 1790158485.2570422,
-    "seen": 1791355883.3004527,
-    "ast_hash": "3f58a41f2edc62ee2c3f506644c36719",
+    "mtime": 1794219711.4911516,
+    "seen": 1794221416.8096635,
+    "ast_hash": "464ff897bc290e207f37e529a4ff85eb",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/MiuixBackButton.kt": {
@@ -1518,21 +1518,21 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/MiuixDialogActions.kt": {
-    "mtime": 1790158485.268627,
-    "seen": 1791355883.300649,
-    "ast_hash": "15d99050b7f7f35bc561c54d4f2aeb73",
+    "mtime": 1794219711.493151,
+    "seen": 1794221416.8096747,
+    "ast_hash": "74fbed3c7fba3adff59ae87720a67256",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/MiuixScaffoldPage.kt": {
-    "mtime": 1793178086.7918477,
-    "seen": 1793178100.3139958,
-    "ast_hash": "e3ac25d24915e6578be2a9b22a7d365f",
+    "mtime": 1794219711.493151,
+    "seen": 1794221416.8096757,
+    "ast_hash": "ea40b576128d9bf7919d8ab3bf24b198",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/PermissionHealthCard.kt": {
-    "mtime": 1790158485.2696342,
-    "seen": 1791355883.3006542,
-    "ast_hash": "a7afb6803a59d8b2a6032fb0f6207a9d",
+    "mtime": 1794219711.493151,
+    "seen": 1794221416.809677,
+    "ast_hash": "46a819dea1c6ce877f7a9c037935c819",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/ProviderBranding.kt": {
@@ -1548,9 +1548,9 @@
     "semantic_hash": "9b51ce9d4c5ffa69a5d2633cff88efe7"
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/StatusColors.kt": {
-    "mtime": 1789095021.9009447,
-    "seen": 1789096177.7690883,
-    "ast_hash": "f7969bce06729abd69e0dd481642e206",
+    "mtime": 1794219711.493151,
+    "seen": 1794221416.809682,
+    "ast_hash": "c8021b32e346f5f00d8185f48f5c88f6",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/ToolChip.kt": {
@@ -1578,9 +1578,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/model/AgentChatUiState.kt": {
-    "mtime": 1792984906.7199137,
-    "seen": 1792984928.0757935,
-    "ast_hash": "1785c926126627b8d86656ceb5fbc322",
+    "mtime": 1794219711.51126,
+    "seen": 1794221416.8097084,
+    "ast_hash": "64a733f63de0a9fbbdee98d14b09ce1d",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/model/AgentHomeUiState.kt": {
@@ -1596,9 +1596,9 @@
     "semantic_hash": "28cf82766bdef78278fc94fd589a2b63"
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/model/AgentModelPickerUiState.kt": {
-    "mtime": 1792984906.7199137,
-    "seen": 1792984928.0759425,
-    "ast_hash": "8468333cdc1d8341620f3fb06cfc8d44",
+    "mtime": 1794219711.5122614,
+    "seen": 1794221416.8097122,
+    "ast_hash": "bdc139066b68c7d72b04a2302f08ba0f",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/model/AgentSkillsUiState.kt": {
@@ -1614,9 +1614,9 @@
     "semantic_hash": "8cff9df42798fed7d90b891c285ac798"
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/model/AgentUiActions.kt": {
-    "mtime": 1793153558.6481686,
-    "seen": 1793153570.4203684,
-    "ast_hash": "3169383928ce02953679c17edb2368d4",
+    "mtime": 1794219711.517425,
+    "seen": 1794221416.8097157,
+    "ast_hash": "15d8902057912dd3c09da9e29f49bb4a",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/model/ConversationUiState.kt": {
@@ -1644,27 +1644,27 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/ModelProviderDetailScreen.kt": {
-    "mtime": 1792984906.7220697,
-    "seen": 1792984928.076458,
-    "ast_hash": "461e535e11d34f904cc3a7a800294c5e",
+    "mtime": 1794220207.770064,
+    "seen": 1794221416.809729,
+    "ast_hash": "9be5efebb2ac66e4c0cd0840597ab967",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/ModelProviderListScreen.kt": {
-    "mtime": 1792984906.7220697,
-    "seen": 1792984928.0764601,
-    "ast_hash": "30f1cf7714c8f2d4e93c01c4e61e6b7c",
+    "mtime": 1794219919.4117887,
+    "seen": 1794221416.80973,
+    "ast_hash": "9d269ba44cecae1103607d869d35e836",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/ProviderComponents.kt": {
-    "mtime": 1791966313.4062476,
-    "seen": 1791966912.4043949,
-    "ast_hash": "6be161c1cdbb5646fd4772572afc20b5",
+    "mtime": 1794219711.5304174,
+    "seen": 1794221416.8097327,
+    "ast_hash": "6dd1d425db39460f923c44f7ed3fd9e3",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/ProviderModelsTab.kt": {
-    "mtime": 1793000747.6243362,
-    "seen": 1793001062.114945,
-    "ast_hash": "2453e7740f37f0b397887fef355f7d7a",
+    "mtime": 1794220688.8247142,
+    "seen": 1794221416.8097382,
+    "ast_hash": "4f8a2b2b7cf893229d7659802664f99a",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/preview/FakeAgentUiStates.kt": {
@@ -1674,51 +1674,51 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/backup/DataBackupScreen.kt": {
-    "mtime": 1791966313.4062476,
-    "seen": 1791966912.404656,
-    "ast_hash": "b836f4c439907c52b50d042f79ea524e",
+    "mtime": 1794219711.5455425,
+    "seen": 1794221416.8097417,
+    "ast_hash": "712786744b0cd9ce793c9b598ab30f7e",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/browser/AgentBrowserScreen.kt": {
-    "mtime": 1792984906.7250407,
-    "seen": 1792984928.0767775,
-    "ast_hash": "7c187889cdbe0c21ebf4ad591a87e52f",
+    "mtime": 1794219711.5455425,
+    "seen": 1794221416.8097446,
+    "ast_hash": "6e50ccf79eb7ee1ada25f680ba8e3f32",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/enhance/SystemEnhanceScreen.kt": {
-    "mtime": 1791966313.4099607,
-    "seen": 1791966912.4048991,
-    "ast_hash": "1bd5a36dbdbc3ce939afc1fa92ebdaee",
+    "mtime": 1794219711.5537045,
+    "seen": 1794221416.809758,
+    "ast_hash": "9beb3b28df2d6d1da52cb6d751b264d3",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/home/AgentHomeScreen.kt": {
-    "mtime": 1792984906.7250407,
-    "seen": 1792984928.0773625,
-    "ast_hash": "23249dead51da121689b232507f4e626",
+    "mtime": 1794219711.5627036,
+    "seen": 1794221416.8097591,
+    "ast_hash": "afa3d78b7e2329faeded7ad121852135",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/mcp/McpServersScreen.kt": {
-    "mtime": 1792218654.068995,
-    "seen": 1792218878.7024,
-    "ast_hash": "b0f8023fc1ebeb012e72ff946d7c2340",
+    "mtime": 1794221144.214287,
+    "seen": 1794221416.8097606,
+    "ast_hash": "0475027b5b96e478e50cfb4445b05f65",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/memory/AgentMemoryScreen.kt": {
-    "mtime": 1791966313.4166076,
-    "seen": 1791966912.404903,
-    "ast_hash": "16996a591a432a31b4e8260d33a94d74",
+    "mtime": 1794219711.5688663,
+    "seen": 1794221416.8097613,
+    "ast_hash": "1fab8d774994adb35d9f40fd0b090e0c",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/permissions/PermissionHealthScreen.kt": {
-    "mtime": 1791281039.538838,
-    "seen": 1791355883.3019204,
-    "ast_hash": "5a0981969c4515bd7a8989dc338f78e3",
+    "mtime": 1794219711.5698652,
+    "seen": 1794221416.8097625,
+    "ast_hash": "fa80444a1cdf95a25efda1b916255404",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/skills/AgentSkillsScreen.kt": {
-    "mtime": 1793153558.6491697,
-    "seen": 1793153570.4204252,
-    "ast_hash": "d5acf2ead9e3588cae0a35bbfa95d29f",
+    "mtime": 1794220525.064056,
+    "seen": 1794221416.8097637,
+    "ast_hash": "eb448d149edd901e89e9353c4d0eb040",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/terminal/ConsoleScreen.kt": {
@@ -1728,45 +1728,45 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/terminal/DaemonTasksDialog.kt": {
-    "mtime": 1791966313.423128,
-    "seen": 1791966912.4051323,
-    "ast_hash": "084061c933285d861cc4f2ead7eb9730",
+    "mtime": 1794219711.582864,
+    "seen": 1794221416.809774,
+    "ast_hash": "60a91628e9f975aaba02b954b499de67",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/terminal/LinuxEnvironmentScreen.kt": {
-    "mtime": 1791966313.4324703,
-    "seen": 1791966912.4051335,
-    "ast_hash": "5bcec7d7bbd2f0463446524ac83f40a1",
+    "mtime": 1794219711.5920808,
+    "seen": 1794221416.8097749,
+    "ast_hash": "0dc41c6ef86fb941bbd3373b994bf9a5",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/terminal/LinuxFilesScreen.kt": {
-    "mtime": 1791966313.4324703,
-    "seen": 1791966912.4051368,
-    "ast_hash": "d872211f82a7f811f4dae4bdc8d1cc3a",
+    "mtime": 1794219711.593081,
+    "seen": 1794221416.8097773,
+    "ast_hash": "89e7c1d50fb6cf5734e105cdbf2d300f",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/terminal/SessionListDialog.kt": {
-    "mtime": 1791966313.4324703,
-    "seen": 1791966912.4051383,
-    "ast_hash": "63b24350523e57dd7e94da8dc1214351",
+    "mtime": 1794219711.593081,
+    "seen": 1794221416.8097782,
+    "ast_hash": "551c4db21e97937f95c02a21cd5a051c",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/terminal/SharedFoldersScreen.kt": {
-    "mtime": 1791966313.4324703,
-    "seen": 1791966912.4051394,
-    "ast_hash": "fde59fcbccb01670bdecb1f4771bc0db",
+    "mtime": 1794219711.5940804,
+    "seen": 1794221416.8097796,
+    "ast_hash": "ae0b13a20db3a34c43097b8c1f620937",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/terminal/UserTerminalScreen.kt": {
-    "mtime": 1791966313.434477,
-    "seen": 1791966912.405143,
-    "ast_hash": "6eb7deec946c11ec85e8168d6d2272c5",
+    "mtime": 1794219711.5940804,
+    "seen": 1794221416.809782,
+    "ast_hash": "4d5f928111b5ca515ad55e09f3d0375d",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/tools/AgentToolsScreen.kt": {
-    "mtime": 1791966313.4349809,
-    "seen": 1791966912.4051461,
-    "ast_hash": "536a9272d1c766e4f5fcc8eaccdac9e7",
+    "mtime": 1794219711.5950804,
+    "seen": 1794221416.8097847,
+    "ast_hash": "38b802a98fecc53224b6c36da9fdd9ab",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/AppProcessPolicyTest.kt": {
@@ -1962,9 +1962,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentTraceFormatterTest.kt": {
-    "mtime": 1793178086.796849,
-    "seen": 1793178100.314203,
-    "ast_hash": "254e1b21d6ce48e755a9b4904cb68c7d",
+    "mtime": 1794219711.6363578,
+    "seen": 1794221416.809887,
+    "ast_hash": "dffe3be68d940668a989781091a82563",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AnthropicMessagesProviderTest.kt": {
@@ -2226,9 +2226,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/tool/AgentLocalToolsPermissionTest.kt": {
-    "mtime": 1792984906.7421808,
-    "seen": 1792984928.087469,
-    "ast_hash": "cdaaaef3f7b7fcd10e9287d8cec86963",
+    "mtime": 1794219711.6383572,
+    "seen": 1794221416.8100138,
+    "ast_hash": "c358b8659d40d44ddecaeca67be08c0a",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/tool/DeviceContextToolTest.kt": {
@@ -2286,9 +2286,9 @@
     "semantic_hash": "3ad438e21ea8a02b11f5cc7190e820b2"
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/db/EtaDatabaseMigrationTest.kt": {
-    "mtime": 1792984906.7421808,
-    "seen": 1792984928.0902445,
-    "ast_hash": "c59ff084456f9229deb0b00d90237808",
+    "mtime": 1794220316.5196283,
+    "seen": 1794221416.8100684,
+    "ast_hash": "903fc29e60a5fed0bc19977d0ae3d20c",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/db/McpEntitiesTest.kt": {
@@ -2298,10 +2298,10 @@
     "semantic_hash": "3e509e0be5d59b0e32316f5f464ca6ff"
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/model/AppearanceSettingsTest.kt": {
-    "mtime": 1788325274.4159799,
-    "seen": 1788326172.0405486,
-    "ast_hash": "5afa97d5d3bd66d41633685b9d1fd316",
-    "semantic_hash": "5afa97d5d3bd66d41633685b9d1fd316"
+    "mtime": 1794219711.6464756,
+    "seen": 1794221416.8100708,
+    "ast_hash": "74910739524caed95bba930f6ed58096",
+    "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/model/SettingsTest.kt": {
     "mtime": 1788325274.4159799,
@@ -2328,10 +2328,10 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/repository/AppearanceSettingsRepositoryTest.kt": {
-    "mtime": 1788325274.4159799,
-    "seen": 1788326172.0405524,
-    "ast_hash": "aceaea056b07e1d5ebf3542888a1b571",
-    "semantic_hash": "aceaea056b07e1d5ebf3542888a1b571"
+    "mtime": 1794219711.6464756,
+    "seen": 1794221416.8100817,
+    "ast_hash": "e597e1332f3c215c0906cbe18ec0f602",
+    "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/repository/EtaBackupRepositoryTest.kt": {
     "mtime": 1793432761.9687586,
@@ -2364,15 +2364,15 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/repository/RemoteModelFetcherTest.kt": {
-    "mtime": 1792984906.7544563,
-    "seen": 1792984928.0912273,
-    "ast_hash": "afdcffc163404631a64a4cbedc3fc212",
+    "mtime": 1794219711.6474762,
+    "seen": 1794221416.8101027,
+    "ast_hash": "5cd56f6594b31f01f423d1185cf764f0",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/repository/RuntimeConfigRepositoryTest.kt": {
-    "mtime": 1793178086.8008497,
-    "seen": 1793178100.3144608,
-    "ast_hash": "a9df2b87ad943fbff83a58a50e7cb84a",
+    "mtime": 1794219711.6559858,
+    "seen": 1794221416.8101053,
+    "ast_hash": "7eeaa20d4f04c07c5288f50c9f784b5a",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/hook/breeno/BreenoConversationHistoryTest.kt": {
@@ -2442,9 +2442,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/ui/app/AgentConversationStoreTest.kt": {
-    "mtime": 1792984906.756457,
-    "seen": 1792984928.0924668,
-    "ast_hash": "c0753a17cf19aa73aa664658a189fef3",
+    "mtime": 1794219711.6641226,
+    "seen": 1794221416.8101344,
+    "ast_hash": "1de9f10a0347e23ef884829caa3a7378",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/ui/app/AgentPendingResultRecoveryTest.kt": {
@@ -2544,9 +2544,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/ui/model/AgentModelPickerProjectorTest.kt": {
-    "mtime": 1792984906.7571225,
-    "seen": 1792984928.0948377,
-    "ast_hash": "6e6b4a2999d1117067745c1db61b5d59",
+    "mtime": 1794219711.6661274,
+    "seen": 1794221416.8101993,
+    "ast_hash": "b669c25a2c799e2f83d0b80d76118853",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/ui/model/SkillDeletionPolicyTest.kt": {
@@ -2556,9 +2556,9 @@
     "semantic_hash": "4b70a358967f73d7332e3509e3f20dd6"
   },
   "app/src/test/kotlin/io/github/mangi/eta/ui/pages/providers/ProviderComponentsTest.kt": {
-    "mtime": 1792984906.7571225,
-    "seen": 1792984928.0949833,
-    "ast_hash": "d3d715ba5f3c47ddba4b93ef8db88143",
+    "mtime": 1794219711.6711273,
+    "seen": 1794221416.8102076,
+    "ast_hash": "9723a68a44974e86416fb75d49ecebf6",
     "semantic_hash": ""
   },
   "build.gradle.kts": {
@@ -2598,9 +2598,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1793945944.5158694,
-    "seen": 1793945966.8213558,
-    "ast_hash": "7a0cbbc6f239865e77c23d99f373daf8",
+    "mtime": 1794219711.3228538,
+    "seen": 1794221416.8102257,
+    "ast_hash": "8b2de0aebe57c02324517776662b6f06",
     "semantic_hash": ""
   },
   "README_EN.md": {
@@ -2628,21 +2628,21 @@
     "semantic_hash": ""
   },
   "docs/AGENT_RUNTIME.md": {
-    "mtime": 1793432761.9687586,
-    "seen": 1793432791.71691,
-    "ast_hash": "62913550dfeb9515c5442ae7b5508654",
+    "mtime": 1794219711.6782951,
+    "seen": 1794221416.8102431,
+    "ast_hash": "193eee90856e7b985f605db3c523c0ce",
     "semantic_hash": ""
   },
   "docs/TECHNICAL.md": {
-    "mtime": 1793432761.9697595,
-    "seen": 1793432791.7170436,
-    "ast_hash": "35703765a0c61f759b8fb658b923c434",
+    "mtime": 1794223234.5778956,
+    "seen": 1794223527.941125,
+    "ast_hash": "ab29911343bf74feffbe9473498aafa2",
     "semantic_hash": ""
   },
   "docs/THIRD_PARTY_NOTICES.md": {
-    "mtime": 1792984906.7571225,
-    "seen": 1792984928.0967214,
-    "ast_hash": "392581ceacba02e1897806a4b5c5fe80",
+    "mtime": 1794219711.6782951,
+    "seen": 1794221416.81025,
+    "ast_hash": "ac092d5339cef8c06ab629a6945eae67",
     "semantic_hash": ""
   },
   "app/src/main/res/drawable-xxxhdpi/model_logo_chatglm.webp": {
@@ -3060,21 +3060,21 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/ItemDescriptionDialog.kt": {
-    "mtime": 1790158485.267987,
-    "seen": 1791355883.300477,
-    "ast_hash": "30123ee3ef24cba9d402d5d2fce72369",
+    "mtime": 1794219711.4921525,
+    "seen": 1794221416.8096697,
+    "ast_hash": "eee62215cf4e4806802c645f517c6f30",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/LanguagePreference.kt": {
-    "mtime": 1790158485.268627,
-    "seen": 1791355883.3004813,
-    "ast_hash": "b4f6c71f8788a08b4a10dbc190fe912d",
+    "mtime": 1794219711.4921525,
+    "seen": 1794221416.809671,
+    "ast_hash": "0920cfe2e529fb3cc92ae2c75ed0511e",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/ListEmptyState.kt": {
-    "mtime": 1791966313.3896978,
-    "seen": 1791966912.40191,
-    "ast_hash": "8822f24320c8c1e86a2dceb736293291",
+    "mtime": 1794219711.493151,
+    "seen": 1794221416.8096719,
+    "ast_hash": "d3ee70437fbe6022eefa41dc53c49b69",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/ToolIcons.kt": {
@@ -3090,27 +3090,27 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/skills/SkillSwitchRow.kt": {
-    "mtime": 1793153558.6491697,
-    "seen": 1793153570.4204283,
-    "ast_hash": "aa0f1afdc37075bbf372aee25285cdc1",
+    "mtime": 1794220430.1545866,
+    "seen": 1794221416.8097663,
+    "ast_hash": "eafb64c3b90189072e1ed5fc1118e661",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/terminal/LinuxEnvironmentSections.kt": {
-    "mtime": 1791966313.4324703,
-    "seen": 1791966912.4051354,
-    "ast_hash": "b67c181f954eb943a4456ce93889293c",
+    "mtime": 1794219711.593081,
+    "seen": 1794221416.809776,
+    "ast_hash": "780ae15290d66f718eff4c4cb0444fa2",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/terminal/WorkspaceScreen.kt": {
-    "mtime": 1791966313.434477,
-    "seen": 1791966912.405145,
-    "ast_hash": "49e50dec4adc0e878f435689479f7659",
+    "mtime": 1794219711.5940804,
+    "seen": 1794221416.8097832,
+    "ast_hash": "0fc832f630bb7ba98b951ff9ebf2464a",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/tools/ToolCard.kt": {
-    "mtime": 1792984906.7250407,
-    "seen": 1792984928.0788193,
-    "ast_hash": "1f14a5e13fcccff4f4ee402b66c94e6b",
+    "mtime": 1794219711.5950804,
+    "seen": 1794221416.809786,
+    "ast_hash": "8ddca6051266239f9b556179e73d45ad",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/device/BoundedFileCopyTest.kt": {
@@ -3240,9 +3240,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/ui/app/ToolCatalogUiTest.kt": {
-    "mtime": 1791966313.4896784,
-    "seen": 1791966912.4178805,
-    "ast_hash": "d3eb670c16a18879b71b8120623392ee",
+    "mtime": 1794219711.6651263,
+    "seen": 1794221416.810161,
+    "ast_hash": "9b868fbf54cd1329da6dd53282d452af",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/ui/app/WorkspaceFileStoreTest.kt": {
@@ -3300,9 +3300,9 @@
     "semantic_hash": ""
   },
   "docs/ROOTLESS_SUPPORT.md": {
-    "mtime": 1793432761.9697595,
-    "seen": 1793432791.7170415,
-    "ast_hash": "383cf0a93d64fdf31f5479a7613524e0",
+    "mtime": 1794219711.6782951,
+    "seen": 1794221416.8102465,
+    "ast_hash": "20c407dd037257e6e96ad1e267368336",
     "semantic_hash": ""
   },
   "docs/TERMINAL_NATIVE.md": {
@@ -3318,9 +3318,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/skills/SkillEditorScreen.kt": {
-    "mtime": 1791354687.9743874,
-    "seen": 1791355883.301926,
-    "ast_hash": "b2b01c12d0de0a8fbe15949c0c3433b1",
+    "mtime": 1794223430.5410225,
+    "seen": 1794223527.9405072,
+    "ast_hash": "0f24194bf41f8ace6dc2102893251a19",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/skill/SkillParserTest.kt": {
@@ -3540,9 +3540,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/ProviderRequestHeaders.kt": {
-    "mtime": 1792984906.6752248,
-    "seen": 1792984928.0520365,
-    "ast_hash": "45137415705bca3dad945bba39ca1a61",
+    "mtime": 1794219711.3712902,
+    "seen": 1794221416.8090906,
+    "ast_hash": "189a35e463e35d657246101c8723074e",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/ProviderSseReader.kt": {
@@ -3762,9 +3762,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/tool/AgentAfterActionSummary.kt": {
-    "mtime": 1791354150.4963264,
-    "seen": 1791355883.2930362,
-    "ast_hash": "0acb33ea03e6d95dce964b99b6ae41fc",
+    "mtime": 1794219711.3989165,
+    "seen": 1794221416.8092685,
+    "ast_hash": "27c1b5c38e19c7e75cc18debadd6f9cf",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/tool/AppInspectionTool.kt": {
@@ -4158,15 +4158,15 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentConversationPersistence.kt": {
-    "mtime": 1792984906.7086213,
-    "seen": 1792984928.0700924,
-    "ast_hash": "c751d3a3d41273525c2467052d21dbc4",
+    "mtime": 1794219711.459351,
+    "seen": 1794221416.8095844,
+    "ast_hash": "450f31440fdbec652c79535e4b72bf86",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentMemoryStore.kt": {
-    "mtime": 1791354150.5623477,
-    "seen": 1791355883.298645,
-    "ast_hash": "a8c4a631903509473d4760bf9dce004e",
+    "mtime": 1794219711.4685245,
+    "seen": 1794221416.809588,
+    "ast_hash": "c920e8c11313ce68468efb26c25d0f5d",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentSkillsStore.kt": {
@@ -4176,9 +4176,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentToolsCatalogUi.kt": {
-    "mtime": 1793432761.9582465,
-    "seen": 1793432791.6814318,
-    "ast_hash": "185672ca62fc4c778786d1453ff991be",
+    "mtime": 1794219711.469525,
+    "seen": 1794221416.8095992,
+    "ast_hash": "0bebf6595c4d0dc443c4daad3600d874",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/CharacterCardImportMessages.kt": {
@@ -4206,9 +4206,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/LocalNetworkPermissionUi.kt": {
-    "mtime": 1791281039.5340936,
-    "seen": 1791355883.2997184,
-    "ast_hash": "e4ed0194bdd05754292eca93e514890f",
+    "mtime": 1794219711.469525,
+    "seen": 1794221416.80962,
+    "ast_hash": "2d8be47d78ba0994153a3cbb4c381afc",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/PermissionHealthStore.kt": {
@@ -4218,9 +4218,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/RoleplayConversationReducer.kt": {
-    "mtime": 1792984906.7086213,
-    "seen": 1792984928.072363,
-    "ast_hash": "5c649c26c72507283849541953a85078",
+    "mtime": 1794219711.4705238,
+    "seen": 1794221416.8096237,
+    "ast_hash": "222be56debbc026aa793c7615b0e5004",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/StartupSplash.kt": {
@@ -4236,9 +4236,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/AgentWorkProcess.kt": {
-    "mtime": 1790908217.1348126,
-    "seen": 1791355883.3002558,
-    "ast_hash": "fbbe87bcd48ff487639891ffc65558e3",
+    "mtime": 1794219711.4901538,
+    "seen": 1794221416.8096476,
+    "ast_hash": "8995f5e7dee2cdbc415a2e3cbe8c7504",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/AgentWorkSteps.kt": {
@@ -4254,9 +4254,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/ConversationPanePanel.kt": {
-    "mtime": 1792984906.7086213,
-    "seen": 1792984928.0734465,
-    "ast_hash": "43e7b75dfc636802aef71bdb281438de",
+    "mtime": 1794219711.4911516,
+    "seen": 1794221416.809661,
+    "ast_hash": "5d371cda9b9d1aca30d61964fb0d0488",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/ConversationPaneState.kt": {
@@ -4265,64 +4265,28 @@
     "ast_hash": "9fd7815e988ebdf975f398aa3131cf10",
     "semantic_hash": ""
   },
-  "app/src/main/kotlin/io/github/mangi/eta/ui/components/EtaCard.kt": {
-    "mtime": 1790158485.2570422,
-    "seen": 1791355883.3004544,
-    "ast_hash": "a03bf683c354e011556b12f55ba76ccf",
-    "semantic_hash": ""
-  },
-  "app/src/main/kotlin/io/github/mangi/eta/ui/components/EtaControls.kt": {
-    "mtime": 1790908217.1348126,
-    "seen": 1791355883.3004565,
-    "ast_hash": "a9288cd4abe17a3cc6cf94dd04811230",
-    "semantic_hash": ""
-  },
-  "app/src/main/kotlin/io/github/mangi/eta/ui/components/EtaDropdownPreference.kt": {
-    "mtime": 1790158485.2570422,
-    "seen": 1791355883.3004584,
-    "ast_hash": "4754d5a84de26868bc8906a6c5d9f7d3",
-    "semantic_hash": ""
-  },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/EtaFeatureCard.kt": {
-    "mtime": 1790158485.2667317,
-    "seen": 1791355883.3004603,
-    "ast_hash": "5a1e4549d040dc1823b1a03354349216",
+    "mtime": 1794219711.4921525,
+    "seen": 1794221416.8096662,
+    "ast_hash": "4bba40205a5d58923a809653de4d32d2",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/EtaPreferenceGroupItem.kt": {
-    "mtime": 1790158485.2667317,
-    "seen": 1791355883.3004637,
-    "ast_hash": "37422dd298e3f08e59842990e7435705",
-    "semantic_hash": ""
-  },
-  "app/src/main/kotlin/io/github/mangi/eta/ui/components/EtaPreferenceRow.kt": {
-    "mtime": 1790158485.2667317,
-    "seen": 1791355883.3004673,
-    "ast_hash": "deaef0f601bb2d235bdd5d7967e9c8c6",
-    "semantic_hash": ""
-  },
-  "app/src/main/kotlin/io/github/mangi/eta/ui/components/EtaPreferenceStyle.kt": {
-    "mtime": 1790158485.2667317,
-    "seen": 1791355883.3004699,
-    "ast_hash": "716e756db09f45fbc63ccf07de434bdc",
-    "semantic_hash": ""
-  },
-  "app/src/main/kotlin/io/github/mangi/eta/ui/components/EtaSelectionPreferences.kt": {
-    "mtime": 1790158485.267987,
-    "seen": 1791355883.3004723,
-    "ast_hash": "bf3a3c79d47c73817ab6db7187a8f1dc",
+    "mtime": 1794219711.4921525,
+    "seen": 1794221416.8096685,
+    "ast_hash": "ca2dcda93bccc6bb4bb16e67bcd14f4e",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/markdown/ChatMarkdown.kt": {
-    "mtime": 1793945944.520869,
-    "seen": 1793945966.8208191,
-    "ast_hash": "236cc575325f4e3fea1283a2bf6f4f46",
+    "mtime": 1794219711.5022633,
+    "seen": 1794221416.8096926,
+    "ast_hash": "884bbb96215e1c715dbd8e25504e978b",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/markdown/MarkdownContent.kt": {
-    "mtime": 1793945944.520869,
-    "seen": 1793945966.8208206,
-    "ast_hash": "8e349db5496b5ac03c85c22bf6ff9fc3",
+    "mtime": 1794221134.615137,
+    "seen": 1794221416.8096943,
+    "ast_hash": "6e92a93b59e808c51aaffc29becedc29",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/markdown/MarkdownDocumentBuilder.kt": {
@@ -4380,81 +4344,81 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/CommunityCatalogScreens.kt": {
-    "mtime": 1791966313.3896978,
-    "seen": 1791966912.4043894,
-    "ast_hash": "21ae111307888fe18c3934e3dd91db00",
+    "mtime": 1794219711.5184207,
+    "seen": 1794221416.809728,
+    "ast_hash": "482bff090e27f90eeee8edfe0c2ccfc1",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/ProviderConfigDraft.kt": {
-    "mtime": 1792984906.723069,
-    "seen": 1792984928.0765352,
-    "ast_hash": "3180bd66b03b9b9b6a98332b7f2c4e85",
+    "mtime": 1794219832.9580624,
+    "seen": 1794221416.8097334,
+    "ast_hash": "1320eb534d6db13144b54a1a659208c6",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/ProviderHeadersEditor.kt": {
-    "mtime": 1790908217.1520765,
-    "seen": 1791355883.30179,
-    "ast_hash": "47567343d8188ca409b58e8e0432582d",
+    "mtime": 1794219711.5375423,
+    "seen": 1794221416.8097358,
+    "ast_hash": "0fcc92fcdd7bef60bc913a3755e93414",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/characters/CharacterContextScreens.kt": {
-    "mtime": 1790158485.2997134,
-    "seen": 1791355883.3018944,
-    "ast_hash": "e739e808eeb4f16981590eb840b4bc3b",
+    "mtime": 1794219711.5455425,
+    "seen": 1794221416.80975,
+    "ast_hash": "593296ed1b38e5749e9ad9fdc70447df",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/characters/CharacterDetailScreen.kt": {
-    "mtime": 1792215528.6395836,
-    "seen": 1792215645.116913,
-    "ast_hash": "0bef2ddb34ef8e00a6d02e35a3cd27fe",
+    "mtime": 1794219824.167487,
+    "seen": 1794221416.809751,
+    "ast_hash": "bff178778787fd83aab5aeab1bfeb5e2",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/characters/CharacterEditorScreen.kt": {
-    "mtime": 1790158485.3013363,
-    "seen": 1791355883.301901,
-    "ast_hash": "7196f72b8d4715c7f810f93dc9872a61",
+    "mtime": 1794219711.5517056,
+    "seen": 1794221416.8097522,
+    "ast_hash": "fc9396bbc6dd32bca7c97200ea7e5f06",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/characters/CharacterLibraryScreen.kt": {
-    "mtime": 1791966313.4062476,
-    "seen": 1791966912.4048223,
-    "ast_hash": "7b00a54b1f5080be5e6127f935977f1a",
+    "mtime": 1794219711.5527039,
+    "seen": 1794221416.8097546,
+    "ast_hash": "02d9591bb0bf4fdb9178c0726a62f1bc",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/characters/CharacterWorldbookEditor.kt": {
-    "mtime": 1790158485.3013363,
-    "seen": 1791355883.3019056,
-    "ast_hash": "562cc415f43b5bfef826891a1a987b06",
+    "mtime": 1794219711.5527039,
+    "seen": 1794221416.8097568,
+    "ast_hash": "58c31380aa0e054a894b5b3760e08d81",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/voice/SpeechControls.kt": {
-    "mtime": 1793432761.9592464,
-    "seen": 1793432791.6925313,
-    "ast_hash": "150803b7c82c835da523031415a1bacd",
+    "mtime": 1794219711.604079,
+    "seen": 1794221416.8097913,
+    "ast_hash": "b023242540191714d644dfc4ac33a631",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/voice/SpeechOssScreen.kt": {
-    "mtime": 1791966313.4349809,
-    "seen": 1791966912.405224,
-    "ast_hash": "8e4c6d6456ae28b862d5eef575fb2ea5",
+    "mtime": 1794219711.605226,
+    "seen": 1794221416.8097925,
+    "ast_hash": "6bd09f6ace583b7697442a88d00aa109",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/voice/SpeechRecognitionScreen.kt": {
-    "mtime": 1793432761.9602463,
-    "seen": 1793432791.6926033,
-    "ast_hash": "466d95d6f42364595b8bc5f30e726bdd",
+    "mtime": 1794219711.605226,
+    "seen": 1794221416.8097937,
+    "ast_hash": "3aa2b8fa0851334598367f753e796e38",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/voice/SpeechSettingsFields.kt": {
-    "mtime": 1793432761.9602463,
-    "seen": 1793432791.6926053,
-    "ast_hash": "bbb88706a3363be8d2ab8e96b34badfc",
+    "mtime": 1794219711.605226,
+    "seen": 1794221416.8097951,
+    "ast_hash": "217bfe8062c2b9849caf82de59fbd903",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/voice/SpeechSettingsScreen.kt": {
-    "mtime": 1792984906.7250407,
-    "seen": 1792984928.0788996,
-    "ast_hash": "b9a38e7cfb97c1a9b4a979f1d4f7a13b",
+    "mtime": 1794219711.6062346,
+    "seen": 1794221416.809796,
+    "ast_hash": "af71d8058edc105c6986985b8fad0098",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/voice/SpeechSettingsStore.kt": {
@@ -4464,9 +4428,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/voice/SpeechSynthesisScreen.kt": {
-    "mtime": 1792984906.7250407,
-    "seen": 1792984928.078972,
-    "ast_hash": "63eddf612d9b46d920f54eb4234927ff",
+    "mtime": 1794219711.6062346,
+    "seen": 1794221416.8097985,
+    "ast_hash": "96efce55181d94908cb0c40582b9899a",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/voice/SpeechVoicePresets.kt": {
@@ -4476,9 +4440,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/accessibility/AccessibilityPlatformCompatibilityTest.kt": {
-    "mtime": 1791281039.5560775,
-    "seen": 1791355883.3021624,
-    "ast_hash": "e220117167ffbaf03c0fb30921001ebf",
+    "mtime": 1794219711.6273592,
+    "seen": 1794221416.8098059,
+    "ast_hash": "bb9b0db9efe3231fb2a816a07f44a5df",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/browser/BrowserScreenshotTest.kt": {
@@ -4584,9 +4548,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/ProviderRequestHeadersTest.kt": {
-    "mtime": 1792984906.7421808,
-    "seen": 1792984928.0830355,
-    "ast_hash": "3b323fc1bd298ac14b363072b07a541f",
+    "mtime": 1794219711.637357,
+    "seen": 1794221416.8099108,
+    "ast_hash": "dcd34d2c6dc8b04f54e6196996957e70",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/ProviderSseReaderTest.kt": {
@@ -4662,9 +4626,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/tool/AgentAfterActionSummaryTest.kt": {
-    "mtime": 1791354150.5956326,
-    "seen": 1791355883.3074112,
-    "ast_hash": "55b49704b22845185ccc1e52021e519d",
+    "mtime": 1794219711.6383572,
+    "seen": 1794221416.8100078,
+    "ast_hash": "8756aec9b5378979f2a68efa4204df08",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/tool/AppInspectionToolTest.kt": {
@@ -4949,12 +4913,6 @@
     "ast_hash": "15bf573d46379c50284e653c8da5d6e0",
     "semantic_hash": ""
   },
-  "app/src/test/kotlin/io/github/mangi/eta/ui/components/EtaPreferenceRenderingTest.kt": {
-    "mtime": 1790158485.4060333,
-    "seen": 1791355883.3113437,
-    "ast_hash": "8f7933f6a5381057dbe64c6b462e9d9e",
-    "semantic_hash": ""
-  },
   "app/src/test/kotlin/io/github/mangi/eta/ui/markdown/MarkdownInlineTest.kt": {
     "mtime": 1790908217.2017243,
     "seen": 1791355883.3115573,
@@ -5046,9 +5004,9 @@
     "semantic_hash": ""
   },
   "docs/UI_COMPONENTS.md": {
-    "mtime": 1790158485.4070337,
-    "seen": 1791355883.3134327,
-    "ast_hash": "a985813787d503d8602d40f57da68bd9",
+    "mtime": 1794219711.6797967,
+    "seen": 1794221416.8102512,
+    "ast_hash": "76e2044c2d32d7299cc15ea5dbf0c2b9",
     "semantic_hash": ""
   },
   "docs/VOICE.md": {
@@ -5142,9 +5100,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/AgentModelPicker.kt": {
-    "mtime": 1793178086.7918477,
-    "seen": 1793178100.3139596,
-    "ast_hash": "8c72d04aa188743b86a200e68a956c39",
+    "mtime": 1794219711.4891508,
+    "seen": 1794221416.8096435,
+    "ast_hash": "fe25273d3e5327c442a5fc2ad246b7b7",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/CharacterAvatar.kt": {
@@ -5154,9 +5112,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/EtaChoiceChip.kt": {
-    "mtime": 1791966313.3896978,
-    "seen": 1791966912.4012716,
-    "ast_hash": "a68d8cdae3137eb2338d425688b85d2c",
+    "mtime": 1794219711.4911516,
+    "seen": 1794221416.8096647,
+    "ast_hash": "2b7877e9481ceb9423b21a9e399acf18",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/EtaFonts.kt": {
@@ -5172,15 +5130,15 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/RemoteModelImportSheet.kt": {
-    "mtime": 1792984906.7240686,
-    "seen": 1792984928.076629,
-    "ast_hash": "46b5e3a6195337bf97ca42c9320a0629",
+    "mtime": 1794219711.5445428,
+    "seen": 1794221416.8097396,
+    "ast_hash": "9f88feb5c7d5e9a8d049f124bf917fa8",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/characters/CharacterHero.kt": {
-    "mtime": 1791966313.4062476,
-    "seen": 1791966912.4048207,
-    "ast_hash": "a1d328e412340e7a612c6d2c16850b92",
+    "mtime": 1794219711.5517056,
+    "seen": 1794221416.8097534,
+    "ast_hash": "3d21724446877b811e590341d03dde03",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/characters/CharacterPortraitCard.kt": {
@@ -5387,12 +5345,6 @@
     "ast_hash": "35eed25f8939b0022c190cee2c8f26a7",
     "semantic_hash": ""
   },
-  "app/src/main/kotlin/io/github/mangi/eta/agent/model/CodexResponsesRequest.kt": {
-    "mtime": 1792984906.6752248,
-    "seen": 1792984950.091956,
-    "ast_hash": "61f9b1e571c7b05a930eaa6ae148f5d4",
-    "semantic_hash": ""
-  },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/GeminiCitationFormatter.kt": {
     "mtime": 1792984906.6752248,
     "seen": 1792984950.0919583,
@@ -5508,9 +5460,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/provider/ProviderConnectionProfile.kt": {
-    "mtime": 1792984906.703254,
-    "seen": 1792984950.0923069,
-    "ast_hash": "60f22444ef4ac603fc639418e1e797a7",
+    "mtime": 1794219711.42723,
+    "seen": 1794221416.809446,
+    "ast_hash": "21707fb9c0cd8d3f89b2400adc13b7dd",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/repository/CodexModelCatalog.kt": {
@@ -5532,9 +5484,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/repository/GrokModelCatalog.kt": {
-    "mtime": 1792984906.7052662,
-    "seen": 1792984950.0923285,
-    "ast_hash": "593b37221b127fec88c04838b6fc3543",
+    "mtime": 1794219711.4282305,
+    "seen": 1794221416.8094869,
+    "ast_hash": "41973e3c83b5323a60df7af705481a78",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/data/repository/ProviderCredentialRepository.kt": {
@@ -5562,15 +5514,15 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/MainActivityLaunchRequests.kt": {
-    "mtime": 1792984906.7086213,
-    "seen": 1792984950.0924006,
-    "ast_hash": "c5ededba1819cd95f6f537061b91ca12",
+    "mtime": 1794219711.4382305,
+    "seen": 1794221416.8095744,
+    "ast_hash": "2c11f39b3c2b482bb0ef6296b6d1186e",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentMessageQueueReducer.kt": {
-    "mtime": 1792984906.7086213,
-    "seen": 1792984950.092415,
-    "ast_hash": "3ffe596a0af929cb01cc4fa835d29f18",
+    "mtime": 1794219711.4685245,
+    "seen": 1794221416.8095894,
+    "ast_hash": "8379fe0f04b7fcd065abb627828ed833",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentRunStore.kt": {
@@ -5628,15 +5580,15 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/ProviderAccountControls.kt": {
-    "mtime": 1792984906.723069,
-    "seen": 1792984950.0925627,
-    "ast_hash": "8affeb82c2d4f433f60460fda81c46bc",
+    "mtime": 1794219711.5304174,
+    "seen": 1794221416.8097315,
+    "ast_hash": "b34c378721b94aa12197c29c2c532067",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/ProviderConnectionFields.kt": {
-    "mtime": 1792984906.723069,
-    "seen": 1792984950.0925665,
-    "ast_hash": "96d7bc9b18d39a5052fbb56c6c7cc2a0",
+    "mtime": 1794219711.536542,
+    "seen": 1794221416.8097346,
+    "ast_hash": "145aee3e4942236bb9bfdf0415689a2a",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/pages/providers/ProviderLoginStore.kt": {
@@ -5652,9 +5604,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/browser/BrowserAddressBar.kt": {
-    "mtime": 1792984906.7250407,
-    "seen": 1792984950.0925786,
-    "ast_hash": "0412c06ae17cc206ef7df3e18de66467",
+    "mtime": 1794219711.5455425,
+    "seen": 1794221416.809746,
+    "ast_hash": "c0839e43d1317b731f882a7d1f354b3e",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/browser/BrowserAddressTarget.kt": {
@@ -5670,9 +5622,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/tools/WebToolsSettingsScreen.kt": {
-    "mtime": 1793006092.5848966,
-    "seen": 1793006423.7671533,
-    "ast_hash": "5606579d06292208bd64cd8f91711ae8",
+    "mtime": 1794220384.3765442,
+    "seen": 1794221416.8097868,
+    "ast_hash": "5721add972303021dfbd854924bade1e",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/tools/WebToolsSettingsStore.kt": {
@@ -5682,21 +5634,21 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/voice/SpeechConnectionFields.kt": {
-    "mtime": 1792984906.7250407,
-    "seen": 1792984950.092624,
-    "ast_hash": "ced283af942698e363fdc0e89b6ed450",
+    "mtime": 1794219711.604079,
+    "seen": 1794221416.80979,
+    "ast_hash": "292c2a9c9bddb5e3f2091fada9f99b15",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/voice/SpeechTtsProviderFields.kt": {
-    "mtime": 1792984906.7250407,
-    "seen": 1792984950.0926347,
-    "ast_hash": "d5ff4fc91a3488d79c68fdc4b6331e2c",
+    "mtime": 1794219711.6062346,
+    "seen": 1794221416.8097997,
+    "ast_hash": "b3084c06af6857dd07c3ce7225cd4b31",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/voice/SpeechVoiceFields.kt": {
-    "mtime": 1792984906.7250407,
-    "seen": 1792984950.0926359,
-    "ast_hash": "5cc11e182d5ba28dd8289c7291f99316",
+    "mtime": 1794219711.6062346,
+    "seen": 1794221416.8098006,
+    "ast_hash": "5c3e89d080ad72c9756d8df5fa17bbde",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/auth/CodexOAuthFixture.kt": {
@@ -5772,9 +5724,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/ProviderConnectionProfileTest.kt": {
-    "mtime": 1792984906.7421808,
-    "seen": 1792984950.0927422,
-    "ast_hash": "2cd08675135669b3f3b12a44f17939a0",
+    "mtime": 1794219711.637357,
+    "seen": 1794221416.8099084,
+    "ast_hash": "4d3ebcc2810eaeda0a1cf2fd06fd93d3",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/runtime/AgentConversationIdentityTest.kt": {
@@ -5856,9 +5808,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/repository/RemoteModelCatalogHttpTest.kt": {
-    "mtime": 1792984906.7544563,
-    "seen": 1792984950.092939,
-    "ast_hash": "22cc0e02bf8b096b6920de1055d8c14c",
+    "mtime": 1794219711.6474762,
+    "seen": 1794221416.8100991,
+    "ast_hash": "098e5ab021c9f4cfa842802be4330b83",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/data/repository/RemoteModelCatalogTest.kt": {
@@ -5880,15 +5832,15 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/ui/MainActivityLaunchRequestsTest.kt": {
-    "mtime": 1792984906.7554586,
-    "seen": 1792984950.0929666,
-    "ast_hash": "d23fcef46657241be434efe802f2bab8",
+    "mtime": 1794219711.6569858,
+    "seen": 1794221416.8101277,
+    "ast_hash": "be6a2ceec462e695452cca64f16bbc7f",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/ui/app/AgentAppStateConversationLoadingTest.kt": {
-    "mtime": 1792984906.7554586,
-    "seen": 1792984950.092969,
-    "ast_hash": "c1a6aeae19731290f8baf486d4097017",
+    "mtime": 1794219711.6569858,
+    "seen": 1794221416.81013,
+    "ast_hash": "a950fdda52235d2d7642a95eedf1da65",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/ui/app/AgentMessageQueueReducerTest.kt": {
@@ -5964,9 +5916,9 @@
     "semantic_hash": ""
   },
   "GLOSSARY.md": {
-    "mtime": 1793945944.5148685,
-    "seen": 1793945966.8213544,
-    "ast_hash": "dc2302140da57c9c4147f8ad5a67b066",
+    "mtime": 1794219645.5399296,
+    "seen": 1794221416.8102245,
+    "ast_hash": "d4d866d420299bfe809da5da41c5d0b9",
     "semantic_hash": ""
   },
   "docs/adr/0001-github-skill-subtree-and-origin.md": {
@@ -6012,21 +5964,21 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentDeviceResultFormatter.kt": {
-    "mtime": 1793178086.7738483,
-    "seen": 1793178100.3134177,
-    "ast_hash": "302016f7317fe2eea9d5c5bacaa123e2",
+    "mtime": 1794219711.3380198,
+    "seen": 1794221416.8090258,
+    "ast_hash": "ddeb092c16f2215d9a6155b790a2e170",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentFileResultFormatter.kt": {
-    "mtime": 1793178086.7738483,
-    "seen": 1793178100.3134267,
-    "ast_hash": "a577faee268078fe0f409cad64e19f9d",
+    "mtime": 1794219711.3380198,
+    "seen": 1794221416.8090298,
+    "ast_hash": "abb4b847486b400b9a99cf8b4612a9db",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentPhoneResultFormatter.kt": {
-    "mtime": 1793178086.775848,
-    "seen": 1793178100.3134444,
-    "ast_hash": "4d4addfa089a29ae3fa92db7c55098fb",
+    "mtime": 1794219711.351022,
+    "seen": 1794221416.8090453,
+    "ast_hash": "7a0833414bda7ddb8c8f6f3fa0bddbe2",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/subagent/AgentSubagentToolCatalog.kt": {
@@ -6048,9 +6000,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/subagent/SubagentProfile.kt": {
-    "mtime": 1793432761.947242,
-    "seen": 1793432791.6638052,
-    "ast_hash": "b69e9409f078b5b5732f16e699002261",
+    "mtime": 1794223190.0590696,
+    "seen": 1794223527.9398758,
+    "ast_hash": "f873dcf75cede1929a3d30816d35ba0c",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/subagent/SubagentProfileCatalog.kt": {
@@ -6072,39 +6024,39 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/SubagentActivitySheet.kt": {
-    "mtime": 1793178086.7928483,
-    "seen": 1793178100.3140037,
-    "ast_hash": "a00dabe342f824d719c34200c4f90e7b",
+    "mtime": 1794219711.494151,
+    "seen": 1794221416.8096836,
+    "ast_hash": "9a45a93d4f25b09c05d3ebafbb0f1667",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/screens/subagent/SubagentSettingsScreen.kt": {
-    "mtime": 1793178086.7938473,
-    "seen": 1793178100.314085,
-    "ast_hash": "c4e968afe4632ecef61c93514ad4013c",
+    "mtime": 1794219711.582864,
+    "seen": 1794221416.8097675,
+    "ast_hash": "8616b920f7d3488b33789f336327fe9d",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentDeviceResultFormatterTest.kt": {
-    "mtime": 1793178086.7948475,
-    "seen": 1793178100.314186,
-    "ast_hash": "6be8c505dfe08490933dbde4baf484a2",
+    "mtime": 1794219711.629357,
+    "seen": 1794221416.8098676,
+    "ast_hash": "ea2f67e27096c366059db81c256b3af4",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentFileResultFormatterTest.kt": {
-    "mtime": 1793178086.7948475,
-    "seen": 1793178100.3141897,
-    "ast_hash": "dc437cdde6f072a72f2e2dd2b9ebf7b5",
+    "mtime": 1794219711.629357,
+    "seen": 1794221416.8098714,
+    "ast_hash": "3bf916550c755ffccd284831787fcc2e",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentPhoneResultFormatterTest.kt": {
-    "mtime": 1793178086.7958474,
-    "seen": 1793178100.3141954,
-    "ast_hash": "5a02d51e8183a4d8eba3b63b8a5ab420",
+    "mtime": 1794219711.629357,
+    "seen": 1794221416.8098788,
+    "ast_hash": "315d722e8b0cf7fe779c0cf97725ea79",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/subagent/SubagentTest.kt": {
-    "mtime": 1793432761.9642463,
-    "seen": 1793432791.7017832,
-    "ast_hash": "37f5e47c987b2598f0fbb453b2ffb066",
+    "mtime": 1794220644.997326,
+    "seen": 1794221416.8099682,
+    "ast_hash": "005091c44dd4983320bbf109fe042073",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/terminal/DebianAptRecoveryTest.kt": {
@@ -6204,21 +6156,21 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/virtualdisplay/CanvasRoutingPolicy.kt": {
-    "mtime": 1793432761.950243,
-    "seen": 1793704928.2996457,
-    "ast_hash": "9c4604ac1f0f5718564c6c15079fc391",
+    "mtime": 1794219711.4049244,
+    "seen": 1794221416.8092983,
+    "ast_hash": "d2ab1ffc8a72e5f6cc34b501ca6c42ad",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/virtualdisplay/VirtualDisplayCommandMain.kt": {
-    "mtime": 1793432761.950243,
-    "seen": 1793704928.299647,
-    "ast_hash": "c32799a4cf8c3e5a2fd807305e320f67",
+    "mtime": 1794219711.4049244,
+    "seen": 1794221416.8092997,
+    "ast_hash": "82dbce6bd1d73d0c2c8decc13390cefa",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/virtualdisplay/VirtualDisplayController.kt": {
-    "mtime": 1793432761.9512434,
-    "seen": 1793704928.2996483,
-    "ast_hash": "23c1d5bbaa79690da0cc18a00b91425d",
+    "mtime": 1794219711.4061024,
+    "seen": 1794221416.8093007,
+    "ast_hash": "652bb91a270870d8ac67cfc14905e9ac",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/virtualdisplay/VirtualDisplayState.kt": {
@@ -6228,9 +6180,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/hook/system/VirtualDisplaySystemHooks.kt": {
-    "mtime": 1793432761.957246,
-    "seen": 1793704928.300078,
-    "ast_hash": "82bfb03f36f0f313eae91e4740c6de03",
+    "mtime": 1794219711.4372323,
+    "seen": 1794221416.8095586,
+    "ast_hash": "e54a4218f8426cd39efb92e208790d0a",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/runtime/EtaFluidCloudStateMapperTest.kt": {
@@ -6240,9 +6192,9 @@
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/virtualdisplay/CanvasRoutingPolicyTest.kt": {
-    "mtime": 1793432761.9652464,
-    "seen": 1793704928.3012037,
-    "ast_hash": "db933e8b1a14b6e7e580a034b8bf0bb7",
+    "mtime": 1794219711.6383572,
+    "seen": 1794221416.8100288,
+    "ast_hash": "9786fa13217d0ca4d09c9b001ab65360",
     "semantic_hash": ""
   },
   "docs/adr/0003-v340-virtual-display-and-local-integration.md": {
@@ -6267,6 +6219,216 @@
     "mtime": 1793945944.5248728,
     "seen": 1793945991.6962543,
     "ast_hash": "32481b13c6ff6679e3edc55197da5519",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/accessibility/AccessibilityQueryExecutor.kt": {
+    "mtime": 1794219711.334853,
+    "seen": 1794221416.8089223,
+    "ast_hash": "88aaa3a05400c422b2bb57d659e97e4a",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/accessibility/WindowContentGenerations.kt": {
+    "mtime": 1794219711.3360212,
+    "seen": 1794221416.8089356,
+    "ast_hash": "c4de14854a8d70d2bb824018c5ae1640",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/device/ScreenObservationMetadata.kt": {
+    "mtime": 1794219711.3370194,
+    "seen": 1794221416.8089921,
+    "ast_hash": "272e0d26986e87ff8fd2a024cac6573b",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentPersonalResultFormatter.kt": {
+    "mtime": 1794219711.351022,
+    "seen": 1794221416.8090425,
+    "ast_hash": "b117375a527ab8873361db0ffdbb4158",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/model/GrokToolSchema.kt": {
+    "mtime": 1794219711.3641543,
+    "seen": 1794221416.809081,
+    "ast_hash": "2be69436c2e7a1765b38bf57bf0e6915",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/model/SubscriptionResponsesRequest.kt": {
+    "mtime": 1794219711.3792853,
+    "seen": 1794221416.809099,
+    "ast_hash": "c350137828175cf25ddf61b0f4007c06",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/roleplay/RoleplayHistoryProjection.kt": {
+    "mtime": 1794219711.380286,
+    "seen": 1794221416.8091385,
+    "ast_hash": "4ffe57b09fed9167f975d730d11755f9",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/tool/AppLaunchVerification.kt": {
+    "mtime": 1794219711.4049244,
+    "seen": 1794221416.8092813,
+    "ast_hash": "e8fc7e2654dc6e212888e859f5c7f931",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/virtualdisplay/VirtualDisplaySessionResources.kt": {
+    "mtime": 1794219711.4061024,
+    "seen": 1794221416.8093019,
+    "ast_hash": "0c7b9807969776258e32ec5fa968b506",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/agent/virtualdisplay/VirtualDisplaySessionState.kt": {
+    "mtime": 1794219711.4061024,
+    "seen": 1794221416.8093028,
+    "ast_hash": "80cce63be8c5255b336d8fa9143a5a17",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/data/model/ConversationBranchMessage.kt": {
+    "mtime": 1794219711.42723,
+    "seen": 1794221416.8094149,
+    "ast_hash": "5369e3594145ce94c140921777fd784f",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/data/repository/ConversationBranchBoundary.kt": {
+    "mtime": 1794219711.4282305,
+    "seen": 1794221416.8094683,
+    "ast_hash": "7bc43ff1bc855d1fb9977fce6744f0ac",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/data/repository/ConversationBranchRepository.kt": {
+    "mtime": 1794219711.4282305,
+    "seen": 1794221416.8094704,
+    "ast_hash": "a263786e5b1f4b69f87db13222b61998",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/hook/system/OplusScreenDirectHooks.kt": {
+    "mtime": 1794223197.2924943,
+    "seen": 1794223527.940266,
+    "ast_hash": "549ad674e251a5cb32862ee70063d585",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/ui/components/ChatActionIcons.kt": {
+    "mtime": 1794219711.4901538,
+    "seen": 1794221416.809653,
+    "ast_hash": "8b877d10fca77d14970a811e92e4ed54",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/ui/components/ChatStatsPopover.kt": {
+    "mtime": 1794219711.4911516,
+    "seen": 1794221416.8096583,
+    "ast_hash": "b2952464a7ef187071d7db7e2ec5520f",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/ui/components/coui/CouiControls.kt": {
+    "mtime": 1794219711.494151,
+    "seen": 1794221416.809688,
+    "ast_hash": "a62aac67098716ddeae6c215c0d7dc14",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/ui/components/coui/CouiPreferenceRows.kt": {
+    "mtime": 1794219711.494151,
+    "seen": 1794221416.809689,
+    "ast_hash": "337d528e924d9a932d0fa34223364533",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/ui/components/coui/CouiScaffoldPage.kt": {
+    "mtime": 1794219711.4951518,
+    "seen": 1794221416.80969,
+    "ast_hash": "914016dec0a7f497cad14d7191b99b8b",
+    "semantic_hash": ""
+  },
+  "app/src/main/kotlin/io/github/mangi/eta/ui/model/ConversationBranchMessageUi.kt": {
+    "mtime": 1794219711.517425,
+    "seen": 1794221416.809717,
+    "ast_hash": "7666f0835bb02e913de7e64b3d664ad4",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/agent/accessibility/AccessibilityQueryExecutorTest.kt": {
+    "mtime": 1794219711.6283574,
+    "seen": 1794221416.8098068,
+    "ast_hash": "0b4a78f8ee86020552af3ab9d95e4246",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/agent/accessibility/AccessibilityWindowObservationTest.kt": {
+    "mtime": 1794219711.6283574,
+    "seen": 1794221416.8098075,
+    "ast_hash": "468ac4d03b0a07396865677336e36015",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/agent/accessibility/WindowContentGenerationsTest.kt": {
+    "mtime": 1794219711.6283574,
+    "seen": 1794221416.8098154,
+    "ast_hash": "15a5ba7912fb7de505073452645a77d0",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/agent/device/RootUiAutomatorFallbackTest.kt": {
+    "mtime": 1794219711.6283574,
+    "seen": 1794221416.8098462,
+    "ast_hash": "44d09fcc677003032b6ea0818730d2d3",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/agent/device/ScreenObservationMetadataTest.kt": {
+    "mtime": 1794219711.6283574,
+    "seen": 1794221416.8098474,
+    "ast_hash": "cbeb3f3d30b5691a0cd7c5ad853afa13",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentPersonalResultFormatterTest.kt": {
+    "mtime": 1794219711.629357,
+    "seen": 1794221416.8098774,
+    "ast_hash": "00190535657a25fe233c5ac4c7cf6a0f",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/agent/model/GrokResponsesRequestTest.kt": {
+    "mtime": 1794219711.637357,
+    "seen": 1794221416.809903,
+    "ast_hash": "41678fb3d79384ab63173a9edb2257b0",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/agent/model/GrokToolSchemaTest.kt": {
+    "mtime": 1794219711.637357,
+    "seen": 1794221416.8099036,
+    "ast_hash": "f22e6fc97284208351035202753bd34c",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/agent/tool/AppLaunchVerificationTest.kt": {
+    "mtime": 1794219711.6383572,
+    "seen": 1794221416.8100173,
+    "ast_hash": "8736edf0e418bb6d8a23f7120e906b0a",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/agent/virtualdisplay/VirtualDisplaySessionStateTest.kt": {
+    "mtime": 1794219711.6393614,
+    "seen": 1794221416.8100297,
+    "ast_hash": "94e8bcd6cef797905578c3a390a72ad3",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/data/repository/ConversationBranchBoundaryTest.kt": {
+    "mtime": 1794219711.6474762,
+    "seen": 1794221416.8100863,
+    "ast_hash": "08e4bb2674a6ec8518ad58baa4e9a73d",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/hook/system/OplusScreenDirectPolicyTest.kt": {
+    "mtime": 1794060732.2805703,
+    "seen": 1794221416.8101213,
+    "ast_hash": "f5f6b743cff880024c367765c4eda897",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/ui/app/AgentConversationBranchPersistenceTest.kt": {
+    "mtime": 1794219711.6569858,
+    "seen": 1794221416.8101308,
+    "ast_hash": "b5b411b68dc3e7fc437d1d3b0b2ef5a3",
+    "semantic_hash": ""
+  },
+  "app/src/test/kotlin/io/github/mangi/eta/ui/app/UiStyleThemeAndScreensTest.kt": {
+    "mtime": 1794219711.6651263,
+    "seen": 1794221416.810162,
+    "ast_hash": "270316947e7de13730a1c714737d6b48",
+    "semantic_hash": ""
+  },
+  "docs/adr/0004-v341-coui-dual-theme-and-db-v26-convergence.md": {
+    "mtime": 1794223193.941733,
+    "seen": 1794223527.941138,
+    "ast_hash": "38580952a1248f7599a47102f70657cd",
     "semantic_hash": ""
   }
 }
