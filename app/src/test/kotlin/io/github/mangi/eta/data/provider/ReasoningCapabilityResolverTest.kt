@@ -274,36 +274,53 @@ class ReasoningCapabilityResolverTest {
     }
 
     @Test
-    fun modernGeminiModelsExposeFullSelectableEffortsIncludingMinimal() {
-        val flashTiered = resolve(ProviderSourceTypes.GEMINI, "gemini-3.8-flash-tiered")
+    fun confirmedGeminiModelsExposeDocumentedEffortsAndUnlistedFallbackToDefault() {
+        val flash38 = resolve(ProviderSourceTypes.GEMINI, "gemini-3.8-flash")
         assertEquals(
             listOf(
-                ReasoningEffort.OFF,
+                ReasoningEffort.DEFAULT,
+                ReasoningEffort.LOW,
+                ReasoningEffort.MEDIUM,
+                ReasoningEffort.HIGH,
+            ),
+            flash38.selectableEfforts,
+        )
+        org.junit.Assert.assertFalse(flash38.canDisable)
+        org.junit.Assert.assertFalse(flash38.supportsBudget)
+
+        val flash36 = resolve(ProviderSourceTypes.GEMINI, "gemini-3.6-flash")
+        assertEquals(
+            listOf(
                 ReasoningEffort.DEFAULT,
                 ReasoningEffort.MINIMAL,
                 ReasoningEffort.LOW,
                 ReasoningEffort.MEDIUM,
                 ReasoningEffort.HIGH,
-                ReasoningEffort.XHIGH,
-                ReasoningEffort.MAX,
             ),
-            flashTiered.selectableEfforts,
+            flash36.selectableEfforts,
         )
-        org.junit.Assert.assertTrue(flashTiered.canDisable)
-        org.junit.Assert.assertTrue(flashTiered.supportsBudget)
-        assertEquals(65_536, flashTiered.maxBudgetTokens)
 
-        val claudeProxy = resolve(ProviderSourceTypes.GEMINI, "claude-sonnet-4")
-        assertEquals(flashTiered.selectableEfforts, claudeProxy.selectableEfforts)
+        val carbon = resolve(ProviderSourceTypes.GEMINI, "gemini-4-carbon")
+        assertEquals(flash38.selectableEfforts, carbon.selectableEfforts)
 
-        assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-future"))
-        assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-4-unknown"))
-        assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-3.8-unknown"))
-        assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-3.8-flash-image"))
-        assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-3.8-flash-nano-banana"))
-        assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-3.8-flash-tts"))
-        assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-3.8-live"))
-        assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, "gemini-2.5-pro"))
+        for (unlisted in listOf(
+            "gemini-3.8-flash-tiered",
+            "claude-sonnet-4",
+            "gemini-future",
+            "gemini-4-unknown",
+            "gemini-3.8-unknown",
+            "gemini-3.8-flash-image",
+            "gemini-3.8-flash-nano-banana",
+            "gemini-3.8-flash-tts",
+            "gemini-3.8-live",
+            "gemini-2.5-pro",
+        )) {
+            assertNull(ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, unlisted))
+            assertEquals(
+                listOf(ReasoningEffort.DEFAULT),
+                resolve(ProviderSourceTypes.GEMINI, unlisted).selectableEfforts,
+            )
+        }
     }
 
     private fun resolve(source: String, modelId: String): ModelReasoningCapabilities =

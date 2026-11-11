@@ -19,8 +19,6 @@ internal object ReasoningCapabilityResolver {
         ReasoningEffort.HIGH,
         ReasoningEffort.XHIGH,
     )
-    private val minimalToMax = listOf(ReasoningEffort.MINIMAL) + lowToMax
-    private val MODERN_GEMINI_REGEX = Regex("""^gemini-(?:[3-9]|\d{2,})(?:[.-].*|$)""", RegexOption.IGNORE_CASE)
 
     fun resolve(
         sourceType: String,
@@ -73,19 +71,6 @@ internal object ReasoningCapabilityResolver {
             }
 
             ProviderSourceTypes.GEMINI -> GeminiModelCapabilities.reasoningCapabilities(model)
-                ?: when {
-                    (MODERN_GEMINI_REGEX.matches(model) || model.startsWith("claude-")) &&
-                        !model.contains("image") && !model.contains("nano-banana") &&
-                        !model.endsWith("-tts") && !model.contains("-live") &&
-                        !model.endsWith("-unknown") -> capabilities(
-                        supported = minimalToMax,
-                        canDisable = true,
-                        supportsBudget = true,
-                        maxBudgetTokens = 65_536,
-                        defaultEffort = ReasoningEffort.DEFAULT,
-                    )
-                    else -> null
-                }
 
             ProviderSourceTypes.ANTHROPIC -> when (model) {
                 "claude-fable-5", "claude-fable-5-1" ->

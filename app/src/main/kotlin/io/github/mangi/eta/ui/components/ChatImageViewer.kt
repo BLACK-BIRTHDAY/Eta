@@ -129,17 +129,13 @@ internal fun decodeDataUrlBitmap(dataUrl: String): ImageBitmap? {
     return when {
         trimmed.startsWith("data:", ignoreCase = true) -> {
             val bytes = decodeBase64DataUrl(trimmed)?.first ?: return null
-            val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOpts)
-            decodeSampledBitmap(boundsOpts) { opts ->
+            decodeSampledBitmap(inspectImageBounds(bytes)) { opts ->
                 BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
             }
         }
         else -> {
             val file = resolveLocalImageFile(trimmed) ?: return null
-            val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeFile(file.absolutePath, boundsOpts)
-            decodeSampledBitmap(boundsOpts) { opts ->
+            decodeSampledBitmap(inspectFileBounds(file.absolutePath)) { opts ->
                 BitmapFactory.decodeFile(file.absolutePath, opts)
             }
         }
@@ -152,8 +148,7 @@ internal fun readChatImageBytesAndMime(source: String): Pair<ByteArray, String>?
     return when {
         trimmed.startsWith("data:", ignoreCase = true) -> {
             val (bytes, headerMime) = decodeBase64DataUrl(trimmed) ?: return null
-            val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOpts)
+            val boundsOpts = inspectImageBounds(bytes)
             val mime = boundsOpts.outMimeType?.takeIf(String::isNotBlank)
                 ?: headerMime
                 ?: "image/png"
@@ -162,11 +157,26 @@ internal fun readChatImageBytesAndMime(source: String): Pair<ByteArray, String>?
         else -> {
             val file = resolveLocalImageFile(trimmed) ?: return null
             val bytes = runCatching { file.readBytes() }.getOrNull()?.takeIf { it.isNotEmpty() } ?: return null
-            val boundsOpts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, boundsOpts)
+            val boundsOpts = inspectImageBounds(bytes)
             val mime = boundsOpts.outMimeType?.takeIf(String::isNotBlank) ?: inferMimeFromPath(file.name)
             bytes to mime
         }
+    }
+}
+
+private fun inspectImageBounds(bytes: ByteArray): BitmapFactory.Options =
+    BitmapFactory.Options().apply { inJustDecodeBounds = true }.also { opts ->
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+    }
+
+private fun inspectFileBounds(path: String): BitmapFactory.Options =
+    BitmapFactory.Options().apply { inJustDecodeBounds = true }.also { opts ->
+        BitmapFactory.decodeFile(path, opts)
+    }
+
+private suspend fun showToast(appContext: Context, message: String) {
+    withContext(Dispatchers.Main) {
+        Toast.makeText(appContext, message, Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -175,9 +185,7 @@ internal suspend fun saveChatImageToGallery(context: Context, source: String) {
     withContext(Dispatchers.IO + NonCancellable) {
         try {
             val (bytes, mimeType) = readChatImageBytesAndMime(source) ?: run {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(appContext, "保存失败", Toast.LENGTH_SHORT).show()
-                }
+                showToast(appContext, "保存失败")
                 return@withContext
             }
             val resolver = appContext.contentResolver
@@ -198,9 +206,7 @@ internal suspend fun saveChatImageToGallery(context: Context, source: String) {
             }
             val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
             if (uri == null) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(appContext, "保存失败", Toast.LENGTH_SHORT).show()
-                }
+                showToast(appContext, "保存失败")
                 return@withContext
             }
             val written = runCatching {
@@ -211,21 +217,15 @@ internal suspend fun saveChatImageToGallery(context: Context, source: String) {
                 values.clear()
                 values.put(MediaStore.MediaColumns.IS_PENDING, 0)
                 resolver.update(uri, values, null, null)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(appContext, "已保存到相册", Toast.LENGTH_SHORT).show()
-                }
+                showToast(appContext, "已保存到相册")
             } else {
                 runCatching { resolver.delete(uri, null, null) }
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(appContext, "保存失败", Toast.LENGTH_SHORT).show()
-                }
+                showToast(appContext, "保存失败")
             }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
-            withContext(Dispatchers.Main) {
-                Toast.makeText(appContext, "保存失败", Toast.LENGTH_SHORT).show()
-            }
+            showToast(appContext, "保存失败")
         }
     }
 }

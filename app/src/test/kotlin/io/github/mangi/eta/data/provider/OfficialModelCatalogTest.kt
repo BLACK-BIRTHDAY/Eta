@@ -82,7 +82,8 @@ class OfficialModelCatalogTest {
         val tiered = enriched.getValue("gemini-3.8-flash-tiered")
         assertEquals(1_048_576, tiered.contextWindow)
         assertTrue(tiered.toolCall == true)
-        assertTrue(tiered.reasoning == true)
+        assertFalse(tiered.reasoning == true)
+        assertNull(tiered.reasoningCapabilities)
         assertTrue(tiered.inputModalities.containsAll(listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY, "audio", "video")))
 
         val flashImage = enriched.getValue("gemini-3.1-flash-image")

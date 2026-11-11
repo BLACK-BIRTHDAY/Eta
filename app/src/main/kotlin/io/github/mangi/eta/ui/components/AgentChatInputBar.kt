@@ -137,7 +137,17 @@ private val SendButtonVisualSize = ChatInputActionIconSize
 private val SendIconSize = 16.dp
 private val StopIconSize = 10.dp
 private val ThinkingIconSize = 21.dp
-private val InputContainerShape = RoundedCornerShape(20.dp)
+private val MiuixFloatingCornerRadius = 22.dp
+private val InputContainerShape = RoundedCornerShape(MiuixFloatingCornerRadius)
+private val CouiFloatingCapsuleShape = CouiShape(24.dp, 2.3f)
+
+@Composable
+private fun miuixFloatingContainerColor(isDark: Boolean): Color =
+    if (!isDark && MiuixTheme.colorScheme.surfaceContainer == MiuixTheme.colorScheme.surface) {
+        Color(0xFFF5F6F8)
+    } else {
+        MiuixTheme.colorScheme.surfaceContainer
+    }
 
 /**
  * Agent 输入器始终保持同一空间结构，聚焦、输入和执行过程只改变状态，不搬动操作入口。
@@ -353,13 +363,9 @@ internal fun AgentChatInputBar(
 
         val isCoui = LocalUiStyle.current == AppearanceUiStyle.COUI
         val couiDark = CouiTheme.isDark
-        val couiInputShape = remember { CouiShape(24.dp, 2.3f) }
+        val couiInputShape = CouiFloatingCapsuleShape
         val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
-        val miuixInputBg = if (!isDark && MiuixTheme.colorScheme.surfaceContainer == MiuixTheme.colorScheme.surface) {
-            Color(0xFFF5F6F8)
-        } else {
-            MiuixTheme.colorScheme.surfaceContainer
-        }
+        val miuixInputBg = miuixFloatingContainerColor(isDark)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -403,12 +409,12 @@ internal fun AgentChatInputBar(
                                 )
                                 .squircleSurface(
                                     color = miuixInputBg,
-                                    cornerRadius = 22.dp,
+                                    cornerRadius = MiuixFloatingCornerRadius,
                                 )
                                 .squircleBorder(
                                     width = 0.5.dp,
                                     color = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
-                                    cornerRadius = 22.dp,
+                                    cornerRadius = MiuixFloatingCornerRadius,
                                 )
                         },
                     )
@@ -972,12 +978,8 @@ internal fun AgentSlashCommandPopup(
     val couiDark = CouiTheme.isDark
     val isDark = MiuixTheme.colorScheme.surface.luminance() < 0.5f
     val ink = MiuixTheme.colorScheme.onSurface.copy(alpha = 1f)
-    val miuixPopupBg = if (!isDark && MiuixTheme.colorScheme.surfaceContainer == MiuixTheme.colorScheme.surface) {
-        Color(0xFFF5F6F8)
-    } else {
-        MiuixTheme.colorScheme.surfaceContainer
-    }
-    val couiShape = remember { CouiShape(20.dp, 2.2f) }
+    val miuixPopupBg = miuixFloatingContainerColor(isDark)
+    val couiShape = CouiFloatingCapsuleShape
     val surfaceModifier = if (isCoui) {
         Modifier
             .dropShadow(
@@ -1010,12 +1012,12 @@ internal fun AgentSlashCommandPopup(
             )
             .squircleSurface(
                 color = miuixPopupBg,
-                cornerRadius = 20.dp,
+                cornerRadius = MiuixFloatingCornerRadius,
             )
             .squircleBorder(
                 width = 0.5.dp,
                 color = ink.copy(alpha = if (isDark) 0.10f else 0.065f),
-                cornerRadius = 20.dp,
+                cornerRadius = MiuixFloatingCornerRadius,
             )
     }
     Column(

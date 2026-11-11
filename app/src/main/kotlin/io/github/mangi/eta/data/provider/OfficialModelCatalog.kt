@@ -488,7 +488,7 @@ internal object OfficialModelCatalog {
                 enriched.copy(
                     contextWindow = maxOf(enriched.contextWindow ?: 0, 1_048_576),
                     toolCall = enriched.toolCall ?: true,
-                    reasoning = enriched.reasoning ?: true,
+                    reasoning = enriched.reasoning ?: (resolvedCapabilities != null),
                     reasoningCapabilities = if (enriched.reasoning == false) null else resolvedCapabilities,
                     inputModalities = (enriched.inputModalities + listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY, "audio", "video")).distinct(),
                     outputModalities = enriched.outputModalities.ifEmpty { listOf(Model.TEXT_MODALITY) },

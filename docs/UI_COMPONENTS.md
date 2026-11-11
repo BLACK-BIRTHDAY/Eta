@@ -30,7 +30,7 @@ Eta 支持全局界面样式切换，提供 **COUI** 与 **Miuix** 两种选择�
 | 分页 / 筛选标签 | `CouiChipTabs`（COUI `ChipTabRow`） | `TabRow` / `EtaChoiceChip` |
 | 行内输入框 | `CouiTextField` | `TextField` |
 | 页面胶囊按钮 | `CouiButton`（`CouiButtonRole`） | `TextButton` |
-| 确认 / 提示 / 底部弹框 | `CouiConfirmDialog`、`CouiNoticeDialog`、`com.itos.coui.dialog.Dialog`（`CouiDialogPlacement.Bottom`） | `WindowDialog`、`OverlayDialog`、`OverlayBottomSheet` |
+| 确认 / 提示 / 底部弹框 | `CouiConfirmDialog`、`CouiNoticeDialog`、`com.itos.coui.dialog.Dialog`（`CouiDialogPlacement.Bottom`） | `WindowDialog`、`OverlayDialog`、`OverlayBottomSheet` / `WindowBottomSheet` |
 | 单行输入弹窗 | `CouiInputDialog`（`com.itos.coui.dialog.InputDialog`） | `WindowDialog` + `TextField` |
 | 上下文 / 溢出菜单 | `com.itos.coui.menu.Menu` + `rememberCouiMenuAnchor` | `WindowListPopup` / `OverlayListPopup` / `OverlayIconDropdownMenu` |
 

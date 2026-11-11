@@ -190,8 +190,8 @@ class GeminiProviderConfigurationTest {
             baseUrl = "https://generativelanguage.googleapis.com",
             apiKey = "fixture-key",
         )
-        // 1. Un-enriched manual gemini-3.8-flash-tiered falls back to Default per Q1=B,
-        // while catalog-enriched tiered model infers modern capabilities
+        // 1. Unlisted gemini-3.8-flash-tiered falls back to Default per Q1=B before and after catalog enrichment,
+        // while OfficialModelCatalog still enriches contextWindow and multimodal input modalities
         val tieredModel = Model(
             id = "tiered-model",
             modelId = "gemini-3.8-flash-tiered",
@@ -201,23 +201,15 @@ class GeminiProviderConfigurationTest {
         assertEquals(listOf(ReasoningEffort.DEFAULT), rawTieredCaps.selectableEfforts)
 
         val enrichedTieredModel = OfficialModelCatalog.enrich(provider, listOf(tieredModel)).single()
+        assertEquals(1_048_576, enrichedTieredModel.contextWindow)
+        assertTrue("audio" in enrichedTieredModel.inputModalities)
+        assertFalse(enrichedTieredModel.reasoning == true)
+        assertNull(enrichedTieredModel.reasoningCapabilities)
         val tieredCaps = requireNotNull(RuntimeConfigRepository.reasoningCapabilities(provider, enrichedTieredModel))
-        assertTrue(tieredCaps.canDisable)
-        assertTrue(tieredCaps.supportsBudget)
-        assertEquals(65_536, tieredCaps.maxBudgetTokens)
-        assertEquals(
-            listOf(
-                ReasoningEffort.OFF,
-                ReasoningEffort.DEFAULT,
-                ReasoningEffort.MINIMAL,
-                ReasoningEffort.LOW,
-                ReasoningEffort.MEDIUM,
-                ReasoningEffort.HIGH,
-                ReasoningEffort.XHIGH,
-                ReasoningEffort.MAX,
-            ),
-            tieredCaps.selectableEfforts,
-        )
+        assertFalse(tieredCaps.canDisable)
+        assertFalse(tieredCaps.supportsBudget)
+        assertNull(tieredCaps.maxBudgetTokens)
+        assertEquals(listOf(ReasoningEffort.DEFAULT), tieredCaps.selectableEfforts)
 
         // 2. Custom reasoningCapabilitiesOverride is respected
         val customOverride = ModelReasoningCapabilities(
@@ -225,7 +217,7 @@ class GeminiProviderConfigurationTest {
             canDisable = true,
             defaultEffort = ReasoningEffort.LOW,
         )
-        val overriddenModel = tieredModel.copy(
+        val overriddenModel = enrichedTieredModel.copy(
             reasoningOverride = true,
             reasoningCapabilitiesOverride = customOverride,
         )

@@ -5,6 +5,8 @@ import androidx.compose.foundation.OverscrollEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -17,18 +19,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Feedback
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lightbulb
@@ -43,6 +48,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,6 +68,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -76,13 +83,17 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.components.EtaMonospace
 import io.github.mangi.eta.ui.components.LocalChatImagePreviewer
 import io.github.mangi.eta.ui.components.StatusSuccess
 import io.github.mangi.eta.ui.components.StatusWarning
 import io.github.mangi.eta.ui.components.rememberChatImageBitmap
+import io.github.mangi.eta.ui.components.saveChatImageToGallery
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Text
@@ -771,6 +782,8 @@ private fun MarkdownImageBlock(block: MarkdownImage, scope: MarkdownRenderScope)
     }
 
     val previewer = LocalChatImagePreviewer.current
+    val imageGroupKey = remember { Any() }
+    var showFallbackDialog by remember { mutableStateOf(false) }
     var boundsInWindow by remember(block.destination) { mutableStateOf<Rect?>(null) }
     val rawRatio = if (bitmap.height > 0) {
         bitmap.width.toFloat() / bitmap.height.toFloat()
@@ -787,25 +800,23 @@ private fun MarkdownImageBlock(block: MarkdownImage, scope: MarkdownRenderScope)
                 if (coords.isAttached) boundsInWindow = coords.boundsInWindow()
             }
             .graphicsLayer {
-                val isHidden = previewer?.isPresenting(groupKey = block.destination, index = 0) == true
+                val isHidden = previewer?.isPresenting(groupKey = imageGroupKey, index = 0) == true
                 alpha = if (isHidden) 0f else 1f
             }
             .clip(RoundedCornerShape(16.dp))
-            .then(
+            .clickable {
                 if (previewer != null) {
-                    Modifier.clickable {
-                        previewer.open(
-                            images = listOf(block.destination),
-                            initialIndex = 0,
-                            groupKey = block.destination,
-                            sourceBoundsProvider = { boundsInWindow },
-                            sourceCornerRadius = 16.dp,
-                        )
-                    }
+                    previewer.open(
+                        images = listOf(block.destination),
+                        initialIndex = 0,
+                        groupKey = imageGroupKey,
+                        sourceBoundsProvider = { boundsInWindow },
+                        sourceCornerRadius = 16.dp,
+                    )
                 } else {
-                    Modifier
-                },
-            ),
+                    showFallbackDialog = true
+                }
+            },
     ) {
         Image(
             bitmap = bitmap,
@@ -813,5 +824,71 @@ private fun MarkdownImageBlock(block: MarkdownImage, scope: MarkdownRenderScope)
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
+    }
+
+    if (previewer == null && showFallbackDialog) {
+        val context = LocalContext.current
+        val coroutineScope = rememberCoroutineScope()
+        var saving by remember { mutableStateOf(false) }
+
+        Dialog(
+            onDismissRequest = { showFallbackDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.94f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { showFallbackDialog = false },
+            ) {
+                Image(
+                    bitmap = bitmap,
+                    contentDescription = block.alt.ifBlank { null },
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 48.dp),
+                )
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .navigationBarsPadding()
+                        .padding(end = 20.dp, bottom = 20.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.16f))
+                        .clickable(enabled = !saving) {
+                            saving = true
+                            coroutineScope.launch {
+                                try {
+                                    saveChatImageToGallery(context, block.destination)
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.White.copy(alpha = if (saving) 0.6f else 0.94f),
+                    )
+                    Text(
+                        text = stringResource(if (saving) R.string.page_saving_d70d42 else R.string.action_save),
+                        style = MiuixTheme.textStyles.footnote1.copy(
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                        color = Color.White.copy(alpha = if (saving) 0.6f else 0.94f),
+                    )
+                }
+            }
+        }
     }
 }

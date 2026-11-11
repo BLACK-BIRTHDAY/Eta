@@ -71,6 +71,7 @@ internal fun RemoteModelImportSheet(
 ) {
     var shown by remember { mutableStateOf(pending) }
     if (pending != null) shown = pending
+    var query by remember(pending) { mutableStateOf("") }
     var selected by remember(pending) { mutableStateOf(emptySet<String>()) }
     val confirmText = if (selected.isNotEmpty()) {
         stringResource(R.string.remote_model_import_confirm, selected.size)
@@ -104,6 +105,8 @@ internal fun RemoteModelImportSheet(
                     key(current) {
                         RemoteModelImportContent(
                             pending = current,
+                            query = query,
+                            onQueryChange = { query = it },
                             selected = selected,
                             onSelectionChange = { selected = it },
                             confirmText = confirmText,
@@ -124,6 +127,8 @@ internal fun RemoteModelImportSheet(
                     key(current) {
                         RemoteModelImportContent(
                             pending = current,
+                            query = query,
+                            onQueryChange = { query = it },
                             selected = selected,
                             onSelectionChange = { selected = it },
                             confirmText = confirmText,
@@ -139,13 +144,14 @@ internal fun RemoteModelImportSheet(
 @Composable
 private fun RemoteModelImportContent(
     pending: RemoteModelImport,
+    query: String,
+    onQueryChange: (String) -> Unit,
     selected: Set<String>,
     onSelectionChange: (Set<String>) -> Unit,
     confirmText: String,
     onConfirm: (Set<String>) -> Unit,
 ) {
     val candidates = pending.candidates
-    var query by remember { mutableStateOf("") }
     val visible = remember(candidates, query) {
         val search = ModelSearchQuery(query)
         candidates.filter { search.matches(it.displayName, it.modelId) }
@@ -204,14 +210,14 @@ private fun RemoteModelImportContent(
         if (uiStyle == AppearanceUiStyle.COUI) {
             CouiSearchBarBox(
                 query = query,
-                onQueryChange = { query = it },
+                onQueryChange = onQueryChange,
                 placeholder = stringResource(R.string.ui_search_model_df5586),
                 backgroundColor = Color.Transparent,
             )
         } else {
             InputField(
                 query = query,
-                onQueryChange = { query = it },
+                onQueryChange = onQueryChange,
                 onSearch = {},
                 expanded = false,
                 onExpandedChange = {},
