@@ -78,6 +78,10 @@ _Avoid_: Inline Base64 image, raw image blob
 The replacement of heavy generated media payloads and oversized model state tokens with lightweight text placeholders when persisting or replaying multi-turn conversation history.
 _Avoid_: History truncation, payload stripping
 
+**In-Place Image Viewer**:
+A shell-level fullscreen media overlay that interpolates seamlessly from a thumbnail's window bounds to a zoomable fullscreen canvas and back without spawning a secondary dialog window or re-laying out the conversation tree.
+_Avoid_: Image dialog, lightbox modal
+
 ### Conversation & Telemetry
 
 **Conversation Branch**:

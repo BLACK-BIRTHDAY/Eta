@@ -1,0 +1,17 @@
+# 0005. Upstream v3.4.2 Gemini Reasoning Override Alignment and Unified In-Place Image Viewer
+
+When integrating upstream official v3.4.2 (top-bar centered model switcher, floating chat input capsule with thinking effort micro-pill, revamped Markdown and work-process timeline typography across COUI and Miuix, user detached image bubbles with 120Hz in-place fullscreen image viewer, manual Gemini reasoning effort override with `gemini-4-carbon` preset, and GPL-3.0 license transition) with our local architecture, we made three structural decisions:
+
+1. **Upstream Alignment on Gemini Reasoning Override and Carbon Multimodal Catalog (`GeminiModelCapabilities`, `RuntimeConfigRepository`, `OfficialModelCatalog`, `ProviderModelsTab`)**:
+   We adopted upstream v3.4.2's `GeminiModelCapabilities.resolveReasoning(model)` and `configurableEfforts` (`MINIMAL`, `LOW`, `MEDIUM`, `HIGH`, with `defaultEffort = MEDIUM` for confirmed Gemini 3.x / 4.x models and `Default` fallback when the override toggle is off) across all Gemini providers (`nativeGemini = provider is GeminiProviderSetting`), letting the server validate manually selected thinking levels while keeping `maxOutputTokens` presets configurable in `ModelEditDialog`. Simultaneously, we advanced `OfficialModelCatalog` to Revision 5 (`builtin-gemini-4-carbon`) and retained `MODERN_GEMINI_REGEX` multimodal enrichment (`text`, `image`, `audio`, `video`) alongside our curated image generation presets (`gemini-3.1-flash-image` and `gemini-3-pro-image`).
+
+2. **Unified In-Place Shared-Bounds Image Viewer Across User Attachments and Markdown Generated Media Assets (`ChatImageViewer`, `ChatMessageItem`, `MarkdownContent`)**:
+   Upstream v3.4.2 introduced `ChatImagePreviewHost` and `LocalChatImagePreviewer` for zero-window-switch `Crop -> Fit` spring transitions and 4x pinch/double-tap zoom on `1920px` user attachments, but its bitmap decoder only accepted `data:...;base64,` URLs. Rather than maintaining a separate fullscreen `Dialog` inside `MarkdownContent.kt` for assistant-generated images (`file://` and `data:image/`), we extended the shared image decoder to load `file://` URIs, local file paths, and `data:image/` payloads with downsampled bounds safety, wired `MarkdownImageBlock` directly into `LocalChatImagePreviewer` with source-bounds tracking, and integrated Save-to-Gallery directly into `ChatImageViewerOverlay`.
+
+3. **Floating Input Capsule Parity for Slash Skill Autocomplete (`AgentChatInputBar`, `AgentAppRoot`)**:
+   We adopted upstream v3.4.2's top-bar centered model switcher and bottom gradient-backed `20.dp` floating input capsule, preserving `AppRoute.SkillEditor` and `availableSkills` injection in `AgentAppRoot` and aligning `AgentSlashCommandPopup` with the new floating capsule's `20.dp` corner geometry, ink hierarchy, and subtle border alpha across both COUI and Miuix themes.
+
+## Considered Options
+
+- **Maintain separate reasoning effort sets for `GENERATE_CONTENT` (`OFF..MAX`) vs `INTERACTIONS` (`MINIMAL..HIGH`)**: Rejected in favor of full alignment with upstream v3.4.2's `GeminiModelCapabilities.resolveReasoning(model)` (`MINIMAL..HIGH` and `Default` fallback) for a single consistent Gemini configuration model across UI and runtime.
+- **Keep a separate `Dialog` image viewer in `MarkdownContent.kt` for assistant-generated images**: Rejected because it duplicated fullscreen viewer state and lacked `ChatImageViewer`'s 120Hz shared-bounds transition and 4x pinch-to-zoom inspection.
