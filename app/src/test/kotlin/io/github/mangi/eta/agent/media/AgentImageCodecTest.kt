@@ -189,7 +189,7 @@ class AgentImageCodecTest {
     fun chatPreviewIsIndependentFromTheOriginalFile() {
         val context = RuntimeEnvironment.getApplication()
         val sourceFile = File(context.cacheDir, "image-preview-${System.nanoTime()}.jpg")
-        val bitmap = patternedBitmap(width = 1_200, height = 800)
+        val bitmap = patternedBitmap(width = 2_400, height = 1_600)
         FileOutputStream(sourceFile).use { output ->
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, output)
         }
@@ -206,7 +206,8 @@ class AgentImageCodecTest {
 
             assertEquals(sourceFile.absolutePath, source.reference)
             assertEquals("image/jpeg", preview.mimeType)
-            assertTrue(maxOf(preview.width!!, preview.height!!) <= 512)
+            assertTrue(maxOf(preview.width!!, preview.height!!) <= CHAT_PREVIEW_MAX_LONG_EDGE)
+            assertTrue(preview.width < 2_400)
             assertEquals(originalSize, sourceFile.length())
         } finally {
             sourceFile.delete()
@@ -217,7 +218,7 @@ class AgentImageCodecTest {
     fun pickedAttachmentPreviewDoesNotReopenThePickerUri() {
         val context = RuntimeEnvironment.getApplication()
         val sourceFile = File(context.cacheDir, "picked-image-${System.nanoTime()}.jpg")
-        val bitmap = patternedBitmap(width = 1_200, height = 800)
+        val bitmap = patternedBitmap(width = 2_400, height = 1_600)
         FileOutputStream(sourceFile).use { output ->
             bitmap.compress(Bitmap.CompressFormat.JPEG, 100, output)
         }
@@ -234,7 +235,7 @@ class AgentImageCodecTest {
             ?: error("无法从已读取的附件生成预览")
 
         assertEquals("image/jpeg", preview.mimeType)
-        assertTrue(maxOf(preview.width!!, preview.height!!) <= 512)
+        assertTrue(maxOf(preview.width!!, preview.height!!) <= CHAT_PREVIEW_MAX_LONG_EDGE)
     }
 
     @Test
@@ -265,6 +266,42 @@ class AgentImageCodecTest {
             assertEquals("image/jpeg", image.mimeType)
             assertEquals(873, image.width)
             assertEquals(1_920, image.height)
+        } finally {
+            sourceFile.delete()
+        }
+    }
+
+    @Test
+    fun chatImageViewerDecodesFileUriLocalPathAndDataUrl() {
+        val context = RuntimeEnvironment.getApplication()
+        val sourceFile = File(context.cacheDir, "viewer-generated-${System.nanoTime()}.png")
+        val bitmap = patternedBitmap(width = 640, height = 480)
+        FileOutputStream(sourceFile).use { output ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+        }
+        bitmap.recycle()
+        try {
+            val fileUri = sourceFile.toURI().toString()
+            val fromUri = io.github.mangi.eta.ui.components.decodeDataUrlBitmap(fileUri)
+                ?: error("无法解码 file:// 生成图片")
+            assertEquals(640, fromUri.width)
+            assertEquals(480, fromUri.height)
+
+            val fromPath = io.github.mangi.eta.ui.components.decodeDataUrlBitmap(sourceFile.absolutePath)
+                ?: error("无法解码本地路径生成图片")
+            assertEquals(640, fromPath.width)
+            assertEquals(480, fromPath.height)
+
+            val (bytes, mime) = io.github.mangi.eta.ui.components.readChatImageBytesAndMime(fileUri)
+                ?: error("无法读取 file:// 图片字节与 MIME")
+            assertEquals("image/png", mime)
+            assertTrue(bytes.isNotEmpty())
+
+            val dataUrl = "data:image/png;base64," + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+            val fromDataUrl = io.github.mangi.eta.ui.components.decodeDataUrlBitmap(dataUrl)
+                ?: error("无法解码 data:image/png URL")
+            assertEquals(640, fromDataUrl.width)
+            assertEquals(480, fromDataUrl.height)
         } finally {
             sourceFile.delete()
         }

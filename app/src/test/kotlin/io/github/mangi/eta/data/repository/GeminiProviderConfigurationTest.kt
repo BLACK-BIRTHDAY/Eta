@@ -5,14 +5,19 @@ import io.github.mangi.eta.data.db.EtaDatabase
 import io.github.mangi.eta.data.model.CustomBody
 import io.github.mangi.eta.data.model.CustomHeader
 import io.github.mangi.eta.data.model.CustomProviderSetting
+import io.github.mangi.eta.data.model.GeminiEndpointMode
 import io.github.mangi.eta.data.model.GeminiProviderSetting
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.ModelReasoningCapabilities
+import io.github.mangi.eta.data.model.withModels
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.model.ProviderTypes
 import io.github.mangi.eta.data.model.ReasoningEffort
 import io.github.mangi.eta.data.provider.BuiltinProviders
+import io.github.mangi.eta.data.provider.GeminiModelCapabilities
+import io.github.mangi.eta.data.provider.OfficialModelCatalog
+import io.github.mangi.eta.data.provider.ReasoningCapabilityResolver
 import io.github.mangi.eta.ui.pages.providers.ProviderConfigDraft
 import io.github.mangi.eta.ui.pages.providers.providerAccountAuthMode
 import io.github.mangi.eta.ui.pages.providers.toProvider
@@ -73,7 +78,7 @@ class GeminiProviderConfigurationTest {
         assertEquals(ProviderSourceTypes.GEMINI, config.providerSourceType)
         assertEquals("", config.openAiEndpointMode)
         assertEquals(ReasoningEffort.DEFAULT, config.reasoningEffort)
-        assertTrue(requireNotNull(config.reasoningCapabilities).mandatory)
+        assertEquals(listOf(ReasoningEffort.DEFAULT), requireNotNull(config.reasoningCapabilities).selectableEfforts)
         val raw = Json.encodeToString<ProviderSetting>(stored)
         assertEquals(stored, Json.decodeFromString<ProviderSetting>(raw))
     }
@@ -93,6 +98,37 @@ class GeminiProviderConfigurationTest {
     }
 
     @Test
+    fun unknownModelManualEffortsSurvivePersistenceAndRuntimeProjection() = runBlocking {
+        val manual = ModelReasoningCapabilities(supportedEfforts = listOf(ReasoningEffort.LOW, ReasoningEffort.HIGH),
+            defaultEnabled = true, mandatory = true)
+        val provider = GeminiProviderSetting(id = "manual-config", name = "Gemini", models = listOf(
+            Model(id = "future", modelId = "gemini-future", displayName = "未来模型",
+                reasoningOverride = true, reasoningCapabilitiesOverride = manual),
+        ))
+        ProviderRepository.addProvider(provider)
+        val stored = requireNotNull(ProviderRepository.providerById(provider.id))
+        val model = stored.models.single()
+        assertEquals(manual, model.reasoningCapabilitiesOverride)
+        assertEquals(manual, RuntimeConfigRepository.buildRuntimeConfig(stored, model).reasoningCapabilities)
+        assertEquals(listOf(ReasoningEffort.DEFAULT), requireNotNull(
+            RuntimeConfigRepository.buildRuntimeConfig(stored, model.copy(reasoningOverride = null,
+                reasoningCapabilitiesOverride = null)).reasoningCapabilities).selectableEfforts)
+    }
+
+    @Test
+    fun carbonUpgradePreservesExistingModelAndDoesNotRestoreDeletedPresets() = runBlocking {
+        val carbon = Model(id = "existing-carbon", modelId = "gemini-4-carbon", displayName = "我的 Carbon",
+            contextWindowOverride = 200_000)
+        val provider = requireNotNull(BuiltinProviders.providerById(BuiltinProviders.GEMINI_ID))
+            .withModels(listOf(carbon))
+        ProviderRepository.addProvider(provider)
+        SettingsDataStore.setOfficialModelCatalogRevision(4)
+        ProviderRepository.ensureBuiltInsMerged()
+        assertEquals(listOf(carbon), requireNotNull(ProviderRepository.providerById(provider.id)).models)
+        assertEquals(5, SettingsDataStore.officialModelCatalogRevision())
+    }
+
+    @Test
     fun builtinMergeAppendsGeminiAndPreservesTheSelectedCompatibleConnection() = runBlocking {
         val source = CustomProviderSetting(
             id = "existing-gemini-compatible", name = "原有兼容连接",
@@ -108,7 +144,8 @@ class GeminiProviderConfigurationTest {
         assertEquals(BuiltinProviders.GEMINI_ID, providers.last().id)
         assertEquals(source.id, SettingsDataStore.settings().selectedProviderId)
         assertEquals(source.models.single().id, SettingsDataStore.settings().selectedModelId)
-        assertEquals(3, providers.last().models.size)
+        assertEquals(4, providers.last().models.size)
+        assertTrue(providers.last().models.any { it.modelId == "gemini-4-carbon" })
     }
 
     @Test
@@ -153,13 +190,18 @@ class GeminiProviderConfigurationTest {
             baseUrl = "https://generativelanguage.googleapis.com",
             apiKey = "fixture-key",
         )
-        // 1. gemini-3.8-flash-tiered infers modern capabilities
+        // 1. Un-enriched manual gemini-3.8-flash-tiered falls back to Default per Q1=B,
+        // while catalog-enriched tiered model infers modern capabilities
         val tieredModel = Model(
             id = "tiered-model",
             modelId = "gemini-3.8-flash-tiered",
             displayName = "Tiered",
         )
-        val tieredCaps = requireNotNull(RuntimeConfigRepository.reasoningCapabilities(provider, tieredModel))
+        val rawTieredCaps = requireNotNull(RuntimeConfigRepository.reasoningCapabilities(provider, tieredModel))
+        assertEquals(listOf(ReasoningEffort.DEFAULT), rawTieredCaps.selectableEfforts)
+
+        val enrichedTieredModel = OfficialModelCatalog.enrich(provider, listOf(tieredModel)).single()
+        val tieredCaps = requireNotNull(RuntimeConfigRepository.reasoningCapabilities(provider, enrichedTieredModel))
         assertTrue(tieredCaps.canDisable)
         assertTrue(tieredCaps.supportsBudget)
         assertEquals(65_536, tieredCaps.maxBudgetTokens)
@@ -195,17 +237,78 @@ class GeminiProviderConfigurationTest {
         )
 
         // 3. buildRuntimeConfig produces thinkingEnabled = true and effective ReasoningEffort.DEFAULT
-        val runtimeConfig = RuntimeConfigRepository.buildRuntimeConfig(provider, tieredModel)
+        val runtimeConfig = RuntimeConfigRepository.buildRuntimeConfig(provider, enrichedTieredModel)
         assertTrue(runtimeConfig.thinkingEnabled)
         assertEquals(ReasoningEffort.DEFAULT, runtimeConfig.reasoningEffort)
         assertEquals(tieredCaps, runtimeConfig.reasoningCapabilities)
 
-        // 4. Turning off reasoning on gemini-3.8-flash-tiered results in null capabilities and thinkingEnabled = false
-        val disabledModel = tieredModel.copy(reasoningOverride = false)
-        assertNull(RuntimeConfigRepository.reasoningCapabilities(provider, disabledModel))
+        // 4. Turning off reasoning override on Gemini falls back to Default without sending effort parameters
+        val disabledModel = enrichedTieredModel.copy(reasoningOverride = false)
+        val disabledCaps = requireNotNull(RuntimeConfigRepository.reasoningCapabilities(provider, disabledModel))
+        assertEquals(listOf(ReasoningEffort.DEFAULT), disabledCaps.selectableEfforts)
+        assertFalse(disabledCaps.mandatory)
         val disabledConfig = RuntimeConfigRepository.buildRuntimeConfig(provider, disabledModel)
-        assertFalse(disabledConfig.thinkingEnabled)
-        assertEquals(ReasoningEffort.OFF, disabledConfig.reasoningEffort)
-        assertNull(disabledConfig.reasoningCapabilities)
+        assertTrue(disabledConfig.thinkingEnabled)
+        assertEquals(ReasoningEffort.DEFAULT, disabledConfig.reasoningEffort)
+        assertEquals(disabledCaps, disabledConfig.reasoningCapabilities)
+    }
+
+    @Test
+    fun runtimeConfigProjectsGeminiEndpointModeAndMaxOutputTokens() {
+        val model = Model(
+            id = "m1",
+            modelId = "gemini-4-carbon",
+            displayName = "Carbon",
+            maxOutputTokens = 16_384,
+        )
+        val generateContentConfig = RuntimeConfigRepository.buildRuntimeConfig(
+            GeminiProviderSetting(id = "gen", name = "Gemini"),
+            model,
+        )
+        assertEquals(GeminiEndpointMode.GENERATE_CONTENT, generateContentConfig.geminiEndpointMode)
+        assertEquals(16_384, generateContentConfig.maxOutputTokens)
+
+        val interactionsConfig = RuntimeConfigRepository.buildRuntimeConfig(
+            GeminiProviderSetting(
+                id = "inter",
+                name = "Gemini",
+                endpointMode = GeminiEndpointMode.INTERACTIONS,
+            ),
+            model,
+        )
+        assertEquals(GeminiEndpointMode.INTERACTIONS, interactionsConfig.geminiEndpointMode)
+        assertEquals(16_384, interactionsConfig.maxOutputTokens)
+    }
+
+    @Test
+    fun officialCatalogEnrichPreservesImageModelsAndUsesConfirmedGeminiReasoning() {
+        val provider = GeminiProviderSetting(id = "g", name = "Gemini")
+        val input = listOf(
+            Model(id = "c", modelId = "gemini-4-carbon", displayName = "gemini-4-carbon"),
+            Model(id = "a", modelId = "gemini-4-argon", displayName = "gemini-4-argon"),
+            Model(id = "f38", modelId = "gemini-3.8-flash", displayName = "gemini-3.8-flash"),
+            Model(id = "f36", modelId = "gemini-3.6-flash", displayName = "gemini-3.6-flash"),
+            Model(id = "img1", modelId = "gemini-3.1-flash-image", displayName = "gemini-3.1-flash-image"),
+            Model(id = "img2", modelId = "gemini-3-pro-image", displayName = "gemini-3-pro-image"),
+        )
+        val enriched = OfficialModelCatalog.enrich(provider, input).associateBy { it.modelId }
+
+        for (id in listOf("gemini-4-carbon", "gemini-4-argon", "gemini-3.8-flash", "gemini-3.6-flash")) {
+            val model = requireNotNull(enriched[id])
+            assertEquals(1_048_576, model.contextWindow)
+            assertTrue(model.inputModalities.containsAll(listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY, "audio", "video")))
+            val expectedCaps = requireNotNull(GeminiModelCapabilities.reasoningCapabilities(id))
+            assertEquals(expectedCaps, model.reasoningCapabilities)
+            assertEquals(expectedCaps, ReasoningCapabilityResolver.catalogCapabilities(ProviderSourceTypes.GEMINI, id))
+            assertFalse(expectedCaps.canDisable)
+            assertEquals(ReasoningEffort.MEDIUM, expectedCaps.defaultEffort)
+        }
+
+        for (imgId in listOf("gemini-3.1-flash-image", "gemini-3-pro-image")) {
+            val img = requireNotNull(enriched[imgId])
+            assertEquals(false, img.reasoning)
+            assertNull(img.reasoningCapabilities)
+            assertEquals(listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY), img.outputModalities)
+        }
     }
 }

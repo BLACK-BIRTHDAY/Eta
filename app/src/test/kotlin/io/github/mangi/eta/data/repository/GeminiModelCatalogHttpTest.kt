@@ -28,6 +28,28 @@ import org.junit.Test
 
 class GeminiModelCatalogHttpTest {
     @Test
+    fun remoteThinkingFlagTakesPrecedenceOverLocalKnowledge() {
+        val models = GeminiModelCatalog.parsePage("""{"models":[
+            {"name":"models/gemini-4-carbon","thinking":false},
+            {"name":"models/gemini-future","thinking":true}]}""").models
+        assertEquals(false, models.first().reasoning)
+        assertNull(models.first().reasoningCapabilities)
+        assertEquals(true, models.last().reasoning)
+        assertNull(models.last().reasoningCapabilities)
+    }
+
+    @Test
+    fun carbonCatalogEntryIncludesDocumentedThinkingCapabilities() {
+        val model = GeminiModelCatalog.parsePage("""{"models":[{"name":"models/gemini-4-carbon",
+            "displayName":"Gemini 4 Carbon","supportedGenerationMethods":["generateContent"]}]}""")
+            .models.single()
+        assertTrue(model.supportsReasoning)
+        assertEquals(listOf(ReasoningEffort.LOW, ReasoningEffort.MEDIUM, ReasoningEffort.HIGH),
+            requireNotNull(model.reasoningCapabilities).supportedEfforts)
+        assertEquals(ReasoningEffort.MEDIUM, model.reasoningCapabilities.defaultEffort)
+    }
+
+    @Test
     fun paginatesWithNativeAuthenticationNormalizesNamesAndDoesNotInferUnknownCapabilities() = runBlocking {
         withServer(listOf(
             """{"models":[{"name":"models/gemini-3.8-flash","displayName":"Flash","inputTokenLimit":1048576,
@@ -101,7 +123,14 @@ class GeminiModelCatalogHttpTest {
             val imageModel = result.models.single { it.modelId == "gemini-3.1-flash-image" }
             assertEquals(listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY), imageModel.outputModalities)
             assertTrue(imageModel.outputModalities.contains(Model.IMAGE_MODALITY))
+            assertEquals(false, imageModel.reasoning)
+            assertNull(imageModel.reasoningCapabilities)
         }
+        val parsedImage = GeminiModelCatalog.parsePage("""{"models":[
+            {"name":"models/nano-banana-pro","displayName":"Nano Banana","thinking":true}]}""").models.single()
+        assertEquals(false, parsedImage.reasoning)
+        assertNull(parsedImage.reasoningCapabilities)
+        assertEquals(listOf(Model.TEXT_MODALITY, Model.IMAGE_MODALITY), parsedImage.outputModalities)
     }
 
     @Test

@@ -205,25 +205,21 @@ internal object RuntimeConfigRepository {
     }
 
     fun reasoningCapabilities(provider: ProviderSetting, model: Model): ModelReasoningCapabilities? {
+        if (provider is GeminiProviderSetting) {
+            return GeminiModelCapabilities.resolveReasoning(model)
+        }
         val sourceType = ProviderSourceRegistry.resolve(provider)
         val inferOpenAiCatalog = sourceType == io.github.mangi.eta.data.model.ProviderSourceTypes.CUSTOM &&
             provider.endpointMode() == OpenAiEndpointMode.RESPONSES
-        val resolved = ReasoningCapabilityResolver.resolve(
+        return ReasoningCapabilityResolver.resolve(
             sourceType = if (inferOpenAiCatalog) {
                 io.github.mangi.eta.data.model.ProviderSourceTypes.OPENAI
             } else {
                 sourceType
             },
             model = model,
-            inferExactCatalogModel = inferOpenAiCatalog || provider is GeminiProviderSetting,
+            inferExactCatalogModel = inferOpenAiCatalog,
         )
-        if (provider is GeminiProviderSetting) {
-            if (model.reasoningOverride == false && model.reasoningCapabilitiesOverride == null) {
-                return GeminiModelCapabilities.reasoningCapabilities(model.modelId)
-            }
-            return resolved ?: GeminiModelCapabilities.requestReasoningCapabilities(model.modelId)
-        }
-        return resolved
     }
 
     private fun ProviderSetting.endpointMode(): String = when (this) {
