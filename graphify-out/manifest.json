@@ -1908,9 +1908,9 @@
     "semantic_hash": "a794739ee261fc1974169eef04507b77"
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentConversationCodecTest.kt": {
-    "mtime": 1793945944.5218685,
-    "seen": 1793945966.8209908,
-    "ast_hash": "a56fc3400d1ab1560dab98c2209c9298",
+    "mtime": 1794473113.6622648,
+    "seen": 1794473272.2462971,
+    "ast_hash": "873a78d15450ec02900ed018ff7b7e6d",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentDeviceToolCatalogTest.kt": {
@@ -2826,9 +2826,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/model/GeminiGenerateContentProvider.kt": {
-    "mtime": 1793945944.517868,
-    "seen": 1793945966.8202596,
-    "ast_hash": "804bf56635292257c1c451f6a296578d",
+    "mtime": 1794472707.9154336,
+    "seen": 1794473272.2455049,
+    "ast_hash": "e401af0918d043c28a114bcf90282fa6",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/runtime/EtaFluidCloudStateMapper.kt": {
@@ -4284,15 +4284,15 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/markdown/MarkdownContent.kt": {
-    "mtime": 1794396168.1509016,
-    "seen": 1794396192.838704,
-    "ast_hash": "088fa483cf7a6e08b36896d7a6163da4",
+    "mtime": 1794472884.3552558,
+    "seen": 1794473272.2461061,
+    "ast_hash": "821fc4728442a4a3d79f8438fe50379c",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/markdown/MarkdownDocumentBuilder.kt": {
-    "mtime": 1793945944.520869,
-    "seen": 1793945966.8208215,
-    "ast_hash": "539b1a0aee808e1a0816b1c3b6cac9ed",
+    "mtime": 1794472709.7987416,
+    "seen": 1794473272.2461073,
+    "ast_hash": "af4bf8800d0d2f1e8c321f55f494be1a",
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/markdown/MarkdownInline.kt": {
@@ -5916,9 +5916,9 @@
     "semantic_hash": ""
   },
   "GLOSSARY.md": {
-    "mtime": 1794396168.1379018,
-    "seen": 1794396192.839247,
-    "ast_hash": "9d03399a42365b59a09605ead3ae002e",
+    "mtime": 1794472430.8821683,
+    "seen": 1794473272.246677,
+    "ast_hash": "4ed3bfa38dec454df6a24be0104e2d73",
     "semantic_hash": ""
   },
   "docs/adr/0001-github-skill-subtree-and-origin.md": {
@@ -6210,9 +6210,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/media/GeneratedImageStore.kt": {
-    "mtime": 1793945944.5168698,
-    "seen": 1793945991.695021,
-    "ast_hash": "bd37835021cb697b03da530e204a411c",
+    "mtime": 1794472703.7641232,
+    "seen": 1794473272.2454348,
+    "ast_hash": "d597ea97fd0df54e10ef5188efca8c28",
     "semantic_hash": ""
   },
   "docs/gemini-3.8-flash-thinking-spec.md": {
@@ -6432,9 +6432,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/ui/components/ChatImageViewer.kt": {
-    "mtime": 1794396168.1499026,
-    "seen": 1794396219.1545184,
-    "ast_hash": "543c9d278e2d81f017e262e030db3037",
+    "mtime": 1794472861.4655476,
+    "seen": 1794473272.246063,
+    "ast_hash": "a66827b7956f60bbd899f84a3b2211c1",
     "semantic_hash": ""
   },
   "docs/adr/0005-v342-gemini-reasoning-alignment-and-unified-image-viewer.md": {
