@@ -1908,9 +1908,9 @@
     "semantic_hash": "a794739ee261fc1974169eef04507b77"
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentConversationCodecTest.kt": {
-    "mtime": 1794473113.6622648,
-    "seen": 1794473272.2462971,
-    "ast_hash": "873a78d15450ec02900ed018ff7b7e6d",
+    "mtime": 1794473536.5441697,
+    "seen": 1794473776.717986,
+    "ast_hash": "9a7214f195c0259a0a7a8a5e7e1e5c82",
     "semantic_hash": ""
   },
   "app/src/test/kotlin/io/github/mangi/eta/agent/model/AgentDeviceToolCatalogTest.kt": {
@@ -6210,9 +6210,9 @@
     "semantic_hash": ""
   },
   "app/src/main/kotlin/io/github/mangi/eta/agent/media/GeneratedImageStore.kt": {
-    "mtime": 1794472703.7641232,
-    "seen": 1794473272.2454348,
-    "ast_hash": "d597ea97fd0df54e10ef5188efca8c28",
+    "mtime": 1794473533.4536166,
+    "seen": 1794473776.71718,
+    "ast_hash": "a907da2d320aa492da1b62115a8c2d63",
     "semantic_hash": ""
   },
   "docs/gemini-3.8-flash-thinking-spec.md": {
