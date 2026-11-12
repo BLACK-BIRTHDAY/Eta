@@ -153,19 +153,23 @@ internal object GeneratedImageStore {
     }
 
     private fun repairLegacyVideoFileIfNeeded(fileUriStr: String): String? = runCatching {
-        val file = File(URI(fileUriStr)).takeIf(File::isFile) ?: return null
+        val file = File(URI(fileUriStr))
+        val parent = file.parentFile ?: return null
+        val base = file.nameWithoutExtension.replaceFirst(Regex("^img-"), "vid-")
+        val existingMp4 = File(parent, "$base.mp4")
+        if (existingMp4.isFile) return existingMp4.toURI().toString()
+        val existingWebm = File(parent, "$base.webm")
+        if (existingWebm.isFile) return existingWebm.toURI().toString()
+        if (!file.isFile) return null
         val header = ByteArray(16)
         val read = file.inputStream().use { it.read(header) }
         if (read < 12) return null
         val headerSlice = header.copyOf(read)
         if (!isVideoBytes(headerSlice)) return null
         val ext = if (isWebmBytes(headerSlice)) "webm" else "mp4"
-        val newName = file.nameWithoutExtension.replaceFirst(Regex("^img-"), "vid-") + ".$ext"
-        val targetFile = File(file.parentFile, newName)
-        if (!targetFile.exists()) {
-            if (!file.renameTo(targetFile)) {
-                file.copyTo(targetFile, overwrite = true)
-            }
+        val targetFile = File(parent, "$base.$ext")
+        if (!file.renameTo(targetFile)) {
+            file.copyTo(targetFile, overwrite = true)
         }
         targetFile.toURI().toString()
     }.getOrNull()

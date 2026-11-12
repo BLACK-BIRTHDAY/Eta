@@ -228,6 +228,9 @@ class AgentConversationCodecTest {
             val legacyMarkdown = "生成结果：\n\n![Generated Image](${legacyFile.toURI()})"
             val migrated = GeneratedImageStore.migrateInlineDataUrlsToFiles(legacyMarkdown, tempDir)
             assertTrue("Expected repaired vid-*.mp4 markdown: $migrated", migrated.contains("![Generated Video](") && migrated.contains("vid-40f45db38f5b809ba304af71.mp4)"))
+            // Second pass (after rename) must also resolve to vid-*.mp4 idempotently
+            val migratedSecondPass = GeneratedImageStore.migrateInlineDataUrlsToFiles(legacyMarkdown, tempDir)
+            assertEquals(migrated, migratedSecondPass)
 
             // Context sanitization turns video markdown into [Generated Video]
             val sanitized = GeneratedImageStore.sanitizeMarkdownImagesForContext(migrated)
