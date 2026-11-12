@@ -4,6 +4,7 @@ import android.content.ContentValues
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
@@ -101,6 +102,81 @@ private const val MAX_CHAT_IMAGE_DIMENSION_PX = 2048
 internal val chatImageBitmapCache = object : LruCache<String, ImageBitmap>(48 * 1024 * 1024) {
     override fun sizeOf(key: String, value: ImageBitmap): Int =
         (value.width * value.height * 4).coerceAtLeast(1)
+}
+
+@Stable
+internal data class ChatVideoThumbnail(
+    val bitmap: ImageBitmap,
+    val width: Int,
+    val height: Int,
+    val durationMs: Long,
+)
+
+private val chatVideoThumbnailCache = object : LruCache<String, ChatVideoThumbnail>(24 * 1024 * 1024) {
+    override fun sizeOf(key: String, value: ChatVideoThumbnail): Int =
+        (value.bitmap.width * value.bitmap.height * 4).coerceAtLeast(1)
+}
+
+internal fun isChatVideoSource(source: String): Boolean {
+    val clean = source.trim().substringBefore('?').substringBefore('#').lowercase()
+    return clean.endsWith(".mp4") ||
+        clean.endsWith(".webm") ||
+        clean.endsWith(".mov") ||
+        clean.endsWith(".mkv") ||
+        clean.endsWith(".m4v")
+}
+
+internal fun resolveChatMediaFile(source: String): File? = resolveLocalImageFile(source.trim())
+
+@Composable
+internal fun rememberChatVideoThumbnail(source: String): ChatVideoThumbnail? {
+    val cached = remember(source) { chatVideoThumbnailCache.get(source) }
+    var thumbnail by remember(source) { mutableStateOf(cached) }
+    LaunchedEffect(source) {
+        if (thumbnail == null) {
+            thumbnail = withContext(Dispatchers.IO) {
+                decodeVideoThumbnail(source)?.also { chatVideoThumbnailCache.put(source, it) }
+            }
+        }
+    }
+    return thumbnail
+}
+
+internal fun decodeVideoThumbnail(source: String): ChatVideoThumbnail? {
+    val file = resolveLocalImageFile(source.trim()) ?: return null
+    val retriever = MediaMetadataRetriever()
+    return try {
+        retriever.setDataSource(file.absolutePath)
+        val rawFrame = retriever.getFrameAtTime(0L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
+            ?: retriever.getFrameAtTime()
+            ?: return null
+        val durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            ?.toLongOrNull()
+            ?.coerceAtLeast(0L)
+            ?: 0L
+        val maxDim = maxOf(rawFrame.width, rawFrame.height)
+        val finalBitmap = if (maxDim > MAX_CHAT_IMAGE_DIMENSION_PX && rawFrame.width > 0 && rawFrame.height > 0) {
+            val scale = MAX_CHAT_IMAGE_DIMENSION_PX.toFloat() / maxDim.toFloat()
+            val scaledW = (rawFrame.width * scale).toInt().coerceAtLeast(1)
+            val scaledH = (rawFrame.height * scale).toInt().coerceAtLeast(1)
+            Bitmap.createScaledBitmap(rawFrame, scaledW, scaledH, true).also {
+                if (it !== rawFrame) rawFrame.recycle()
+            }
+        } else {
+            rawFrame
+        }
+        val imgBitmap = finalBitmap.asImageBitmap()
+        ChatVideoThumbnail(
+            bitmap = imgBitmap,
+            width = imgBitmap.width,
+            height = imgBitmap.height,
+            durationMs = durationMs,
+        )
+    } catch (_: Throwable) {
+        null
+    } finally {
+        runCatching { retriever.release() }
+    }
 }
 
 @Composable
@@ -212,6 +288,59 @@ internal suspend fun saveChatImageToGallery(context: Context, source: String) {
             val written = runCatching {
                 val stream = resolver.openOutputStream(uri) ?: error("无法写入相册")
                 stream.use { it.write(bytes) }
+            }.isSuccess
+            if (written) {
+                values.clear()
+                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                showToast(appContext, "已保存到相册")
+            } else {
+                runCatching { resolver.delete(uri, null, null) }
+                showToast(appContext, "保存失败")
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            showToast(appContext, "保存失败")
+        }
+    }
+}
+
+internal suspend fun saveChatVideoToGallery(context: Context, source: String) {
+    val appContext = context.applicationContext ?: context
+    withContext(Dispatchers.IO + NonCancellable) {
+        try {
+            val file = resolveLocalImageFile(source.trim()) ?: run {
+                showToast(appContext, "保存失败")
+                return@withContext
+            }
+            val resolver = appContext.contentResolver
+            val lowerName = file.name.lowercase()
+            val (mimeType, extension) = when {
+                lowerName.endsWith(".webm") -> "video/webm" to "webm"
+                lowerName.endsWith(".mov") -> "video/quicktime" to "mov"
+                lowerName.endsWith(".mkv") -> "video/x-matroska" to "mkv"
+                else -> "video/mp4" to "mp4"
+            }
+            val filename = "VID_${System.currentTimeMillis()}.$extension"
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, filename)
+                put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_MOVIES}/Eta")
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+            if (uri == null) {
+                showToast(appContext, "保存失败")
+                return@withContext
+            }
+            val written = runCatching {
+                val stream = resolver.openOutputStream(uri) ?: error("无法写入相册")
+                file.inputStream().use { input ->
+                    stream.use { output ->
+                        input.copyTo(output)
+                    }
+                }
             }.isSuccess
             if (written) {
                 values.clear()

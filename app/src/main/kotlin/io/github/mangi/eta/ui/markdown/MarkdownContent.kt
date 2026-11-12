@@ -37,10 +37,12 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Feedback
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lightbulb
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Report
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.compositionLocalOf
@@ -83,15 +85,22 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import android.widget.MediaController
+import android.widget.VideoView
 import io.github.mangi.eta.R
 import io.github.mangi.eta.ui.components.EtaMonospace
 import io.github.mangi.eta.ui.components.LocalChatImagePreviewer
 import io.github.mangi.eta.ui.components.StatusSuccess
 import io.github.mangi.eta.ui.components.StatusWarning
+import io.github.mangi.eta.ui.components.isChatVideoSource
 import io.github.mangi.eta.ui.components.rememberChatImageBitmap
+import io.github.mangi.eta.ui.components.rememberChatVideoThumbnail
+import io.github.mangi.eta.ui.components.resolveChatMediaFile
 import io.github.mangi.eta.ui.components.saveChatImageToGallery
+import io.github.mangi.eta.ui.components.saveChatVideoToGallery
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.Icon
@@ -758,10 +767,14 @@ private val MarkdownColumnAlign.textAlign: TextAlign
 private val TableMinColumnWidth = 72.dp
 private val TableMaxColumnWidth = 260.dp
 
-// ── 图片 ────────────────────────────────────────────────────────────────
+// ── 图片 / 视频 ──────────────────────────────────────────────────────────
 
 @Composable
 private fun MarkdownImageBlock(block: MarkdownImage, scope: MarkdownRenderScope) {
+    if (isChatVideoSource(block.destination)) {
+        MarkdownVideoBlock(block = block, scope = scope)
+        return
+    }
     val bitmap = rememberChatImageBitmap(block.destination)
     if (bitmap == null) {
         Box(
@@ -864,6 +877,178 @@ private fun MarkdownImageBlock(block: MarkdownImage, scope: MarkdownRenderScope)
                             coroutineScope.launch {
                                 try {
                                     saveChatImageToGallery(context, block.destination)
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color.White.copy(alpha = if (saving) 0.6f else 0.94f),
+                    )
+                    Text(
+                        text = stringResource(if (saving) R.string.page_saving_d70d42 else R.string.action_save),
+                        style = MiuixTheme.textStyles.footnote1.copy(
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                        color = Color.White.copy(alpha = if (saving) 0.6f else 0.94f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarkdownVideoBlock(block: MarkdownImage, scope: MarkdownRenderScope) {
+    val thumbnail = rememberChatVideoThumbnail(block.destination)
+    if (thumbnail == null) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(scope.style.codeBackground),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = block.alt.ifBlank { "视频加载中…" },
+                style = scope.style.body,
+                color = scope.style.secondaryColor,
+            )
+        }
+        return
+    }
+
+    var showPlayerDialog by remember { mutableStateOf(false) }
+    val rawRatio = if (thumbnail.height > 0) {
+        thumbnail.width.toFloat() / thumbnail.height.toFloat()
+    } else {
+        16f / 9f
+    }
+    val aspectRatio = rawRatio.coerceIn(0.4f, 2.5f)
+
+    Box(
+        modifier = Modifier
+            .heightIn(max = 360.dp)
+            .aspectRatio(aspectRatio)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { showPlayerDialog = true },
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            bitmap = thumbnail.bitmap,
+            contentDescription = block.alt.ifBlank { "Generated Video" },
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.56f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.PlayArrow,
+                contentDescription = "播放视频",
+                modifier = Modifier.size(32.dp),
+                tint = Color.White,
+            )
+        }
+        if (thumbnail.durationMs >= 1000L) {
+            val totalSeconds = (thumbnail.durationMs / 1000L).toInt()
+            val minutes = totalSeconds / 60
+            val seconds = totalSeconds % 60
+            val durationText = "%d:%02d".format(minutes, seconds)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(10.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            ) {
+                Text(
+                    text = durationText,
+                    style = MiuixTheme.textStyles.footnote1.copy(
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    color = Color.White,
+                )
+            }
+        }
+    }
+
+    if (showPlayerDialog) {
+        val context = LocalContext.current
+        val coroutineScope = rememberCoroutineScope()
+        var saving by remember { mutableStateOf(false) }
+        val videoFile = remember(block.destination) { resolveChatMediaFile(block.destination) }
+        var videoViewRef by remember { mutableStateOf<VideoView?>(null) }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                runCatching { videoViewRef?.stopPlayback() }
+                videoViewRef = null
+            }
+        }
+
+        Dialog(
+            onDismissRequest = { showPlayerDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.96f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { showPlayerDialog = false },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (videoFile != null) {
+                    AndroidView(
+                        factory = { ctx ->
+                            VideoView(ctx).apply {
+                                val controller = MediaController(ctx)
+                                controller.setAnchorView(this)
+                                setMediaController(controller)
+                                setVideoPath(videoFile.absolutePath)
+                                setOnPreparedListener { mp ->
+                                    mp.isLooping = true
+                                    start()
+                                }
+                                videoViewRef = this
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 64.dp),
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .navigationBarsPadding()
+                        .padding(end = 20.dp, bottom = 20.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.16f))
+                        .clickable(enabled = !saving) {
+                            saving = true
+                            coroutineScope.launch {
+                                try {
+                                    saveChatVideoToGallery(context, block.destination)
                                 } finally {
                                     saving = false
                                 }

@@ -869,11 +869,13 @@ internal object GeminiGenerateContentProvider : AgentProviderClient {
                         val mimeType = inlineData.optString("mimeType").ifBlank { inlineData.optString("mime_type") }
                         val imgData = inlineData.optString("data")
                         if (mimeType.isNotBlank() && imgData.isNotBlank()) {
-                            val imageUri = GeneratedImageStore.persistBase64(mimeType, imgData)
-                            val imgMd = if (imageUri != null) "\n\n![Generated Image]($imageUri)\n\n" else "\n\n[Generated Image]\n\n"
+                            val mediaUri = GeneratedImageStore.persistBase64(mimeType, imgData)
+                            val isVideo = GeneratedImageStore.isVideoMedia(mimeType, mediaUri)
+                            val label = if (isVideo) "Generated Video" else "Generated Image"
+                            val mediaMd = if (mediaUri != null) "\n\n![$label]($mediaUri)\n\n" else "\n\n[$label]\n\n"
                             ensureBlock(AssistantBlockKind.TEXT)
-                            fullText.append(imgMd)
-                            onEvent(ProviderEvent.BlockDelta(kind = AssistantBlockKind.TEXT, index = blockIndex, delta = imgMd))
+                            fullText.append(mediaMd)
+                            onEvent(ProviderEvent.BlockDelta(kind = AssistantBlockKind.TEXT, index = blockIndex, delta = mediaMd))
                         }
                     }
 

@@ -71,8 +71,8 @@ _Avoid_: Screen cast, task relaunch
 ### Multimodal & Media Assets
 
 **Generated Media Asset**:
-An image produced by a multimodal or image-generation model during an assistant turn, persisted as an immutable local file and referenced by URI in the message transcript rather than inlined as raw Base64 text.
-_Avoid_: Inline Base64 image, raw image blob
+An image or video produced by a multimodal or media-generation model during an assistant turn, persisted as an immutable local file and referenced by URI in the message transcript rather than inlined as raw Base64 text.
+_Avoid_: Inline Base64 image, raw media blob
 
 **Context Media Sanitization**:
 The replacement of heavy generated media payloads and oversized model state tokens with lightweight text placeholders when persisting or replaying multi-turn conversation history.

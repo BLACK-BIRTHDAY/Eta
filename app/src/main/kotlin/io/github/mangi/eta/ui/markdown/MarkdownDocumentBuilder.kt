@@ -142,7 +142,8 @@ private class BlockConverter(
         val destination = extractImageDestination(node) ?: return false
         return destination.startsWith("file:", ignoreCase = true) ||
             destination.startsWith("/") ||
-            destination.startsWith("data:image/", ignoreCase = true)
+            destination.startsWith("data:image/", ignoreCase = true) ||
+            destination.startsWith("data:video/", ignoreCase = true)
     }
 
     private fun extractImageDestination(node: ASTNode): String? {

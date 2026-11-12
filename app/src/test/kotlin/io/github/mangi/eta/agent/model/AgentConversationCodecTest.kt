@@ -1,10 +1,16 @@
 package io.github.mangi.eta.agent.model
 
+import io.github.mangi.eta.agent.media.GeneratedImageStore
 import io.github.mangi.eta.agent.runtime.AgentLegacyConversationProjection
+import io.github.mangi.eta.ui.components.isChatVideoSource
+import java.io.File
+import java.nio.file.Files
+import java.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -191,5 +197,44 @@ class AgentConversationCodecTest {
 
         val json = AgentConversationCodec.toJsonObject(message)
         assertEquals("用户消息 ![User Photo](file:///path/photo.png)", json.getString("content"))
+    }
+
+    @Test
+    fun generatedImageStorePersistsMp4VideoWithVidPrefixAndMp4Extension() {
+        val tempDir = Files.createTempDirectory("eta-video-test").toFile()
+        try {
+            // Minimal ISO Base Media / MP4 ftyp header bytes: 00 00 00 18 'f' 't' 'y' 'p' 'm' 'p' '4' '2' ...
+            val mp4Bytes = byteArrayOf(
+                0x00, 0x00, 0x00, 0x18,
+                'f'.code.toByte(), 't'.code.toByte(), 'y'.code.toByte(), 'p'.code.toByte(),
+                'm'.code.toByte(), 'p'.code.toByte(), '4'.code.toByte(), '2'.code.toByte(),
+                0x00, 0x00, 0x00, 0x00,
+                'i'.code.toByte(), 's'.code.toByte(), 'o'.code.toByte(), 'm'.code.toByte(),
+                'm'.code.toByte(), 'p'.code.toByte(), '4'.code.toByte(), '2'.code.toByte(),
+            )
+            val b64 = Base64.getEncoder().encodeToString(mp4Bytes)
+
+            val uri = GeneratedImageStore.persistBase64("video/mp4", b64, tempDir)
+            assertNotNull(uri)
+            assertTrue("Expected vid-*.mp4 URI but got $uri", uri!!.contains("/vid-") && uri.endsWith(".mp4"))
+            assertTrue(GeneratedImageStore.isVideoMedia("video/mp4", uri))
+            assertTrue(isChatVideoSource(uri))
+            assertFalse(isChatVideoSource("file:///tmp/img-123.jpg"))
+
+            // Legacy mis-suffixed .jpg containing MP4 ftyp header is repaired on migration
+            val legacyFile = File(tempDir, "img-40f45db38f5b809ba304af71.jpg").apply {
+                writeBytes(mp4Bytes)
+            }
+            val legacyMarkdown = "生成结果：\n\n![Generated Image](${legacyFile.toURI()})"
+            val migrated = GeneratedImageStore.migrateInlineDataUrlsToFiles(legacyMarkdown, tempDir)
+            assertTrue("Expected repaired vid-*.mp4 markdown: $migrated", migrated.contains("![Generated Video](") && migrated.contains("vid-40f45db38f5b809ba304af71.mp4)"))
+
+            // Context sanitization turns video markdown into [Generated Video]
+            val sanitized = GeneratedImageStore.sanitizeMarkdownImagesForContext(migrated)
+            assertTrue("Expected [Generated Video] placeholder: $sanitized", sanitized.contains("[Generated Video]"))
+            assertFalse(sanitized.contains("file:"))
+        } finally {
+            tempDir.deleteRecursively()
+        }
     }
 }
